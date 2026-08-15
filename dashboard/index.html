@@ -962,6 +962,9 @@
         <div class="conn-head"><div class="ava" style="background:linear-gradient(145deg,#1877f2,#0a58ca)">f</div>
           <div class="nm">${esc(p.page_name||p.name)}<div class="p-sub">ID ${esc(p.page_id||'')}${p.connected_at?" · "+ago(p.connected_at):""}</div></div></div>
         ${svcRow('fb','#1877f2','Facebook Page','connected','token dài hạn đã lưu')}
+        ${p.ig_user_id
+          ? svcRow('fb','#E1306C','Instagram', 'connected', (p.ig_username?'@'+esc(p.ig_username):'đã liên kết')+' · đăng Reels tự động')
+          : svcRow('fb','#999','Instagram', 'unknown', 'chưa liên kết IG — vào Page → Linked accounts để nối')}
         <div style="display:flex;gap:8px;margin-top:10px">
           <button class="btn-reconn" style="flex:1" onclick="connectChannel('','facebook')">🔗 Kết nối lại</button>
           <button class="btn-reconn danger" onclick="disconnectChannel('${esc(p.name)}','facebook','${esc(p.page_name||p.name)}')">🗑</button>
