@@ -212,6 +212,7 @@ async function apiDisconnect(request, url, env) {
   await fsDelete(env, at, `connections/${uid}__${channel}__${kind}`);
   if (kind === "youtube") await fsDelete(env, at, `channels/${uid}__${channel}`);
   if (kind === "drive") await fsDelete(env, at, `storage_accounts/${uid}__${channel}`);
+  if (kind === "facebook") await fsDelete(env, at, `fb_pages/${uid}__${channel}`);
   return json({ ok: true, channel, kind });
 }
 
@@ -305,6 +306,19 @@ async function startAuth(url, env) {
   if (!uid) return page("Thiếu đăng nhập", "<p>Hãy bấm Kết nối từ dashboard (đã đăng nhập), không mở link trực tiếp.</p>");
   const redirect = url.origin + "/auth/callback";
   const state = b64url(new TextEncoder().encode(JSON.stringify({ channel, kind, uid })));
+
+  // ---- FACEBOOK: OAuth riêng (không gắn Gmail) ----
+  if (kind === "facebook") {
+    if (!env.FB_APP_ID) return page("Chưa cấu hình Facebook App",
+      `<p>Cần tạo <b>Facebook Developer App</b> và đặt secret <code>FB_APP_ID</code>, <code>FB_APP_SECRET</code> cho Worker.</p>
+       <p>Xem hướng dẫn trong <code>SETUP.md</code> (mục Facebook).</p>`, "facebook");
+    const fp = new URLSearchParams({
+      client_id: env.FB_APP_ID, redirect_uri: redirect, response_type: "code", state,
+      scope: "pages_show_list,pages_manage_posts,pages_read_engagement,business_management,pages_manage_metadata",
+    });
+    return Response.redirect("https://www.facebook.com/v19.0/dialog/oauth?" + fp.toString(), 302);
+  }
+
   const p = new URLSearchParams({
     client_id: env.YT_CLIENT_ID,
     redirect_uri: redirect,
@@ -325,6 +339,8 @@ async function callback(url, env) {
   const { channel, kind, uid } = JSON.parse(new TextDecoder().decode(ub64url(stateRaw)));
   if (!uid) return page("Lỗi", "<p>Thiếu uid — bấm Kết nối lại từ dashboard.</p>");
   const redirect = url.origin + "/auth/callback";
+
+  if (kind === "facebook") return await fbCallback(url, env, uid, code, redirect);
 
   // 1) đổi code -> token
   const tok = await (await fetch("https://oauth2.googleapis.com/token", {
@@ -417,6 +433,35 @@ async function callback(url, env) {
      <p class="sub">Nhãn định tuyến nội bộ: <code>${escapeHtml(label)}</code> — dùng để đặt tên thư mục video (OUTBOX/${escapeHtml(label)}/…).</p>
      <p>Token đã lưu an toàn. Anh có thể đóng tab này và quay lại dashboard.</p>`,
     kind === "drive" ? "storage" : "connections");
+}
+
+/* ================= FACEBOOK connect (riêng, không gắn Gmail) ================= */
+async function fbCallback(url, env, uid, code, redirect) {
+  // 1) code -> user token ngắn hạn
+  const tok = await (await fetch(`https://graph.facebook.com/v19.0/oauth/access_token?client_id=${env.FB_APP_ID}&client_secret=${env.FB_APP_SECRET}&redirect_uri=${encodeURIComponent(redirect)}&code=${encodeURIComponent(code)}`)).json();
+  if (!tok.access_token) return page("Lỗi Facebook", `<p>${escapeHtml((tok.error && tok.error.message) || JSON.stringify(tok))}</p>`, "facebook");
+  // 2) đổi lấy token DÀI HẠN (~60 ngày)
+  const ll = await (await fetch(`https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${env.FB_APP_ID}&client_secret=${env.FB_APP_SECRET}&fb_exchange_token=${tok.access_token}`)).json();
+  const userTok = ll.access_token || tok.access_token;
+  // 3) danh sách Page + page token (page token không hết hạn khi user token dài hạn)
+  const pages = await (await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token&access_token=${userTok}`)).json();
+  const list = pages.data || [];
+  if (!list.length) return page("Không tìm thấy Page",
+    `<p>Tài khoản Facebook này chưa quản lý Page nào, hoặc chưa cấp quyền Page.</p>
+     <p>${escapeHtml((pages.error && pages.error.message) || "")}</p>`, "facebook");
+  const at = await saAccessToken(env);
+  for (const pg of list) {
+    const slug = slugLabel(pg.name) || ("PAGE_" + String(pg.id).slice(-6));
+    await fsPatch(env, at, `connections/${uid}__${slug}__facebook`,
+      { channel: slug, kind: "facebook", owner: uid, page_id: pg.id, page_name: pg.name,
+        page_token: pg.access_token, connected_at: new Date().toISOString() });
+    await fsPatch(env, at, `fb_pages/${uid}__${slug}`,
+      { name: slug, owner: uid, page_id: pg.id, page_name: pg.name, fb_ok: true, connected_at: new Date().toISOString() },
+      ["name", "owner", "page_id", "page_name", "fb_ok", "connected_at"]);
+  }
+  return page("Kết nối Facebook thành công 🎉",
+    `<p>✅ Đã kết nối <b>${list.length}</b> Page: ${list.map(p => escapeHtml(p.name)).join(", ")}.</p>
+     <p>Quản lý ở tab <b>Facebook</b> trên dashboard.</p>`, "facebook");
 }
 
 async function ensureDriveFolder(accessToken, name) {

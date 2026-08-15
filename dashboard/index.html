@@ -308,6 +308,7 @@
       <div class="nav" data-view="channels"><span class="ic" data-i="stack"></span> <span data-i18n="channels_hub">My Channels</span> <span class="badge" id="nvChans">0</span></div>
       <div class="nav" data-view="branding"><span class="ic" data-i="badge"></span> <span data-i18n="branding">Branding</span></div>
       <div class="nav" data-view="comments"><span class="ic" data-i="chat"></span> <span data-i18n="comments">Comments</span></div>
+      <div class="nav" data-view="facebook"><span class="ic" data-i="fb"></span> <span data-i18n="facebook">Facebook</span> <span class="badge" id="nvFb">0</span></div>
       <div class="side-foot">
         <button class="ghost" id="langBtn">🌐 Tiếng Việt</button>
         <button class="ghost" id="themeBtn"><span id="themeIc">🌙</span> <span id="themeTx" data-i18n="theme_dark">Dark theme</span></button>
@@ -411,15 +412,14 @@
           <div class="p-title">🧹 <span data-i18n="cleanup_cfg">Cleanup settings</span></div>
           <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:12px">
             <select id="clMode">
-              <option value="keep">keep — giữ tất cả</option>
-              <option value="delete">delete — xóa file đã đăng cũ</option>
-              <option value="archive">archive — chuyển kho lạnh</option>
+              <option value="keep">🛡️ Giữ mãi mãi — không xoá gì</option>
+              <option value="delete">🧹 Tự xoá video ĐÃ ĐĂNG sau N ngày</option>
             </select>
-            <label class="sd" style="display:flex;align-items:center;gap:6px"><span data-i18n="keep_days">Keep (days)</span>:
-              <input type="number" id="clDays" min="0" value="14" style="width:72px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-family:var(--sans)"></label>
+            <label class="sd" id="clDaysWrap" style="display:none;align-items:center;gap:6px">Xoá sau:
+              <input type="number" id="clDays" min="1" value="30" style="width:72px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-family:var(--sans)"> ngày</label>
             <button class="btn-conn" id="btnSaveClean" data-i18n="save">Save</button>
           </div>
-          <div class="p-sub" style="margin-top:9px">keep = giữ tất cả (Google One) · delete = xóa video đã đăng > N ngày (YouTube là backup) · archive = chuyển kho lạnh. <b>delete + N=0 = xóa hết video đã đăng.</b> Áp dụng lần dọn dẹp tới (workflow cleanup / <code>python src/cleanup.py</code>).</div>
+          <div class="p-sub" id="clExplain" style="margin-top:10px;line-height:1.6"></div>
         </div>
         <div class="kpis" id="stKpis"></div>
         <div class="panel" style="margin-bottom:16px">
@@ -629,6 +629,17 @@
         <div class="panel help"><div class="p-title">💬 Lưu ý</div>
           <p class="p-sub" data-i18n="cm_note">Reads newest comments across your channel. All actions manual.</p></div>
       </section>
+
+      <section id="v-facebook" class="content hide">
+        <div class="panel" style="margin-bottom:16px">
+          <div class="p-head"><div class="p-title">📘 <span data-i18n="fb_manage">Facebook Pages</span></div>
+            <button class="btn-conn" id="btnConnFB">🔗 <span data-i18n="fb_connect">Kết nối Facebook</span></button></div>
+          <div class="p-sub" style="margin-top:6px" data-i18n="fb_note">Facebook tách riêng YouTube (không cùng Gmail). Kết nối 1 lần lấy hết Page bạn quản lý; đăng/lịch FB quản lý riêng tại đây.</div>
+        </div>
+        <div class="conn-grid" id="fbPages"></div>
+        <div class="panel help"><div class="p-title">📘 Cần Facebook App</div>
+          <p class="p-sub">Kết nối FB cần <b>Facebook Developer App</b> (đặt secret <code>FB_APP_ID</code>/<code>FB_APP_SECRET</code> cho Worker) + quyền <code>pages_manage_posts</code>. Xem <code>SETUP.md</code> mục Facebook. Bấm Kết nối khi đã cấu hình App.</p></div>
+      </section>
     </div>
   </div>
 
@@ -697,6 +708,7 @@
         const d=s.docs.find(x=>x.id.startsWith("config")); window.setSettings(d?d.data():null);
         const o=s.docs.find(x=>x.id.startsWith("overrides")); window.setOverrides(o?o.data():{});
       });
+      sub("fb_pages", s => { window.setFbPages(s.docs.map(d=>({id:d.id,...d.data()}))); });
     }
     function setLive(ok){
       const el=document.getElementById("live"); el.classList.toggle("err",!ok);
@@ -769,6 +781,7 @@
         sub_connections:"YouTube · Facebook · quota status", sub_storage:"Pool usage & cleanup",
         sub_settings:"Templates & system config",
         channels:"My Channels", branding:"Branding", comments:"Comments", channels_hub:"My Channels", sub_channels:"Your connected channels — pick one to manage",
+        facebook:"Facebook", sub_facebook:"Facebook Pages — separate from YouTube", fb_manage:"Facebook Pages", fb_connect:"Connect Facebook", fb_note:"Facebook is separate from YouTube (not the same Gmail). One connect grabs all Pages you manage.",
         act_branding:"Branding", act_comments:"Comments", act_videos:"Videos", act_reconnect:"Reconnect", act_template:"Template",
         ch_ready:"No videos yet — ready to receive", ch_connect_first:"No channel yet — connect one in API Connections.",
         sub_branding:"Channel identity via API", sub_comments:"Read, reply & moderate",
@@ -827,6 +840,7 @@
         sub_connections:"Trạng thái YouTube · Facebook · quota", sub_storage:"Dung lượng pool & dọn dẹp",
         sub_settings:"Template & cấu hình hệ thống",
         channels:"Kênh của tôi", branding:"Thương hiệu", comments:"Bình luận", channels_hub:"Kênh của tôi", sub_channels:"Các kênh đã kết nối — chọn 1 kênh để quản lý",
+        facebook:"Facebook", sub_facebook:"Facebook Page — tách riêng YouTube", fb_manage:"Facebook Page", fb_connect:"Kết nối Facebook", fb_note:"Facebook tách riêng YouTube (không cùng Gmail). Kết nối 1 lần lấy hết Page bạn quản lý; đăng/lịch FB quản lý riêng tại đây.",
         act_branding:"Thương hiệu", act_comments:"Bình luận", act_videos:"Video", act_reconnect:"Kết nối lại", act_template:"Template",
         ch_ready:"Chưa có video — sẵn sàng nhận bài", ch_connect_first:"Chưa có kênh — kết nối ở tab Kết nối API.",
         sub_branding:"Nhận diện kênh qua API", sub_comments:"Đọc, trả lời & kiểm duyệt",
@@ -894,6 +908,21 @@
     let __V=[], __C={}, __K={}, __STORAGE=null, __SETTINGS=null, __OVERRIDES={};
     window.setData = (v,c,k) => { if(v)__V=v; if(c)__C=c; if(k)__K=k; renderAll(); };
     window.setStorage = (s) => { __STORAGE=s; renderStorage(); };
+    let __FBP=[];
+    window.setFbPages = (p) => { __FBP=p||[]; renderFacebook(); };
+    function renderFacebook(){
+      if(!$("fbPages")) return;
+      if($("nvFb")) $("nvFb").textContent=__FBP.length;
+      if(!__FBP.length){ $("fbPages").innerHTML=emptyBox("Chưa kết nối Page nào. Bấm “Kết nối Facebook” (cần Facebook App đã cấu hình cho Worker)."); return; }
+      $("fbPages").innerHTML=__FBP.map(p=>`<div class="conn">
+        <div class="conn-head"><div class="ava" style="background:linear-gradient(145deg,#1877f2,#0a58ca)">f</div>
+          <div class="nm">${esc(p.page_name||p.name)}<div class="p-sub">ID ${esc(p.page_id||'')}${p.connected_at?" · "+ago(p.connected_at):""}</div></div></div>
+        ${svcRow('fb','#1877f2','Facebook Page','connected','token dài hạn đã lưu')}
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn-reconn" style="flex:1" onclick="connectChannel('','facebook')">🔗 Kết nối lại</button>
+          <button class="btn-reconn danger" onclick="disconnectChannel('${esc(p.name)}','facebook','${esc(p.page_name||p.name)}')">🗑</button>
+        </div></div>`).join("");
+    }
     window.setSettings = (s) => { __SETTINGS=s; renderSettings(); };
     window.setOverrides = (o) => { __OVERRIDES=o||{}; renderSettings(); renderAll(); };
     // Catalog template (khớp config/posting_templates.yaml) — hiển thị ở trang Cài đặt
@@ -923,6 +952,7 @@
       chat:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
       stack:'<path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>',
       send:'<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
+      fb:'<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>',
     };
     window.paintIcons = () => document.querySelectorAll(".ic[data-i]").forEach(e=>{
       e.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[e.dataset.i]||""}</svg>`; });
@@ -953,7 +983,7 @@
     function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
 
     function wireNav(){
-      const VIEWS=["overview","analytics","videos","schedule","publish","connections","storage","settings","channels","branding","comments"];
+      const VIEWS=["overview","analytics","videos","schedule","publish","connections","storage","settings","channels","branding","comments","facebook"];
       const setTitle=(v)=>{ window.__view=v; $("vTitle").textContent=t(v); $("vSub").textContent=t("sub_"+v); };
       window.__setTitle=setTitle;
       // ROUTING theo URL hash: mỗi mục 1 đường dẫn (#publish, #channels…) -> F5 giữ nguyên trang
@@ -973,8 +1003,11 @@
       if(cbtn)cbtn.onclick=()=>connectChannel(($("connChannel").value||"").trim().toUpperCase(),"youtube");
       const dbtn=$("btnConnDrive");
       if(dbtn)dbtn.onclick=()=>connectChannel(($("stAccName").value||"").trim(),"drive");
+      if($("clMode"))$("clMode").onchange=window.updateCleanupUI;
       const sc=$("btnSaveClean");
-      if(sc)sc.onclick=()=>saveCleanup($("clMode").value,$("clDays").value);
+      if(sc)sc.onclick=()=>{ const m=$("clMode").value, d=Math.max(1,Number($("clDays").value)||30);
+        if(m==="delete" && !confirm(`Bật tự xoá: video ĐÃ ĐĂNG cũ hơn ${d} ngày sẽ bị đưa khỏi kho (YouTube vẫn giữ bản gốc). Video chưa đăng KHÔNG bị đụng. Đồng ý?`)) return;
+        saveCleanup(m, m==="delete"?d:0); };
       if($("brLoad"))$("brLoad").onclick=loadBranding;
       if($("brSave"))$("brSave").onclick=saveBranding;
       if($("cmLoad"))$("cmLoad").onclick=loadComments;
@@ -989,6 +1022,7 @@
       if($("fbAccount"))$("fbAccount").onchange=()=>{ if($("fbSearch"))$("fbSearch").value=""; window.__fb.account=$("fbAccount").value; window.__fb.stack=[]; fbOpen(null,"My Drive"); };
       if($("fbSearch"))$("fbSearch").oninput=(e)=>window.fbSearchInput(e.target.value);
       if($("stSort"))$("stSort").onchange=renderStorage;
+      if($("btnConnFB"))$("btnConnFB").onclick=()=>connectChannel("","facebook");
       const lb=$("langBtn"); if(lb)lb.onclick=()=>setLang(LANG==="en"?"vi":"en");
       // menu mobile (hamburger)
       const hb=$("hamb"), sb=document.querySelector(".sidebar"), scr=$("scrim");
@@ -1206,7 +1240,7 @@
     function renderAll(){
       buildChanFilter(); renderKPIs(); renderViewsChart(); renderDonut(); renderChannels();
       renderUpcoming(); renderAnalytics(); renderLongShort(); renderVideos(); renderSchedule(); renderConnections();
-      renderStorage(); renderSettings(); renderChannelHub(); renderPublish();
+      renderStorage(); renderSettings(); renderChannelHub(); renderPublish(); renderFacebook();
       $("nvVideos").textContent=V().length; $("nvSched").textContent=V().filter(v=>eff(v)==="scheduled").length;
       $("nvChans").textContent=allChannels().length;
       $("nvPub").textContent=V().filter(v=>eff(v)!=="posted").length;
@@ -1505,7 +1539,6 @@
         return `<div class="conn"><div class="conn-head"><span class="conn-num">#${num}</span><div class="ava" style="background:linear-gradient(145deg,${col},${col}aa)">${esc((c.channel_title||k).slice(0,2).toUpperCase())}</div>
           <div class="nm">${esc((c.channel_title)||k)}${c.channel_title&&c.channel_title.toUpperCase()!==k?` <span class="p-sub">· nhãn ${esc(k)}</span>`:""}</div></div>
           ${svcRow('yt','#ff0033','YouTube', ytState, c.subscribers!=null?fmtN(c.subscribers)+' subs · kiểm tra '+ago(c.yt_checked_at):(c.yt_error||'chưa có dữ liệu'))}
-          ${svcRow('fb','#1877f2','Facebook Page', fbState, fbState==="connected"?'đăng gần nhất '+ago(c.last_publish_at):'chưa ghi nhận bài Facebook')}
           <div class="gauge"><div class="gl"><span>Quota YouTube hôm nay</span><span class="tnum" style="color:${gaugeColor};font-weight:700">${used}/${YT_CAP}</span></div><div class="dots">${dots}</div></div>
           <div style="display:flex;gap:8px">
             <button class="btn-reconn" style="flex:1" onclick="connectChannel('${esc(k)}','youtube')">🔗 ${ytState==='connected'?'Kết nối lại':'Kết nối'} YouTube</button>
@@ -1564,9 +1597,11 @@
       const clcfg=(__OVERRIDES&&__OVERRIDES.cleanup)||(s&&{mode:s.cleanup_mode,keep_days:s.keep_days})||(__SETTINGS&&__SETTINGS.cleanup)||{};
       const cm=$("clMode"),cd=$("clDays");
       if(cm&&clcfg.mode&&document.activeElement!==cm)cm.value=clcfg.mode;
-      if(cd&&clcfg.keep_days!=null&&document.activeElement!==cd)cd.value=clcfg.keep_days;
-      const mode=(s&&s.cleanup_mode)||(__SETTINGS&&__SETTINGS.cleanup&&__SETTINGS.cleanup.mode)||(clcfg.mode)||"—";
-      $("stMode").textContent="Chế độ dọn: "+mode;
+      if(cm&&cm.value==="archive")cm.value="keep";   // bỏ 'archive' gây rối -> coi như giữ mãi mãi
+      if(cd&&clcfg.keep_days!=null&&clcfg.keep_days>0&&document.activeElement!==cd)cd.value=clcfg.keep_days;
+      updateCleanupUI();
+      const mode0=(s&&s.cleanup_mode)||(clcfg.mode)||"keep";
+      $("stMode").textContent="Chế độ dọn: "+(mode0==="delete"?`xoá sau ${clcfg.keep_days||30} ngày`:"giữ mãi mãi 🛡️");
       const accs=(s&&s.accounts)||[];
       if(!accs.length){$("stKpis").innerHTML="";$("stAccounts").innerHTML=emptyBox("Chưa cấu hình tài khoản pool. Xem docs/STORAGE.md — mỗi tài khoản Google free 15GB, gộp lại thành 150GB/1TB.");return;}
       const used=accs.reduce((a,x)=>a+(x.used||0),0),cap=accs.reduce((a,x)=>a+(x.cap||0),0);
@@ -1628,6 +1663,17 @@
       if(!chans.length) return alert("Chưa có kênh — kết nối kênh ở tab Kết nối API trước.");
       if(!confirm(`Áp gói "${id}" cho tất cả ${chans.length} kênh?`)) return;
       window.saveTemplateAll(id, chans);
+    };
+    window.updateCleanupUI=()=>{
+      const cm=$("clMode"); if(!cm) return;
+      const del=cm.value==="delete";
+      const w=$("clDaysWrap"); if(w) w.style.display=del?"flex":"none";
+      const ex=$("clExplain"); if(!ex) return;
+      ex.innerHTML= del
+        ? `🧹 <b>CHỈ xoá video ĐÃ ĐĂNG</b> (nằm trong <code>_POSTED</code>) cũ hơn số ngày trên.
+           <span style="color:var(--good)">Video CHƯA đăng & đang chờ lịch KHÔNG bao giờ bị đụng.</span>
+           YouTube giữ bản gốc + link đã lưu lại. Áp dụng khi chạy dọn dẹp (tự động/thủ công).`
+        : `🛡️ <b>An toàn nhất — không xoá bất cứ gì.</b> Kho gần đầy thì kết nối thêm Google Drive hoặc nâng Google One. Phù hợp khi muốn giữ lại toàn bộ video gốc.`;
     };
     function emptyBox(m){return `<div class="empty"><div class="big">🗂️</div>${m}</div>`;}
 

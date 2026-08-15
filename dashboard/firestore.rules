@@ -24,6 +24,7 @@ service cloud.firestore {
     match /counters/{doc}         { allow read: if owns(resource.data); allow write: if false; }
     match /storage/{doc}          { allow read: if owns(resource.data); allow write: if false; }
     match /storage_accounts/{doc} { allow read: if owns(resource.data); allow write: if false; }
+    match /fb_pages/{doc}         { allow read: if owns(resource.data); allow write: if false; }
 
     // TOKEN kết nối — không client nào đọc/ghi (chỉ server/Worker qua Admin).
     match /connections/{doc}      { allow read, write: if false; }
