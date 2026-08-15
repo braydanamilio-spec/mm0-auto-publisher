@@ -232,7 +232,8 @@ async function apiFiles(request, url, env) {
   if (!account) throw new Error("Thiếu account.");
   const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
   const { conn, dat } = await driveCtx(env, uid, account);
-  const parent = folder || conn.root;
+  // Mặc định duyệt từ My Drive (root) để thấy TOÀN BỘ dữ liệu; MM0-STORE là 1 thư mục con.
+  const parent = folder || "root";
   const q = encodeURIComponent(`'${parent}' in parents and trashed=false`);
   const fields = encodeURIComponent("files(id,name,mimeType,size,modifiedTime,webViewLink,thumbnailLink)");
   const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=${fields}&pageSize=300&orderBy=folder,name`,

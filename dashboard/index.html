@@ -967,7 +967,7 @@
       if($("connCollapse"))$("connCollapse").onclick=()=>{ const s=window.__collapsedGmail=window.__collapsedGmail||new Set();
         new Set(Object.values(C()).map(c=>c.email||"__none")).forEach(e=>s.add(e)); renderConnections(); };
       if($("connExpand"))$("connExpand").onclick=()=>{ if(window.__collapsedGmail)window.__collapsedGmail.clear(); renderConnections(); };
-      if($("fbAccount"))$("fbAccount").onchange=()=>{ window.__fb.account=$("fbAccount").value; window.__fb.stack=[]; fbOpen(null,"MM0-STORE"); };
+      if($("fbAccount"))$("fbAccount").onchange=()=>{ window.__fb.account=$("fbAccount").value; window.__fb.stack=[]; fbOpen(null,"My Drive"); };
       const lb=$("langBtn"); if(lb)lb.onclick=()=>setLang(LANG==="en"?"vi":"en");
       // menu mobile (hamburger)
       const hb=$("hamb"), sb=document.querySelector(".sidebar"), scr=$("scrim");
@@ -1069,7 +1069,7 @@
       sel.innerHTML=accs.map(a=>`<option value="${esc(a.name)}">${esc(a.name)}${a.email?" · "+esc(a.email):""}</option>`).join("");
       if(!accs.length){ if($("fbList"))$("fbList").innerHTML=emptyBox("Chưa có tài khoản kho — kết nối Google Drive trước."); if($("fbBread"))$("fbBread").innerHTML=""; window.__fb.account=""; return; }
       sel.value=accs.some(a=>a.name===keep)?keep:accs[0].name;
-      if(sel.value!==window.__fb.account){ window.__fb.account=sel.value; window.__fb.stack=[]; fbOpen(null,"MM0-STORE"); }
+      if(sel.value!==window.__fb.account){ window.__fb.account=sel.value; window.__fb.stack=[]; fbOpen(null,"My Drive"); }
     }
     async function fbOpen(folderId, folderName){
       const acc=window.__fb.account; if(!acc||!$("fbList")) return;
