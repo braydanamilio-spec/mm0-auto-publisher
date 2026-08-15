@@ -357,7 +357,8 @@ async function callback(url, env) {
   return page("Kết nối thành công 🎉",
     `<p>✅ Đã kết nối kênh <b>${escapeHtml(connectedName)}</b>${email ? " · " + escapeHtml(email) : ""}.</p>
      <p class="sub">Nhãn định tuyến nội bộ: <code>${escapeHtml(label)}</code> — dùng để đặt tên thư mục video (OUTBOX/${escapeHtml(label)}/…).</p>
-     <p>Token đã lưu an toàn. Anh có thể đóng tab này và quay lại dashboard.</p>`);
+     <p>Token đã lưu an toàn. Anh có thể đóng tab này và quay lại dashboard.</p>`,
+    kind === "drive" ? "storage" : "connections");
 }
 
 async function ensureDriveFolder(accessToken, name) {
@@ -496,7 +497,7 @@ function slugLabel(s) {
   return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 32);
 }
-function page(title, body) {
+function page(title, body, back = "connections") {
   return new Response(
     `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
      <title>${escapeHtml(title)}</title>
@@ -504,7 +505,7 @@ function page(title, body) {
        padding:32px;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.06)">
        <h2 style="margin-top:0">${escapeHtml(title)}</h2>${body}
        <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
-         <a href="https://mm0-auto-publisher.web.app/#connections"
+         <a href="https://mm0-auto-publisher.web.app/#${escapeHtml(back)}"
             style="background:#6c4ee6;color:#fff;text-decoration:none;padding:11px 18px;border-radius:10px;font-weight:600;font-size:14px">← Quay lại Dashboard</a>
          <button onclick="window.close()"
             style="background:#f1f1f4;color:#333;border:none;padding:11px 18px;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer">Đóng tab này</button>
