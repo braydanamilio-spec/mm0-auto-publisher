@@ -250,31 +250,32 @@
     <div class="login-card">
       <div class="logo-badge">📺</div>
       <h1>MM0 Publisher Console</h1>
-      <p>Trung tâm điều khiển đăng &amp; phân tích video tự động trên YouTube và Facebook.</p>
+      <p data-i18n="login_sub">Auto publish &amp; analytics console for YouTube and Facebook.</p>
       <button class="btn-google" id="signin">
         <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#fff" d="M12 11v2.85h4.05c-.24 1.2-1.5 3.5-4.05 3.5-2.44 0-4.43-2.02-4.43-4.5S9.56 8.35 12 8.35c1.39 0 2.32.59 2.85 1.1l1.94-1.87C15.53 6.4 13.94 5.7 12 5.7 8.3 5.7 5.3 8.7 5.3 12s3 6.3 6.7 6.3c3.87 0 6.43-2.72 6.43-6.55 0-.44-.05-.78-.11-1.12z"/></svg>
-        Đăng nhập bằng Google
+        <span data-i18n="login_google">Sign in with Google</span>
       </button>
-      <div class="login-foot">Chỉ tài khoản được cấp quyền mới truy cập được.</div>
+      <div class="login-foot" data-i18n="login_foot">Only authorized accounts can access.</div>
     </div>
   </div>
 
   <div id="app" class="hide">
     <aside class="sidebar">
       <div class="brand"><div class="b">📺</div><div><div class="bt">MM0 Publisher</div><div class="bs">Auto Console</div></div></div>
-      <div class="nav-label">Điều hướng</div>
-      <div class="nav active" data-view="overview"><span class="ic" data-i="grid"></span> Tổng quan</div>
-      <div class="nav" data-view="analytics"><span class="ic" data-i="chart"></span> Phân tích</div>
-      <div class="nav" data-view="videos"><span class="ic" data-i="film"></span> Video <span class="badge" id="nvVideos">0</span></div>
-      <div class="nav" data-view="schedule"><span class="ic" data-i="cal"></span> Lịch <span class="badge" id="nvSched">0</span></div>
-      <div class="nav-label">Hệ thống</div>
-      <div class="nav" data-view="connections"><span class="ic" data-i="plug"></span> Kết nối API <span class="dotwarn hide" id="connWarn"></span></div>
-      <div class="nav" data-view="storage"><span class="ic" data-i="disk"></span> Kho lưu trữ</div>
-      <div class="nav" data-view="settings"><span class="ic" data-i="gear"></span> Cài đặt</div>
+      <div class="nav-label" data-i18n="nav_group">Navigation</div>
+      <div class="nav active" data-view="overview"><span class="ic" data-i="grid"></span> <span data-i18n="overview">Overview</span></div>
+      <div class="nav" data-view="analytics"><span class="ic" data-i="chart"></span> <span data-i18n="analytics">Analytics</span></div>
+      <div class="nav" data-view="videos"><span class="ic" data-i="film"></span> <span data-i18n="videos">Videos</span> <span class="badge" id="nvVideos">0</span></div>
+      <div class="nav" data-view="schedule"><span class="ic" data-i="cal"></span> <span data-i18n="schedule">Schedule</span> <span class="badge" id="nvSched">0</span></div>
+      <div class="nav-label" data-i18n="nav_system">System</div>
+      <div class="nav" data-view="connections"><span class="ic" data-i="plug"></span> <span data-i18n="connections">API Connections</span> <span class="dotwarn hide" id="connWarn"></span></div>
+      <div class="nav" data-view="storage"><span class="ic" data-i="disk"></span> <span data-i18n="storage">Storage</span></div>
+      <div class="nav" data-view="settings"><span class="ic" data-i="gear"></span> <span data-i18n="settings">Settings</span></div>
       <div class="side-foot">
-        <button class="ghost" id="themeBtn"><span id="themeIc">🌙</span> <span id="themeTx">Giao diện tối</span></button>
+        <button class="ghost" id="langBtn">🌐 Tiếng Việt</button>
+        <button class="ghost" id="themeBtn"><span id="themeIc">🌙</span> <span id="themeTx" data-i18n="theme_dark">Dark theme</span></button>
         <div class="userchip"><img id="uImg" alt=""><span class="em" id="uEmail">—</span></div>
-        <button class="ghost" id="signout">↪ Đăng xuất</button>
+        <button class="ghost" id="signout">↪ <span data-i18n="signout">Sign out</span></button>
       </div>
     </aside>
 
@@ -283,23 +284,23 @@
       <div class="topbar">
         <div><h2 id="vTitle">Tổng quan</h2><div class="sub" id="vSub">Toàn bộ kênh</div></div>
         <div class="grow"></div>
-        <div class="live" id="live"><span class="dot"></span> <span id="liveTx">Đang kết nối…</span></div>
-        <select id="chFilter"><option value="">Tất cả kênh</option></select>
+        <div class="live" id="live"><span class="dot"></span> <span id="liveTx" data-i18n="connecting">Connecting…</span></div>
+        <select id="chFilter"><option value="" data-i18n="all_channels">All channels</option></select>
       </div>
 
       <section id="v-overview" class="content">
         <div class="kpis" id="kpis"></div>
         <div class="grid g-2">
-          <div class="panel"><div class="p-head"><div class="p-title">Lượt xem theo kênh <span class="d">· tích luỹ</span></div></div>
+          <div class="panel"><div class="p-head"><div class="p-title"><span data-i18n="views_by_channel">Views by channel</span> <span class="d">· <span data-i18n="cumulative">cumulative</span></span></div></div>
             <canvas id="chViews" height="260"></canvas><div class="legend" id="lgViews"></div></div>
-          <div class="panel"><div class="p-head"><div class="p-title">Phân bố trạng thái</div></div>
+          <div class="panel"><div class="p-head"><div class="p-title" data-i18n="status_dist">Status distribution</div></div>
             <div class="donut-wrap"><div class="donut-center"><canvas id="chDonut" width="150" height="150" style="width:150px"></canvas>
               <div class="mid"><div><div class="v tnum" id="donutTotal">0</div><div class="k">video</div></div></div></div>
               <div class="legend" id="lgDonut" style="flex-direction:column;gap:9px;margin:0"></div></div></div>
         </div>
         <div class="grid g-2">
-          <div class="panel"><div class="p-head"><div class="p-title">🏆 Tiến độ theo kênh</div><div class="p-sub">đã đăng / hàng đợi</div></div><div id="chanList"></div></div>
-          <div class="panel"><div class="p-head"><div class="p-title">⏰ Sắp lên sóng</div><div class="p-sub">8 video kế tiếp</div></div><div class="list" id="upcoming"></div></div>
+          <div class="panel"><div class="p-head"><div class="p-title">🏆 <span data-i18n="progress_by_channel">Progress by channel</span></div><div class="p-sub" data-i18n="posted_of_queue">posted / in queue</div></div><div id="chanList"></div></div>
+          <div class="panel"><div class="p-head"><div class="p-title">⏰ <span data-i18n="upcoming">Going live soon</span></div><div class="p-sub" data-i18n="next8">next 8 videos</div></div><div class="list" id="upcoming"></div></div>
         </div>
       </section>
 
@@ -317,13 +318,13 @@
 
       <section id="v-videos" class="content hide">
         <div class="toolbar">
-          <input type="search" id="search" placeholder="🔍 Tìm tiêu đề…" />
+          <input type="search" id="search" data-i18n-ph="search_title" placeholder="Search title…" />
           <select id="stFilter"><option value="">Mọi trạng thái</option><option value="needs_review">Chờ duyệt</option><option value="posted">Đã đăng</option><option value="scheduled">Đã lên lịch</option><option value="pending">Chờ</option><option value="uploading">Đang upload</option><option value="failed">Lỗi</option></select>
           <select id="tyFilter"><option value="">Long &amp; Short</option><option value="long">Long</option><option value="short">Short</option></select>
           <select id="sortBy"><option value="publish_at">Sắp theo giờ đăng</option><option value="views">Sắp theo lượt xem</option></select>
         </div>
         <div class="tbl-card"><div class="scroll-x"><table>
-          <thead><tr><th>Kênh</th><th>Tiêu đề</th><th>Loại</th><th>Trạng thái</th><th>Giờ đăng</th><th class="num">Views</th><th class="num">Likes</th><th>Link</th></tr></thead>
+          <thead><tr><th data-i18n="th_channel">Channel</th><th data-i18n="th_title">Title</th><th data-i18n="th_type">Type</th><th data-i18n="th_status">Status</th><th data-i18n="th_time">Publish time</th><th class="num">Views</th><th class="num">Likes</th><th data-i18n="th_link">Link</th></tr></thead>
           <tbody id="rows"></tbody></table></div></div>
       </section>
 
@@ -333,12 +334,12 @@
 
       <section id="v-connections" class="content hide">
         <div class="panel" style="margin-bottom:20px">
-          <div class="p-title">➕ Kết nối / thêm kênh mới</div>
+          <div class="p-title">➕ <span data-i18n="conn_add">Connect / add channel</span></div>
           <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;align-items:center">
-            <input type="search" id="connChannel" placeholder="Tên kênh (vd BROKE)" style="min-width:200px" />
-            <button class="btn-conn" id="btnConnYT">🔗 Kết nối YouTube</button>
+            <input type="search" id="connChannel" data-i18n-ph="ch_name_ph" placeholder="Channel name (e.g. BROKE)" style="min-width:200px" />
+            <button class="btn-conn" id="btnConnYT">🔗 <span data-i18n="connect_yt">Connect YouTube</span></button>
           </div>
-          <div class="p-sub" style="margin-top:9px">Bấm → đăng nhập Google của kênh đó → cấp quyền 1 lần → token tự lưu. Không cần sửa GitHub Secrets.</div>
+          <div class="p-sub" style="margin-top:9px" data-i18n="conn_hint">Click → sign in to that channel's Google → grant once → token saved. No GitHub Secrets needed.</div>
         </div>
         <div id="connBanner"></div>
         <div class="conn-grid" id="connGrid"></div>
@@ -355,12 +356,12 @@
 
       <section id="v-storage" class="content hide">
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-title">➕ Kết nối tài khoản Drive lưu trữ (mỗi acc +15GB free)</div>
+          <div class="p-title">➕ <span data-i18n="st_add">Connect a storage Drive account (+15GB free each)</span></div>
           <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;align-items:center">
-            <input type="search" id="stAccName" placeholder="Tên tài khoản (vd store1)" style="min-width:200px" />
-            <button class="btn-conn" id="btnConnDrive">🔗 Kết nối Google Drive</button>
+            <input type="search" id="stAccName" data-i18n-ph="acc_name_ph" placeholder="Account name (e.g. store1)" style="min-width:200px" />
+            <button class="btn-conn" id="btnConnDrive">🔗 <span data-i18n="connect_drive">Connect Google Drive</span></button>
           </div>
-          <div class="p-sub" style="margin-top:9px">Bấm → đăng nhập tài khoản Drive → cấp quyền → tự tạo folder kho + lưu token. Gộp nhiều acc thành 150GB/1TB. (Google One trả phí cũng kết nối y vậy để giữ tất cả.)</div>
+          <div class="p-sub" style="margin-top:9px" data-i18n="st_hint">Click → sign in Drive account → grant → auto-creates store folder + saves token. Combine many = 150GB/1TB.</div>
         </div>
         <div class="kpis" id="stKpis"></div>
         <div class="panel" style="margin-bottom:16px">
@@ -442,8 +443,9 @@
     }
     function setLive(ok){
       const el=document.getElementById("live"); el.classList.toggle("err",!ok);
+      const T=window.t||(x=>x);
       document.getElementById("liveTx").textContent = ok
-        ? "Đồng bộ "+new Date().toLocaleTimeString("vi-VN") : "Lỗi kết nối — kiểm tra rules";
+        ? T("synced")+" "+new Date().toLocaleTimeString() : "⚠ rules";
     }
     const toastMsg = (m) => { const t=document.getElementById("toast"); if(t){t.textContent=m; t.style.opacity="1"; setTimeout(()=>t.style.opacity="0",2600);} };
     window.saveOverride = async (channel, tmpl) => {
@@ -467,6 +469,90 @@
   <script>
     const $ = (id) => document.getElementById(id);
     const CH_COLORS = ["#6c4ee6","#2563eb","#16a34a","#d97706","#dc2626","#0891b2","#7c3aed","#db2777"];
+
+    /* ================= i18n (mặc định EN) ================= */
+    let LANG = localStorage.mm0lang || "en";
+    const DICT = {
+      en: {
+        auto_console:"AUTO CONSOLE", nav_group:"Navigation", nav_system:"System",
+        overview:"Overview", analytics:"Analytics", videos:"Videos", schedule:"Schedule",
+        connections:"API Connections", storage:"Storage", settings:"Settings",
+        sub_overview:"All channels", sub_analytics:"Views & subscriber performance",
+        sub_videos:"Manage, search & filter", sub_schedule:"Timeline",
+        sub_connections:"YouTube · Facebook · quota status", sub_storage:"Pool usage & cleanup",
+        sub_settings:"Templates & system config",
+        theme_dark:"Dark theme", theme_light:"Light theme", signout:"Sign out",
+        kpi_subs:"Subscribers", kpi_views:"Total views", kpi_posted:"Videos posted", kpi_sched:"Awaiting schedule",
+        views_by_channel:"Views by channel", cumulative:"cumulative", status_dist:"Status distribution",
+        video:"video", progress_by_channel:"Progress by channel", posted_of_queue:"posted / in queue",
+        upcoming:"Going live soon", next8:"next 8 videos", top_videos:"Most viewed videos", top10:"top 10",
+        channel_metrics:"Channel metrics", long_vs_short:"Long vs Short by channel", per_type:"transparent per type",
+        search_title:"Search title…", all_status:"All statuses", needs_review:"Needs review",
+        posted:"Posted", scheduled:"Scheduled", pending:"Pending", uploading:"Uploading", failed:"Failed",
+        long_short:"Long & Short", long:"Long", short:"Short", sort_time:"Sort by time", sort_views:"Sort by views",
+        th_channel:"Channel", th_title:"Title", th_type:"Type", th_status:"Status", th_time:"Publish time", th_link:"Link",
+        conn_add:"Connect / add channel", ch_name_ph:"Channel name (e.g. BROKE)", connect_yt:"Connect YouTube",
+        conn_hint:"Click → sign in to that channel's Google → grant once → token saved. No GitHub Secrets needed.",
+        no_conn:"No channel connected yet", no_conn_sub:"Finish SETUP.md to load tokens; status shows here.",
+        how_connect:"How to connect / fix",
+        st_add:"Connect a storage Drive account (+15GB free each)", acc_name_ph:"Account name (e.g. store1)",
+        connect_drive:"Connect Google Drive",
+        st_hint:"Click → sign in Drive account → grant → auto-creates store folder + saves token. Combine many = 150GB/1TB.",
+        cleanup:"Cleanup", total_pool:"Total pool size", used:"Used", free:"Free", accounts:"Accounts", used_pct:"used",
+        sys_config:"System config", tpl_library:"Posting template library", in_use:"In use", suggested:"suggested",
+        review_toggle:"Review before publishing", review_hint:"(new videos wait for you)", on:"ON", off:"Off",
+        default_tpl:"Default template", cleanup_mode:"Cleanup mode", safety_cap:"Daily safety cap",
+        tpl_per_channel:"Template per channel:", approve:"Approve", empty_filter:"No videos match the filter.",
+        all_channels:"All channels", connecting:"Connecting…", synced:"Synced", no_view_data:"No view data yet.", no_video:"No video yet",
+        login_sub:"Auto publish & analytics console for YouTube and Facebook.",
+        login_google:"Sign in with Google", login_foot:"Only authorized accounts can access.",
+      },
+      vi: {
+        auto_console:"AUTO CONSOLE", nav_group:"Điều hướng", nav_system:"Hệ thống",
+        overview:"Tổng quan", analytics:"Phân tích", videos:"Video", schedule:"Lịch",
+        connections:"Kết nối API", storage:"Kho lưu trữ", settings:"Cài đặt",
+        sub_overview:"Toàn bộ kênh", sub_analytics:"Hiệu suất view & subscriber",
+        sub_videos:"Quản lý, tìm kiếm & lọc", sub_schedule:"Dòng thời gian",
+        sub_connections:"Trạng thái YouTube · Facebook · quota", sub_storage:"Dung lượng pool & dọn dẹp",
+        sub_settings:"Template & cấu hình hệ thống",
+        theme_dark:"Giao diện tối", theme_light:"Giao diện sáng", signout:"Đăng xuất",
+        kpi_subs:"Người đăng ký", kpi_views:"Lượt xem tích luỹ", kpi_posted:"Video đã đăng", kpi_sched:"Đang chờ lịch",
+        views_by_channel:"Lượt xem theo kênh", cumulative:"tích luỹ", status_dist:"Phân bố trạng thái",
+        video:"video", progress_by_channel:"Tiến độ theo kênh", posted_of_queue:"đã đăng / hàng đợi",
+        upcoming:"Sắp lên sóng", next8:"8 video kế tiếp", top_videos:"Video xem nhiều nhất", top10:"top 10",
+        channel_metrics:"Chỉ số kênh", long_vs_short:"Long vs Short theo kênh", per_type:"view minh bạch từng loại",
+        search_title:"Tìm tiêu đề…", all_status:"Mọi trạng thái", needs_review:"Chờ duyệt",
+        posted:"Đã đăng", scheduled:"Đã lên lịch", pending:"Chờ", uploading:"Đang upload", failed:"Lỗi",
+        long_short:"Long & Short", long:"Long", short:"Short", sort_time:"Sắp theo giờ đăng", sort_views:"Sắp theo lượt xem",
+        th_channel:"Kênh", th_title:"Tiêu đề", th_type:"Loại", th_status:"Trạng thái", th_time:"Giờ đăng", th_link:"Link",
+        conn_add:"Kết nối / thêm kênh mới", ch_name_ph:"Tên kênh (vd BROKE)", connect_yt:"Kết nối YouTube",
+        conn_hint:"Bấm → đăng nhập Google của kênh đó → cấp quyền 1 lần → token tự lưu. Không cần sửa GitHub Secrets.",
+        no_conn:"Chưa có kênh nào kết nối", no_conn_sub:"Hoàn tất SETUP.md để nạp token, trạng thái sẽ hiện ở đây.",
+        how_connect:"Cách kết nối / khắc phục",
+        st_add:"Kết nối tài khoản Drive lưu trữ (mỗi acc +15GB free)", acc_name_ph:"Tên tài khoản (vd store1)",
+        connect_drive:"Kết nối Google Drive",
+        st_hint:"Bấm → đăng nhập Drive → cấp quyền → tự tạo folder kho + lưu token. Gộp nhiều acc = 150GB/1TB.",
+        cleanup:"Dọn dẹp", total_pool:"Tổng dung lượng pool", used:"Đã dùng", free:"Còn trống", accounts:"Tài khoản", used_pct:"đã dùng",
+        sys_config:"Cấu hình hệ thống", tpl_library:"Thư viện template gói đăng bài", in_use:"Đang dùng", suggested:"gợi ý",
+        review_toggle:"Duyệt trước khi đăng", review_hint:"(video mới chờ anh duyệt)", on:"BẬT", off:"Tắt",
+        default_tpl:"Template mặc định", cleanup_mode:"Chế độ dọn dẹp", safety_cap:"Trần an toàn/ngày",
+        tpl_per_channel:"Template theo từng kênh:", approve:"Duyệt", empty_filter:"Không có video khớp bộ lọc.",
+        all_channels:"Tất cả kênh", connecting:"Đang kết nối…", synced:"Đồng bộ", no_view_data:"Chưa có dữ liệu view.", no_video:"Chưa có video",
+        login_sub:"Trung tâm điều khiển đăng & phân tích video tự động trên YouTube và Facebook.",
+        login_google:"Đăng nhập bằng Google", login_foot:"Chỉ tài khoản được cấp quyền mới truy cập được.",
+      },
+    };
+    const t = (k) => (DICT[LANG] && DICT[LANG][k]) || DICT.en[k] || k;
+    function applyI18n(){
+      document.querySelectorAll("[data-i18n]").forEach(e=>{ e.textContent=t(e.getAttribute("data-i18n")); });
+      document.querySelectorAll("[data-i18n-ph]").forEach(e=>{ e.placeholder=t(e.getAttribute("data-i18n-ph")); });
+    }
+    window.setLang = (l)=>{ LANG=l; localStorage.mm0lang=l; applyI18n();
+      if(window.__setTitle) window.__setTitle(window.__view||"overview");
+      if(typeof syncThemeBtn==="function") syncThemeBtn();
+      if(typeof renderAll==="function") renderAll(); syncLangBtn(); };
+    function syncLangBtn(){ const b=$("langBtn"); if(b) b.textContent = LANG==="en" ? "🌐 Tiếng Việt" : "🌐 English"; }
+    window.applyI18n = applyI18n; window.syncLangBtn = syncLangBtn; window.t = t;
     const YT_CAP = 6, FB_CAP = 10;
     // 🔧 THAY bằng URL Worker sau khi deploy (vd https://mm0-connect.<subdomain>.workers.dev)
     const WORKER_URL = "https://mm0-connect.adisondurham-ef1.workers.dev";
@@ -526,20 +612,18 @@
     }
     function syncThemeBtn(){ const cur=document.documentElement.getAttribute("data-theme");
       const dark = cur ? cur==="dark" : matchMedia("(prefers-color-scheme: dark)").matches;
-      $("themeIc").textContent = dark?"☀️":"🌙"; $("themeTx").textContent = dark?"Giao diện sáng":"Giao diện tối"; }
+      $("themeIc").textContent = dark?"☀️":"🌙"; $("themeTx").textContent = dark?t("theme_light"):t("theme_dark"); }
     function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
 
     function wireNav(){
-      const T={overview:["Tổng quan","Toàn bộ kênh"],analytics:["Phân tích","Hiệu suất view & subscriber"],
-        videos:["Thư viện video","Quản lý, tìm kiếm & lọc"],schedule:["Lịch đăng","Dòng thời gian"],
-        connections:["Kết nối API","Trạng thái YouTube · Facebook · quota"],
-        storage:["Kho lưu trữ","Dung lượng pool & dọn dẹp"],settings:["Cài đặt","Template & cấu hình hệ thống"]};
       const VIEWS=["overview","analytics","videos","schedule","connections","storage","settings"];
+      const setTitle=(v)=>{ window.__view=v; $("vTitle").textContent=t(v); $("vSub").textContent=t("sub_"+v); };
+      window.__setTitle=setTitle;
       document.querySelectorAll(".nav").forEach(n=>n.onclick=()=>{
         document.querySelectorAll(".nav").forEach(x=>x.classList.remove("active")); n.classList.add("active");
         const v=n.dataset.view;
         VIEWS.forEach(x=>$("v-"+x).classList.toggle("hide",x!==v));
-        $("vTitle").textContent=T[v][0]; $("vSub").textContent=T[v][1];
+        setTitle(v);
       });
       ["search","stFilter","tyFilter","sortBy"].forEach(id=>{const e=$(id);if(e)e.oninput=e.onchange=renderVideos;});
       $("chFilter").onchange=renderAll;
@@ -547,12 +631,14 @@
       if(cbtn)cbtn.onclick=()=>connectChannel(($("connChannel").value||"").trim().toUpperCase(),"youtube");
       const dbtn=$("btnConnDrive");
       if(dbtn)dbtn.onclick=()=>connectChannel(($("stAccName").value||"").trim(),"drive");
+      const lb=$("langBtn"); if(lb)lb.onclick=()=>setLang(LANG==="en"?"vi":"en");
+      applyI18n(); syncLangBtn(); setTitle("overview");
     }
     window.connectChannel = connectChannel;
 
     const V=()=>__V, C=()=>__C, K=()=>__K;
     const eff=v=>v.status==="pending"&&v.publish_at?"scheduled":v.status;
-    const LABEL={posted:"Đã đăng",scheduled:"Đã lên lịch",pending:"Chờ",uploading:"Đang upload",failed:"Lỗi",needs_review:"Chờ duyệt",approved:"Đã duyệt"};
+    const LABEL = new Proxy({}, { get: (_, k) => t(String(k)) });  // dịch theo ngôn ngữ hiện tại
     const fmtN=n=>(n==null?"—":Intl.NumberFormat("en",{notation:n>=10000?"compact":"standard",maximumFractionDigits:1}).format(n));
     const fmtDt=i=>i?new Date(i).toLocaleString("vi-VN",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"—";
     const ago=i=>{ if(!i)return"chưa có"; const d=Date.now()-new Date(i); const m=Math.floor(d/6e4);
@@ -572,7 +658,7 @@
       $("nvVideos").textContent=V().length; $("nvSched").textContent=V().filter(v=>eff(v)==="scheduled").length;
     }
     function buildChanFilter(){const sel=$("chFilter"),c=sel.value;const ks=Object.keys(chanMap()).sort();
-      sel.innerHTML='<option value="">Tất cả kênh</option>'+ks.map(k=>`<option>${esc(k)}</option>`).join("");sel.value=c;}
+      sel.innerHTML=`<option value="">${t("all_channels")}</option>`+ks.map(k=>`<option>${esc(k)}</option>`).join("");sel.value=c;}
 
     function svgIcon(p){return {
       sub:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
@@ -595,10 +681,10 @@
       const ch=cur(); const chs=ch?{[ch]:C()[ch]}:C();
       let subs=0,cviews=0; Object.values(chs).forEach(c=>{if(c){subs+=c.subscribers||0;cviews+=c.total_views||0;}});
       const d=scoped();
-      $("kpis").innerHTML=kpi("sub","var(--accent-soft)","var(--accent)",fmtN(subs),"Người đăng ký")
-        +kpi("view","var(--info-soft)","var(--info)",fmtN(cviews||d.reduce((a,v)=>a+(v.stats?.views||0),0)),"Lượt xem tích luỹ")
-        +kpi("up","var(--good-soft)","var(--good)",fmtN(d.filter(v=>eff(v)==="posted").length),"Video đã đăng")
-        +kpi("cal","var(--warn-soft)","var(--warn)",fmtN(d.filter(v=>eff(v)==="scheduled").length),"Đang chờ lịch");
+      $("kpis").innerHTML=kpi("sub","var(--accent-soft)","var(--accent)",fmtN(subs),t("kpi_subs"))
+        +kpi("view","var(--info-soft)","var(--info)",fmtN(cviews||d.reduce((a,v)=>a+(v.stats?.views||0),0)),t("kpi_views"))
+        +kpi("up","var(--good-soft)","var(--good)",fmtN(d.filter(v=>eff(v)==="posted").length),t("kpi_posted"))
+        +kpi("cal","var(--warn-soft)","var(--warn)",fmtN(d.filter(v=>eff(v)==="scheduled").length),t("kpi_sched"));
     }
 
     function prep(cv,h){const dpr=devicePixelRatio||1,w=cv.clientWidth||cv.parentElement.clientWidth;
@@ -610,7 +696,7 @@
       const data=Object.keys(map).sort().map(k=>({label:k,value:(C()[k]?.total_views)||map[k].reduce((a,v)=>a+(v.stats?.views||0),0),color:chColor(k)}));
       const {x,w,h}=prep(cv,260);x.clearRect(0,0,w,h);
       $("lgViews").innerHTML=data.map(d=>`<span class="lg"><span class="sw" style="background:${d.color}"></span>${esc(d.label)}</span>`).join("");
-      if(!data.length){x.fillStyle=cssVar("--faint");x.font="13px "+cssVar("--sans");x.fillText("Chưa có dữ liệu view.",10,30);return;}
+      if(!data.length){x.fillStyle=cssVar("--faint");x.font="13px "+cssVar("--sans");x.fillText(t("no_view_data"),10,30);return;}
       const max=Math.max(...data.map(d=>d.value),1),pad=30,bw=Math.min(70,(w-pad*2)/data.length-16),baseY=h-34,top=14;
       data.forEach((d,i)=>{const cx=pad+(i+.5)*((w-pad*2)/data.length),bh=(baseY-top)*(d.value/max),y=baseY-bh;
         const g=x.createLinearGradient(0,y,0,baseY);g.addColorStop(0,d.color);g.addColorStop(1,d.color+"66");
@@ -628,7 +714,7 @@
       x.clearRect(0,0,150,150);const cx=75,cy=75,R=62,r=42;let a=-Math.PI/2;
       if(!total){x.strokeStyle=cssVar("--border");x.lineWidth=R-r;x.beginPath();x.arc(cx,cy,(R+r)/2,0,2*Math.PI);x.stroke();}
       segs.forEach(s=>{const ang=2*Math.PI*(s.value/total);x.beginPath();x.arc(cx,cy,R,a,a+ang);x.arc(cx,cy,r,a+ang,a,true);x.closePath();x.fillStyle=s.color;x.fill();a+=ang;});
-      $("lgDonut").innerHTML=segs.map(s=>`<span class="lg"><span class="sw" style="background:${s.color}"></span>${s.label} <b class="tnum" style="color:var(--text);margin-left:4px">${s.value}</b></span>`).join("")||`<span class="lg" style="color:var(--faint)">Chưa có video</span>`;
+      $("lgDonut").innerHTML=segs.map(s=>`<span class="lg"><span class="sw" style="background:${s.color}"></span>${s.label} <b class="tnum" style="color:var(--text);margin-left:4px">${s.value}</b></span>`).join("")||`<span class="lg" style="color:var(--faint)">${t("no_video")}</span>`;
     }
     function renderChannels(){
       const map=chanMap();const ks=Object.keys(map).sort();
