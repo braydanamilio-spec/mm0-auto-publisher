@@ -94,11 +94,14 @@ def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now):
             "type": meta["type"],
             "meta": meta,
             "publish_at": doc.get("publish_at") or raw.get("publish_at"),
-            "status": doc.get("status", "pending"),
+            # Phục hồi: file còn trong _QUEUE mà trạng thái "uploading" => job trước chết dở
+            # (concurrency đảm bảo không có run khác đang chạy) => cho đăng lại an toàn.
+            "status": "pending" if doc.get("status") == "uploading" else doc.get("status", "pending"),
             "attempts": doc.get("attempts", 0),
             "warnings": warns,
             "thumbnail": sidecar.get("thumbnail"),
             "captions": sidecar.get("captions"),
+            "results": doc.get("results") or {},   # để bỏ qua nền tảng đã đăng (chống trùng)
         }
         if item["publish_at"]:
             used_slots.add(item["publish_at"])
@@ -156,43 +159,60 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now):
     tmp = os.path.join(tempfile.gettempdir(), name)
     thumb_tmp = None
     caption_tmps = []
-    results = {}
-    yt_ok = fb_ok = False
+    results = dict(it.get("results") or {})   # bắt đầu từ kết quả đã có (idempotent)
+    yt_ok = fb_ok = False   # 'newly' — chỉ đếm nền tảng ĐĂNG MỚI lần này
+    plats = meta["platforms"]
+    need_yt = "youtube" in plats and resolved.get("yt_creds") and not results.get("youtube", {}).get("id")
+    need_fb = "facebook" in plats and resolved.get("fb") and not results.get("facebook", {}).get("id")
     try:
-        drive.download(it["drive_file_id"], tmp)
+        # Chỉ tải video khi thực sự cần đăng (tiết kiệm băng thông khi retry)
+        if need_yt or need_fb:
+            drive.download(it["drive_file_id"], tmp)
 
-        # Tải thumbnail tùy chỉnh (nếu sidecar khai báo)
-        if it.get("thumbnail"):
-            tid = drive.find_file(it["parent_id"], it["thumbnail"])
-            if tid:
-                thumb_tmp = os.path.join(tempfile.gettempdir(), it["thumbnail"])
-                drive.download(tid, thumb_tmp)
-
-        # Tải phụ đề (nếu sidecar khai báo captions)
+        # Tải thumbnail + phụ đề (chỉ khi cần đăng YouTube)
         caption_specs = []
-        for cap in it.get("captions") or []:
-            cidf = drive.find_file(it["parent_id"], cap["file"])
-            if cidf:
-                cpath = os.path.join(tempfile.gettempdir(), cap["file"])
-                drive.download(cidf, cpath)
-                caption_tmps.append(cpath)
-                caption_specs.append({"path": cpath, "language": cap.get("language", "en"),
-                                      "name": cap.get("name", "")})
+        if need_yt:
+            if it.get("thumbnail"):
+                tid = drive.find_file(it["parent_id"], it["thumbnail"])
+                if tid:
+                    thumb_tmp = os.path.join(tempfile.gettempdir(), it["thumbnail"])
+                    drive.download(tid, thumb_tmp)
+            for cap in it.get("captions") or []:
+                cidf = drive.find_file(it["parent_id"], cap["file"])
+                if cidf:
+                    cpath = os.path.join(tempfile.gettempdir(), cap["file"])
+                    drive.download(cidf, cpath)
+                    caption_tmps.append(cpath)
+                    caption_specs.append({"path": cpath, "language": cap.get("language", "en"),
+                                          "name": cap.get("name", "")})
 
-        if "youtube" in meta["platforms"] and resolved.get("yt_creds"):
+        if results.get("youtube", {}).get("id"):
+            print("     ↺ YouTube đã đăng trước đó — bỏ qua (chống trùng).")
+        elif need_yt:
             r = YT.upload(tmp, meta, ch["youtube"], resolved["yt_creds"],
                           it.get("publish_at"), thumbnail_path=thumb_tmp, captions=caption_specs)
             results["youtube"] = r
             yt_ok = True
+            state.upsert_video(it["drive_file_id"], {"results": results})  # LƯU NGAY -> không đăng lại
             print(f"     ✅ YouTube: {r['url']}")
 
-        if "facebook" in meta["platforms"] and resolved.get("fb"):
+        if results.get("facebook", {}).get("id"):
+            print("     ↺ Facebook đã đăng trước đó — bỏ qua (chống trùng).")
+        elif need_fb:
             r = FB.upload(tmp, meta, resolved["fb"]["page_id"], resolved["fb"]["page_token"])
             results["facebook"] = r
             fb_ok = True
+            state.upsert_video(it["drive_file_id"], {"results": results})
             print(f"     ✅ Facebook: {r['url']}")
 
-        # Thành công (ít nhất 1 nền tảng) -> chuyển video + sidecar + thumbnail sang _POSTED
+        # Chỉ coi là xong khi ĐÃ đăng ít nhất 1 nền tảng (tránh mất file khi thiếu creds)
+        posted_any = bool(results.get("youtube", {}).get("id") or results.get("facebook", {}).get("id"))
+        if not posted_any:
+            print("     ⚠️  Chưa đăng được nền tảng nào (thiếu creds/nền tảng?) — giữ lại hàng đợi.")
+            state.upsert_video(it["drive_file_id"], {"status": "pending"})
+            return
+
+        # Thành công -> chuyển video + sidecar + thumbnail + phụ đề sang _POSTED
         drive.move(it["drive_file_id"], root, "_POSTED")
         base = name.rsplit(".", 1)[0]
         companions = [f"{base}.json", it.get("thumbnail")]
@@ -277,9 +297,10 @@ def process_pool(channels_cfg, templates, safety, tz, dry_run, state, now):
                 "drive_file_id": f["id"], "drive_name": f["name"], "parent_id": f["parents"][0],
                 "channel": channel, "type": meta["type"], "meta": meta,
                 "publish_at": doc.get("publish_at") or raw.get("publish_at"),
-                "status": doc.get("status", "pending"), "attempts": doc.get("attempts", 0),
+                "status": "pending" if doc.get("status") == "uploading" else doc.get("status", "pending"),
+                "attempts": doc.get("attempts", 0),
                 "warnings": M.lint(meta), "thumbnail": sidecar.get("thumbnail"),
-                "captions": sidecar.get("captions"),
+                "captions": sidecar.get("captions"), "results": doc.get("results") or {},
                 "_drive": drv, "_root": acc["root"],
             })
 
