@@ -443,7 +443,7 @@
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
       signInWithEmailAndPassword, createUserWithEmailAndPassword }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query, doc, setDoc }
+    import { getFirestore, collection, onSnapshot, query, where, doc, setDoc }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -475,6 +475,8 @@
       document.getElementById("login").classList.toggle("hide", !!user);
       document.getElementById("app").classList.toggle("hide", !user);
       if (user) {
+        window.__uid = user.uid;
+        window.__getIdToken = () => user.getIdToken();
         const im = document.getElementById("uImg");
         if (user.photoURL) im.src = user.photoURL; else im.style.display = "none";
         document.getElementById("uEmail").textContent = user.email;
@@ -485,15 +487,15 @@
     setTimeout(() => { if (!resolved){ document.getElementById("splash").classList.add("hide");
       document.getElementById("login").classList.remove("hide"); } }, 6000);
 
-    function sub(name, cb){ onSnapshot(query(collection(db,name)), cb, () => setLive(false)); }
+    function sub(name, cb){ onSnapshot(query(collection(db,name), where("owner","==",window.__uid)), cb, () => setLive(false)); }
     function subscribe(){
       sub("videos", s => { window.setData(s.docs.map(d=>({id:d.id,...d.data()})), null, null); setLive(true); });
-      sub("channels", s => { const c={}; s.docs.forEach(d=>c[d.id]=d.data()); window.setData(null,c,null); });
-      sub("counters", s => { const k={}; s.docs.forEach(d=>k[d.id]=d.data()); window.setData(null,null,k); });
-      sub("storage", s => { const d=s.docs.find(x=>x.id==="pool"); window.setStorage(d?d.data():null); });
+      sub("channels", s => { const c={}; s.docs.forEach(d=>{const v=d.data();c[v.channel||d.id]=v;}); window.setData(null,c,null); });
+      sub("counters", s => { const k={}; s.docs.forEach(d=>{const v=d.data();k[v.channel||d.id]=v;}); window.setData(null,null,k); });
+      sub("storage", s => { const d=s.docs[0]; window.setStorage(d?d.data():null); });
       sub("settings", s => {
-        const d=s.docs.find(x=>x.id==="config"); window.setSettings(d?d.data():null);
-        const o=s.docs.find(x=>x.id==="overrides"); window.setOverrides(o?o.data():{});
+        const d=s.docs.find(x=>x.id.startsWith("config")); window.setSettings(d?d.data():null);
+        const o=s.docs.find(x=>x.id.startsWith("overrides")); window.setOverrides(o?o.data():{});
       });
     }
     function setLive(ok){
@@ -503,13 +505,14 @@
         ? T("synced")+" "+new Date().toLocaleTimeString() : "⚠ rules";
     }
     const toastMsg = (m) => { const t=document.getElementById("toast"); if(t){t.textContent=m; t.style.opacity="1"; setTimeout(()=>t.style.opacity="0",2600);} };
+    const ovDoc = () => doc(db,"settings","overrides__"+window.__uid);
     window.saveOverride = async (channel, tmpl) => {
-      try { await setDoc(doc(db,"settings","overrides"), {channels:{[channel]:tmpl}}, {merge:true});
+      try { await setDoc(ovDoc(), {owner:window.__uid, channels:{[channel]:tmpl}}, {merge:true});
         toastMsg(`✔ ${channel}: ${tmpl} (áp dụng lần chạy tới)`); }
       catch(e){ alert("Lưu template lỗi: "+e.message); }
     };
     window.saveReviewMode = async (on) => {
-      try { await setDoc(doc(db,"settings","overrides"), {review_mode:!!on}, {merge:true});
+      try { await setDoc(ovDoc(), {owner:window.__uid, review_mode:!!on}, {merge:true});
         toastMsg(on?"✔ Đã bật chế độ DUYỆT (video mới sẽ chờ duyệt)":"✔ Đã tắt duyệt (đăng tự động)"); }
       catch(e){ alert("Lỗi: "+e.message); }
     };
@@ -519,7 +522,7 @@
       catch(e){ alert("Duyệt lỗi: "+e.message); }
     };
     window.saveCleanup = async (mode, days) => {
-      try { await setDoc(doc(db,"settings","overrides"), {cleanup:{mode, keep_days:Number(days)||0}}, {merge:true});
+      try { await setDoc(ovDoc(), {owner:window.__uid, cleanup:{mode, keep_days:Number(days)||0}}, {merge:true});
         toastMsg("✔ Đã lưu dọn dẹp: "+mode+" · "+(Number(days)||0)+" ngày"); }
       catch(e){ alert("Lỗi: "+e.message); }
     };
@@ -618,11 +621,13 @@
     const YT_CAP = 6, FB_CAP = 10;
     // 🔧 THAY bằng URL Worker sau khi deploy (vd https://mm0-connect.<subdomain>.workers.dev)
     const WORKER_URL = "https://mm0-connect.adisondurham-ef1.workers.dev";
-    function connectChannel(channel, kind){
+    async function connectChannel(channel, kind){
       if (!WORKER_URL || WORKER_URL === "PASTE_WORKER_URL")
         return alert("Chưa cấu hình WORKER_URL trong dashboard/index.html. Deploy Worker rồi dán URL vào.");
       if (!channel) return alert("Nhập tên kênh trước (vd BROKE).");
-      window.open(`${WORKER_URL}/auth/start?channel=${encodeURIComponent(channel)}&kind=${kind}`, "_blank");
+      let tk=""; try { tk = await window.__getIdToken(); } catch(e){}
+      if (!tk) return alert("Chưa đăng nhập.");
+      window.open(`${WORKER_URL}/auth/start?channel=${encodeURIComponent(channel)}&kind=${kind}&t=${encodeURIComponent(tk)}`, "_blank");
     }
     let __V=[], __C={}, __K={}, __STORAGE=null, __SETTINGS=null, __OVERRIDES={};
     window.setData = (v,c,k) => { if(v)__V=v; if(c)__C=c; if(k)__K=k; renderAll(); };
@@ -924,9 +929,10 @@
       const s=__SETTINGS;
       $("setUpdated").textContent=s&&s.updated_at?"Cập nhật "+ago(s.updated_at):"";
       const def=(s&&s.default_template)||"balanced_1long_3short";
-      const cl=(s&&s.cleanup)||{}, sf=(s&&s.safety)||{youtube_max_uploads_per_day:6,facebook_max_uploads_per_day:10,min_minutes_between_uploads:30};
+      const sf=(s&&s.safety)||{youtube_max_uploads_per_day:6,facebook_max_uploads_per_day:10,min_minutes_between_uploads:30};
       const ov=__OVERRIDES||{}, ovch=ov.channels||{}; const rv=!!ov.review_mode;
       const chMap=(s&&s.channels)||{};
+      const cl = (ov.cleanup) || (s && s.cleanup) || {};  // ưu tiên lựa chọn đổi trên dashboard
       const chans=[...new Set([...Object.keys(chMap),...Object.keys(chanMap())])].sort();
       const opts=(sel)=>TEMPLATE_CATALOG.map(t=>`<option value="${t.id}" ${t.id===sel?"selected":""}>${esc(t.name)}</option>`).join("");
       const rows=chans.length?chans.map(k=>`<div class="svc"><div class="snm">${esc(k)}</div>

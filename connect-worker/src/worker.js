@@ -19,7 +19,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     try {
-      if (url.pathname === "/auth/start") return startAuth(url, env);
+      if (url.pathname === "/auth/start") return await startAuth(url, env);
       if (url.pathname === "/auth/callback") return await callback(url, env);
     } catch (e) {
       return page("Lỗi", `<p>❌ ${escapeHtml(String(e))}</p>`);
@@ -41,12 +41,20 @@ const DRIVE_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email",
 ].join(" ");
 
-function startAuth(url, env) {
+async function startAuth(url, env) {
   const channel = url.searchParams.get("channel");
   const kind = url.searchParams.get("kind") || "youtube";
+  const idToken = url.searchParams.get("t");
   if (!channel) return page("Thiếu tham số", "<p>Thiếu ?channel=</p>");
+  // Xác thực người dùng đang đăng nhập -> lấy uid (multi-tenant, chống giả mạo)
+  let uid = null;
+  if (idToken) {
+    try { uid = await verifyIdToken(idToken, env.FIREBASE_PROJECT_ID); }
+    catch (e) { return page("Lỗi xác thực", `<p>Token đăng nhập không hợp lệ (${escapeHtml(String(e))}). Đăng nhập lại dashboard rồi thử lại.</p>`); }
+  }
+  if (!uid) return page("Thiếu đăng nhập", "<p>Hãy bấm Kết nối từ dashboard (đã đăng nhập), không mở link trực tiếp.</p>");
   const redirect = url.origin + "/auth/callback";
-  const state = b64url(new TextEncoder().encode(JSON.stringify({ channel, kind })));
+  const state = b64url(new TextEncoder().encode(JSON.stringify({ channel, kind, uid })));
   const p = new URLSearchParams({
     client_id: env.YT_CLIENT_ID,
     redirect_uri: redirect,
@@ -64,7 +72,8 @@ async function callback(url, env) {
   const code = url.searchParams.get("code");
   const stateRaw = url.searchParams.get("state");
   if (!code || !stateRaw) return page("Lỗi", "<p>Thiếu code/state.</p>");
-  const { channel, kind } = JSON.parse(new TextDecoder().decode(ub64url(stateRaw)));
+  const { channel, kind, uid } = JSON.parse(new TextDecoder().decode(ub64url(stateRaw)));
+  if (!uid) return page("Lỗi", "<p>Thiếu uid — bấm Kết nối lại từ dashboard.</p>");
   const redirect = url.origin + "/auth/callback";
 
   // 1) đổi code -> token
@@ -99,7 +108,7 @@ async function callback(url, env) {
   // 3) lưu token vào Firestore
   const at = await saAccessToken(env);
   const base = {
-    channel, kind, email,
+    channel, kind, email, owner: uid,
     client_id: env.YT_CLIENT_ID, client_secret: env.YT_CLIENT_SECRET,
     refresh_token: tok.refresh_token, connected_at: new Date().toISOString(),
   };
@@ -107,15 +116,15 @@ async function callback(url, env) {
   if (kind === "drive") {
     // tạo/tìm folder kho "MM0-STORE" trong tài khoản Drive này
     const root = await ensureDriveFolder(tok.access_token, "MM0-STORE");
-    await fsPatch(env, at, `connections/${channel}_drive`, { ...base, root });
-    await fsPatch(env, at, `storage_accounts/${channel}`,
-      { name: channel, email, connected_at: new Date().toISOString() },
-      ["name", "email", "connected_at"]);
+    await fsPatch(env, at, `connections/${uid}__${channel}__drive`, { ...base, root });
+    await fsPatch(env, at, `storage_accounts/${uid}__${channel}`,
+      { name: channel, owner: uid, email, connected_at: new Date().toISOString() },
+      ["name", "owner", "email", "connected_at"]);
   } else {
-    await fsPatch(env, at, `connections/${channel}_youtube`, base);
-    await fsPatch(env, at, `channels/${channel}`,
-      { channel, yt_ok: true, yt_checked_at: new Date().toISOString() },
-      ["channel", "yt_ok", "yt_checked_at"]);
+    await fsPatch(env, at, `connections/${uid}__${channel}__youtube`, base);
+    await fsPatch(env, at, `channels/${uid}__${channel}`,
+      { channel, owner: uid, yt_ok: true, yt_checked_at: new Date().toISOString() },
+      ["channel", "owner", "yt_ok", "yt_checked_at"]);
   }
 
   return page("Kết nối thành công 🎉",
@@ -179,6 +188,29 @@ function fsVal(v) {
   if (typeof v === "boolean") return { booleanValue: v };
   if (typeof v === "number") return { integerValue: String(v) };
   return { stringValue: String(v) };
+}
+
+/* ---------- Xác thực Firebase ID token (RS256 + JWKS) -> uid ---------- */
+async function verifyIdToken(token, projectId) {
+  const parts = String(token).split(".");
+  if (parts.length !== 3) throw new Error("format");
+  const header = JSON.parse(new TextDecoder().decode(ub64url(parts[0])));
+  const payload = JSON.parse(new TextDecoder().decode(ub64url(parts[1])));
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.aud !== projectId) throw new Error("aud");
+  if (payload.iss !== "https://securetoken.google.com/" + projectId) throw new Error("iss");
+  if (!payload.exp || payload.exp < now) throw new Error("expired");
+  if (!payload.sub) throw new Error("sub");
+  const jwks = await (await fetch(
+    "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com")).json();
+  const jwk = (jwks.keys || []).find((k) => k.kid === header.kid);
+  if (!jwk) throw new Error("kid");
+  const key = await crypto.subtle.importKey("jwk", jwk,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+  const signed = new TextEncoder().encode(parts[0] + "." + parts[1]);
+  const ok = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, ub64url(parts[2]), signed);
+  if (!ok) throw new Error("signature");
+  return payload.sub;
 }
 
 /* ---------- utils ---------- */

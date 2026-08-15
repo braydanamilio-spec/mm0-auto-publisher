@@ -1,47 +1,37 @@
 rules_version = '2';
 // ============================================================================
-//  BẢO MẬT FIRESTORE
-//  - Chỉ CHỦ (email của bạn) được ĐỌC dashboard.
-//  - KHÔNG ai ghi được từ client (chỉ backend/service account qua Admin SDK ghi).
-//  👉 Đổi "YOUR_EMAIL@gmail.com" thành email Google bạn dùng đăng nhập dashboard.
+//  BẢO MẬT FIRESTORE — MULTI-TENANT (mỗi user chỉ thấy dữ liệu của mình)
+//  Mọi doc có field `owner` = uid. Rules chặn đọc/ghi chéo giữa các user.
+//  Service account (pipeline) + Worker ghi qua Admin/REST -> bỏ qua rules.
 // ============================================================================
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 👉 Thêm/bớt email được xem dashboard tại đây rồi deploy lại.
-    function isOwner() {
-      return request.auth != null
-        && request.auth.token.email in [
-             "braydanamilio@gmail.com",
-             "adisondurham@gmail.com"
-           ];
-    }
+    function signedIn() { return request.auth != null; }
+    function owns(data) { return signedIn() && data.owner == request.auth.uid; }
+    function willOwn()  { return signedIn() && request.resource.data.owner == request.auth.uid; }
 
+    // Video — chủ đọc; chỉ được DUYỆT (đổi status/publish_at/reviewed_at)
     match /videos/{doc} {
-      allow read: if isOwner();
-      // Chủ được DUYỆT: chỉ đổi status/publish_at/reviewed_at, không đụng field khác.
-      allow update: if isOwner()
+      allow read: if owns(resource.data);
+      allow update: if owns(resource.data)
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['status', 'publish_at', 'reviewed_at']);
-      allow create, delete: if false;   // service account (Admin) bỏ qua rules
+      allow create, delete: if false;
     }
-    match /counters/{doc} {
-      allow read: if isOwner();
-      allow write: if false;
-    }
-    // TOKEN kết nối — TUYỆT ĐỐI không cho client đọc/ghi.
-    // Chỉ service account (pipeline) + Worker ghi qua Admin/REST (bỏ qua rules).
-    match /connections/{doc} {
-      allow read, write: if false;
-    }
-    match /storage/{doc} {
-      allow read: if isOwner();
-      allow write: if false;
-    }
+
+    match /channels/{doc}         { allow read: if owns(resource.data); allow write: if false; }
+    match /counters/{doc}         { allow read: if owns(resource.data); allow write: if false; }
+    match /storage/{doc}          { allow read: if owns(resource.data); allow write: if false; }
+    match /storage_accounts/{doc} { allow read: if owns(resource.data); allow write: if false; }
+
+    // TOKEN kết nối — không client nào đọc/ghi (chỉ server/Worker qua Admin).
+    match /connections/{doc}      { allow read, write: if false; }
+
+    // Cấu hình: chủ đọc doc của mình; chỉ được ghi doc overrides__<uid> của chính mình.
     match /settings/{doc} {
-      allow read: if isOwner();
-      // chỉ cho chủ ghi doc 'overrides' (chọn template per-kênh từ dashboard)
-      allow write: if isOwner() && doc == "overrides";
+      allow read: if owns(resource.data);
+      allow write: if willOwn() && doc == ('overrides__' + request.auth.uid);
     }
   }
 }
