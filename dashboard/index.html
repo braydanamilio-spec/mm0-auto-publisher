@@ -423,7 +423,15 @@
         </div>
         <div class="kpis" id="stKpis"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive)</div><div class="p-sub" id="stMode"></div></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive)</div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <span class="p-sub" id="stMode"></span>
+              <select id="stSort" class="set-sel" style="max-width:190px">
+                <option value="free">🟢 Còn trống nhiều nhất</option>
+                <option value="full">🔴 Đầy nhất</option>
+                <option value="cap">💾 Dung lượng lớn nhất</option>
+                <option value="name">🔤 Tên A→Z</option>
+              </select></div></div>
           <div id="stAccounts"></div>
         </div>
         <div class="panel" style="margin-bottom:16px">
@@ -980,6 +988,7 @@
       if($("connExpand"))$("connExpand").onclick=()=>{ if(window.__collapsedGmail)window.__collapsedGmail.clear(); renderConnections(); };
       if($("fbAccount"))$("fbAccount").onchange=()=>{ if($("fbSearch"))$("fbSearch").value=""; window.__fb.account=$("fbAccount").value; window.__fb.stack=[]; fbOpen(null,"My Drive"); };
       if($("fbSearch"))$("fbSearch").oninput=(e)=>window.fbSearchInput(e.target.value);
+      if($("stSort"))$("stSort").onchange=renderStorage;
       const lb=$("langBtn"); if(lb)lb.onclick=()=>setLang(LANG==="en"?"vi":"en");
       // menu mobile (hamburger)
       const hb=$("hamb"), sb=document.querySelector(".sidebar"), scr=$("scrim");
@@ -1565,7 +1574,14 @@
         +kpi("disk","var(--info-soft)","var(--info)",fmtBytes(used),"Đã dùng")
         +kpi("disk","var(--good-soft)","var(--good)",fmtBytes(cap-used),"Còn trống")
         +kpi("disk","var(--warn-soft)","var(--warn)",String(accs.length),"Tài khoản");
-      $("stAccounts").innerHTML=accs.map(a=>{const pct=a.cap?Math.min(100,Math.round((a.used||0)/a.cap*100)):0;
+      const sortBy=($("stSort")&&$("stSort").value)||"free";
+      const freeOf=a=>Math.max(0,(a.cap||0)-(a.used||0));
+      const sortedAccs=[...accs].sort((a,b)=>
+        sortBy==="full" ? ((b.used||0)/(b.cap||1))-((a.used||0)/(a.cap||1))
+        : sortBy==="cap" ? (b.cap||0)-(a.cap||0)
+        : sortBy==="name" ? String(a.name).localeCompare(b.name)
+        : freeOf(b)-freeOf(a));   // free (mặc định)
+      $("stAccounts").innerHTML=sortedAccs.map(a=>{const pct=a.cap?Math.min(100,Math.round((a.used||0)/a.cap*100)):0;
         const col=pct>=95?"var(--bad)":pct>=80?"var(--warn)":"var(--good)";
         const capGB=(a.cap||0)/1e9; const tier=capGB>16?`☁️ One ${Math.round(capGB)}GB`:"🆓 Free 15GB";
         return `<div class="chan-item"><div class="ava" style="background:linear-gradient(145deg,var(--accent),var(--violet))">${esc((a.name||'?').slice(0,2).toUpperCase())}</div>
