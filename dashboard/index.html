@@ -927,7 +927,10 @@
     const cur=()=>$("chFilter").value;
     const scoped=()=>{const c=cur();return c?V().filter(v=>v.channel===c):V();};
     const chanMap=()=>{const m={};V().forEach(v=>{if(v.channel)(m[v.channel]=m[v.channel]||[]).push(v);});return m;};
-    const chColor=k=>{const ks=Object.keys(chanMap());const i=ks.indexOf(k);return CH_COLORS[(i<0?ks.length:i)%CH_COLORS.length];};
+    // Gộp kênh có video + kênh đã KẾT NỐI (để kênh mới nối vẫn hiện dù chưa có video nào)
+    const allChannels=()=>[...new Set([...Object.keys(chanMap()), ...Object.keys(C())])].sort();
+    const chName=k=>(C()[k]&&C()[k].channel_title)||k;
+    const chColor=k=>{const ks=allChannels();const i=ks.indexOf(k);return CH_COLORS[(i<0?ks.length:i)%CH_COLORS.length];};
     const todayId=()=>{const d=new Date();return d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0");};
     const countdown=i=>{const d=new Date(i)-Date.now();if(d<=0)return"đến giờ";const h=Math.floor(d/3.6e6),m=Math.floor(d%3.6e6/6e4);return h>24?Math.floor(h/24)+" ngày":h>0?h+"h"+m+"m":m+" phút";};
 
@@ -937,8 +940,8 @@
       renderStorage(); renderSettings();
       $("nvVideos").textContent=V().length; $("nvSched").textContent=V().filter(v=>eff(v)==="scheduled").length;
     }
-    function buildChanFilter(){const sel=$("chFilter"),c=sel.value;const ks=Object.keys(chanMap()).sort();
-      sel.innerHTML=`<option value="">${t("all_channels")}</option>`+ks.map(k=>`<option>${esc(k)}</option>`).join("");sel.value=c;}
+    function buildChanFilter(){const sel=$("chFilter"),c=sel.value;const ks=allChannels();
+      sel.innerHTML=`<option value="">${t("all_channels")}</option>`+ks.map(k=>`<option value="${esc(k)}">${esc(chName(k))}</option>`).join("");sel.value=c;}
 
     function svgIcon(p){return {
       sub:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
@@ -997,14 +1000,14 @@
       $("lgDonut").innerHTML=segs.map(s=>`<span class="lg"><span class="sw" style="background:${s.color}"></span>${s.label} <b class="tnum" style="color:var(--text);margin-left:4px">${s.value}</b></span>`).join("")||`<span class="lg" style="color:var(--faint)">${t("no_video")}</span>`;
     }
     function renderChannels(){
-      const map=chanMap();const ks=Object.keys(map).sort();
-      $("chanList").innerHTML=ks.map(k=>{const vids=map[k],posted=vids.filter(v=>eff(v)==="posted").length,pct=vids.length?Math.round(posted/vids.length*100):0;
-        const subs=C()[k]?.subscribers,col=chColor(k);
-        return `<div class="chan-item"><div class="ava" style="background:linear-gradient(145deg,${col},${col}aa)">${esc(k.slice(0,2).toUpperCase())}</div>
-          <div class="chan-mid"><div class="nm">${esc((C()[k]&&C()[k].channel_title)||k)} ${subs!=null?`<span class="p-sub tnum">· ${fmtN(subs)} subs</span>`:""}</div>
-          <div class="st">${posted}/${vids.length} đã đăng · ${vids.length-posted} hàng đợi</div><div class="bar"><i style="width:${pct}%"></i></div></div>
+      const map=chanMap();const ks=allChannels();
+      $("chanList").innerHTML=ks.map(k=>{const vids=map[k]||[],posted=vids.filter(v=>eff(v)==="posted").length,pct=vids.length?Math.round(posted/vids.length*100):0;
+        const subs=C()[k]?.subscribers,col=chColor(k);const linked=!!C()[k];
+        return `<div class="chan-item"><div class="ava" style="background:linear-gradient(145deg,${col},${col}aa)">${esc(chName(k).slice(0,2).toUpperCase())}</div>
+          <div class="chan-mid"><div class="nm">${esc(chName(k))} ${subs!=null?`<span class="p-sub tnum">· ${fmtN(subs)} subs</span>`:(linked?`<span class="p-sub">· đã kết nối</span>`:"")}</div>
+          <div class="st">${vids.length?`${posted}/${vids.length} đã đăng · ${vids.length-posted} hàng đợi`:`chưa có video — sẵn sàng nhận bài`}</div><div class="bar"><i style="width:${pct}%"></i></div></div>
           <div class="chan-right"><div class="big tnum">${pct}%</div><div class="cap">hoàn tất</div></div></div>`;
-      }).join("")||emptyBox("Chưa có kênh nào.");
+      }).join("")||emptyBox("Chưa có kênh nào — kết nối kênh ở tab Kết nối API.");
     }
     function renderUpcoming(){
       const up=scoped().filter(v=>eff(v)==="scheduled"&&v.publish_at).sort((a,b)=>a.publish_at.localeCompare(b.publish_at)).slice(0,8);
