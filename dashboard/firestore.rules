@@ -36,7 +36,8 @@ service cloud.firestore {
     }
     match /settings/{doc} {
       allow read: if isOwner();
-      allow write: if false;
+      // chỉ cho chủ ghi doc 'overrides' (chọn template per-kênh từ dashboard)
+      allow write: if isOwner() && doc == "overrides";
     }
   }
 }

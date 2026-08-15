@@ -72,7 +72,7 @@ def resolve_channel_env(ch: dict, state=None, key=None) -> dict:
     return out
 
 
-def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now):
+def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now, overrides=None):
     print(f"\n=== KÊNH: {ch['display_name']} ({key}) ===")
     resolved = resolve_channel_env(ch, state, key)
     root = resolved["drive_folder_id"]
@@ -80,7 +80,9 @@ def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now):
         print("  ⚠️  Thiếu Drive folder id (secret chưa set) -> bỏ qua.")
         return
 
-    tmpl_name = ch.get("active_template", os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short"))
+    # Ưu tiên template chọn trên dashboard (Firestore overrides) -> active_template -> env default
+    tmpl_name = (overrides or {}).get(key) or ch.get("active_template",
+                os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short"))
     template = templates["templates"][tmpl_name]
 
     # 1) Quét Drive
@@ -279,7 +281,7 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now):
                 os.remove(p)
 
 
-def process_pool(channels_cfg, templates, safety, tz, dry_run, state, now):
+def process_pool(channels_cfg, templates, safety, tz, dry_run, state, now, overrides=None):
     """Quét HỒ CHỨA (nhiều tài khoản Drive), định tuyến kênh theo sidecar['channel']."""
     try:
         import storage as ST
@@ -323,7 +325,8 @@ def process_pool(channels_cfg, templates, safety, tz, dry_run, state, now):
 
     for channel, items in groups.items():
         ch = channels_cfg[channel]
-        tmpl_name = ch.get("active_template", os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short"))
+        tmpl_name = (overrides or {}).get(channel) or ch.get("active_template",
+                    os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short"))
         template = templates["templates"][tmpl_name]
         used = {it["publish_at"] for it in items if it.get("publish_at")}
         S.assign_slots(items, template, tz, now, used)
@@ -361,6 +364,8 @@ def main():
 
     drive = Drive()
     state = State()
+    # Template chọn trên dashboard (per-channel) — ghi ở settings/overrides.channels
+    overrides = (state.get_doc("settings", "overrides") or {}).get("channels", {})
 
     for key, ch in channels["channels"].items():
         if not ch.get("enabled"):
@@ -368,7 +373,7 @@ def main():
         if args.only and key != args.only:
             continue
         try:
-            process_channel(key, ch, templates, safety, tz, args.dry_run, drive, state, now)
+            process_channel(key, ch, templates, safety, tz, args.dry_run, drive, state, now, overrides)
         except Exception as e:
             print(f"  ❌ Kênh {key} lỗi tổng: {e}")
             traceback.print_exc()
@@ -376,7 +381,7 @@ def main():
     # Quét hồ chứa pool (nếu có cấu hình) — định tuyến kênh theo sidecar
     if not args.only:
         try:
-            process_pool(channels["channels"], templates, safety, tz, args.dry_run, state, now)
+            process_pool(channels["channels"], templates, safety, tz, args.dry_run, state, now, overrides)
         except Exception as e:
             print(f"  ❌ Pool lỗi tổng: {e}")
             traceback.print_exc()

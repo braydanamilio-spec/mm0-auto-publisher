@@ -274,6 +274,7 @@
     </aside>
 
     <div class="main">
+      <div id="toast" style="position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);padding:12px 16px;border-radius:12px;font-size:13px;font-weight:600;color:var(--good);opacity:0;transition:opacity .3s;z-index:60"></div>
       <div class="topbar">
         <div><h2 id="vTitle">Tổng quan</h2><div class="sub" id="vSub">Toàn bộ kênh</div></div>
         <div class="grow"></div>
@@ -388,7 +389,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query }
+    import { getFirestore, collection, onSnapshot, query, doc, setDoc }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -436,6 +437,11 @@
       document.getElementById("liveTx").textContent = ok
         ? "Đồng bộ "+new Date().toLocaleTimeString("vi-VN") : "Lỗi kết nối — kiểm tra rules";
     }
+    window.saveOverride = async (channel, tmpl) => {
+      try { await setDoc(doc(db,"settings","overrides"), {channels:{[channel]:tmpl}}, {merge:true});
+        const t=document.getElementById("toast"); if(t){t.textContent=`✔ ${channel}: ${tmpl} (áp dụng lần chạy tới)`; t.style.opacity="1"; setTimeout(()=>t.style.opacity="0",2500);} }
+      catch(e){ alert("Lưu template lỗi: "+e.message); }
+    };
     window.initTheme(); window.wireNav(); window.paintIcons(); window.paintBrand();
   </script>
 
@@ -738,7 +744,11 @@
       const def=(s&&s.default_template)||"balanced_1long_3short";
       const cl=(s&&s.cleanup)||{}, sf=(s&&s.safety)||{youtube_max_uploads_per_day:6,facebook_max_uploads_per_day:10,min_minutes_between_uploads:30};
       const chMap=(s&&s.channels)||{};
-      const rows=Object.keys(chMap).length?Object.entries(chMap).map(([k,t])=>`<div class="svc"><div class="snm">${esc(k)}</div><span class="tag t-scheduled" style="margin-left:auto">${esc(t)}</span></div>`).join(""):`<div class="p-sub" style="padding:8px 0">Chưa có dữ liệu kênh (pipeline chưa chạy).</div>`;
+      const chans=[...new Set([...Object.keys(chMap),...Object.keys(chanMap())])].sort();
+      const opts=(sel)=>TEMPLATE_CATALOG.map(t=>`<option value="${t.id}" ${t.id===sel?"selected":""}>${esc(t.name)}</option>`).join("");
+      const rows=chans.length?chans.map(k=>`<div class="svc"><div class="snm">${esc(k)}</div>
+        <select style="margin-left:auto" onchange="saveOverride('${esc(k)}',this.value)">${opts(chMap[k]||def)}</select></div>`).join("")
+        :`<div class="p-sub" style="padding:8px 0">Chưa có kênh — kết nối kênh ở tab Kết nối API trước.</div>`;
       $("setSummary").innerHTML=`
         <div class="svc"><div class="snm">Template mặc định</div><span class="tag t-connected" style="margin-left:auto">${esc(def)}</span></div>
         <div class="svc"><div class="snm">Chế độ dọn dẹp</div><span class="tag t-unknown" style="margin-left:auto">${esc(cl.mode||'—')} · ${cl.keep_days||14} ngày · ${esc(cl.trigger||'auto')}</span></div>

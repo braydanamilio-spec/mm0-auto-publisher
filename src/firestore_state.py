@@ -79,6 +79,10 @@ class State:
         return datetime.fromisoformat(v) if v else None
 
     # ---------- DOC tổng quát (settings/config, storage/pool ...) ----------
+    def get_doc(self, collection: str, doc_id: str) -> dict | None:
+        d = self.db.collection(collection).document(doc_id).get()
+        return d.to_dict() if d.exists else None
+
     def set_doc(self, collection: str, doc_id: str, data: dict):
         self.db.collection(collection).document(doc_id).set(
             {**data, "updated_at": datetime.now(timezone.utc).isoformat()}, merge=True)
