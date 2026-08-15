@@ -82,6 +82,17 @@ def _initial_status(prev, review_mode):
     return "needs_review" if review_mode else "pending"
 
 
+def _checks(sidecar: dict, meta: dict) -> dict:
+    """Cờ ĐỦ/THIẾU của 1 video (để dashboard cảnh báo trước khi đăng — KHÔNG chặn đăng)."""
+    return {
+        "desc": bool((sidecar.get("description") or "").strip()),   # có mô tả riêng (không phải chỉ chủ đề)
+        "thumb": bool(sidecar.get("thumbnail")),                     # có ảnh thumbnail đi kèm
+        "hashtags": bool(meta.get("hashtags")),
+        "tags": bool(meta.get("tags")),
+        "captions": bool(sidecar.get("captions")),
+    }
+
+
 def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now, overrides=None, review_mode=False):
     print(f"\n=== KÊNH: {ch['display_name']} ({key}) ===")
     resolved = resolve_channel_env(ch, state, key)
@@ -127,6 +138,7 @@ def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now, 
             "captions": sidecar.get("captions"),
             "playlist": sidecar.get("playlist"),
             "results": doc.get("results") or {},   # để bỏ qua nền tảng đã đăng (chống trùng)
+            "checks": _checks(sidecar, meta),
         }
         if item["publish_at"]:
             used_slots.add(item["publish_at"])
@@ -145,6 +157,7 @@ def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now, 
             "status": it["status"],
             "attempts": it["attempts"],
             "warnings": it["warnings"],
+            "checks": it.get("checks"),
             "template": tmpl_name,
         })
 
@@ -452,6 +465,7 @@ def process_users(channels_cfg, templates, safety, tz, dry_run, state, now):
                     "attempts": doc.get("attempts", 0), "warnings": M.lint(meta),
                     "thumbnail": sidecar.get("thumbnail"), "captions": sidecar.get("captions"),
                     "playlist": sidecar.get("playlist"), "results": doc.get("results") or {},
+                    "checks": _checks(sidecar, meta),
                     "_drive": drv, "_root": root,
                 })
 
@@ -472,7 +486,7 @@ def process_users(channels_cfg, templates, safety, tz, dry_run, state, now):
                     "owner": uid, "channel": channel, "drive_name": it["drive_name"],
                     "type": it["type"], "title": it["meta"]["title"],
                     "publish_at": it.get("publish_at"), "status": it["status"],
-                    "warnings": it["warnings"], "storage": "pool",
+                    "warnings": it["warnings"], "checks": it.get("checks"), "storage": "pool",
                 })
             ready = S.due_items(items, now)
             counters = state.get_counters(channel, now, owner=uid)

@@ -505,6 +505,9 @@
         .pubbar select,.pubbar input{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:9px 11px;font-family:var(--sans);font-size:14px}
         .pub-row{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid var(--border2)}
         .pub-row .tag2{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface2);color:var(--muted)}
+        .tag2.warn{background:var(--warn-soft);color:var(--warn);cursor:help;font-weight:600}
+        .pub-warn{background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn);border-radius:10px;padding:11px 14px;margin-bottom:12px;font-size:13.5px;line-height:1.6}
+        .pub-warn .sd{color:var(--muted);font-weight:400}
         .pub-when{font-family:var(--mono,monospace);font-size:12.5px;color:var(--muted);white-space:nowrap}
         .pub-now{background:var(--good);color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap}
         .pub-now:hover{filter:brightness(1.08)}
@@ -1278,16 +1281,33 @@
       const nLong=scope.filter(v=>v.type==="long").length, nShort=scope.filter(v=>v.type!=="long"&&v.type).length;
       if($("pubHint")) $("pubHint").innerHTML=`🕐 Giờ đăng tính theo múi giờ <b>${esc(tzSel)}</b> · hàng đợi${chSel?" ("+esc(chName(chSel))+")":""}: <b>${nLong}</b> long · <b>${nShort}</b> short`;
       if(!rows.length){ $("pubList").innerHTML=emptyBox(t("pub_empty")); return; }
-      $("pubList").innerHTML=rows.map(v=>{
+      // Cảnh báo trước khi đăng: đếm video thiếu thumbnail/mô tả/hashtag (vẫn đăng được, chỉ nhắc)
+      const miss={thumb:0,desc:0,hash:0};
+      rows.forEach(v=>{ if(v.checks){ if(!v.checks.thumb)miss.thumb++; if(!v.checks.desc)miss.desc++; if(!v.checks.hashtags)miss.hash++; }});
+      const banner=(miss.thumb||miss.desc||miss.hash)?`<div class="pub-warn">⚠️ Kiểm tra trước khi đăng —
+        ${miss.thumb?`<b>${miss.thumb}</b> thiếu thumbnail · `:""}${miss.desc?`<b>${miss.desc}</b> thiếu mô tả riêng · `:""}${miss.hash?`<b>${miss.hash}</b> thiếu hashtag`:""}
+        <span class="sd">(vẫn đăng được với mặc định — di chuột vào ⚠ ở mỗi video để xem chi tiết)</span></div>`:"";
+      $("pubList").innerHTML=banner+rows.map(v=>{
         const col=chColor(v.channel);
+        const iss=vIssues(v);
+        const warn=iss.length?`· <span class="tag2 warn" title="${esc(iss.join(' · '))}">⚠ ${iss.length}</span>`:"";
         return `<div class="pub-row">
           <div class="ava" style="width:30px;height:30px;font-size:12px;background:linear-gradient(145deg,${col},${col}aa)">${esc((chName(v.channel)||'?').slice(0,2).toUpperCase())}</div>
           <div style="flex:1;min-width:0"><div class="nm" style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.title||v.drive_name||v.id)}</div>
-            <div class="p-sub">${esc(chName(v.channel))} · <span class="tag2">${esc(v.type||'—')}</span> · <span class="tag2">${esc(eff(v))}</span></div></div>
+            <div class="p-sub">${esc(chName(v.channel))} · <span class="tag2">${esc(v.type||'—')}</span> · <span class="tag2">${esc(eff(v))}</span> ${warn}</div></div>
           <div class="pub-when">${v.publish_at?fmtDt(v.publish_at):'—'}</div>
           <button class="pub-now" onclick="publishNow('${esc(v.id)}')">⚡ ${esc(t("pub_now"))}</button>
         </div>`;
       }).join("");
+    }
+    // Danh sách thiếu sót của 1 video (chỉ khi cron đã quét -> có v.checks)
+    function vIssues(v){
+      const out=[]; const c=v.checks;
+      if(c){ if(!c.thumb)out.push("thiếu thumbnail (YouTube tự tạo)");
+        if(!c.desc)out.push("thiếu mô tả riêng (dùng chủ đề)");
+        if(!c.hashtags)out.push("thiếu hashtag"); }
+      (v.warnings||[]).forEach(w=>out.push(w));
+      return out;
     }
     window.publishNow=async (id)=>{
       try{ await window.__updateVideo(id, {status:"pending", publish_at:new Date().toISOString(), reviewed_at:new Date().toISOString()});
