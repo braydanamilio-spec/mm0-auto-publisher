@@ -114,6 +114,62 @@ templates:
       long:  ["15:00"]
     notes: "Phù hợp khi làm một mình / kho nội dung có hạn."
 
+  # 🌆 PRIME-TIME US — dồn hết vào khung tối vàng 19–22h ET
+  prime_time_us:
+    name: "Prime-Time US 🌆"
+    goal: "Tối đa view giờ vàng: đăng đúng lúc khán giả Mỹ rảnh xem tối."
+    timezone: "America/New_York"
+    duration_days: 30
+    cadence:
+      short_per_day: 3
+      long_per_week: 7
+    best_times:
+      short: ["19:00", "20:30", "22:00"]
+      long:  ["19:00"]
+    notes: "Hợp kênh giải trí/kể chuyện xem buổi tối. Đừng vượt 4 short/tối."
+
+  # 🔥 SHORTS BLITZ — 5 short/ngày, tối đa reach (chấp nhận nhịp cao)
+  shorts_blitz:
+    name: "Shorts Blitz x5 🔥"
+    goal: "Bơm reach cực mạnh bằng shorts, phủ nhiều khung giờ."
+    timezone: "America/New_York"
+    duration_days: 14
+    cadence:
+      short_per_day: 5
+      long_per_week: 2
+    best_times:
+      short: ["11:00", "14:00", "17:00", "20:00", "22:00"]
+      long:  ["15:00"]
+    notes: "Chỉ dùng khi kho shorts dồi dào. 5/ngày là trần an toàn (không hơn)."
+
+  # ☀️ MIDDAY REACH — khung trưa–chiều (dân văn phòng US nghỉ trưa/tan làm)
+  midday_reach:
+    name: "Midday Reach ☀️"
+    goal: "Bắt lượt xem giờ nghỉ trưa + tan làm sớm."
+    timezone: "America/New_York"
+    duration_days: 30
+    cadence:
+      short_per_day: 2
+      long_per_week: 5
+    best_times:
+      short: ["12:00", "16:00"]
+      long:  ["13:00"]
+    notes: "Hợp nội dung 'xem lúc nghỉ' (mẹo, tài chính, học nhanh)."
+
+  # 🦉 NIGHT OWL — khung khuya (Gen-Z / khán giả xem trước khi ngủ)
+  night_owl:
+    name: "Night Owl 🦉"
+    goal: "Nhắm khán giả trẻ xem khuya 21–24h ET."
+    timezone: "America/New_York"
+    duration_days: 30
+    cadence:
+      short_per_day: 3
+      long_per_week: 4
+    best_times:
+      short: ["21:00", "22:30", "23:30"]
+      long:  ["21:00"]
+    notes: "Hợp nội dung chill/creepy/tâm sự xem trước khi ngủ."
+
 # ============================================================================
 #  QUY TẮC AN TOÀN (chống spam / vi phạm chính sách nền tảng)
 # ============================================================================
