@@ -1,0 +1,79 @@
+"""
+firestore_state.py — Lưu TRẠNG THÁI & đồng bộ DASHBOARD trên Firestore (free).
+
+Firestore là "nguồn sự thật" duy nhất cho:
+  - Hàng đợi video (đã/chưa đăng, đã lên lịch, lỗi).
+  - Bộ đếm đăng theo ngày (để giữ trần an toàn).
+  - Dữ liệu dashboard đọc realtime.
+
+Dùng chung service account với Drive (biến GOOGLE_APPLICATION_CREDENTIALS).
+
+Collections:
+  videos/{drive_file_id}   -> 1 video
+  counters/{CHANNEL_YYYYMMDD} -> {yt, fb, last_upload_at}
+"""
+
+from __future__ import annotations
+import os
+from datetime import datetime, timezone
+
+from google.cloud import firestore
+from google.oauth2 import service_account
+
+
+def client() -> firestore.Client:
+    key = os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+    project = os.environ.get("FIREBASE_PROJECT_ID")
+    creds = service_account.Credentials.from_service_account_file(key)
+    return firestore.Client(project=project, credentials=creds)
+
+
+class State:
+    def __init__(self):
+        self.db = client()
+
+    # ---------- VIDEOS ----------
+    def get_video(self, file_id: str) -> dict | None:
+        doc = self.db.collection("videos").document(file_id).get()
+        return doc.to_dict() if doc.exists else None
+
+    def upsert_video(self, file_id: str, data: dict):
+        data = {**data, "updated_at": datetime.now(timezone.utc).isoformat()}
+        self.db.collection("videos").document(file_id).set(data, merge=True)
+
+    def list_videos(self, channel: str | None = None) -> list[dict]:
+        col = self.db.collection("videos")
+        query = col.where("channel", "==", channel) if channel else col
+        out = []
+        for d in query.stream():
+            row = d.to_dict()
+            row["id"] = d.id
+            out.append(row)
+        return out
+
+    # ---------- COUNTERS (trần an toàn / ngày) ----------
+    def _counter_id(self, channel: str, day: datetime) -> str:
+        return f"{channel}_{day.strftime('%Y%m%d')}"
+
+    def get_counters(self, channel: str, day: datetime) -> dict:
+        cid = self._counter_id(channel, day)
+        doc = self.db.collection("counters").document(cid).get()
+        return doc.to_dict() if doc.exists else {"yt": 0, "fb": 0, "last_upload_at": None}
+
+    def bump_counters(self, channel: str, day: datetime, yt: int = 0, fb: int = 0):
+        cid = self._counter_id(channel, day)
+        ref = self.db.collection("counters").document(cid)
+        ref.set(
+            {
+                "channel": channel,
+                "yt": firestore.Increment(yt),
+                "fb": firestore.Increment(fb),
+                "last_upload_at": datetime.now(timezone.utc).isoformat(),
+            },
+            merge=True,
+        )
+
+    def last_upload_at(self, channel: str, day: datetime) -> datetime | None:
+        c = self.get_counters(channel, day)
+        v = c.get("last_upload_at")
+        return datetime.fromisoformat(v) if v else None

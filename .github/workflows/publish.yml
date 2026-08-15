@@ -1,0 +1,78 @@
+name: MM0 Auto-Publisher
+
+# ============================================================================
+#  BỘ HẸN GIỜ CHẠY TRÊN CLOUD (không cần bật máy).
+#  - Cron mỗi 30 phút: quét hàng đợi -> đăng video đến giờ.
+#  - workflow_dispatch: nút bấm chạy tay để test.
+#
+#  GitHub cron chạy theo GIỜ UTC và có thể trễ vài phút lúc cao điểm — bình thường.
+#  Repo PUBLIC = phút Actions KHÔNG giới hạn (secrets vẫn mã hoá an toàn).
+# ============================================================================
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # mỗi 30 phút
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Chạy thử (không upload)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: mm0-publisher
+  cancel-in-progress: false   # không cắt giữa chừng khi đang upload
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Cài thư viện
+        run: pip install -r requirements.txt
+
+      - name: Ghi service account key ra file
+        run: echo '${{ secrets.GCP_SA_KEY }}' > /tmp/sa.json
+
+      - name: Chạy publisher
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          POSTING_TEMPLATE: ${{ vars.POSTING_TEMPLATE || 'growth_30d' }}
+
+          # ---- KÊNH: BROKE ----
+          BROKE_DRIVE_FOLDER_ID:   ${{ secrets.BROKE_DRIVE_FOLDER_ID }}
+          BROKE_YT_CLIENT_ID:      ${{ secrets.BROKE_YT_CLIENT_ID }}
+          BROKE_YT_CLIENT_SECRET:  ${{ secrets.BROKE_YT_CLIENT_SECRET }}
+          BROKE_YT_REFRESH_TOKEN:  ${{ secrets.BROKE_YT_REFRESH_TOKEN }}
+          BROKE_FB_PAGE_ID:        ${{ secrets.BROKE_FB_PAGE_ID }}
+          BROKE_FB_PAGE_TOKEN:     ${{ secrets.BROKE_FB_PAGE_TOKEN }}
+
+          # ---- KÊNH: INSIDE YOU ----
+          INSIDE_YOU_DRIVE_FOLDER_ID:  ${{ secrets.INSIDE_YOU_DRIVE_FOLDER_ID }}
+          INSIDE_YOU_YT_CLIENT_ID:     ${{ secrets.INSIDE_YOU_YT_CLIENT_ID }}
+          INSIDE_YOU_YT_CLIENT_SECRET: ${{ secrets.INSIDE_YOU_YT_CLIENT_SECRET }}
+          INSIDE_YOU_YT_REFRESH_TOKEN: ${{ secrets.INSIDE_YOU_YT_REFRESH_TOKEN }}
+          INSIDE_YOU_FB_PAGE_ID:       ${{ secrets.INSIDE_YOU_FB_PAGE_ID }}
+          INSIDE_YOU_FB_PAGE_TOKEN:    ${{ secrets.INSIDE_YOU_FB_PAGE_TOKEN }}
+
+          # ---- KÊNH: HUH? ----
+          HUH_DRIVE_FOLDER_ID:  ${{ secrets.HUH_DRIVE_FOLDER_ID }}
+          HUH_YT_CLIENT_ID:     ${{ secrets.HUH_YT_CLIENT_ID }}
+          HUH_YT_CLIENT_SECRET: ${{ secrets.HUH_YT_CLIENT_SECRET }}
+          HUH_YT_REFRESH_TOKEN: ${{ secrets.HUH_YT_REFRESH_TOKEN }}
+          HUH_FB_PAGE_ID:       ${{ secrets.HUH_FB_PAGE_ID }}
+          HUH_FB_PAGE_TOKEN:    ${{ secrets.HUH_FB_PAGE_TOKEN }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            python src/main.py --dry-run
+          else
+            python src/main.py
+          fi

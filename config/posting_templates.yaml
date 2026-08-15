@@ -1,0 +1,60 @@
+# ============================================================================
+#  MM0 AUTO-PUBLISHER — TEMPLATE LỊCH ĐĂNG (7 / 30 / 90 NGÀY)
+# ============================================================================
+#  Bộ generator (scheduler.py) đọc file này để tự rải "publish_at" cho video
+#  trong hàng đợi (_QUEUE) — đúng nhịp, đúng giờ vàng, không dồn cục.
+#
+#  best_times = giờ ĐĂNG tốt (giờ VN theo config timezone).
+#  Giờ vàng YouTube/FB (khán giả US xem) quy đổi sang giờ VN đã canh sẵn.
+# ============================================================================
+
+templates:
+
+  # ------------------- GÓI 7 NGÀY: BÙNG NỔ RA MẮT -------------------
+  sprint_7d:
+    name: "7-Day Launch Sprint 🚀"
+    goal: "Kích hoạt kênh, dạy thuật toán nhận diện nội dung, gom subs đầu tiên."
+    duration_days: 7
+    cadence:
+      short_per_day: 3        # dồn shorts để tạo nhịp + reach nhanh
+      long_per_week: 2        # 2 video dài trong tuần
+    best_times:
+      short: ["07:30", "12:30", "20:00"]   # giờ VN (canh giờ vàng US tối)
+      long:  ["20:30"]
+    notes: "Ưu tiên shorts hook mạnh. Không đăng quá 6 shorts/ngày (tránh bị coi spam)."
+
+  # ------------------- GÓI 30 NGÀY: TĂNG TRƯỞNG ĐỀU -------------------
+  growth_30d:
+    name: "30-Day Growth Engine 📈"
+    goal: "Xây thói quen xem, đẩy watch-time, lên đề xuất ổn định."
+    duration_days: 30
+    cadence:
+      short_per_day: 2
+      long_per_week: 3
+    best_times:
+      short: ["12:30", "20:00"]
+      long:  ["20:30"]
+    notes: "Nhịp bền vững. Xen kẽ short kéo view — long giữ chân."
+
+  # ------------------- GÓI 90 NGÀY: SCALE BỀN VỮNG -------------------
+  scale_90d:
+    name: "90-Day Authority Scale 🏆"
+    goal: "Trở thành kênh top niche, đủ điều kiện bật kiếm tiền, thư viện nội dung sâu."
+    duration_days: 90
+    cadence:
+      short_per_day: 1
+      long_per_week: 4
+    best_times:
+      short: ["20:00"]
+      long:  ["20:30", "12:30"]
+    notes: "Chất lượng > số lượng. Mỗi long là 1 trụ nội dung (pillar) có thể cắt ra nhiều short."
+
+# ============================================================================
+#  QUY TẮC AN TOÀN (chống spam / vi phạm chính sách nền tảng)
+# ============================================================================
+safety_limits:
+  youtube_max_uploads_per_day: 6      # trần thực tế do quota API (10.000/1.600)
+  facebook_max_uploads_per_day: 10
+  min_minutes_between_uploads: 30     # giãn cách để không bị gắn cờ spam
+  # Nếu tổng video "due" vượt trần/ngày -> tự đẩy phần dư sang ngày kế tiếp.
+  overflow_policy: "rollover_next_day"

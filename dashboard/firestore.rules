@@ -1,0 +1,25 @@
+rules_version = '2';
+// ============================================================================
+//  BẢO MẬT FIRESTORE
+//  - Chỉ CHỦ (email của bạn) được ĐỌC dashboard.
+//  - KHÔNG ai ghi được từ client (chỉ backend/service account qua Admin SDK ghi).
+//  👉 Đổi "YOUR_EMAIL@gmail.com" thành email Google bạn dùng đăng nhập dashboard.
+// ============================================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner() {
+      return request.auth != null
+        && request.auth.token.email == "YOUR_EMAIL@gmail.com";
+    }
+
+    match /videos/{doc} {
+      allow read: if isOwner();
+      allow write: if false;   // service account bỏ qua rules (Admin) => vẫn ghi được
+    }
+    match /counters/{doc} {
+      allow read: if isOwner();
+      allow write: if false;
+    }
+  }
+}

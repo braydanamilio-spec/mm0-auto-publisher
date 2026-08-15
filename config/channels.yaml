@@ -1,0 +1,106 @@
+# ============================================================================
+#  MM0 AUTO-PUBLISHER — CẤU HÌNH KÊNH (MULTI-CHANNEL)
+# ============================================================================
+#  Mỗi kênh khai báo 1 block. Secrets (client_id / token...) KHÔNG viết ở đây,
+#  chỉ ghi TÊN biến môi trường (env). Giá trị thật lưu trong GitHub Secrets.
+#  => code an toàn để đẩy repo public (unlimited Actions minutes).
+#
+#  Muốn thêm kênh: copy 1 block, đổi key + đổi tên env, thêm secret tương ứng.
+# ============================================================================
+
+# Tên project Firestore (dùng cho state + dashboard). Đặt trong GH Secret FIREBASE_PROJECT_ID.
+firestore_project_env: FIREBASE_PROJECT_ID
+
+# Múi giờ mặc định để tính "best time to post" (theo giờ VN).
+timezone: "Asia/Ho_Chi_Minh"
+
+channels:
+
+  # -------------------------------------------------------------------------
+  BROKE:
+    display_name: "BROKE"
+    enabled: true
+    # ID folder gốc của kênh này trên Google Drive (lấy từ URL folder).
+    drive_folder_id_env: BROKE_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: BROKE_YT_CLIENT_ID
+      client_secret_env: BROKE_YT_CLIENT_SECRET
+      refresh_token_env: BROKE_YT_REFRESH_TOKEN
+      category_id: "27"          # 27 = Education, 24 = Entertainment, 26 = Howto
+      default_language: "en"
+      made_for_kids: false
+      privacy: "public"          # public | unlisted | private
+    facebook:
+      enabled: true
+      page_id_env: BROKE_FB_PAGE_ID
+      page_token_env: BROKE_FB_PAGE_TOKEN
+    branding:
+      niche: "money / personal finance"
+      # Hashtag mặc định (YouTube chỉ tính ~3 hashtag đầu, để tối đa 3-5 cái mạnh).
+      hashtags: ["#money", "#finance", "#brokenomore"]
+      # Template tiêu đề — {topic} sẽ được thay bằng chủ đề video.
+      long_title_template: "{topic}"
+      short_title_template: "{topic} #shorts"
+      # Chèn cuối description (CTA + disclaimer để tránh vi phạm chính sách).
+      cta: "🔔 Subscribe for more money stories.\n"
+      disclaimer: "This video is for educational and entertainment purposes only, not financial advice."
+
+  # -------------------------------------------------------------------------
+  INSIDE_YOU:
+    display_name: "INSIDE YOU"
+    enabled: true
+    drive_folder_id_env: INSIDE_YOU_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: INSIDE_YOU_YT_CLIENT_ID
+      client_secret_env: INSIDE_YOU_YT_CLIENT_SECRET
+      refresh_token_env: INSIDE_YOU_YT_REFRESH_TOKEN
+      category_id: "27"
+      default_language: "en"
+      made_for_kids: false
+      privacy: "public"
+    facebook:
+      enabled: true
+      page_id_env: INSIDE_YOU_FB_PAGE_ID
+      page_token_env: INSIDE_YOU_FB_PAGE_TOKEN
+    branding:
+      niche: "psychology / self / body"
+      hashtags: ["#psychology", "#mind", "#insideyou"]
+      long_title_template: "{topic}"
+      short_title_template: "{topic} #shorts"
+      cta: "🔔 Subscribe to understand yourself better.\n"
+      disclaimer: "For educational purposes only. Not medical or psychological advice."
+
+  # -------------------------------------------------------------------------
+  HUH:
+    display_name: "HUH?"
+    enabled: true
+    drive_folder_id_env: HUH_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: HUH_YT_CLIENT_ID
+      client_secret_env: HUH_YT_CLIENT_SECRET
+      refresh_token_env: HUH_YT_REFRESH_TOKEN
+      category_id: "27"
+      default_language: "en"
+      made_for_kids: false
+      privacy: "public"
+    facebook:
+      enabled: true
+      page_id_env: HUH_FB_PAGE_ID
+      page_token_env: HUH_FB_PAGE_TOKEN
+    branding:
+      niche: "curiosity / weird facts"
+      hashtags: ["#facts", "#didyouknow", "#huh"]
+      long_title_template: "{topic}"
+      short_title_template: "{topic} #shorts"
+      cta: "🔔 Subscribe — get curious.\n"
+      disclaimer: ""
+
+# ============================================================================
+#  GỢI Ý category_id YouTube phổ biến:
+#   1 Film & Animation | 2 Autos | 10 Music | 17 Sports | 19 Travel
+#   20 Gaming | 22 People & Blogs | 23 Comedy | 24 Entertainment
+#   25 News & Politics | 26 Howto & Style | 27 Education | 28 Science & Tech
+# ============================================================================

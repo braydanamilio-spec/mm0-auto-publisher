@@ -1,0 +1,12 @@
+# KHÔNG BAO GIỜ commit secrets / key
+*.json.key
+sa.json
+service-account*.json
+client_secret*.json
+.env
+.env.*
+*.mp4
+*.mov
+__pycache__/
+*.pyc
+.DS_Store
