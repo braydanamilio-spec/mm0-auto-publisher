@@ -28,13 +28,15 @@ Bạn sẽ thu thập dần các giá trị bí mật (secrets) rồi dán vào 
 
 ## Bước 2 — OAuth để lấy REFRESH TOKEN cho từng kênh YouTube
 
-YouTube bắt buộc dùng OAuth của chính chủ kênh. Làm 1 lần → token chạy mãi.
+> 🔑 **CƠ CHẾ CẤP QUYỀN 1 LẦN (quan trọng):** Bạn đăng nhập + Cho phép **đúng 1 lần cho mỗi kênh** → nhận `REFRESH_TOKEN`. Từ đó hệ thống tự làm mới access token và **đăng / lên lịch / lấy thống kê hoàn toàn qua API, KHÔNG bao giờ đăng nhập lại**. Đây là cách chính thức, được YouTube cho phép (không phải cày tay, không proxy).
 
 1. **APIs & Services → OAuth consent screen**:
    - User type: **External** → Create.
    - Điền tên app, email hỗ trợ (email bạn), lưu.
-   - **Scopes:** thêm `.../auth/youtube.upload` và `.../auth/youtube`.
-   - **Test users:** thêm **email của TỪNG kênh** bạn sẽ đăng nhập. (App ở chế độ Testing là đủ, refresh token của Desktop app **không hết hạn** khi bạn là test user.)
+   - **Scopes:** thêm `.../auth/youtube.upload`, `.../auth/youtube`, và `.../auth/youtube.force-ssl` (cần cho phụ đề + đọc thống kê).
+   - ⭐ **BẮT BUỘC để token không hết hạn — "Publishing status":** ở màn OAuth consent screen bấm **PUBLISH APP → chuyển sang "In production"**.
+     - Nếu để **Testing**: refresh token **hết hạn sau 7 ngày** → phải cấp quyền lại hàng tuần (phiền).
+     - Khi **Production**: refresh token **sống mãi** (chỉ mất nếu bạn tự thu hồi). Lúc cấp quyền có thể hiện cảnh báo "unverified app" → bấm **Advanced → Go to … (unsafe)** để tiếp tục (an toàn vì là app của chính bạn).
 2. **APIs & Services → Credentials → Create Credentials → OAuth client ID**:
    - Application type: **Desktop app** → Create → **Download JSON** (đặt tên `client_secret.json`).
 3. Trên **máy bạn**, cài Python rồi chạy (làm lại cho **mỗi kênh**, mỗi lần đăng nhập đúng tài khoản kênh đó):
@@ -189,3 +191,16 @@ YouTube bắt buộc dùng OAuth của chính chủ kênh. Làm 1 lần → toke
 - **Không bao giờ trùng/sót:** Firestore là "sổ cái" — mỗi video 1 trạng thái; đã `posted` thì không đăng lại; file tự rời `_QUEUE`.
 - **An toàn chính sách:** `metadata.lint()` cảnh báo cụm từ rủi ro; tự chèn disclaimer; giữ giãn cách ≥30 phút chống spam.
 - **Lên lịch native YouTube:** đặt `use_native_schedule: true` trong block `youtube` của kênh → video upload dạng private và YouTube tự công khai đúng `publish_at` (mượt hơn nữa).
+
+## Tuân thủ chuẩn YouTube — KHÔNG spam, KHÔNG vi phạm
+
+Hệ thống thiết kế theo đúng chính sách nền tảng (đã cài sẵn cơ chế bảo vệ):
+
+- ✅ **Dùng API chính thức** (YouTube Data API v3 + OAuth) — không cày tay, không bot trình duyệt, không proxy giả IP → đúng kênh Google cho phép.
+- ✅ **Tôn trọng quota**: tự dừng khi hết quota (giữ video chờ ngày mai), không spam request.
+- ✅ **Giãn cách chống spam**: mặc định ≥30 phút giữa 2 lần đăng + trần/ngày (`posting_templates.yaml → safety_limits`). Không đăng dồn cục.
+- ✅ **Nội dung sạch**: `metadata.lint()` cảnh báo cụm từ rủi ro (get rich quick, guaranteed money, sub4sub…), tự chèn disclaimer, ép title đúng giới hạn — giảm rủi ro mất kiếm tiền / gắn cờ.
+- ✅ **Không trùng, không sót**: mỗi video 1 trạng thái ở Firestore; đã đăng không đăng lại.
+- ⚠️ **Bạn tự đảm bảo**: nội dung phải nguyên bản/được phép, không reup vi phạm bản quyền, không clickbait sai sự thật. Công cụ đăng đúng chuẩn, nhưng **chất lượng & bản quyền nội dung là của bạn**.
+
+> Vì đây là API hợp pháp (giống TubeBuddy/Hootsuite), việc quản lý nhiều kênh của **chính bạn** là hoàn toàn hợp lệ — khác hẳn farm tài khoản.
