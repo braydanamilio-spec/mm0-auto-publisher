@@ -432,7 +432,7 @@
     const CH_COLORS = ["#6c4ee6","#2563eb","#16a34a","#d97706","#dc2626","#0891b2","#7c3aed","#db2777"];
     const YT_CAP = 6, FB_CAP = 10;
     // 🔧 THAY bằng URL Worker sau khi deploy (vd https://mm0-connect.<subdomain>.workers.dev)
-    const WORKER_URL = "PASTE_WORKER_URL";
+    const WORKER_URL = "https://mm0-connect.adisondurham-ef1.workers.dev";
     function connectChannel(channel, kind){
       if (!WORKER_URL || WORKER_URL === "PASTE_WORKER_URL")
         return alert("Chưa cấu hình WORKER_URL trong dashboard/index.html. Deploy Worker rồi dán URL vào.");
