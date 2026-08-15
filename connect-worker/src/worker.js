@@ -27,6 +27,7 @@ export default {
       if (url.pathname === "/api/branding") return corsResp(await apiBranding(request, url, env));
       if (url.pathname === "/api/comments") return corsResp(await apiComments(request, url, env));
       if (url.pathname === "/api/comment-action") return corsResp(await apiCommentAction(request, url, env));
+      if (url.pathname === "/api/disconnect") return corsResp(await apiDisconnect(request, url, env));
     } catch (e) {
       // API trả JSON lỗi; trang HTML trả trang lỗi
       if (url.pathname.startsWith("/api/")) return corsResp(json({ error: String(e && e.message || e) }, 400));
@@ -188,6 +189,28 @@ async function apiCommentAction(request, url, env) {
     default:
       throw new Error("action không hỗ trợ: " + action);
   }
+}
+
+// POST /api/disconnect {t, channel, kind}  -> GỠ kênh/kho khỏi tài khoản quản lý
+//   Xoá doc connections + channels/storage_accounts, và thu hồi (revoke) token Google.
+async function apiDisconnect(request, url, env) {
+  const body = request.method === "POST" ? await request.json().catch(() => ({})) : {};
+  const g = (k) => body[k] != null ? body[k] : url.searchParams.get(k);
+  const t = g("t"), channel = g("channel"), kind = g("kind") || "youtube";
+  if (!t) throw new Error("Thiếu token đăng nhập.");
+  if (!channel) throw new Error("Thiếu channel.");
+  const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
+  const at = await saAccessToken(env);
+  // Thu hồi quyền Google (best-effort) rồi mới xoá
+  try {
+    const conn = await fsGet(env, at, `connections/${uid}__${channel}__${kind}`);
+    if (conn && conn.refresh_token)
+      await fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(conn.refresh_token), { method: "POST" });
+  } catch (_) {}
+  await fsDelete(env, at, `connections/${uid}__${channel}__${kind}`);
+  if (kind === "youtube") await fsDelete(env, at, `channels/${uid}__${channel}`);
+  if (kind === "drive") await fsDelete(env, at, `storage_accounts/${uid}__${channel}`);
+  return json({ ok: true, channel, kind });
 }
 
 /* ---------- YouTube access token từ refresh_token ---------- */
@@ -410,6 +433,12 @@ async function fsGet(env, accessToken, path) {
       : v.doubleValue != null ? v.doubleValue : null;
   }
   return out;
+}
+
+async function fsDelete(env, accessToken, path) {
+  const u = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/${path}`;
+  const res = await fetch(u, { method: "DELETE", headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok && res.status !== 404) throw new Error("Firestore delete fail: " + res.status);
 }
 
 /* ---------- JSON + CORS ---------- */
