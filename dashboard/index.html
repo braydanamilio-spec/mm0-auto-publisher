@@ -1053,6 +1053,12 @@
             <div class="chub-st"><b class="tnum">${c.total_views!=null?fmtN(c.total_views):'—'}</b><span>views</span></div>
           </div>
           ${vids.length?'':`<div class="p-sub">📭 ${esc(t("ch_ready"))}</div>`}
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="p-sub" style="white-space:nowrap">📅 ${esc(t("act_template"))}:</span>
+            <select style="flex:1;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-family:var(--sans);font-size:12.5px" onchange="saveOverride('${esc(k)}',this.value)">
+              ${TEMPLATE_CATALOG.map(tp=>`<option value="${tp.id}" ${tp.id===(((__OVERRIDES.channels||{})[k])||'balanced_1long_3short')?'selected':''}>${esc(tp.name)} — ${esc(tp.desc)}</option>`).join("")}
+            </select>
+          </div>
           <div class="chub-acts">
             <button onclick="opChannel('${esc(k)}','branding')">🎨 ${esc(t("act_branding"))}</button>
             <button onclick="opChannel('${esc(k)}','comments')">💬 ${esc(t("act_comments"))}</button>
