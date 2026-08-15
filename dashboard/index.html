@@ -363,6 +363,20 @@
           </div>
           <div class="p-sub" style="margin-top:9px" data-i18n="st_hint">Click → sign in Drive account → grant → auto-creates store folder + saves token. Combine many = 150GB/1TB.</div>
         </div>
+        <div class="panel" style="margin-bottom:16px">
+          <div class="p-title">🧹 <span data-i18n="cleanup_cfg">Cleanup settings</span></div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:12px">
+            <select id="clMode">
+              <option value="keep">keep — giữ tất cả</option>
+              <option value="delete">delete — xóa file đã đăng cũ</option>
+              <option value="archive">archive — chuyển kho lạnh</option>
+            </select>
+            <label class="sd" style="display:flex;align-items:center;gap:6px"><span data-i18n="keep_days">Keep (days)</span>:
+              <input type="number" id="clDays" min="0" value="14" style="width:72px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-family:var(--sans)"></label>
+            <button class="btn-conn" id="btnSaveClean" data-i18n="save">Save</button>
+          </div>
+          <div class="p-sub" style="margin-top:9px">keep = giữ tất cả (Google One) · delete = xóa video đã đăng > N ngày (YouTube là backup) · archive = chuyển kho lạnh. <b>delete + N=0 = xóa hết video đã đăng.</b> Áp dụng lần dọn dẹp tới (workflow cleanup / <code>python src/cleanup.py</code>).</div>
+        </div>
         <div class="kpis" id="stKpis"></div>
         <div class="panel" style="margin-bottom:16px">
           <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive)</div><div class="p-sub" id="stMode"></div></div>
@@ -463,6 +477,11 @@
         toastMsg("✔ Đã duyệt — sẽ lên lịch đăng"); }
       catch(e){ alert("Duyệt lỗi: "+e.message); }
     };
+    window.saveCleanup = async (mode, days) => {
+      try { await setDoc(doc(db,"settings","overrides"), {cleanup:{mode, keep_days:Number(days)||0}}, {merge:true});
+        toastMsg("✔ Đã lưu dọn dẹp: "+mode+" · "+(Number(days)||0)+" ngày"); }
+      catch(e){ alert("Lỗi: "+e.message); }
+    };
     window.initTheme(); window.wireNav(); window.paintIcons(); window.paintBrand();
   </script>
 
@@ -504,6 +523,7 @@
         default_tpl:"Default template", cleanup_mode:"Cleanup mode", safety_cap:"Daily safety cap",
         tpl_per_channel:"Template per channel:", approve:"Approve", empty_filter:"No videos match the filter.",
         all_channels:"All channels", connecting:"Connecting…", synced:"Synced", no_view_data:"No view data yet.", no_video:"No video yet",
+        cleanup_cfg:"Cleanup settings", keep_days:"Keep (days)", save:"Save",
         login_sub:"Auto publish & analytics console for YouTube and Facebook.",
         login_google:"Sign in with Google", login_foot:"Only authorized accounts can access.",
       },
@@ -538,6 +558,7 @@
         default_tpl:"Template mặc định", cleanup_mode:"Chế độ dọn dẹp", safety_cap:"Trần an toàn/ngày",
         tpl_per_channel:"Template theo từng kênh:", approve:"Duyệt", empty_filter:"Không có video khớp bộ lọc.",
         all_channels:"Tất cả kênh", connecting:"Đang kết nối…", synced:"Đồng bộ", no_view_data:"Chưa có dữ liệu view.", no_video:"Chưa có video",
+        cleanup_cfg:"Cấu hình dọn dẹp", keep_days:"Giữ (ngày)", save:"Lưu",
         login_sub:"Trung tâm điều khiển đăng & phân tích video tự động trên YouTube và Facebook.",
         login_google:"Đăng nhập bằng Google", login_foot:"Chỉ tài khoản được cấp quyền mới truy cập được.",
       },
@@ -631,6 +652,8 @@
       if(cbtn)cbtn.onclick=()=>connectChannel(($("connChannel").value||"").trim().toUpperCase(),"youtube");
       const dbtn=$("btnConnDrive");
       if(dbtn)dbtn.onclick=()=>connectChannel(($("stAccName").value||"").trim(),"drive");
+      const sc=$("btnSaveClean");
+      if(sc)sc.onclick=()=>saveCleanup($("clMode").value,$("clDays").value);
       const lb=$("langBtn"); if(lb)lb.onclick=()=>setLang(LANG==="en"?"vi":"en");
       applyI18n(); syncLangBtn(); setTitle("overview");
     }
@@ -828,7 +851,12 @@
 
     function renderStorage(){
       const s=__STORAGE;
-      const mode=(s&&s.cleanup_mode)||(__SETTINGS&&__SETTINGS.cleanup&&__SETTINGS.cleanup.mode)||"—";
+      // nạp cấu hình dọn dẹp vào form (không đè khi đang gõ)
+      const clcfg=(__OVERRIDES&&__OVERRIDES.cleanup)||(s&&{mode:s.cleanup_mode,keep_days:s.keep_days})||(__SETTINGS&&__SETTINGS.cleanup)||{};
+      const cm=$("clMode"),cd=$("clDays");
+      if(cm&&clcfg.mode&&document.activeElement!==cm)cm.value=clcfg.mode;
+      if(cd&&clcfg.keep_days!=null&&document.activeElement!==cd)cd.value=clcfg.keep_days;
+      const mode=(s&&s.cleanup_mode)||(__SETTINGS&&__SETTINGS.cleanup&&__SETTINGS.cleanup.mode)||(clcfg.mode)||"—";
       $("stMode").textContent="Chế độ dọn: "+mode;
       const accs=(s&&s.accounts)||[];
       if(!accs.length){$("stKpis").innerHTML="";$("stAccounts").innerHTML=emptyBox("Chưa cấu hình tài khoản pool. Xem docs/STORAGE.md — mỗi tài khoản Google free 15GB, gộp lại thành 150GB/1TB.");return;}

@@ -54,6 +54,14 @@ def _mark_firestore(file_id: str, status: str):
 def run(dry_run=False, force_now=False):
     cfg = ST.load_config()
     policy = cfg.get("cleanup", {})
+    # Ưu tiên cấu hình chỉnh trên DASHBOARD (Firestore settings/overrides.cleanup)
+    try:
+        from firestore_state import State
+        ov = (State().get_doc("settings", "overrides") or {}).get("cleanup")
+        if ov:
+            policy = {**policy, **ov}
+    except Exception:
+        pass
     mode = policy.get("mode", "keep")
     keep_days = policy.get("keep_days", 14)
 
