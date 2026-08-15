@@ -492,7 +492,10 @@
       sub("videos", s => { window.setData(s.docs.map(d=>({id:d.id,...d.data()})), null, null); setLive(true); });
       sub("channels", s => { const c={}; s.docs.forEach(d=>{const v=d.data();c[v.channel||d.id]=v;}); window.setData(null,c,null); });
       sub("counters", s => { const k={}; s.docs.forEach(d=>{const v=d.data();k[v.channel||d.id]=v;}); window.setData(null,null,k); });
-      sub("storage", s => { const d=s.docs[0]; window.setStorage(d?d.data():null); });
+      sub("storage_accounts", s => {
+        const accounts = s.docs.map(d=>{const v=d.data();return {name:v.name, email:v.email, used:v.used||0, cap:(v.cap_gb||14)*1e9};});
+        window.setStorage(accounts.length ? {accounts} : null);
+      });
       sub("settings", s => {
         const d=s.docs.find(x=>x.id.startsWith("config")); window.setSettings(d?d.data():null);
         const o=s.docs.find(x=>x.id.startsWith("overrides")); window.setOverrides(o?o.data():{});

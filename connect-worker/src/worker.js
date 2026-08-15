@@ -117,10 +117,21 @@ async function callback(url, env) {
   if (kind === "drive") {
     // tạo/tìm folder kho "MM0-STORE" trong tài khoản Drive này
     const root = await ensureDriveFolder(tok.access_token, "MM0-STORE");
-    await fsPatch(env, at, `connections/${uid}__${channel}__drive`, { ...base, root });
+    // Đọc DUNG LƯỢNG THẬT của tài khoản (free 15GB hay Google One 100GB/2TB) -> dùng cả 2
+    let cap_gb = 14, used = 0;
+    try {
+      const ab = await (await fetch(
+        "https://www.googleapis.com/drive/v3/about?fields=storageQuota",
+        { headers: { Authorization: `Bearer ${tok.access_token}` } })).json();
+      const q = ab.storageQuota || {};
+      if (q.limit) cap_gb = Math.max(1, Math.floor(Number(q.limit) / 1e9) - 1); // chừa ~1GB
+      used = Number(q.usage || 0);
+    } catch (_) {}
+    await fsPatch(env, at, `connections/${uid}__${channel}__drive`, { ...base, root, cap_gb });
     await fsPatch(env, at, `storage_accounts/${uid}__${channel}`,
-      { name: channel, owner: uid, email, connected_at: new Date().toISOString() },
-      ["name", "owner", "email", "connected_at"]);
+      { name: channel, owner: uid, email, cap_gb, used, root,
+        connected_at: new Date().toISOString() },
+      ["name", "owner", "email", "cap_gb", "used", "root", "connected_at"]);
   } else {
     await fsPatch(env, at, `connections/${uid}__${channel}__youtube`, base);
     // Lấy thông tin kênh THẬT (title/subs/id) để hiển thị đúng, không chỉ nhãn
