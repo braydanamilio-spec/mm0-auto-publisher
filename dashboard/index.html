@@ -279,7 +279,7 @@
       <div style="display:flex;align-items:center;gap:10px;margin:18px 0;color:var(--faint);font-size:12px">
         <div style="flex:1;height:1px;background:var(--border)"></div><span data-i18n="or">OR</span><div style="flex:1;height:1px;background:var(--border)"></div>
       </div>
-      <input type="email" id="emailIn" placeholder="Email" autocomplete="username"
+      <input type="text" id="emailIn" placeholder="Email hoặc tên đăng nhập" autocomplete="username"
         style="width:100%;padding:12px;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--text);font-size:14px;margin-bottom:10px">
       <input type="password" id="passIn" placeholder="••••••••" autocomplete="current-password"
         style="width:100%;padding:12px;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--text);font-size:14px">
@@ -601,11 +601,14 @@
 
     document.getElementById("signin").onclick = () =>
       signInWithPopup(auth, new GoogleAuthProvider()).catch(e => alert(e.message));
-    const emVal=()=>[document.getElementById("emailIn").value.trim(), document.getElementById("passIn").value];
+    // Cho phép dùng USERNAME thuần: nếu không có "@" -> tự thêm đuôi ngầm (Firebase cần dạng email).
+    // Người dùng chỉ cần nhớ username + mật khẩu; KHÔNG cần email thật, KHÔNG cần verify.
+    const normUser=(v)=>{ v=(v||"").trim(); return v && !v.includes("@") ? v.toLowerCase().replace(/[^a-z0-9._-]/g,"")+"@mm0user.app" : v; };
+    const emVal=()=>[normUser(document.getElementById("emailIn").value), document.getElementById("passIn").value];
     document.getElementById("emailSignin").onclick = () => { const [e,p]=emVal();
-      if(!e||!p) return alert("Nhập email + mật khẩu."); signInWithEmailAndPassword(auth,e,p).catch(err=>alert(err.message)); };
+      if(!e||!p) return alert("Nhập email/tên đăng nhập + mật khẩu."); signInWithEmailAndPassword(auth,e,p).catch(err=>alert(err.message)); };
     document.getElementById("emailSignup").onclick = () => { const [e,p]=emVal();
-      if(!e||p.length<6) return alert("Email hợp lệ + mật khẩu ≥ 6 ký tự.");
+      if(!e||p.length<6) return alert("Nhập email hoặc tên đăng nhập + mật khẩu ≥ 6 ký tự.");
       createUserWithEmailAndPassword(auth,e,p).catch(err=>alert(err.message)); };
     document.getElementById("passIn").addEventListener("keydown",ev=>{ if(ev.key==="Enter")document.getElementById("emailSignin").click(); });
     document.getElementById("signout").onclick = () => signOut(auth);
