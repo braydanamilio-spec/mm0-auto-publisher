@@ -47,8 +47,11 @@ def assign_slots(
     day0 = start.date()
 
     # Tách theo loại, giữ thứ tự
-    shorts = [i for i in items if i.get("type") == "short" and not i.get("publish_at")]
-    longs = [i for i in items if i.get("type") == "long" and not i.get("publish_at")]
+    # Không lên lịch video đang CHỜ DUYỆT (needs_review) hoặc đã đăng
+    def _schedulable(i):
+        return not i.get("publish_at") and i.get("status") not in ("needs_review", "posted", "uploading")
+    shorts = [i for i in items if i.get("type") == "short" and _schedulable(i)]
+    longs = [i for i in items if i.get("type") == "long" and _schedulable(i)]
 
     def next_free_slot(day_offset_start, times_list, per_period, period_days):
         """generator sinh các slot trống lần lượt."""
@@ -99,7 +102,7 @@ def due_items(items: list[dict], now: datetime) -> list[dict]:
         except ValueError:
             continue
         status = it.get("status", "pending")
-        if status in ("posted", "uploading"):
+        if status in ("posted", "uploading", "needs_review"):
             continue
         if dt <= now:
             ready.append(it)

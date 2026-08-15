@@ -19,7 +19,11 @@ service cloud.firestore {
 
     match /videos/{doc} {
       allow read: if isOwner();
-      allow write: if false;   // service account bỏ qua rules (Admin) => vẫn ghi được
+      // Chủ được DUYỆT: chỉ đổi status/publish_at/reviewed_at, không đụng field khác.
+      allow update: if isOwner()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'publish_at', 'reviewed_at']);
+      allow create, delete: if false;   // service account (Admin) bỏ qua rules
     }
     match /counters/{doc} {
       allow read: if isOwner();

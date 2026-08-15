@@ -197,6 +197,11 @@
     .t-pending,.t-unknown{background:var(--warn-soft);color:var(--warn)}
     .t-uploading{background:var(--violet-soft);color:var(--violet)}
     .t-failed,.t-error{background:var(--bad-soft);color:var(--bad)}
+    .t-needs_review{background:var(--warn-soft);color:var(--warn)}
+    .t-approved{background:var(--info-soft);color:var(--info)}
+    .btn-approve{font-size:11px;font-weight:700;padding:4px 10px;border-radius:8px;border:none;cursor:pointer;
+      background:var(--good);color:#fff}
+    .btn-approve:hover{filter:brightness(1.05)}
     .lk{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:8px;
       background:var(--surface2);border:1px solid var(--border);color:var(--text2);margin-right:5px}
     .lk:hover{border-color:var(--faint)}
@@ -313,7 +318,7 @@
       <section id="v-videos" class="content hide">
         <div class="toolbar">
           <input type="search" id="search" placeholder="🔍 Tìm tiêu đề…" />
-          <select id="stFilter"><option value="">Mọi trạng thái</option><option value="posted">Đã đăng</option><option value="scheduled">Đã lên lịch</option><option value="pending">Chờ</option><option value="uploading">Đang upload</option><option value="failed">Lỗi</option></select>
+          <select id="stFilter"><option value="">Mọi trạng thái</option><option value="needs_review">Chờ duyệt</option><option value="posted">Đã đăng</option><option value="scheduled">Đã lên lịch</option><option value="pending">Chờ</option><option value="uploading">Đang upload</option><option value="failed">Lỗi</option></select>
           <select id="tyFilter"><option value="">Long &amp; Short</option><option value="long">Long</option><option value="short">Short</option></select>
           <select id="sortBy"><option value="publish_at">Sắp theo giờ đăng</option><option value="views">Sắp theo lượt xem</option></select>
         </div>
@@ -430,17 +435,31 @@
       sub("channels", s => { const c={}; s.docs.forEach(d=>c[d.id]=d.data()); window.setData(null,c,null); });
       sub("counters", s => { const k={}; s.docs.forEach(d=>k[d.id]=d.data()); window.setData(null,null,k); });
       sub("storage", s => { const d=s.docs.find(x=>x.id==="pool"); window.setStorage(d?d.data():null); });
-      sub("settings", s => { const d=s.docs.find(x=>x.id==="config"); window.setSettings(d?d.data():null); });
+      sub("settings", s => {
+        const d=s.docs.find(x=>x.id==="config"); window.setSettings(d?d.data():null);
+        const o=s.docs.find(x=>x.id==="overrides"); window.setOverrides(o?o.data():{});
+      });
     }
     function setLive(ok){
       const el=document.getElementById("live"); el.classList.toggle("err",!ok);
       document.getElementById("liveTx").textContent = ok
         ? "Đồng bộ "+new Date().toLocaleTimeString("vi-VN") : "Lỗi kết nối — kiểm tra rules";
     }
+    const toastMsg = (m) => { const t=document.getElementById("toast"); if(t){t.textContent=m; t.style.opacity="1"; setTimeout(()=>t.style.opacity="0",2600);} };
     window.saveOverride = async (channel, tmpl) => {
       try { await setDoc(doc(db,"settings","overrides"), {channels:{[channel]:tmpl}}, {merge:true});
-        const t=document.getElementById("toast"); if(t){t.textContent=`✔ ${channel}: ${tmpl} (áp dụng lần chạy tới)`; t.style.opacity="1"; setTimeout(()=>t.style.opacity="0",2500);} }
+        toastMsg(`✔ ${channel}: ${tmpl} (áp dụng lần chạy tới)`); }
       catch(e){ alert("Lưu template lỗi: "+e.message); }
+    };
+    window.saveReviewMode = async (on) => {
+      try { await setDoc(doc(db,"settings","overrides"), {review_mode:!!on}, {merge:true});
+        toastMsg(on?"✔ Đã bật chế độ DUYỆT (video mới sẽ chờ duyệt)":"✔ Đã tắt duyệt (đăng tự động)"); }
+      catch(e){ alert("Lỗi: "+e.message); }
+    };
+    window.approveVideo = async (id) => {
+      try { await setDoc(doc(db,"videos",id), {status:"approved", reviewed_at:new Date().toISOString()}, {merge:true});
+        toastMsg("✔ Đã duyệt — sẽ lên lịch đăng"); }
+      catch(e){ alert("Duyệt lỗi: "+e.message); }
     };
     window.initTheme(); window.wireNav(); window.paintIcons(); window.paintBrand();
   </script>
@@ -457,10 +476,11 @@
       if (!channel) return alert("Nhập tên kênh trước (vd BROKE).");
       window.open(`${WORKER_URL}/auth/start?channel=${encodeURIComponent(channel)}&kind=${kind}`, "_blank");
     }
-    let __V=[], __C={}, __K={}, __STORAGE=null, __SETTINGS=null;
+    let __V=[], __C={}, __K={}, __STORAGE=null, __SETTINGS=null, __OVERRIDES={};
     window.setData = (v,c,k) => { if(v)__V=v; if(c)__C=c; if(k)__K=k; renderAll(); };
     window.setStorage = (s) => { __STORAGE=s; renderStorage(); };
     window.setSettings = (s) => { __SETTINGS=s; renderSettings(); };
+    window.setOverrides = (o) => { __OVERRIDES=o||{}; renderSettings(); renderAll(); };
     // Catalog template (khớp config/posting_templates.yaml) — hiển thị ở trang Cài đặt
     const TEMPLATE_CATALOG = [
       {id:"balanced_1long_3short",name:"Cân bằng ⚖️",desc:"1 Long + 3 Short/ngày · 12:00·17:00·20:00 + 15:00 (ET)",star:true},
@@ -532,7 +552,7 @@
 
     const V=()=>__V, C=()=>__C, K=()=>__K;
     const eff=v=>v.status==="pending"&&v.publish_at?"scheduled":v.status;
-    const LABEL={posted:"Đã đăng",scheduled:"Đã lên lịch",pending:"Chờ",uploading:"Đang upload",failed:"Lỗi"};
+    const LABEL={posted:"Đã đăng",scheduled:"Đã lên lịch",pending:"Chờ",uploading:"Đang upload",failed:"Lỗi",needs_review:"Chờ duyệt",approved:"Đã duyệt"};
     const fmtN=n=>(n==null?"—":Intl.NumberFormat("en",{notation:n>=10000?"compact":"standard",maximumFractionDigits:1}).format(n));
     const fmtDt=i=>i?new Date(i).toLocaleString("vi-VN",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"—";
     const ago=i=>{ if(!i)return"chưa có"; const d=Date.now()-new Date(i); const m=Math.floor(d/6e4);
@@ -663,11 +683,12 @@
         if(v.results?.youtube?.url)L.push(`<a class="lk" href="${v.results.youtube.url}" target="_blank">▶ YT</a>`);
         if(v.results?.facebook?.url)L.push(`<a class="lk" href="${v.results.facebook.url}" target="_blank">f FB</a>`);
         const warn=v.warnings?.length?`<div class="vwarn">${wrap('warn')} ${v.warnings.length} cảnh báo</div>`:"";
+        const approve=s==="needs_review"?`<button class="btn-approve" onclick="approveVideo('${v.id}')">✓ Duyệt</button>`:"";
         return `<tr><td><b>${esc(v.channel||"")}</b></td><td><div class="vtitle">${esc(v.title||v.drive_name||"")}</div>${warn}</td>
           <td><span class="type">${esc((v.type||"").toUpperCase())}</span></td><td><span class="tag t-${s}">${LABEL[s]||s}</span></td>
           <td style="color:var(--muted);white-space:nowrap">${fmtDt(v.publish_at)}</td>
           <td class="num tnum">${v.stats?.views!=null?fmtN(v.stats.views):"—"}</td><td class="num tnum">${v.stats?.likes!=null?fmtN(v.stats.likes):"—"}</td>
-          <td style="white-space:nowrap">${L.join("")||"—"}</td></tr>`;}).join("")||`<tr><td colspan="8">${emptyBox("Không có video khớp bộ lọc.")}</td></tr>`;
+          <td style="white-space:nowrap">${approve}${L.join("")||(approve?"":"—")}</td></tr>`;}).join("")||`<tr><td colspan="8">${emptyBox("Không có video khớp bộ lọc.")}</td></tr>`;
     }
     function renderSchedule(){
       const list=scoped().filter(v=>v.publish_at).sort((a,b)=>a.publish_at.localeCompare(b.publish_at));let html="",last="";
@@ -743,13 +764,17 @@
       $("setUpdated").textContent=s&&s.updated_at?"Cập nhật "+ago(s.updated_at):"";
       const def=(s&&s.default_template)||"balanced_1long_3short";
       const cl=(s&&s.cleanup)||{}, sf=(s&&s.safety)||{youtube_max_uploads_per_day:6,facebook_max_uploads_per_day:10,min_minutes_between_uploads:30};
+      const ov=__OVERRIDES||{}, ovch=ov.channels||{}; const rv=!!ov.review_mode;
       const chMap=(s&&s.channels)||{};
       const chans=[...new Set([...Object.keys(chMap),...Object.keys(chanMap())])].sort();
       const opts=(sel)=>TEMPLATE_CATALOG.map(t=>`<option value="${t.id}" ${t.id===sel?"selected":""}>${esc(t.name)}</option>`).join("");
       const rows=chans.length?chans.map(k=>`<div class="svc"><div class="snm">${esc(k)}</div>
-        <select style="margin-left:auto" onchange="saveOverride('${esc(k)}',this.value)">${opts(chMap[k]||def)}</select></div>`).join("")
+        <select style="margin-left:auto" onchange="saveOverride('${esc(k)}',this.value)">${opts(ovch[k]||chMap[k]||def)}</select></div>`).join("")
         :`<div class="p-sub" style="padding:8px 0">Chưa có kênh — kết nối kênh ở tab Kết nối API trước.</div>`;
       $("setSummary").innerHTML=`
+        <div class="svc"><div class="snm">🔎 Duyệt trước khi đăng <span class="sd">(video mới chờ anh duyệt)</span></div>
+          <label style="margin-left:auto;display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:${rv?'var(--good)':'var(--muted)'}">
+            <input type="checkbox" ${rv?"checked":""} onchange="saveReviewMode(this.checked)" style="width:16px;height:16px;cursor:pointer"> ${rv?"BẬT":"Tắt"}</label></div>
         <div class="svc"><div class="snm">Template mặc định</div><span class="tag t-connected" style="margin-left:auto">${esc(def)}</span></div>
         <div class="svc"><div class="snm">Chế độ dọn dẹp</div><span class="tag t-unknown" style="margin-left:auto">${esc(cl.mode||'—')} · ${cl.keep_days||14} ngày · ${esc(cl.trigger||'auto')}</span></div>
         <div class="svc"><div class="snm">Trần an toàn/ngày</div><span class="sd" style="margin-left:auto">YT ${sf.youtube_max_uploads_per_day} · FB ${sf.facebook_max_uploads_per_day} · giãn ${sf.min_minutes_between_uploads}'</span></div>

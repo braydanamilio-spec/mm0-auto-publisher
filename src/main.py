@@ -72,7 +72,17 @@ def resolve_channel_env(ch: dict, state=None, key=None) -> dict:
     return out
 
 
-def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now, overrides=None):
+def _initial_status(prev, review_mode):
+    """Trạng thái khởi tạo cho video: phục hồi 'uploading'->pending; video mới ->
+    'needs_review' nếu bật chế độ duyệt, ngược lại 'pending'."""
+    if prev == "uploading":
+        return "pending"
+    if prev:
+        return prev
+    return "needs_review" if review_mode else "pending"
+
+
+def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now, overrides=None, review_mode=False):
     print(f"\n=== KÊNH: {ch['display_name']} ({key}) ===")
     resolved = resolve_channel_env(ch, state, key)
     root = resolved["drive_folder_id"]
@@ -110,9 +120,7 @@ def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now, 
             "type": meta["type"],
             "meta": meta,
             "publish_at": doc.get("publish_at") or raw.get("publish_at"),
-            # Phục hồi: file còn trong _QUEUE mà trạng thái "uploading" => job trước chết dở
-            # (concurrency đảm bảo không có run khác đang chạy) => cho đăng lại an toàn.
-            "status": "pending" if doc.get("status") == "uploading" else doc.get("status", "pending"),
+            "status": _initial_status(doc.get("status"), review_mode),
             "attempts": doc.get("attempts", 0),
             "warnings": warns,
             "thumbnail": sidecar.get("thumbnail"),
@@ -281,7 +289,7 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now):
                 os.remove(p)
 
 
-def process_pool(channels_cfg, templates, safety, tz, dry_run, state, now, overrides=None):
+def process_pool(channels_cfg, templates, safety, tz, dry_run, state, now, overrides=None, review_mode=False):
     """Quét HỒ CHỨA (nhiều tài khoản Drive), định tuyến kênh theo sidecar['channel']."""
     try:
         import storage as ST
@@ -315,7 +323,7 @@ def process_pool(channels_cfg, templates, safety, tz, dry_run, state, now, overr
                 "drive_file_id": f["id"], "drive_name": f["name"], "parent_id": f["parents"][0],
                 "channel": channel, "type": meta["type"], "meta": meta,
                 "publish_at": doc.get("publish_at") or raw.get("publish_at"),
-                "status": "pending" if doc.get("status") == "uploading" else doc.get("status", "pending"),
+                "status": _initial_status(doc.get("status"), review_mode),
                 "attempts": doc.get("attempts", 0),
                 "warnings": M.lint(meta), "thumbnail": sidecar.get("thumbnail"),
                 "captions": sidecar.get("captions"), "playlist": sidecar.get("playlist"),
@@ -364,8 +372,12 @@ def main():
 
     drive = Drive()
     state = State()
-    # Template chọn trên dashboard (per-channel) — ghi ở settings/overrides.channels
-    overrides = (state.get_doc("settings", "overrides") or {}).get("channels", {})
+    # Cấu hình chọn trên dashboard: template per-kênh + chế độ duyệt
+    ov_doc = state.get_doc("settings", "overrides") or {}
+    overrides = ov_doc.get("channels", {})
+    review_mode = bool(ov_doc.get("review_mode"))
+    if review_mode:
+        print("  🔎 Chế độ DUYỆT đang bật — video mới sẽ chờ anh duyệt trên dashboard.")
 
     for key, ch in channels["channels"].items():
         if not ch.get("enabled"):
@@ -373,7 +385,7 @@ def main():
         if args.only and key != args.only:
             continue
         try:
-            process_channel(key, ch, templates, safety, tz, args.dry_run, drive, state, now, overrides)
+            process_channel(key, ch, templates, safety, tz, args.dry_run, drive, state, now, overrides, review_mode)
         except Exception as e:
             print(f"  ❌ Kênh {key} lỗi tổng: {e}")
             traceback.print_exc()
@@ -381,7 +393,7 @@ def main():
     # Quét hồ chứa pool (nếu có cấu hình) — định tuyến kênh theo sidecar
     if not args.only:
         try:
-            process_pool(channels["channels"], templates, safety, tz, args.dry_run, state, now, overrides)
+            process_pool(channels["channels"], templates, safety, tz, args.dry_run, state, now, overrides, review_mode)
         except Exception as e:
             print(f"  ❌ Pool lỗi tổng: {e}")
             traceback.print_exc()
