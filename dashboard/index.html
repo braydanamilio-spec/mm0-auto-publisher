@@ -796,7 +796,7 @@
       $("chanList").innerHTML=ks.map(k=>{const vids=map[k],posted=vids.filter(v=>eff(v)==="posted").length,pct=vids.length?Math.round(posted/vids.length*100):0;
         const subs=C()[k]?.subscribers,col=chColor(k);
         return `<div class="chan-item"><div class="ava" style="background:linear-gradient(145deg,${col},${col}aa)">${esc(k.slice(0,2).toUpperCase())}</div>
-          <div class="chan-mid"><div class="nm">${esc(k)} ${subs!=null?`<span class="p-sub tnum">· ${fmtN(subs)} subs</span>`:""}</div>
+          <div class="chan-mid"><div class="nm">${esc((C()[k]&&C()[k].channel_title)||k)} ${subs!=null?`<span class="p-sub tnum">· ${fmtN(subs)} subs</span>`:""}</div>
           <div class="st">${posted}/${vids.length} đã đăng · ${vids.length-posted} hàng đợi</div><div class="bar"><i style="width:${pct}%"></i></div></div>
           <div class="chan-right"><div class="big tnum">${pct}%</div><div class="cap">hoàn tất</div></div></div>`;
       }).join("")||emptyBox("Chưa có kênh nào.");
@@ -880,7 +880,7 @@
         const gaugeColor=used>=YT_CAP?"var(--bad)":used>=YT_CAP-2?"var(--warn)":"var(--good)";
         const dots=Array.from({length:YT_CAP},(_,i)=>`<i style="background:${i<used?gaugeColor:'var(--surface2)'}"></i>`).join("");
         return `<div class="conn"><div class="conn-head"><div class="ava" style="background:linear-gradient(145deg,${col},${col}aa)">${esc(k.slice(0,2).toUpperCase())}</div>
-          <div class="nm">${esc(k)}</div></div>
+          <div class="nm">${esc((c.channel_title)||k)}${c.channel_title?` <span class="p-sub">· nhãn ${esc(k)}</span>`:""}</div></div>
           ${svcRow('yt','#ff0033','YouTube', ytState, c.subscribers!=null?fmtN(c.subscribers)+' subs · kiểm tra '+ago(c.yt_checked_at):(c.yt_error||'chưa có dữ liệu'))}
           ${svcRow('fb','#1877f2','Facebook Page', fbState, fbState==="connected"?'đăng gần nhất '+ago(c.last_publish_at):'chưa ghi nhận bài Facebook')}
           <div class="gauge"><div class="gl"><span>Quota YouTube hôm nay</span><span class="tnum" style="color:${gaugeColor};font-weight:700">${used}/${YT_CAP}</span></div><div class="dots">${dots}</div></div>
@@ -920,7 +920,7 @@
       $("stAccounts").innerHTML=accs.map(a=>{const pct=a.cap?Math.min(100,Math.round((a.used||0)/a.cap*100)):0;
         const col=pct>=95?"var(--bad)":pct>=80?"var(--warn)":"var(--good)";
         return `<div class="chan-item"><div class="ava" style="background:linear-gradient(145deg,var(--accent),var(--violet))">${esc((a.name||'?').slice(0,2).toUpperCase())}</div>
-          <div class="chan-mid"><div class="nm">${esc(a.name)}</div><div class="st">${fmtBytes(a.used||0)} / ${fmtBytes(a.cap||0)}</div>
+          <div class="chan-mid"><div class="nm">${esc(a.name)}${a.email?` <span class="p-sub">· ${esc(a.email)}</span>`:""}</div><div class="st">${fmtBytes(a.used||0)} / ${fmtBytes(a.cap||0)}</div>
           <div class="bar"><i style="width:${pct}%;background:${col}"></i></div></div>
           <div class="chan-right"><div class="big tnum" style="color:${col}">${pct}%</div><div class="cap">đã dùng</div></div></div>`;}).join("");
     }

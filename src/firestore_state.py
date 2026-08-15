@@ -52,29 +52,31 @@ class State:
         return out
 
     # ---------- COUNTERS (trần an toàn / ngày) ----------
-    def _counter_id(self, channel: str, day: datetime) -> str:
-        return f"{channel}_{day.strftime('%Y%m%d')}"
+    # owner != None -> multi-tenant: doc id có tiền tố uid + field owner
+    def _counter_id(self, channel: str, day: datetime, owner: str | None = None) -> str:
+        d = day.strftime('%Y%m%d')
+        return f"{owner}__{channel}__{d}" if owner else f"{channel}_{d}"
 
-    def get_counters(self, channel: str, day: datetime) -> dict:
-        cid = self._counter_id(channel, day)
+    def get_counters(self, channel: str, day: datetime, owner: str | None = None) -> dict:
+        cid = self._counter_id(channel, day, owner)
         doc = self.db.collection("counters").document(cid).get()
         return doc.to_dict() if doc.exists else {"yt": 0, "fb": 0, "last_upload_at": None}
 
-    def bump_counters(self, channel: str, day: datetime, yt: int = 0, fb: int = 0):
-        cid = self._counter_id(channel, day)
-        ref = self.db.collection("counters").document(cid)
-        ref.set(
-            {
-                "channel": channel,
-                "yt": firestore.Increment(yt),
-                "fb": firestore.Increment(fb),
-                "last_upload_at": datetime.now(timezone.utc).isoformat(),
-            },
-            merge=True,
-        )
+    def bump_counters(self, channel: str, day: datetime, yt: int = 0, fb: int = 0,
+                      owner: str | None = None):
+        cid = self._counter_id(channel, day, owner)
+        data = {
+            "channel": channel,
+            "yt": firestore.Increment(yt),
+            "fb": firestore.Increment(fb),
+            "last_upload_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if owner:
+            data["owner"] = owner
+        self.db.collection("counters").document(cid).set(data, merge=True)
 
-    def last_upload_at(self, channel: str, day: datetime) -> datetime | None:
-        c = self.get_counters(channel, day)
+    def last_upload_at(self, channel: str, day: datetime, owner: str | None = None):
+        c = self.get_counters(channel, day, owner)
         v = c.get("last_upload_at")
         return datetime.fromisoformat(v) if v else None
 
@@ -101,14 +103,20 @@ class State:
         return out
 
     # ---------- STATS (view / sub) ----------
-    def set_channel_stats(self, channel: str, data: dict):
+    def set_channel_stats(self, channel: str, data: dict, owner: str | None = None):
         data = {**data, "channel": channel, "updated_at": datetime.now(timezone.utc).isoformat()}
-        self.db.collection("channels").document(channel).set(data, merge=True)
+        if owner:
+            data["owner"] = owner
+        docid = f"{owner}__{channel}" if owner else channel
+        self.db.collection("channels").document(docid).set(data, merge=True)
 
-    def set_channel_health(self, channel: str, data: dict):
+    def set_channel_health(self, channel: str, data: dict, owner: str | None = None):
         """Ghi trạng thái KẾT NỐI/vận hành để trang 'Kết nối API' hiển thị realtime."""
-        self.db.collection("channels").document(channel).set(
-            {**data, "channel": channel}, merge=True)
+        d = {**data, "channel": channel}
+        if owner:
+            d["owner"] = owner
+        docid = f"{owner}__{channel}" if owner else channel
+        self.db.collection("channels").document(docid).set(d, merge=True)
 
     def all_counters_today(self, day: datetime) -> dict:
         """Bộ đếm đăng hôm nay của mọi kênh: {channel: {yt, fb}} (cho dashboard)."""
@@ -119,10 +127,12 @@ class State:
                 out[d.id[: -(len(suffix) + 1)]] = d.to_dict()
         return out
 
-    def posted_youtube(self, channel: str) -> list[tuple[str, str]]:
+    def posted_youtube(self, channel: str, owner: str | None = None) -> list[tuple[str, str]]:
         """Trả [(doc_id, youtube_video_id)] cho video đã đăng có id YouTube."""
         q = (self.db.collection("videos")
              .where("channel", "==", channel).where("status", "==", "posted"))
+        if owner:
+            q = q.where("owner", "==", owner)
         out = []
         for d in q.stream():
             r = d.to_dict()

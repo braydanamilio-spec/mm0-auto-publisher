@@ -1,28 +1,30 @@
 """
-cleanup.py — DỌN DẸP file đã đăng trong hồ chứa, theo chế độ anh tích chọn (storage.yaml).
+cleanup.py — DỌN DẸP file đã đăng trong hồ chứa (PER-USER / multi-tenant).
 
-Chế độ (cleanup.mode):
+Mỗi user có chính sách riêng (settings/overrides__<uid>.cleanup):
   keep    -> không xoá gì (Google One giữ tất cả).
-  delete  -> xoá hẳn file trong _POSTED cũ hơn keep_days (YouTube là backup; link đã lưu Firestore).
-  archive -> tải file về rồi đẩy sang tài khoản BACKUP (kho lạnh) rồi xoá bản gốc để giải phóng chỗ.
+  delete  -> xoá file trong _POSTED cũ hơn keep_days (YouTube là backup; link đã lưu Firestore).
+  archive -> (tạm) giữ lại — backup kho lạnh per-user sẽ bổ sung sau.
+
+Đọc tài khoản Drive của user từ connections (kết nối qua dashboard).
 
 Chạy:
-  python src/cleanup.py                # theo policy + keep_days
-  python src/cleanup.py --now          # dọn ngay, bỏ qua keep_days
-  python src/cleanup.py --dry-run      # chỉ xem, không xoá/di chuyển
+  python src/cleanup.py            # theo policy mỗi user
+  python src/cleanup.py --now      # dọn ngay, bỏ qua keep_days
+  python src/cleanup.py --dry-run  # chỉ xem
 """
 
 from __future__ import annotations
 import argparse
 import os
 import sys
-import tempfile
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
 import storage as ST
 
 IMG_EXT = (".jpg", ".jpeg", ".png")
+GB = 1_000_000_000
 
 
 def _age_days(f: dict, now: datetime) -> float:
@@ -42,113 +44,88 @@ def _companions(drv, parent_id: str, base: str) -> list[str]:
     return ids
 
 
-def _mark_firestore(file_id: str, status: str):
-    """Đánh dấu source_status trên Firestore (nếu có) để dashboard biết nguồn đã dọn."""
-    try:
-        from firestore_state import State
-        State().upsert_video(file_id, {"source_status": status})
-    except Exception:
-        pass
-
-
 def run(dry_run=False, force_now=False):
-    cfg = ST.load_config()
-    policy = cfg.get("cleanup", {})
-    # Ưu tiên cấu hình chỉnh trên DASHBOARD (Firestore settings/overrides.cleanup)
     try:
         from firestore_state import State
-        ov = (State().get_doc("settings", "overrides") or {}).get("cleanup")
-        if ov:
-            policy = {**policy, **ov}
-    except Exception:
-        pass
-    mode = policy.get("mode", "keep")
-    keep_days = policy.get("keep_days", 14)
-
-    # Báo cáo dung lượng pool -> dashboard (trang Kho lưu trữ)
-    try:
-        accts = ST.pool_accounts(cfg)
-        if accts:
-            from firestore_state import State
-            report = []
-            for acc in accts:
-                try:
-                    st = ST.account_status(acc)
-                    report.append({"name": st["name"], "used": st["used"], "cap": st["cap"]})
-                except Exception:
-                    pass
-            if report:
-                State().set_doc("storage", "pool", {
-                    "accounts": report, "cleanup_mode": mode,
-                    "keep_days": keep_days, "trigger": policy.get("trigger", "auto")})
-                print(f"  📊 Đã cập nhật dung lượng {len(report)} tài khoản lên dashboard.")
+        state = State()
+        conns = state.list_connections("drive")
     except Exception as e:
-        print(f"  (storage report skip: {e})")
+        print(f"  ❌ Firestore: {e}")
+        return
 
-    print(f"🧹 Cleanup mode = {mode} | keep_days = {keep_days}"
-          f"{' | DRY-RUN' if dry_run else ''}{' | NGAY' if force_now else ''}")
-    if mode == "keep":
-        print("  → Giữ tất cả, không dọn gì. (Hợp với Google One)")
+    users: dict[str, list] = {}
+    for c in conns:
+        o = c.get("owner")
+        if o and c.get("root") and c.get("refresh_token"):
+            users.setdefault(o, []).append(c)
+    if not users:
+        print("  ⚠️  Chưa có tài khoản Drive kết nối nào. Bỏ qua.")
         return
 
     now = datetime.now(timezone.utc)
-    accounts = ST.pool_accounts(cfg)
-    if not accounts:
-        print("  ⚠️  Chưa cấu hình tài khoản pool nào (thiếu secret). Bỏ qua.")
-        return
+    for uid, dconns in users.items():
+        pol = (state.get_doc("settings", "overrides__" + uid) or {}).get("cleanup") or {}
+        mode = pol.get("mode", "keep")
+        keep_days = pol.get("keep_days", 14)
 
-    backup = ST.backup_account(cfg) if mode == "archive" else None
-    backup_drv = ST.account_drive(backup) if backup else None
-    backup_folder = None
-    if backup_drv:
-        backup_folder = backup_drv.child_folder(backup["root"], "_ARCHIVE")
-
-    total_freed = 0
-    for acc in accounts:
-        drv = ST.account_drive(acc)
-        posted = drv.list_folder_videos(acc["root"], "_POSTED")
-        if not posted:
-            continue
-        print(f"\n  📦 {acc['name']}: {len(posted)} file trong _POSTED")
-        for f in posted:
-            age = _age_days(f, now)
-            if not force_now and age < keep_days:
-                continue
-            base = f["name"].rsplit(".", 1)[0]
-            parent = f["parents"][0]
-            size = int(f.get("size", 0))
-            comp = _companions(drv, parent, base)
-
-            if dry_run:
-                print(f"     • [{mode}] {f['name']} ({age:.0f} ngày, {size/1e6:.0f}MB)")
-                continue
-
-            if mode == "delete":
-                drv.delete(f["id"])
-                for c in comp:
-                    drv.delete(c)
-                _mark_firestore(f["id"], "deleted")
-                total_freed += size
-                print(f"     🗑️  Xoá {f['name']} (+{len(comp)} phụ)")
-
-            elif mode == "archive" and backup_drv:
-                tmp = os.path.join(tempfile.gettempdir(), f["name"])
+        accts, report = [], []
+        for dc in dconns:
+            try:
+                drv = ST.Drive.from_oauth({"client_id": dc["client_id"],
+                        "client_secret": dc["client_secret"],
+                        "refresh_token": dc["refresh_token"]})
+                accts.append((dc.get("channel", "store"), drv, dc["root"]))
                 try:
-                    drv.download(f["id"], tmp)
-                    backup_drv.upload_file(backup_folder, tmp, f["name"])
+                    u = drv.usage()
+                    report.append({"name": dc.get("channel", "store"),
+                                   "email": dc.get("email", ""), "used": u["used"],
+                                   "cap": int(dc.get("cap_gb", 14)) * GB})
+                except Exception:
+                    pass
+            except Exception as e:
+                print(f"  ⚠️ {uid[:8]} drive: {e}")
+
+        # Báo cáo dung lượng -> dashboard (storage/<uid>)
+        if report:
+            try:
+                state.set_doc("storage", uid, {"owner": uid, "accounts": report,
+                                               "cleanup_mode": mode, "keep_days": keep_days})
+            except Exception:
+                pass
+
+        print(f"🧹 user {uid[:8]}: mode={mode} keep_days={keep_days}"
+              f"{' | DRY' if dry_run else ''}{' | NGAY' if force_now else ''}")
+        if mode == "keep":
+            continue
+        if mode == "archive":
+            print("  (archive per-user chưa có backup riêng -> giữ lại, không xoá)")
+            continue
+
+        # mode == delete
+        for name, drv, root in accts:
+            try:
+                posted = drv.list_folder_videos(root, "_POSTED")
+            except Exception:
+                continue
+            for f in posted:
+                age = _age_days(f, now)
+                if not force_now and age < keep_days:
+                    continue
+                base = f["name"].rsplit(".", 1)[0]
+                comp = _companions(drv, f["parents"][0], base)
+                if dry_run:
+                    print(f"     • [delete] {f['name']} ({age:.0f} ngày)")
+                    continue
+                try:
                     drv.delete(f["id"])
                     for c in comp:
                         drv.delete(c)
-                    _mark_firestore(f["id"], "archived")
-                    total_freed += size
-                    print(f"     📥 Archive {f['name']} → backup, đã xoá bản gốc")
+                    state.upsert_video(f["id"], {"source_status": "deleted"})
+                    print(f"     🗑️  {f['name']} (+{len(comp)} phụ)")
                 except Exception as e:
-                    print(f"     ❌ Lỗi archive {f['name']}: {e}")
-                finally:
-                    if os.path.exists(tmp):
-                        os.remove(tmp)
+                    print(f"     ❌ {f['name']}: {e}")
 
-    print(f"\n✔ Xong. Giải phóng ~{total_freed/1e9:.2f} GB.")
+    print("\n✔ Cleanup xong.")
 
 
 def main():

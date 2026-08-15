@@ -113,6 +113,7 @@ async function callback(url, env) {
     refresh_token: tok.refresh_token, connected_at: new Date().toISOString(),
   };
 
+  let connectedName = channel;
   if (kind === "drive") {
     // tạo/tìm folder kho "MM0-STORE" trong tài khoản Drive này
     const root = await ensureDriveFolder(tok.access_token, "MM0-STORE");
@@ -122,13 +123,29 @@ async function callback(url, env) {
       ["name", "owner", "email", "connected_at"]);
   } else {
     await fsPatch(env, at, `connections/${uid}__${channel}__youtube`, base);
+    // Lấy thông tin kênh THẬT (title/subs/id) để hiển thị đúng, không chỉ nhãn
+    let info = {};
+    try {
+      const r = await (await fetch(
+        "https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true",
+        { headers: { Authorization: `Bearer ${tok.access_token}` } })).json();
+      const it = (r.items || [])[0];
+      if (it) info = {
+        channel_title: (it.snippet && it.snippet.title) || channel,
+        channel_id: it.id || "",
+        subscribers: Number((it.statistics && it.statistics.subscriberCount) || 0),
+        total_views: Number((it.statistics && it.statistics.viewCount) || 0),
+        video_count: Number((it.statistics && it.statistics.videoCount) || 0),
+      };
+    } catch (_) {}
+    connectedName = info.channel_title || channel;
     await fsPatch(env, at, `channels/${uid}__${channel}`,
-      { channel, owner: uid, yt_ok: true, yt_checked_at: new Date().toISOString() },
-      ["channel", "owner", "yt_ok", "yt_checked_at"]);
+      { channel, owner: uid, yt_ok: true, yt_checked_at: new Date().toISOString(), ...info },
+      ["channel", "owner", "yt_ok", "yt_checked_at", ...Object.keys(info)]);
   }
 
   return page("Kết nối thành công 🎉",
-    `<p>✅ Đã kết nối <b>${escapeHtml(channel)}</b> (${kind})${email ? " · " + escapeHtml(email) : ""}.</p>
+    `<p>✅ Đã kết nối <b>${escapeHtml(connectedName)}</b> (nhãn: ${escapeHtml(channel)}, ${kind})${email ? " · " + escapeHtml(email) : ""}.</p>
      <p>Token đã lưu an toàn. Anh có thể đóng tab này và quay lại dashboard.</p>`);
 }
 

@@ -41,11 +41,8 @@ def _resolve_creds(ch: dict, state=None, key=None) -> dict | None:
     return {"client_id": cid, "client_secret": csec, "refresh_token": ref}
 
 
-def refresh_channel(key: str, ch: dict, state: State):
-    creds = _resolve_creds(ch, state, key)
-    if not creds:
-        print(f"  – {key}: thiếu YouTube creds, bỏ qua.")
-        return
+def refresh_conn(uid: str, channel: str, creds: dict, state: State):
+    """Refresh thống kê cho 1 kênh của 1 user (multi-tenant), stamp owner=uid."""
     svc = _client(creds["client_id"], creds["client_secret"], creds["refresh_token"])
 
     # 1) Thống kê KÊNH (subs, tổng view, số video)
@@ -54,20 +51,19 @@ def refresh_channel(key: str, ch: dict, state: State):
     if items:
         s = items[0]["statistics"]
         snip = items[0]["snippet"]
-        state.set_channel_stats(key, {
+        state.set_channel_stats(channel, {
             "title": snip.get("title"),
             "channel_title": snip.get("title"),
             "subscribers": int(s.get("subscriberCount", 0)),
             "total_views": int(s.get("viewCount", 0)),
             "video_count": int(s.get("videoCount", 0)),
-            # token đọc được số liệu -> chứng tỏ kết nối YouTube còn sống
             "yt_ok": True,
             "yt_checked_at": datetime.now(timezone.utc).isoformat(),
-        })
-        print(f"  ✔ {key}: {s.get('subscriberCount','?')} subs, {s.get('viewCount','?')} views")
+        }, owner=uid)
+        print(f"  ✔ {uid[:8]}/{channel}: {s.get('subscriberCount','?')} subs, {s.get('viewCount','?')} views")
 
-    # 2) Thống kê từng VIDEO đã đăng (batch 50)
-    pairs = state.posted_youtube(key)
+    # 2) Thống kê từng VIDEO đã đăng (batch 50) — chỉ video của user này
+    pairs = state.posted_youtube(channel, owner=uid)
     by_yid = {yid: doc for doc, yid in pairs}
     ids = list(by_yid.keys())
     for i in range(0, len(ids), 50):
@@ -87,17 +83,16 @@ def refresh_channel(key: str, ch: dict, state: State):
 
 
 def main():
-    with open(CONFIG, encoding="utf-8") as f:
-        cfg = yaml.safe_load(f)
     state = State()
-    print("📈 Refresh thống kê...")
-    for key, ch in cfg["channels"].items():
-        if not ch.get("enabled"):
+    print("📈 Refresh thống kê (per-user)...")
+    for c in state.list_connections("youtube"):
+        uid, channel = c.get("owner"), c.get("channel")
+        if not (uid and channel and c.get("refresh_token")):
             continue
         try:
-            refresh_channel(key, ch, state)
+            refresh_conn(uid, channel, c, state)
         except Exception as e:
-            print(f"  ❌ {key}: {e}")
+            print(f"  ❌ {channel}: {e}")
     print("✔ Xong.")
 
 

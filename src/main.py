@@ -169,7 +169,7 @@ def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now, 
             break
 
 
-def publish_one(it, ch, resolved, drive, state, root, dry_run, now):
+def publish_one(it, ch, resolved, drive, state, root, dry_run, now, owner=None):
     name = it["drive_name"]
     meta = it["meta"]
     print(f"  🚀 Đăng: {name} -> {meta['title']!r} [{it['type']}]")
@@ -253,12 +253,12 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now):
             "status": "posted", "results": results,
             "posted_at": now.isoformat(),
         })
-        state.bump_counters(it["channel"], now, yt=int(yt_ok), fb=int(fb_ok))
+        state.bump_counters(it["channel"], now, yt=int(yt_ok), fb=int(fb_ok), owner=owner)
         state.set_channel_health(it["channel"], {
             "last_publish_at": now.isoformat(),
             **({"yt_ok": True} if yt_ok else {}),
             **({"fb_ok": True} if fb_ok else {}),
-        })
+        }, owner=owner)
         print("     📦 Đã chuyển sang _POSTED.")
 
     except YT.QuotaExceeded:
@@ -270,7 +270,7 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now):
         print(f"     ❌ LỖI: {e}")
         traceback.print_exc()
         if any(k in str(e).lower() for k in ("invalid_grant", "unauthorized", "invalid credentials")):
-            state.set_channel_health(it["channel"], {"yt_ok": False, "yt_error": str(e)[:200]})
+            state.set_channel_health(it["channel"], {"yt_ok": False, "yt_error": str(e)[:200]}, owner=owner)
         target_status = "failed"
         state.upsert_video(it["drive_file_id"], {
             "status": target_status, "attempts": attempts,
@@ -358,6 +358,113 @@ def process_pool(channels_cfg, templates, safety, tz, dry_run, state, now, overr
                 break
 
 
+def process_users(channels_cfg, templates, safety, tz, dry_run, state, now):
+    """PHASE 2 multi-tenant: chạy pipeline PER-USER dựa trên connections (Firestore).
+    Mỗi user: kênh YouTube (token) + kho Drive (pool) đã kết nối -> đăng, stamp owner=uid."""
+    try:
+        import storage as ST
+        yt_conns = state.list_connections("youtube")
+        drive_conns = state.list_connections("drive")
+    except Exception as e:
+        print(f"  (per-user) bỏ qua: {e}")
+        return
+    if not yt_conns:
+        return
+
+    users: dict[str, dict] = {}
+    for c in yt_conns:
+        o, ch = c.get("owner"), c.get("channel")
+        if o and ch:
+            users.setdefault(o, {"yt": {}, "drive": []})["yt"][ch] = c
+    for c in drive_conns:
+        o = c.get("owner")
+        if o and o in users:
+            users[o]["drive"].append(c)
+
+    print(f"\n=== PER-USER (multi-tenant): {len(users)} user ===")
+    for uid, u in users.items():
+        if not u["drive"]:
+            print(f"  user {uid[:8]}: chưa kết nối Drive kho -> bỏ qua.")
+            continue
+        ov = state.get_doc("settings", "overrides__" + uid) or {}
+        review_mode = bool(ov.get("review_mode"))
+        ov_ch = ov.get("channels", {})
+
+        pool = []
+        for dc in u["drive"]:
+            try:
+                pool.append((ST.Drive.from_oauth({"client_id": dc["client_id"],
+                             "client_secret": dc["client_secret"],
+                             "refresh_token": dc["refresh_token"]}), dc["root"]))
+            except Exception as e:
+                print(f"  ⚠️ drive {uid[:8]}: {e}")
+
+        groups: dict[str, list] = {}
+        for drv, root in pool:
+            try:
+                files = drv.list_queue(root)
+            except Exception as e:
+                print(f"  ⚠️ list_queue {uid[:8]}: {e}")
+                continue
+            for f in files:
+                sidecar = drv.read_sidecar(f["parents"][0], f["name"])
+                channel = sidecar.get("channel")
+                if not channel or channel not in u["yt"]:
+                    continue
+                doc = state.get_video(f["id"]) or {}
+                branding = (channels_cfg.get(channel) or {}).get("branding") or {"hashtags": []}
+                raw = {"topic": sidecar.get("topic") or M.slug_to_topic(f["name"]),
+                       "type": sidecar.get("type") or f["type"],
+                       **{k: sidecar[k] for k in ("title", "description", "hashtags", "tags",
+                                                  "platforms", "publish_at") if k in sidecar}}
+                meta = M.build_metadata(raw, branding)
+                groups.setdefault(channel, []).append({
+                    "drive_file_id": f["id"], "drive_name": f["name"], "parent_id": f["parents"][0],
+                    "channel": channel, "type": meta["type"], "meta": meta,
+                    "publish_at": doc.get("publish_at") or raw.get("publish_at"),
+                    "status": _initial_status(doc.get("status"), review_mode),
+                    "attempts": doc.get("attempts", 0), "warnings": M.lint(meta),
+                    "thumbnail": sidecar.get("thumbnail"), "captions": sidecar.get("captions"),
+                    "playlist": sidecar.get("playlist"), "results": doc.get("results") or {},
+                    "_drive": drv, "_root": root,
+                })
+
+        for channel, items in groups.items():
+            conn = u["yt"][channel]
+            ch_cfg = channels_cfg.get(channel) or {
+                "display_name": channel,
+                "youtube": {"category_id": "27", "default_language": "en",
+                            "privacy": "public", "made_for_kids": False},
+                "branding": {"hashtags": []}}
+            tmpl_name = ov_ch.get(channel) or ch_cfg.get("active_template") \
+                or os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short")
+            template = templates["templates"].get(tmpl_name) or templates["templates"]["balanced_1long_3short"]
+            used = {it["publish_at"] for it in items if it.get("publish_at")}
+            S.assign_slots(items, template, tz, now, used)
+            for it in items:
+                state.upsert_video(it["drive_file_id"], {
+                    "owner": uid, "channel": channel, "drive_name": it["drive_name"],
+                    "type": it["type"], "title": it["meta"]["title"],
+                    "publish_at": it.get("publish_at"), "status": it["status"],
+                    "warnings": it["warnings"], "storage": "pool",
+                })
+            ready = S.due_items(items, now)
+            counters = state.get_counters(channel, now, owner=uid)
+            last = state.last_upload_at(channel, now, owner=uid)
+            todo = S.apply_limits(ready, safety, counters.get("yt", 0), counters.get("fb", 0), last, now)
+            resolved = {"yt_creds": {"client_id": conn["client_id"],
+                                     "client_secret": conn["client_secret"],
+                                     "refresh_token": conn["refresh_token"]}}
+            print(f"  [{uid[:8]}/{channel}] {len(ready)} đến giờ, đăng {len(todo)}")
+            for it in todo:
+                try:
+                    publish_one(it, ch_cfg, resolved, it["_drive"], state, it["_root"],
+                                dry_run, now, owner=uid)
+                except YT.QuotaExceeded:
+                    print(f"  ⏸ {uid[:8]}/{channel}: hết quota.")
+                    break
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true", help="Không upload, chỉ mô phỏng.")
@@ -390,12 +497,12 @@ def main():
             print(f"  ❌ Kênh {key} lỗi tổng: {e}")
             traceback.print_exc()
 
-    # Quét hồ chứa pool (nếu có cấu hình) — định tuyến kênh theo sidecar
+    # Multi-tenant: chạy pipeline per-user dựa trên connections (kết nối qua dashboard)
     if not args.only:
         try:
-            process_pool(channels["channels"], templates, safety, tz, args.dry_run, state, now, overrides, review_mode)
+            process_users(channels["channels"], templates, safety, tz, args.dry_run, state, now)
         except Exception as e:
-            print(f"  ❌ Pool lỗi tổng: {e}")
+            print(f"  ❌ Per-user lỗi tổng: {e}")
             traceback.print_exc()
 
     # Ghi cấu hình cho dashboard (trang Cài đặt)
