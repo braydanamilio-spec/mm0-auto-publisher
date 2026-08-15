@@ -20,16 +20,18 @@ import requests
 GRAPH = "https://graph.facebook.com/v21.0"
 
 
-def upload_video(file_path: str, meta: dict, page_id: str, page_token: str) -> dict:
-    """Đăng video thường lên Page. Trả về {"id": ...}."""
+def upload_video(file_path: str, meta: dict, page_id: str, page_token: str,
+                 video_url: str | None = None) -> dict:
+    """Đăng video thường lên Page.
+    - video_url có sẵn -> FB TỰ KÉO từ link (không tải-lại qua cron -> tối ưu cho video 2-5GB).
+    - không -> upload bytes (stream, không nạp hết vào RAM)."""
     desc = f"{meta['title']}\n\n{meta['description']}"
-    with open(file_path, "rb") as f:
-        r = requests.post(
-            f"{GRAPH}/{page_id}/videos",
-            data={"title": meta["title"][:255], "description": desc, "access_token": page_token},
-            files={"source": f},
-            timeout=1800,
-        )
+    common = {"title": meta["title"][:255], "description": desc, "access_token": page_token}
+    if video_url:
+        r = requests.post(f"{GRAPH}/{page_id}/videos", data={**common, "file_url": video_url}, timeout=600)
+    else:
+        with open(file_path, "rb") as f:
+            r = requests.post(f"{GRAPH}/{page_id}/videos", data=common, files={"source": f}, timeout=1800)
     r.raise_for_status()
     data = r.json()
     return {"id": data.get("id"), "url": f"https://facebook.com/{data.get('id')}"}
@@ -82,7 +84,9 @@ def upload_reel(file_path: str, meta: dict, page_id: str, page_token: str) -> di
     return {"id": video_id, "url": f"https://facebook.com/reel/{video_id}"}
 
 
-def upload(file_path: str, meta: dict, page_id: str, page_token: str) -> dict:
+def upload(file_path: str, meta: dict, page_id: str, page_token: str,
+           video_url: str | None = None) -> dict:
+    # Reels (short) nhỏ -> upload bytes nhanh; video dài nặng -> ưu tiên file_url (FB tự kéo).
     if meta.get("type") == "short":
         return upload_reel(file_path, meta, page_id, page_token)
-    return upload_video(file_path, meta, page_id, page_token)
+    return upload_video(file_path, meta, page_id, page_token, video_url=video_url)

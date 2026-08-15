@@ -180,6 +180,28 @@ class Drive:
     def delete(self, file_id: str):
         self.svc.files().delete(fileId=file_id).execute()
 
+    # ---- LINK CÔNG KHAI TẠM (để FB/IG tự kéo video — KHÔNG tải-lại qua cron) ----
+    def make_public(self, file_id: str) -> str:
+        """Cho 'anyone with link' đọc -> trả URL tải trực tiếp (dùng cho FB file_url / IG video_url)."""
+        try:
+            self.svc.permissions().create(
+                fileId=file_id, body={"type": "anyone", "role": "reader"}, fields="id").execute()
+        except Exception:
+            pass  # có thể đã public sẵn
+        # URL tải trực tiếp, bỏ qua trang quét virus với confirm=t
+        return f"https://drive.usercontent.google.com/download?id={file_id}&export=download&confirm=t"
+
+    def make_private(self, file_id: str):
+        """Thu hồi mọi quyền 'anyone' sau khi đăng xong (bảo mật)."""
+        try:
+            perms = self.svc.permissions().list(
+                fileId=file_id, fields="permissions(id,type)").execute().get("permissions", [])
+            for p in perms:
+                if p.get("type") == "anyone":
+                    self.svc.permissions().delete(fileId=file_id, permissionId=p["id"]).execute()
+        except Exception:
+            pass
+
     # ---- liệt kê file trong 1 subfolder theo tên (vd _POSTED) ----
     def list_folder_videos(self, root_id: str, subfolder: str) -> list[dict]:
         fid = self.child_folder(root_id, subfolder, create=False)

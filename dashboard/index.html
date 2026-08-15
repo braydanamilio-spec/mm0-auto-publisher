@@ -650,6 +650,11 @@
           <div class="p-sub" style="margin-top:6px" data-i18n="fb_note">Facebook tách riêng YouTube (không cùng Gmail). Kết nối 1 lần lấy hết Page bạn quản lý; đăng/lịch FB quản lý riêng tại đây.</div>
         </div>
         <div class="conn-grid" id="fbPages"></div>
+        <div class="panel" id="fbMapPanel" style="margin-top:16px;display:none">
+          <div class="p-head"><div class="p-title">🔗 Gắn kênh YouTube → Facebook Page</div></div>
+          <div id="fbMap" style="margin-top:6px"></div>
+          <div class="p-sub" style="margin-top:10px;line-height:1.6">Set <b>1 lần</b>. Video của kênh sẽ <b>tự đăng lên Page đã gắn</b> (+ Instagram nếu Page có IG, chỉ short). Bỏ trống = không đăng FB/IG cho kênh đó. Cơ chế đăng FB/IG <b>tách riêng YouTube</b> (workflow riêng, tắt máy vẫn chạy).</div>
+        </div>
         <div class="panel help"><div class="p-title">📘 Cần Facebook App</div>
           <p class="p-sub">Kết nối FB cần <b>Facebook Developer App</b> (đặt secret <code>FB_APP_ID</code>/<code>FB_APP_SECRET</code> cho Worker) + quyền <code>pages_manage_posts</code>. Xem <code>SETUP.md</code> mục Facebook. Bấm Kết nối khi đã cấu hình App.</p></div>
       </section>
@@ -752,6 +757,11 @@
       catch(e){ alert("Lỗi: "+e.message); }
     };
     window.__setOverridesDoc = async (data) => { await setDoc(ovDoc(), {owner:window.__uid, ...data}, {merge:true}); };
+    window.saveFbMap = async (channel, pageSlug) => {
+      try { await setDoc(ovDoc(), {owner:window.__uid, fb_map:{[channel]: pageSlug||""}}, {merge:true});
+        toastMsg(pageSlug?`✔ ${channel} → Page (áp dụng lần đăng tới)`:`✔ ${channel}: bỏ đăng FB/IG`); }
+      catch(e){ alert("Lỗi: "+e.message); }
+    };
     // Áp 1 gói template cho NHIỀU kênh cùng lúc (từ thư viện template ở Cài đặt)
     window.saveTemplateAll = async (tmpl, channels) => {
       const map = {}; (channels || []).forEach(c => map[c] = tmpl);
@@ -927,7 +937,14 @@
     function renderFacebook(){
       if(!$("fbPages")) return;
       if($("nvFb")) $("nvFb").textContent=__FBP.length;
-      if(!__FBP.length){ $("fbPages").innerHTML=emptyBox("Chưa kết nối Page nào. Bấm “Kết nối Facebook” (cần Facebook App đã cấu hình cho Worker)."); return; }
+      if(!__FBP.length){ $("fbPages").innerHTML=emptyBox("Chưa kết nối Page nào. Bấm “Kết nối Facebook” (cần Facebook App đã cấu hình cho Worker)."); if($("fbMapPanel"))$("fbMapPanel").style.display="none"; return; }
+      // bảng gắn kênh YouTube -> Page
+      const mp=(__OVERRIDES.fb_map)||{}; const chans=allChannels();
+      if($("fbMapPanel"))$("fbMapPanel").style.display=chans.length?"":"none";
+      if($("fbMap"))$("fbMap").innerHTML=chans.map(k=>{
+        const opts=`<option value="">— không đăng FB/IG —</option>`+__FBP.map(p=>`<option value="${esc(p.name)}" ${mp[k]===p.name?"selected":""}>${esc(p.page_name||p.name)}${p.ig_user_id?" + IG":""}</option>`).join("");
+        return `<div class="svc"><div class="snm">${esc(chName(k))}</div><select class="set-sel" onchange="saveFbMap('${esc(k)}',this.value)">${opts}</select></div>`;
+      }).join("")||`<div class="p-sub">Chưa có kênh YouTube — kết nối ở tab Kết nối API.</div>`;
       $("fbPages").innerHTML=__FBP.map(p=>`<div class="conn">
         <div class="conn-head"><div class="ava" style="background:linear-gradient(145deg,#1877f2,#0a58ca)">f</div>
           <div class="nm">${esc(p.page_name||p.name)}<div class="p-sub">ID ${esc(p.page_id||'')}${p.connected_at?" · "+ago(p.connected_at):""}</div></div></div>
