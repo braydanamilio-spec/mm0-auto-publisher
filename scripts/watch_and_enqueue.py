@@ -32,7 +32,9 @@ VIDEO_EXT = (".mp4", ".mov", ".mkv", ".webm")
 
 def scan_once(outbox: str):
     sent_dir = os.path.join(outbox, "_sent")
+    dup_dir = os.path.join(outbox, "_dup")
     os.makedirs(sent_dir, exist_ok=True)
+    os.makedirs(dup_dir, exist_ok=True)
 
     for channel in sorted(os.listdir(outbox)):
         ch_dir = os.path.join(outbox, channel)
@@ -77,19 +79,19 @@ def scan_once(outbox: str):
 
                 topic = extra.get("topic") or base.replace("_", " ").replace("-", " ").title()
                 try:
-                    enqueue(
+                    res = enqueue(
                         channel=channel, video=path, vtype=vtype, topic=topic,
                         title=extra.get("title"), description=extra.get("description"),
                         hashtags=extra.get("hashtags"), tags=extra.get("tags"),
                         platforms=extra.get("platforms"), publish_at=extra.get("publish_at"),
                         thumbnail=thumb, subtitle=sub, subtitle_lang=extra.get("subtitle_lang"),
                     )
-                    # chuyển file local đã gửi -> _sent (để không đẩy lại)
-                    dest = os.path.join(sent_dir, channel + "__" + fn)
-                    shutil.move(path, dest)
+                    # Trùng -> dời sang _dup (không upload lại). Mới -> _sent.
+                    out_dir = dup_dir if (res or {}).get("duplicate") else sent_dir
+                    shutil.move(path, os.path.join(out_dir, channel + "__" + fn))
                     for side in (jpath, tpath, thumb, sub):
                         if side and os.path.exists(side):
-                            shutil.move(side, os.path.join(sent_dir, channel + "__" + os.path.basename(side)))
+                            shutil.move(side, os.path.join(out_dir, channel + "__" + os.path.basename(side)))
                 except Exception as e:
                     print(f"❌ Lỗi đẩy {fn}: {e}")
 

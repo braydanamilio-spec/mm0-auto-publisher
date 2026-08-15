@@ -18,10 +18,18 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    // Preflight CORS cho các API (dashboard gọi cross-origin)
+    if (request.method === "OPTIONS") return corsResp(new Response(null, { status: 204 }));
     try {
       if (url.pathname === "/auth/start") return await startAuth(url, env);
       if (url.pathname === "/auth/callback") return await callback(url, env);
+      // ---- API JSON (branding + comment/like) — có CORS ----
+      if (url.pathname === "/api/branding") return corsResp(await apiBranding(request, url, env));
+      if (url.pathname === "/api/comments") return corsResp(await apiComments(request, url, env));
+      if (url.pathname === "/api/comment-action") return corsResp(await apiCommentAction(request, url, env));
     } catch (e) {
+      // API trả JSON lỗi; trang HTML trả trang lỗi
+      if (url.pathname.startsWith("/api/")) return corsResp(json({ error: String(e && e.message || e) }, 400));
       return page("Lỗi", `<p>❌ ${escapeHtml(String(e))}</p>`);
     }
     return page("MM0 Connect", `<p>Worker kết nối kênh đang chạy ✅</p>
@@ -29,6 +37,168 @@ export default {
       <code>/auth/start?channel=BROKE&kind=youtube</code>`);
   },
 };
+
+/* ================= API: Branding + Comment/Like ================= *
+ * Bảo mật: mọi request phải kèm Firebase ID token (t) -> verify -> uid.
+ * Chỉ thao tác trên kênh mà uid này đã kết nối (connections/{uid}__{channel}__youtube).
+ * Worker đọc refresh_token bằng service account, đổi lấy access_token, gọi YouTube API.
+ * -> Dashboard KHÔNG bao giờ chạm vào token (an toàn, không lộ client-side).           */
+
+async function authCtx(request, url, env) {
+  const body = request.method === "POST" ? await request.json().catch(() => ({})) : {};
+  const g = (k) => body[k] != null ? body[k] : url.searchParams.get(k);
+  const t = g("t"), channel = g("channel");
+  if (!t) throw new Error("Thiếu token đăng nhập.");
+  if (!channel) throw new Error("Thiếu channel.");
+  const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
+  const at = await saAccessToken(env);
+  const conn = await fsGet(env, at, `connections/${uid}__${channel}__youtube`);
+  if (!conn || !conn.refresh_token) throw new Error("Kênh chưa kết nối YouTube.");
+  const yat = await ytAccessToken(conn.client_id, conn.client_secret, conn.refresh_token);
+  return { body, g, uid, channel, at, yat };
+}
+
+async function ytGet(pathQuery, yat) {
+  const r = await fetch("https://www.googleapis.com/youtube/v3/" + pathQuery,
+    { headers: { Authorization: `Bearer ${yat}` } });
+  const j = await r.json();
+  if (!r.ok) throw new Error((j.error && j.error.message) || ("YouTube " + r.status));
+  return j;
+}
+async function ytSend(method, pathQuery, yat, payload) {
+  const r = await fetch("https://www.googleapis.com/youtube/v3/" + pathQuery, {
+    method, headers: { Authorization: `Bearer ${yat}`, "content-type": "application/json" },
+    body: payload ? JSON.stringify(payload) : undefined,
+  });
+  if (r.status === 204) return {};
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((j.error && j.error.message) || ("YouTube " + r.status));
+  return j;
+}
+
+// GET  /api/branding?channel=&t=   -> đọc branding hiện tại
+// POST /api/branding {t,channel,title,description,keywords,country,trailer} -> cập nhật
+async function apiBranding(request, url, env) {
+  const ctx = await authCtx(request, url, env);
+  const cur = await ytGet("channels?part=brandingSettings,snippet,statistics&mine=true", ctx.yat);
+  const it = (cur.items || [])[0];
+  if (!it) throw new Error("Không đọc được kênh.");
+  const ch = (it.brandingSettings && it.brandingSettings.channel) || {};
+  if (request.method !== "POST") {
+    return json({
+      ok: true, id: it.id,
+      title: ch.title || (it.snippet && it.snippet.title) || "",
+      description: ch.description || (it.snippet && it.snippet.description) || "",
+      keywords: ch.keywords || "",
+      country: ch.country || "",
+      trailer: ch.unsubscribedTrailer || "",
+      subscribers: Number((it.statistics && it.statistics.subscriberCount) || 0),
+    });
+  }
+  // Cập nhật: merge lên brandingSettings.channel hiện có
+  const b = ctx.body;
+  const next = { ...ch };
+  if (b.title != null) next.title = b.title;
+  if (b.description != null) next.description = b.description;
+  if (b.keywords != null) next.keywords = b.keywords;
+  if (b.country != null) next.country = b.country || undefined;
+  if (b.trailer != null) next.unsubscribedTrailer = b.trailer || undefined;
+  await ytSend("PUT", "channels?part=brandingSettings", ctx.yat,
+    { id: it.id, brandingSettings: { channel: next } });
+  // đồng bộ tên/desc mới về Firestore để dashboard hiển thị
+  try {
+    await fsPatch(env, ctx.at, `channels/${ctx.uid}__${ctx.channel}`,
+      { channel_title: next.title || "", branding_updated_at: new Date().toISOString() },
+      ["channel_title", "branding_updated_at"]);
+  } catch (_) {}
+  return json({ ok: true, saved: next });
+}
+
+// GET /api/comments?channel=&t=&max=  -> danh sách bình luận mới nhất của kênh
+async function apiComments(request, url, env) {
+  const ctx = await authCtx(request, url, env);
+  const info = await ytGet("channels?part=id&mine=true", ctx.yat);
+  const cid = ((info.items || [])[0] || {}).id;
+  if (!cid) throw new Error("Không đọc được channel id.");
+  const max = Math.min(50, Number(ctx.g("max") || 20) || 20);
+  let data;
+  try {
+    data = await ytGet(`commentThreads?part=snippet,replies&allThreadsRelatedToChannelId=${cid}&order=time&maxResults=${max}&textFormat=plainText`, ctx.yat);
+  } catch (e) {
+    // Một số kênh chưa bật, hoặc chưa có video -> trả rỗng thay vì lỗi
+    return json({ ok: true, items: [], note: String(e.message || e) });
+  }
+  const items = (data.items || []).map((th) => {
+    const s = th.snippet.topLevelComment.snippet;
+    return {
+      threadId: th.id,
+      commentId: th.snippet.topLevelComment.id,
+      author: s.authorDisplayName,
+      authorImg: s.authorProfileImageUrl,
+      text: s.textDisplay,
+      likes: s.likeCount,
+      publishedAt: s.publishedAt,
+      videoId: s.videoId || "",
+      totalReplies: th.snippet.totalReplyCount,
+      canReply: th.snippet.canReply !== false,
+      replies: ((th.replies && th.replies.comments) || []).map((c) => ({
+        id: c.id, author: c.snippet.authorDisplayName, text: c.snippet.textDisplay,
+        publishedAt: c.snippet.publishedAt,
+      })),
+    };
+  });
+  return json({ ok: true, channelId: cid, items });
+}
+
+// POST /api/comment-action {t,channel,action,id,text,videoId}
+//   action: reply | delete | spam | hold | publish | reject | like-video | unlike-video
+async function apiCommentAction(request, url, env) {
+  const ctx = await authCtx(request, url, env);
+  const { action, id, text, videoId } = ctx.body;
+  if (!action) throw new Error("Thiếu action.");
+  switch (action) {
+    case "reply":
+      if (!id || !text) throw new Error("Thiếu id/text.");
+      await ytSend("POST", "comments?part=snippet", ctx.yat,
+        { snippet: { parentId: id, textOriginal: text } });
+      return json({ ok: true, action });
+    case "delete":
+      if (!id) throw new Error("Thiếu id.");
+      await ytSend("DELETE", `comments?id=${encodeURIComponent(id)}`, ctx.yat);
+      return json({ ok: true, action });
+    case "spam":
+      await ytSend("POST", `comments/markAsSpam?id=${encodeURIComponent(id)}`, ctx.yat);
+      return json({ ok: true, action });
+    case "hold":
+    case "publish":
+    case "reject": {
+      const map = { hold: "heldForReview", publish: "published", reject: "rejected" };
+      await ytSend("POST",
+        `comments/setModerationStatus?id=${encodeURIComponent(id)}&moderationStatus=${map[action]}`,
+        ctx.yat);
+      return json({ ok: true, action });
+    }
+    case "like-video":
+    case "unlike-video": {
+      if (!videoId) throw new Error("Thiếu videoId.");
+      const rating = action === "like-video" ? "like" : "none";
+      await ytSend("POST", `videos/rate?id=${encodeURIComponent(videoId)}&rating=${rating}`, ctx.yat);
+      return json({ ok: true, action });
+    }
+    default:
+      throw new Error("action không hỗ trợ: " + action);
+  }
+}
+
+/* ---------- YouTube access token từ refresh_token ---------- */
+async function ytAccessToken(client_id, client_secret, refresh_token) {
+  const r = await (await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ client_id, client_secret, refresh_token, grant_type: "refresh_token" }),
+  })).json();
+  if (!r.access_token) throw new Error("Không lấy được access token (refresh hỏng?).");
+  return r.access_token;
+}
 
 const YT_SCOPES = [
   "https://www.googleapis.com/auth/youtube.upload",
@@ -216,6 +386,38 @@ function fsVal(v) {
   if (typeof v === "boolean") return { booleanValue: v };
   if (typeof v === "number") return { integerValue: String(v) };
   return { stringValue: String(v) };
+}
+
+// Đọc 1 document Firestore -> object phẳng (chỉ các kiểu ta dùng)
+async function fsGet(env, accessToken, path) {
+  const u = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/${path}`;
+  const res = await fetch(u, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("Firestore read fail: " + res.status);
+  const doc = await res.json();
+  const out = {};
+  for (const [k, v] of Object.entries(doc.fields || {})) {
+    out[k] = v.stringValue != null ? v.stringValue
+      : v.integerValue != null ? Number(v.integerValue)
+      : v.booleanValue != null ? v.booleanValue
+      : v.doubleValue != null ? v.doubleValue : null;
+  }
+  return out;
+}
+
+/* ---------- JSON + CORS ---------- */
+function json(obj, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status, headers: { "content-type": "application/json; charset=utf-8" },
+  });
+}
+function corsResp(res) {
+  const h = new Headers(res.headers);
+  h.set("Access-Control-Allow-Origin", "*");
+  h.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  h.set("Access-Control-Allow-Headers", "content-type");
+  h.set("Access-Control-Max-Age", "86400");
+  return new Response(res.body, { status: res.status, headers: h });
 }
 
 /* ---------- Xác thực Firebase ID token (RS256 + JWKS) -> uid ---------- */

@@ -302,6 +302,9 @@
       <div class="nav" data-view="connections"><span class="ic" data-i="plug"></span> <span data-i18n="connections">API Connections</span> <span class="dotwarn hide" id="connWarn"></span></div>
       <div class="nav" data-view="storage"><span class="ic" data-i="disk"></span> <span data-i18n="storage">Storage</span></div>
       <div class="nav" data-view="settings"><span class="ic" data-i="gear"></span> <span data-i18n="settings">Settings</span></div>
+      <div class="nav-label" data-i18n="nav_channel">Channel</div>
+      <div class="nav" data-view="branding"><span class="ic" data-i="badge"></span> <span data-i18n="branding">Branding</span></div>
+      <div class="nav" data-view="comments"><span class="ic" data-i="chat"></span> <span data-i18n="comments">Comments</span></div>
       <div class="side-foot">
         <button class="ghost" id="langBtn">🌐 Tiếng Việt</button>
         <button class="ghost" id="themeBtn"><span id="themeIc">🌙</span> <span id="themeTx" data-i18n="theme_dark">Dark theme</span></button>
@@ -435,6 +438,69 @@
           <div class="conn-grid" id="setTemplates"></div>
         </div>
       </section>
+
+      <style>
+        .brgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+        .fld{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--muted)}
+        .fld.full{grid-column:1/-1}
+        .fld input,.fld textarea{background:var(--surface);color:var(--text);border:1px solid var(--border);
+          border-radius:9px;padding:9px 11px;font-family:var(--sans);font-size:14px;font-weight:500}
+        .fld textarea{resize:vertical;line-height:1.5}
+        @media(max-width:640px){.brgrid{grid-template-columns:1fr}}
+        .cm-card{margin-bottom:12px}
+        .cm-top{display:flex;gap:11px;align-items:flex-start}
+        .cm-ava{width:38px;height:38px;border-radius:50%;object-fit:cover;background:var(--surface2);flex:none}
+        .cm-au{font-weight:700;font-size:14px}
+        .cm-tx{margin-top:3px;font-size:14px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+        .cm-reps{margin:9px 0 0 49px;padding-left:12px;border-left:2px solid var(--border);display:flex;flex-direction:column;gap:5px}
+        .cm-reply{font-size:13px;color:var(--muted)}
+        .cm-acts{display:flex;gap:7px;align-items:center;margin-top:11px;flex-wrap:wrap}
+        .cm-reply-in{flex:1;min-width:160px;background:var(--surface);color:var(--text);border:1px solid var(--border);
+          border-radius:8px;padding:7px 10px;font-family:var(--sans);font-size:13px}
+        .mini{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;
+          padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+        .mini:hover{border-color:var(--accent)} .mini:disabled{opacity:.5;cursor:default}
+        .mini.warn{color:var(--warn)} .mini.bad{color:var(--bad)}
+      </style>
+      <section id="v-branding" class="content hide">
+        <div class="panel" style="margin-bottom:16px">
+          <div class="p-head"><div class="p-title">🎨 <span data-i18n="branding">Branding</span></div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <select id="brChannel"><option value="" data-i18n="br_pick">Pick a connected channel</option></select>
+              <button class="btn-conn" id="brLoad" data-i18n="br_load">Load current</button>
+            </div></div>
+          <div class="p-sub" style="margin-top:6px" id="brStatus"></div>
+        </div>
+        <div class="panel" id="brForm" style="margin-bottom:16px;display:none">
+          <div class="brgrid">
+            <label class="fld"><span data-i18n="br_title">Channel name</span><input id="brTitle" type="text" maxlength="100"></label>
+            <label class="fld"><span data-i18n="br_country">Country (ISO, e.g. US)</span><input id="brCountry" type="text" maxlength="2" style="text-transform:uppercase"></label>
+            <label class="fld full"><span data-i18n="br_desc">Description</span><textarea id="brDescription" rows="5" maxlength="1000"></textarea></label>
+            <label class="fld full"><span data-i18n="br_keywords">Keywords (space-separated)</span><input id="brKeywords" type="text"></label>
+            <label class="fld"><span data-i18n="br_trailer">Trailer video ID</span><input id="brTrailer" type="text"></label>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:14px">
+            <button class="btn-conn" id="brSave" data-i18n="br_save">Save branding</button>
+            <span class="p-sub" id="brSaveMsg"></span>
+          </div>
+        </div>
+        <div class="panel help"><div class="p-title">🎨 Lưu ý</div>
+          <p class="p-sub" data-i18n="br_note">Avatar & banner image must be changed in YouTube Studio (not allowed by API).</p></div>
+      </section>
+
+      <section id="v-comments" class="content hide">
+        <div class="panel" style="margin-bottom:16px">
+          <div class="p-head"><div class="p-title">💬 <span data-i18n="comments">Comments</span></div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <select id="cmChannel"><option value="" data-i18n="cm_pick">Pick a connected channel</option></select>
+              <button class="btn-conn" id="cmLoad" data-i18n="cm_load">Load latest comments</button>
+            </div></div>
+          <div class="p-sub" style="margin-top:6px" id="cmStatus"></div>
+        </div>
+        <div id="cmList"></div>
+        <div class="panel help"><div class="p-title">💬 Lưu ý</div>
+          <p class="p-sub" data-i18n="cm_note">Reads newest comments across your channel. All actions manual.</p></div>
+      </section>
     </div>
   </div>
 
@@ -547,6 +613,16 @@
         sub_videos:"Manage, search & filter", sub_schedule:"Timeline",
         sub_connections:"YouTube · Facebook · quota status", sub_storage:"Pool usage & cleanup",
         sub_settings:"Templates & system config",
+        branding:"Branding", comments:"Comments",
+        sub_branding:"Channel identity via API", sub_comments:"Read, reply & moderate",
+        nav_channel:"Channel", br_pick:"Pick a connected channel", br_load:"Load current",
+        br_title:"Channel name", br_desc:"Description", br_keywords:"Keywords (space-separated)",
+        br_country:"Country (ISO, e.g. US)", br_trailer:"Trailer video ID (non-subscribers)",
+        br_save:"Save branding", br_note:"Avatar & banner image must be changed in YouTube Studio (not allowed by API). Everything here syncs to your live channel.",
+        cm_pick:"Pick a connected channel", cm_load:"Load latest comments", cm_reply:"Reply",
+        cm_delete:"Delete", cm_spam:"Spam", cm_hold:"Hold", cm_none:"No comments yet (or channel has no videos).",
+        cm_note:"Reads newest comments across your channel. Reply / delete / mark spam — all manual, no auto-spam.",
+        working:"Working…", saved_ok:"Saved ✓", loaded_ok:"Loaded ✓",
         theme_dark:"Dark theme", theme_light:"Light theme", signout:"Sign out",
         kpi_subs:"Subscribers", kpi_views:"Total views", kpi_posted:"Videos posted", kpi_sched:"Awaiting schedule",
         views_by_channel:"Views by channel", cumulative:"cumulative", status_dist:"Status distribution",
@@ -582,6 +658,16 @@
         sub_videos:"Quản lý, tìm kiếm & lọc", sub_schedule:"Dòng thời gian",
         sub_connections:"Trạng thái YouTube · Facebook · quota", sub_storage:"Dung lượng pool & dọn dẹp",
         sub_settings:"Template & cấu hình hệ thống",
+        branding:"Thương hiệu", comments:"Bình luận",
+        sub_branding:"Nhận diện kênh qua API", sub_comments:"Đọc, trả lời & kiểm duyệt",
+        nav_channel:"Kênh", br_pick:"Chọn kênh đã kết nối", br_load:"Tải hiện tại",
+        br_title:"Tên kênh", br_desc:"Mô tả", br_keywords:"Từ khoá (cách nhau bằng dấu cách)",
+        br_country:"Quốc gia (ISO, vd US)", br_trailer:"ID video trailer (người chưa đăng ký)",
+        br_save:"Lưu thương hiệu", br_note:"Ảnh đại diện & ảnh bìa phải đổi trong YouTube Studio (API không cho phép). Các mục ở đây đồng bộ thẳng lên kênh thật.",
+        cm_pick:"Chọn kênh đã kết nối", cm_load:"Tải bình luận mới nhất", cm_reply:"Trả lời",
+        cm_delete:"Xoá", cm_spam:"Spam", cm_hold:"Giữ chờ", cm_none:"Chưa có bình luận (hoặc kênh chưa có video).",
+        cm_note:"Đọc bình luận mới nhất toàn kênh. Trả lời / xoá / đánh spam — thủ công, không auto-spam.",
+        working:"Đang xử lý…", saved_ok:"Đã lưu ✓", loaded_ok:"Đã tải ✓",
         theme_dark:"Giao diện tối", theme_light:"Giao diện sáng", signout:"Đăng xuất",
         kpi_subs:"Người đăng ký", kpi_views:"Lượt xem tích luỹ", kpi_posted:"Video đã đăng", kpi_sched:"Đang chờ lịch",
         views_by_channel:"Lượt xem theo kênh", cumulative:"tích luỹ", status_dist:"Phân bố trạng thái",
@@ -656,6 +742,8 @@
       plug:'<path d="M12 22v-5M9 8V2M15 8V2M6 8h12v3a6 6 0 0 1-12 0z"/>',
       disk:'<path d="M22 12A10 10 0 1 1 12 2"/><path d="M12 2v10l6.5 6.5"/><circle cx="12" cy="12" r="2.5"/>',
       gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+      badge:'<path d="M12 2l2.4 2.1 3.1-.4 1.1 3 2.8 1.4-1.1 3 1.1 3-2.8 1.4-1.1 3-3.1-.4L12 22l-2.4-2.1-3.1.4-1.1-3L2.6 15.5l1.1-3-1.1-3 2.8-1.4 1.1-3 3.1.4z"/><path d="M9 12l2 2 4-4"/>',
+      chat:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
     };
     window.paintIcons = () => document.querySelectorAll(".ic[data-i]").forEach(e=>{
       e.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[e.dataset.i]||""}</svg>`; });
@@ -686,7 +774,7 @@
     function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
 
     function wireNav(){
-      const VIEWS=["overview","analytics","videos","schedule","connections","storage","settings"];
+      const VIEWS=["overview","analytics","videos","schedule","connections","storage","settings","branding","comments"];
       const setTitle=(v)=>{ window.__view=v; $("vTitle").textContent=t(v); $("vSub").textContent=t("sub_"+v); };
       window.__setTitle=setTitle;
       document.querySelectorAll(".nav").forEach(n=>n.onclick=()=>{
@@ -694,6 +782,7 @@
         const v=n.dataset.view;
         VIEWS.forEach(x=>$("v-"+x).classList.toggle("hide",x!==v));
         setTitle(v);
+        if(v==="branding"||v==="comments") fillChannelPickers();
       });
       ["search","stFilter","tyFilter","sortBy"].forEach(id=>{const e=$(id);if(e)e.oninput=e.onchange=renderVideos;});
       $("chFilter").onchange=renderAll;
@@ -703,6 +792,9 @@
       if(dbtn)dbtn.onclick=()=>connectChannel(($("stAccName").value||"").trim(),"drive");
       const sc=$("btnSaveClean");
       if(sc)sc.onclick=()=>saveCleanup($("clMode").value,$("clDays").value);
+      if($("brLoad"))$("brLoad").onclick=loadBranding;
+      if($("brSave"))$("brSave").onclick=saveBranding;
+      if($("cmLoad"))$("cmLoad").onclick=loadComments;
       const lb=$("langBtn"); if(lb)lb.onclick=()=>setLang(LANG==="en"?"vi":"en");
       // menu mobile (hamburger)
       const hb=$("hamb"), sb=document.querySelector(".sidebar"), scr=$("scrim");
@@ -713,6 +805,86 @@
       applyI18n(); syncLangBtn(); setTitle("overview");
     }
     window.connectChannel = connectChannel;
+
+    /* ===== Branding + Comments (gọi Worker API, kèm ID token) ===== */
+    async function workerApi(path, {method="GET", body=null}={}){
+      const tk = await window.__getIdToken();
+      const url = new URL(WORKER_URL + path);
+      const opt = { method, headers:{} };
+      if(method==="GET"){ url.searchParams.set("t", tk); }
+      else { opt.headers["content-type"]="application/json"; opt.body=JSON.stringify({t:tk, ...(body||{})}); }
+      const r = await fetch(url.toString(), opt);
+      const j = await r.json().catch(()=>({error:"phản hồi lỗi"}));
+      if(!r.ok || j.error) throw new Error(j.error || ("HTTP "+r.status));
+      return j;
+    }
+    function connectedYT(){ return Object.keys(__C||{}).filter(k=>__C[k] && __C[k].yt_ok===true).sort(); }
+    function fillChannelPickers(){
+      const chans=connectedYT();
+      ["brChannel","cmChannel"].forEach(id=>{
+        const sel=$(id); if(!sel) return; const keep=sel.value; const first=sel.querySelector("option");
+        sel.innerHTML=""; sel.appendChild(first);
+        chans.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=(__C[k].channel_title||k);sel.appendChild(o);});
+        if(chans.includes(keep)) sel.value=keep;
+      });
+      if(!chans.length){ $("brStatus").textContent="⚠ "+t("no_conn"); $("cmStatus").textContent="⚠ "+t("no_conn"); }
+    }
+    async function loadBranding(){
+      const ch=$("brChannel").value; if(!ch) return alert(t("br_pick"));
+      $("brStatus").textContent=t("working");
+      try{ const d=await workerApi(`/api/branding?channel=${encodeURIComponent(ch)}`);
+        $("brTitle").value=d.title||""; $("brDescription").value=d.description||"";
+        $("brKeywords").value=d.keywords||""; $("brCountry").value=d.country||""; $("brTrailer").value=d.trailer||"";
+        $("brForm").style.display=""; $("brSaveMsg").textContent="";
+        $("brStatus").textContent=t("loaded_ok")+" · "+fmtN(d.subscribers)+" subs";
+      }catch(e){ $("brStatus").textContent="❌ "+e.message; }
+    }
+    async function saveBranding(){
+      const ch=$("brChannel").value; if(!ch) return;
+      $("brSaveMsg").textContent=t("working");
+      try{ await workerApi("/api/branding",{method:"POST",body:{
+          channel:ch, title:$("brTitle").value, description:$("brDescription").value,
+          keywords:$("brKeywords").value, country:($("brCountry").value||"").toUpperCase(), trailer:$("brTrailer").value }});
+        $("brSaveMsg").textContent=t("saved_ok"); toastMsg("✔ "+t("saved_ok"));
+      }catch(e){ $("brSaveMsg").textContent="❌ "+e.message; }
+    }
+    async function loadComments(){
+      const ch=$("cmChannel").value; if(!ch) return alert(t("cm_pick"));
+      $("cmStatus").textContent=t("working"); $("cmList").innerHTML="";
+      try{ const d=await workerApi(`/api/comments?channel=${encodeURIComponent(ch)}&max=25`);
+        renderComments(d.items||[]); $("cmStatus").textContent=t("loaded_ok")+" · "+(d.items||[]).length;
+      }catch(e){ $("cmStatus").textContent="❌ "+e.message; }
+    }
+    function renderComments(items){
+      if(!items.length){ $("cmList").innerHTML=emptyBox(t("cm_none")); return; }
+      $("cmList").innerHTML=items.map(it=>{
+        const reps=(it.replies||[]).map(r=>`<div class="cm-reply"><b>${esc(r.author)}</b> ${esc(r.text)}</div>`).join("");
+        const vid=it.videoId?`<a href="https://youtu.be/${esc(it.videoId)}" target="_blank" class="p-sub">▶ video</a>`:"";
+        return `<div class="panel cm-card" data-id="${esc(it.commentId)}">
+          <div class="cm-top"><img src="${esc(it.authorImg||'')}" class="cm-ava" onerror="this.style.visibility='hidden'">
+            <div style="flex:1"><div class="cm-au">${esc(it.author)} <span class="p-sub">· ${ago(it.publishedAt)} · ♥ ${it.likes||0} ${vid}</span></div>
+            <div class="cm-tx">${esc(it.text)}</div></div></div>
+          ${reps?`<div class="cm-reps">${reps}</div>`:""}
+          <div class="cm-acts">
+            <input class="cm-reply-in" placeholder="${t('cm_reply')}…">
+            <button class="mini" onclick="cmAct(this,'reply')">${t('cm_reply')}</button>
+            <button class="mini" onclick="cmAct(this,'hold')">${t('cm_hold')}</button>
+            <button class="mini warn" onclick="cmAct(this,'spam')">${t('cm_spam')}</button>
+            <button class="mini bad" onclick="cmAct(this,'delete')">${t('cm_delete')}</button>
+          </div></div>`;
+      }).join("");
+    }
+    window.cmAct = async (btn, action)=>{
+      const card=btn.closest(".cm-card"); const ch=$("cmChannel").value; const id=card.dataset.id;
+      const text=action==="reply"?(card.querySelector(".cm-reply-in").value||"").trim():null;
+      if(action==="reply" && !text) return;
+      btn.disabled=true; const old=btn.textContent; btn.textContent="…";
+      try{ await workerApi("/api/comment-action",{method:"POST",body:{channel:ch, action, id, text}});
+        if(action==="delete"||action==="spam"){ card.style.opacity=".45"; card.querySelector(".cm-acts").innerHTML="<span class='p-sub'>✓ "+action+"</span>"; }
+        else { toastMsg("✔ "+(action==="reply"?t("cm_reply"):action)); if(action==="reply")card.querySelector(".cm-reply-in").value=""; btn.textContent=old; btn.disabled=false; }
+      }catch(e){ alert("❌ "+e.message); btn.textContent=old; btn.disabled=false; }
+    };
+    window.fillChannelPickers = fillChannelPickers;
 
     const V=()=>__V, C=()=>__C, K=()=>__K;
     const eff=v=>v.status==="pending"&&v.publish_at?"scheduled":v.status;

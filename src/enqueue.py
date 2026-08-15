@@ -46,11 +46,30 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
             platforms: list[str] | None = None, publish_at: str | None = None,
             thumbnail: str | None = None, pool: bool = False,
             subtitle: str | None = None, subtitle_lang: str | None = None,
-            playlist: str | None = None) -> dict:
+            playlist: str | None = None, dedup: bool = True,
+            owner: str | None = None) -> dict:
     cfg = _load_channels()
     ch = cfg["channels"].get(channel)
     if not ch:
         raise SystemExit(f"❌ Không có kênh '{channel}' trong channels.yaml")
+
+    # ---- CHỐNG TRÙNG: tra vân tay nội dung trong sổ cái Firestore ----
+    # (chống kéo lại cả folder / trùng file / đổi máy). Lỗi Firestore -> bỏ qua kiểm tra.
+    sig = None
+    state = None
+    if dedup:
+        try:
+            from dedup import content_signature
+            from firestore_state import State
+            sig = content_signature(video)
+            state = State()
+            existed = state.sig_exists(channel, sig, owner=owner)
+            if existed:
+                print(f"⏭  Trùng (đã có trong kênh {channel}) -> BỎ QUA: {os.path.basename(video)}")
+                return {"duplicate": True, "id": existed, "sig": sig}
+        except Exception as e:
+            print(f"   ⚠️  Không tra được sổ chống trùng ({e}) — vẫn upload.")
+            state = None
 
     # Dựng metadata chuẩn từ branding kênh
     raw = {"topic": topic, "type": vtype}
@@ -102,6 +121,17 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
 
     created = drive.upload_to_queue(root, video, meta["type"], sidecar,
                                     thumbnail_path=thumbnail, subtitle_path=subtitle)
+
+    # Ghi vân tay vào sổ cái NGAY -> lần kéo folder sau sẽ nhận ra & bỏ qua
+    if sig and state:
+        try:
+            rec = {"channel": channel, "sig": sig, "drive_name": os.path.basename(video),
+                   "type": meta["type"], "source_status": "queued"}
+            if owner:
+                rec["owner"] = owner
+            state.upsert_video(created["id"], rec)
+        except Exception as e:
+            print(f"   ⚠️  Ghi sổ chống trùng lỗi ({e}).")
 
     print(f"✅ Đã đưa vào hàng đợi [{where}] kênh {channel} [{meta['type']}]: {meta['title']!r}")
     print(f"   Drive file id: {created['id']}")

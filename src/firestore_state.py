@@ -41,6 +41,16 @@ class State:
         data = {**data, "updated_at": datetime.now(timezone.utc).isoformat()}
         self.db.collection("videos").document(file_id).set(data, merge=True)
 
+    def sig_exists(self, channel: str, sig: str, owner: str | None = None) -> str | None:
+        """Đã ingest video có vân tay này cho kênh này chưa? Trả drive_file_id nếu có."""
+        q = (self.db.collection("videos")
+             .where("channel", "==", channel).where("sig", "==", sig))
+        if owner:
+            q = q.where("owner", "==", owner)
+        for d in q.limit(1).stream():
+            return d.id
+        return None
+
     def list_videos(self, channel: str | None = None) -> list[dict]:
         col = self.db.collection("videos")
         query = col.where("channel", "==", channel) if channel else col
