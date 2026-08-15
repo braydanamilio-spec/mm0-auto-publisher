@@ -502,6 +502,12 @@ function page(title, body) {
      <title>${escapeHtml(title)}</title>
      <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;margin:60px auto;
        padding:32px;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.06)">
-       <h2 style="margin-top:0">${escapeHtml(title)}</h2>${body}</div>`,
+       <h2 style="margin-top:0">${escapeHtml(title)}</h2>${body}
+       <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
+         <a href="https://mm0-auto-publisher.web.app/#connections"
+            style="background:#6c4ee6;color:#fff;text-decoration:none;padding:11px 18px;border-radius:10px;font-weight:600;font-size:14px">← Quay lại Dashboard</a>
+         <button onclick="window.close()"
+            style="background:#f1f1f4;color:#333;border:none;padding:11px 18px;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer">Đóng tab này</button>
+       </div></div>`,
     { headers: { "content-type": "text/html; charset=utf-8" } });
 }
