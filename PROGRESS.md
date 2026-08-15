@@ -2,8 +2,8 @@
 
 > File này là **bảng theo dõi tiến độ**. Mỗi phiên làm việc cập nhật lại phần "Trạng thái" và "Việc tiếp theo".
 
-**Cập nhật lần cuối:** 2026-08-15
-**Người/máy:** Claude Code (session build ban đầu)
+**Cập nhật lần cuối:** 2026-08-15 (phiên 8)
+**Người/máy:** Claude Code — multi-tenant + branding/comment + đăng bài + quản lý kênh
 
 ---
 
@@ -54,13 +54,24 @@
 - [ ] Tách mỗi kênh 1 Google Cloud project để vượt trần 6 upload/ngày.
 - [ ] Native scheduling YouTube (đặt `use_native_schedule: true`).
 - [ ] Retry thông minh cho lỗi quota (đợi sang ngày thay vì đánh failed).
-- [ ] Nút "đăng ngay" / "hoãn" trên dashboard (cần ghi Firestore từ client + Cloud Function nhỏ).
+- [x] ~~Nút "đăng ngay" / "hoãn" trên dashboard~~ → ĐÃ LÀM (trang Đăng bài: Đăng ngay + Rải lịch hàng loạt; client ghi status/publish_at qua rules, không cần Cloud Function).
 - [ ] Thống kê hiệu suất (views/CTR) kéo về dashboard qua YouTube Analytics API.
 
 ---
 
 ## Ghi chú trạng thái gần nhất
 (Phiên sau ghi tiếp vào đây — mới nhất lên trên)
+
+- **2026-08-15 (phiên 8 — multi-tenant + quản lý kênh + đăng bài)**: Đã build & deploy LIVE:
+  - **Multi-tenant** (mỗi user dữ liệu riêng): mọi doc có field `owner`=uid; doc id `{uid}__{channel}`; Worker xác thực Firebase ID token (JWKS RS256) → uid; rules owner-based. `main.process_users`/stats/cleanup chạy per-user.
+  - **(3) Branding + (4) Comment/Like** qua Worker API JSON có CORS (kèm ID token): `GET/POST /api/branding`, `GET /api/comments`, `POST /api/comment-action`, `POST /api/disconnect`. Dashboard 2 tab Branding/Comments. Avatar/banner KHÔNG đổi được qua API (chỉ Studio).
+  - **Chống trùng upload** `src/dedup.py` (vân tay nội dung sha1 size+2MB đầu+cuối) tại `enqueue()` → tra `State.sig_exists` trong Firestore; kéo lại cả folder chỉ đăng video mới. File trùng → `OUTBOX/_dup`.
+  - **Auto-name**: kết nối để trống ô tên → Worker tự lấy tên kênh thật làm nhãn (`slugLabel`). Trang Kết nối **gom nhóm theo Gmail** (field `email` trong channels doc; mỗi mail hiện số kênh + tổng subs).
+  - **Gỡ kênh/Gmail/kho**: `/api/disconnect` (revoke token + xoá doc), nút 🗑 trên card/nhóm/kho.
+  - **Trang "Kênh của tôi"** (v-channels): thẻ hub mỗi kênh, hiện cả khi chưa có video (`allChannels()` gộp connections vào chFilter/Tiến độ/Settings), chọn gói template per-kênh, nút nhảy Branding/Comments/Video.
+  - **Trang "Đăng bài"** (v-publish): Đăng ngay (status=pending+publish_at=now → cron ~30' đăng), Rải lịch hàng loạt (video/ngày + khung giờ + ngày bắt đầu), Đăng tất cả ngay. Ghi video docs từ client qua `window.__updateVideo/__bulkUpdateVideos` (rules cho sửa status/publish_at/reviewed_at).
+  - **metadata.py**: tự cắt title 100 / desc 5000 / tags 480 ở **ranh giới từ** + bỏ ký tự `< >` (YouTube từ chối) → không lỗi/không cảnh báo.
+  - Tích hợp **cả Drive free (15GB) lẫn Google One**: Worker đọc `storageQuota` thật khi connect → `cap_gb`/`used` đúng.
 
 - **2026-08-15 (phiên 6+)**: Đã thêm & deploy: **Cloudflare Worker** kết nối OAuth (nút Kết nối YouTube/Drive trên dashboard → token lưu Firestore); **chế độ Duyệt** trước khi đăng; **giao diện EN/VI** (mặc định EN); **playlist** tự tạo; **chọn template per-kênh** trên dashboard; **dọn dẹp linh động** chỉnh trên dashboard (mode/keep_days → Firestore, cleanup đọc); **thống kê Long/Short** theo kênh; logo/favicon SVG. Secret pipeline GitHub đã nạp. CÒN LẠI: branding kênh qua API + quản lý comment/like (đang xếp hàng). Chi tiết Worker: connect-worker/README.md.
 

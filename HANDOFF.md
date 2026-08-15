@@ -13,6 +13,20 @@
 | **Firebase console** | https://console.firebase.google.com/project/mm0-auto-publisher/overview |
 | **Web App ID** | `1:377166959818:web:eabe7e170d02cc8eaa5033` (config đã nhúng sẵn trong `dashboard/index.html`) |
 | **Tài khoản hạ tầng** | GitHub `braydanamilio-spec` · Firebase/Google `braydanamilio@gmail.com` |
+| **Dashboard LIVE** | https://mm0-auto-publisher.web.app (user thật: `adisondurham@gmail.com`, đã cấp Editor+firebaseauth.admin) |
+| **Connect Worker (Cloudflare)** | `https://mm0-connect.adisondurham-ef1.workers.dev` (tài khoản Cloudflare adisondurham) |
+
+### 🔌 Worker endpoints (connect-worker/src/worker.js)
+- `GET /auth/start?kind=youtube|drive&t=<idToken>` (channel để trống → tự lấy tên kênh thật) → OAuth.
+- `GET /auth/callback` → đổi code lấy refresh_token, lưu Firestore `connections/{uid}__{label}__{kind}` (rules chặn client), `channels/{uid}__{label}` (có email), `storage_accounts/{uid}__{label}`.
+- `GET/POST /api/branding` · `GET /api/comments` · `POST /api/comment-action` · `POST /api/disconnect` — đều verify Firebase ID token (JWKS RS256) → uid, có CORS. Worker tự đổi refresh_token→access_token gọi YouTube API (dashboard KHÔNG chạm token).
+- Secrets Worker: `YT_CLIENT_ID/SECRET`, `SA_CLIENT_EMAIL`, `SA_PRIVATE_KEY`, `FIREBASE_PROJECT_ID`, `ALLOW_EMAIL`. Deploy: `cd connect-worker && npx wrangler deploy`.
+
+### 🧭 Method mấu chốt (multi-tenant)
+- Mọi doc có field `owner`=uid; doc id `{uid}__{channel}`; dashboard đọc `where owner==uid`, ghi `settings/overrides__{uid}`.
+- Client ĐƯỢC sửa video: chỉ field `status`/`publish_at`/`reviewed_at` (rules) → dùng cho trang Đăng bài (Đăng ngay/Rải lịch).
+- Chống trùng: `src/dedup.py` vân tay nội dung → `State.sig_exists(channel,sig)` tại `enqueue()`.
+- Nhãn kênh tự sinh: `slugLabel(channel_title)` trong worker khi user để trống ô tên.
 
 > ⚠️ Secrets (OAuth token, service account key, FB token) **KHÔNG** nằm trong repo — chúng nằm ở **GitHub → Settings → Secrets**. Code chỉ tham chiếu tên biến (xem `config/channels.yaml`).
 
