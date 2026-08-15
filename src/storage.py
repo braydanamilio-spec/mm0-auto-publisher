@@ -16,6 +16,14 @@ from drive_client import Drive
 CONFIG = os.path.join(os.path.dirname(__file__), "..", "config", "storage.yaml")
 GB = 1_000_000_000
 
+# Dung lượng TẠM CHIẾM trong phiên chạy (drive.usage() cập nhật trễ sau upload).
+# Nhờ vậy khi đẩy nhiều video liên tiếp, acc không bị chọn quá tay -> chia đều, không tràn.
+_RESERVED: dict[str, int] = {}
+
+
+def reserve(root: str, nbytes: int) -> None:
+    _RESERVED[root] = _RESERVED.get(root, 0) + int(nbytes)
+
 
 def load_config() -> dict:
     with open(CONFIG, encoding="utf-8") as f:
@@ -48,6 +56,7 @@ def firestore_pool_accounts() -> list[dict]:
                 out.append({
                     "name": c.get("channel", "drive"),
                     "root": c["root"], "cap_gb": c.get("cap_gb", 14),
+                    "owner": c.get("owner"), "email": c.get("email", ""),
                     "creds": {"client_id": c["client_id"], "client_secret": c["client_secret"],
                               "refresh_token": c["refresh_token"]},
                 })
@@ -98,24 +107,37 @@ def account_status(acc: dict) -> dict:
     }
 
 
-def pick_upload_account(min_free_bytes: int = 500 * 1_000_000,
-                        cfg: dict | None = None) -> tuple[dict, Drive] | None:
+def ranked_accounts(need_bytes: int = 0, cfg: dict | None = None,
+                    owner: str | None = None) -> list[tuple[dict, int]]:
     """
-    Chọn tài khoản pool còn trống nhiều nhất (dưới cap) để đẩy video mới.
-    Trả (account, Drive) hoặc None nếu tất cả đã đầy.
+    Danh sách tài khoản pool ĐỦ CHỖ cho need_bytes, sắp theo free giảm dần.
+    -> caller thử acc đầu; nếu upload lỗi/đầy thì nhảy acc kế (liền mạch, không kẹt).
+    Đọc dung lượng THẬT mỗi acc (America 15GB free hay Google One đều đúng).
+    owner != None: chỉ lấy acc của user đó (multi-tenant, tránh chồng chéo giữa user).
     """
-    best, best_free = None, -1
+    scored = []
     for acc in pool_accounts(cfg):
+        if owner and acc.get("owner") and acc["owner"] != owner:
+            continue
         try:
-            st = account_status(acc)
+            free = account_status(acc)["free_under_cap"] - _RESERVED.get(acc["root"], 0)
         except Exception as e:
             print(f"  ⚠️  Không đọc được dung lượng {acc['name']}: {e}")
             continue
-        if st["free_under_cap"] > best_free:
-            best, best_free = acc, st["free_under_cap"]
-    if best and best_free >= min_free_bytes:
-        return best, account_drive(best)
-    return None
+        scored.append((acc, max(0, free)))
+    scored.sort(key=lambda x: -x[1])
+    return [(a, f) for (a, f) in scored if f >= max(0, need_bytes)]
+
+
+def pick_upload_account(min_free_bytes: int = 500 * 1_000_000,
+                        cfg: dict | None = None,
+                        owner: str | None = None) -> tuple[dict, Drive] | None:
+    """Chọn tài khoản pool còn trống nhiều nhất (còn tương thích chỗ gọi cũ)."""
+    ranked = ranked_accounts(min_free_bytes, cfg, owner)
+    if not ranked:
+        return None
+    best = ranked[0][0]
+    return best, account_drive(best)
 
 
 def status_report(cfg: dict | None = None) -> list[dict]:

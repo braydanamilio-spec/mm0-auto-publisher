@@ -9,7 +9,7 @@ Nguyên tắc:
 """
 
 from __future__ import annotations
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time, timezone
 from zoneinfo import ZoneInfo
 
 
@@ -55,8 +55,11 @@ def assign_slots(
 
     def next_free_slot(day_offset_start, times_list, per_period, period_days):
         """generator sinh các slot trống lần lượt."""
+        times_list = [s for s in (times_list or []) if s] or ["20:00"]  # rỗng -> mặc định, tránh loop vô hạn
         d = day_offset_start
-        while True:
+        horizon = 0
+        while horizon < 366 * 3:   # trần an toàn ~3 năm, không bao giờ treo cron
+            horizon += period_days
             # số slot loại này trong 'period_days'
             for k in range(period_days):
                 the_day = day0 + timedelta(days=d + k)
@@ -80,12 +83,18 @@ def assign_slots(
     if shorts and short_per_day > 0:
         gen = next_free_slot(0, best.get("short", ["20:00"]), short_per_day, 1)
         for it in shorts:
-            it["publish_at"] = next(gen)
+            try:
+                it["publish_at"] = next(gen)
+            except StopIteration:
+                break
 
     if longs and long_per_week > 0:
         gen = next_free_slot(0, best.get("long", ["20:30"]), long_per_week, 7)
         for it in longs:
-            it["publish_at"] = next(gen)
+            try:
+                it["publish_at"] = next(gen)
+            except StopIteration:
+                break
 
     return items
 
@@ -99,7 +108,11 @@ def due_items(items: list[dict], now: datetime) -> list[dict]:
             continue
         try:
             dt = datetime.fromisoformat(pa)
-        except ValueError:
+            # Sidecar viết tay có thể thiếu offset -> coi như UTC để KHÔNG crash cả kênh
+            # (so sánh offset-naive vs offset-aware sẽ ném TypeError).
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+        except (ValueError, TypeError):
             continue
         status = it.get("status", "pending")
         if status in ("posted", "uploading", "needs_review"):
@@ -132,7 +145,8 @@ def apply_limits(
     out = []
     yt_used, fb_used = posted_today_yt, posted_today_fb
     for it in ready:
-        plats = it.get("platforms", ["youtube", "facebook"])
+        # platforms nằm trong meta (không phải top-level) -> đọc đúng để cap từng nền tảng chuẩn
+        plats = (it.get("meta") or {}).get("platforms") or it.get("platforms") or ["youtube", "facebook"]
         want_yt = "youtube" in plats
         want_fb = "facebook" in plats
         if want_yt and yt_used >= yt_cap:

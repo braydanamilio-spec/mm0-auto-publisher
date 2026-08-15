@@ -15,17 +15,26 @@ from __future__ import annotations
 import hashlib
 import os
 
-_CHUNK = 2 * 1024 * 1024  # 2MB đầu + 2MB cuối
+_CHUNK = 1 * 1024 * 1024  # 1MB mỗi điểm lấy mẫu
 
 
 def content_signature(path: str) -> str:
-    """Trả về vân tay ngắn, ổn định theo nội dung file."""
+    """
+    Vân tay ổn định theo NỘI DUNG file.
+
+    Lấy mẫu ở NHIỀU vị trí (đầu, 25%, 50%, 75%, cuối) + kích thước chính xác.
+    Video cùng bộ (intro/outro giống nhau) vẫn KHÁC vân tay nhờ mẫu ở phần giữa
+    -> tránh chặn nhầm video mới. Vẫn nhanh (đọc ~5MB, không đọc cả file GB).
+    """
     size = os.path.getsize(path)
     h = hashlib.sha1()
-    h.update(str(size).encode())
+    h.update(str(size).encode())            # size chính xác vào vân tay
     with open(path, "rb") as f:
-        h.update(f.read(_CHUNK))          # 2MB đầu
-        if size > _CHUNK:
-            f.seek(max(0, size - _CHUNK))
-            h.update(f.read(_CHUNK))        # 2MB cuối
-    return "sig1_" + h.hexdigest()[:24]
+        if size <= 5 * _CHUNK:
+            h.update(f.read())              # file nhỏ: hash toàn bộ (chắc chắn nhất)
+        else:
+            for frac in (0.0, 0.25, 0.5, 0.75, 1.0):
+                off = min(max(0, int(size * frac) - _CHUNK // 2), max(0, size - _CHUNK))
+                f.seek(off)
+                h.update(f.read(_CHUNK))
+    return "sig2_" + h.hexdigest()[:24]

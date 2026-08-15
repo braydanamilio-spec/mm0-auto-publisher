@@ -93,7 +93,7 @@ def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now, 
     # Ưu tiên template chọn trên dashboard (Firestore overrides) -> active_template -> env default
     tmpl_name = (overrides or {}).get(key) or ch.get("active_template",
                 os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short"))
-    template = templates["templates"][tmpl_name]
+    template = templates["templates"].get(tmpl_name) or templates["templates"]["balanced_1long_3short"]
 
     # 1) Quét Drive
     files = drive.list_queue(root)
@@ -211,34 +211,63 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now, owner=None):
                     caption_specs.append({"path": cpath, "language": cap.get("language", "en"),
                                           "name": cap.get("name", "")})
 
+        errs = []
+        # ---- YOUTUBE: đếm quota NGAY khi thành công. Lỗi Facebook sau đó KHÔNG xoá thành quả này ----
         if results.get("youtube", {}).get("id"):
             print("     ↺ YouTube đã đăng trước đó — bỏ qua (chống trùng).")
         elif need_yt:
-            r = YT.upload(tmp, meta, ch["youtube"], resolved["yt_creds"],
-                          it.get("publish_at"), thumbnail_path=thumb_tmp,
-                          captions=caption_specs, playlist=it.get("playlist"))
-            results["youtube"] = r
-            yt_ok = True
-            state.upsert_video(it["drive_file_id"], {"results": results})  # LƯU NGAY -> không đăng lại
-            print(f"     ✅ YouTube: {r['url']}")
+            try:
+                r = YT.upload(tmp, meta, ch["youtube"], resolved["yt_creds"],
+                              it.get("publish_at"), thumbnail_path=thumb_tmp,
+                              captions=caption_specs, playlist=it.get("playlist"))
+                results["youtube"] = r
+                yt_ok = True
+                state.upsert_video(it["drive_file_id"], {"results": results})   # LƯU NGAY
+                state.bump_counters(it["channel"], now, yt=1, owner=owner)       # ĐẾM NGAY -> cap không lệch
+                print(f"     ✅ YouTube: {r['url']}")
+            except YT.QuotaExceeded:
+                raise
+            except Exception as e:
+                errs.append(f"YouTube: {e}")
+                print(f"     ❌ YouTube lỗi: {e}")
 
+        # ---- FACEBOOK: độc lập; lỗi ở đây không làm hỏng thành quả YouTube ----
         if results.get("facebook", {}).get("id"):
             print("     ↺ Facebook đã đăng trước đó — bỏ qua (chống trùng).")
         elif need_fb:
-            r = FB.upload(tmp, meta, resolved["fb"]["page_id"], resolved["fb"]["page_token"])
-            results["facebook"] = r
-            fb_ok = True
-            state.upsert_video(it["drive_file_id"], {"results": results})
-            print(f"     ✅ Facebook: {r['url']}")
+            try:
+                r = FB.upload(tmp, meta, resolved["fb"]["page_id"], resolved["fb"]["page_token"])
+                results["facebook"] = r
+                fb_ok = True
+                state.upsert_video(it["drive_file_id"], {"results": results})
+                state.bump_counters(it["channel"], now, fb=1, owner=owner)
+                print(f"     ✅ Facebook: {r['url']}")
+            except Exception as e:
+                errs.append(f"Facebook: {e}")
+                print(f"     ❌ Facebook lỗi: {e}")
 
-        # Chỉ coi là xong khi ĐÃ đăng ít nhất 1 nền tảng (tránh mất file khi thiếu creds)
         posted_any = bool(results.get("youtube", {}).get("id") or results.get("facebook", {}).get("id"))
         if not posted_any:
-            print("     ⚠️  Chưa đăng được nền tảng nào (thiếu creds/nền tảng?) — giữ lại hàng đợi.")
-            state.upsert_video(it["drive_file_id"], {"status": "pending"})
+            # Không nền tảng nào đăng: do LỖI -> tính attempts; do thiếu creds -> giữ pending
+            if errs:
+                attempts = it["attempts"] + 1
+                blob = " | ".join(errs)
+                state.upsert_video(it["drive_file_id"], {"status": "failed", "attempts": attempts,
+                                                         "error": blob, "partial_results": results})
+                if any(k in blob.lower() for k in ("invalid_grant", "unauthorized", "invalid credentials")):
+                    state.set_channel_health(it["channel"], {"yt_ok": False, "yt_error": blob[:200]}, owner=owner)
+                if attempts >= 3:
+                    try:
+                        drive.move(it["drive_file_id"], root, "_FAILED")
+                        print("     🗂️  Lỗi >=3 lần -> chuyển _FAILED.")
+                    except Exception:
+                        pass
+            else:
+                print("     ⚠️  Chưa đăng được nền tảng nào (thiếu creds?) — giữ hàng đợi.")
+                state.upsert_video(it["drive_file_id"], {"status": "pending"})
             return
 
-        # Thành công -> chuyển video + sidecar + thumbnail + phụ đề sang _POSTED
+        # ĐÃ đăng ít nhất 1 nền tảng -> chuyển _POSTED (nền tảng kia lỗi thì ghi nhận là posted-partial)
         drive.move(it["drive_file_id"], root, "_POSTED")
         base = name.rsplit(".", 1)[0]
         companions = [f"{base}.json", it.get("thumbnail")]
@@ -250,34 +279,31 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now, owner=None):
             if cid:
                 drive.move(cid, root, "_POSTED")
         state.upsert_video(it["drive_file_id"], {
-            "status": "posted", "results": results,
-            "posted_at": now.isoformat(),
+            "status": "posted", "results": results, "posted_at": now.isoformat(),
+            **({"partial_error": " | ".join(errs)} if errs else {}),
         })
-        state.bump_counters(it["channel"], now, yt=int(yt_ok), fb=int(fb_ok), owner=owner)
         state.set_channel_health(it["channel"], {
             "last_publish_at": now.isoformat(),
             **({"yt_ok": True} if yt_ok else {}),
             **({"fb_ok": True} if fb_ok else {}),
         }, owner=owner)
-        print("     📦 Đã chuyển sang _POSTED.")
+        print("     📦 Đã chuyển sang _POSTED." + (f"  (⚠ {'; '.join(errs)})" if errs else ""))
 
     except YT.QuotaExceeded:
         print("     ⏸ Hết quota YouTube hôm nay — giữ video ở 'pending', tự thử lại ngày mai.")
         state.upsert_video(it["drive_file_id"], {"status": "pending", "note": "quota_wait"})
         raise  # báo process_channel dừng đăng kênh này
     except Exception as e:
+        # Lỗi NGOÀI upload nền tảng (download/move…). Nếu đã đăng được thì KHÔNG đánh 'failed'.
+        posted_any = bool(results.get("youtube", {}).get("id") or results.get("facebook", {}).get("id"))
         attempts = it["attempts"] + 1
         print(f"     ❌ LỖI: {e}")
         traceback.print_exc()
-        if any(k in str(e).lower() for k in ("invalid_grant", "unauthorized", "invalid credentials")):
-            state.set_channel_health(it["channel"], {"yt_ok": False, "yt_error": str(e)[:200]}, owner=owner)
-        target_status = "failed"
         state.upsert_video(it["drive_file_id"], {
-            "status": target_status, "attempts": attempts,
-            "error": str(e), "partial_results": results,
+            "status": "posted" if posted_any else "failed",
+            "attempts": attempts, "error": str(e), "partial_results": results,
         })
-        # Lỗi >= 3 lần -> chuyển _FAILED để bạn kiểm tra thủ công
-        if attempts >= 3:
+        if not posted_any and attempts >= 3:
             try:
                 drive.move(it["drive_file_id"], root, "_FAILED")
                 print("     🗂️  Lỗi >=3 lần -> chuyển _FAILED.")
@@ -335,7 +361,7 @@ def process_pool(channels_cfg, templates, safety, tz, dry_run, state, now, overr
         ch = channels_cfg[channel]
         tmpl_name = (overrides or {}).get(channel) or ch.get("active_template",
                     os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short"))
-        template = templates["templates"][tmpl_name]
+        template = templates["templates"].get(tmpl_name) or templates["templates"]["balanced_1long_3short"]
         used = {it["publish_at"] for it in items if it.get("publish_at")}
         S.assign_slots(items, template, tz, now, used)
         for it in items:

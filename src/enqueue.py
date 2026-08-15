@@ -44,7 +44,7 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
             title: str | None = None, description: str | None = None,
             hashtags: list[str] | None = None, tags: list[str] | None = None,
             platforms: list[str] | None = None, publish_at: str | None = None,
-            thumbnail: str | None = None, pool: bool = False,
+            thumbnail: str | None = None, pool="auto",
             subtitle: str | None = None, subtitle_lang: str | None = None,
             playlist: str | None = None, dedup: bool = True,
             owner: str | None = None) -> dict:
@@ -52,6 +52,17 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
     ch = cfg["channels"].get(channel)
     if not ch:
         raise SystemExit(f"❌ Không có kênh '{channel}' trong channels.yaml")
+
+    # Multi-tenant: chưa biết owner -> tra từ kết nối YouTube của kênh (để dashboard hiện đúng user)
+    if owner is None:
+        try:
+            from firestore_state import State as _S
+            for c in _S().list_connections("youtube"):
+                if c.get("channel") == channel and c.get("owner"):
+                    owner = c["owner"]
+                    break
+        except Exception:
+            pass
 
     # ---- CHỐNG TRÙNG: tra vân tay nội dung trong sổ cái Firestore ----
     # (chống kéo lại cả folder / trùng file / đổi máy). Lỗi Firestore -> bỏ qua kiểm tra.
@@ -103,24 +114,36 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
         lang = subtitle_lang or ch["youtube"].get("default_language", "en")
         sidecar["captions"] = [{"file": f"{vbase}{sext}", "language": lang, "name": lang.upper()}]
 
-    # Chọn đích: HỒ CHỨA (tự chọn acc còn trống) hoặc folder riêng của kênh
-    if pool:
-        import storage as ST
-        picked = ST.pick_upload_account()
-        if not picked:
-            raise SystemExit("❌ Hồ chứa đã đầy hết — thêm tài khoản pool hoặc dọn dẹp.")
-        acc, drive = picked
-        root = acc["root"]
-        where = f"pool:{acc['name']}"
+    # ---- Chọn đích + UPLOAD (kho pool: tự chia acc theo dung lượng; lỗi/đầy -> nhảy acc kế) ----
+    import storage as ST
+    use_pool = (pool is True) or (pool == "auto" and bool(ST.pool_accounts()))
+    if use_pool:
+        need = os.path.getsize(video) + 60 * 1024 * 1024   # +60MB đệm (sidecar/thumb/sub/overhead)
+        ranked = ST.ranked_accounts(need, owner=owner)
+        if not ranked:
+            raise SystemExit(f"❌ Không tài khoản kho nào đủ chỗ (~{need/1e9:.2f} GB). "
+                             f"Kết nối thêm Google Drive hoặc dọn dẹp.")
+        targets = [(ST.account_drive(a), a["root"], f"kho:{a['name']}") for a, _ in ranked]
     else:
         root = os.environ.get(ch["drive_folder_id_env"])
         if not root:
-            raise SystemExit(f"❌ Chưa set biến {ch['drive_folder_id_env']} (Drive folder id).")
-        drive = Drive()
-        where = "kênh"
+            raise SystemExit(f"❌ Chưa kết nối tài khoản kho nào, và chưa set {ch['drive_folder_id_env']}.")
+        targets = [(Drive(), root, "kênh")]
 
-    created = drive.upload_to_queue(root, video, meta["type"], sidecar,
-                                    thumbnail_path=thumbnail, subtitle_path=subtitle)
+    created, where, last_err = None, None, None
+    for drive, root, wh in targets:
+        try:
+            created = drive.upload_to_queue(root, video, meta["type"], sidecar,
+                                            thumbnail_path=thumbnail, subtitle_path=subtitle)
+            where = wh
+            if use_pool:
+                ST.reserve(root, os.path.getsize(video))   # trừ tạm dung lượng (usage() lag sau upload)
+            break
+        except Exception as e:
+            last_err = e
+            print(f"   ⚠️  Upload vào {wh} lỗi: {e}" + (" → thử tài khoản kế" if len(targets) > 1 else ""))
+    if not created:
+        raise SystemExit(f"❌ Upload thất bại toàn bộ tài khoản kho: {last_err}")
 
     # Ghi vân tay vào sổ cái NGAY -> lần kéo folder sau sẽ nhận ra & bỏ qua
     if sig and state:
@@ -153,7 +176,10 @@ def main():
     ap.add_argument("--platforms", help="VD: youtube,facebook")
     ap.add_argument("--publish-at", dest="publish_at", help="ISO. Bỏ trống = auto theo template.")
     ap.add_argument("--thumbnail", help="Đường dẫn ảnh thumbnail (long-form nên có).")
-    ap.add_argument("--pool", action="store_true", help="Đẩy vào HỒ CHỨA (tự chọn acc còn trống).")
+    ap.add_argument("--pool", dest="pool", action="store_const", const=True, default="auto",
+                    help="Ép đẩy vào KHO pool (mặc định: auto — dùng kho nếu có kết nối).")
+    ap.add_argument("--no-pool", dest="pool", action="store_const", const=False,
+                    help="Ép dùng folder riêng của kênh (không dùng kho pool).")
     ap.add_argument("--subtitle", help="File phụ đề .srt/.vtt đi kèm (tự upload lên YouTube).")
     ap.add_argument("--subtitle-lang", dest="subtitle_lang", help="Mã ngôn ngữ phụ đề, vd en, vi.")
     ap.add_argument("--playlist", help="Tên playlist (tự tạo nếu chưa có).")

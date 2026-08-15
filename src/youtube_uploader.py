@@ -64,10 +64,20 @@ def upload(
         "privacyStatus": yt_conf.get("privacy", "public"),
         "selfDeclaredMadeForKids": bool(yt_conf.get("made_for_kids", False)),
     }
-    # Lên lịch công khai bằng chính YouTube (an toàn nhất): privacy=private + publishAt
+    # Lên lịch công khai bằng chính YouTube: privacy=private + publishAt.
+    # YouTube CHỈ chấp nhận publishAt trong TƯƠNG LAI -> nếu đã tới/quá giờ thì đăng public luôn
+    # (tránh video kẹt 'private' vĩnh viễn khi upload đúng lúc đến hạn).
     if publish_at_iso and yt_conf.get("use_native_schedule"):
-        status["privacyStatus"] = "private"
-        status["publishAt"] = publish_at_iso
+        from datetime import datetime, timezone
+        try:
+            dt = datetime.fromisoformat(publish_at_iso)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+        except (ValueError, TypeError):
+            dt = None
+        if dt and dt > datetime.now(timezone.utc):
+            status["privacyStatus"] = "private"
+            status["publishAt"] = dt.isoformat()
 
     body = {
         "snippet": {
