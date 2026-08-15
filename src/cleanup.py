@@ -57,6 +57,26 @@ def run(dry_run=False, force_now=False):
     mode = policy.get("mode", "keep")
     keep_days = policy.get("keep_days", 14)
 
+    # Báo cáo dung lượng pool -> dashboard (trang Kho lưu trữ)
+    try:
+        accts = ST.pool_accounts(cfg)
+        if accts:
+            from firestore_state import State
+            report = []
+            for acc in accts:
+                try:
+                    st = ST.account_status(acc)
+                    report.append({"name": st["name"], "used": st["used"], "cap": st["cap"]})
+                except Exception:
+                    pass
+            if report:
+                State().set_doc("storage", "pool", {
+                    "accounts": report, "cleanup_mode": mode,
+                    "keep_days": keep_days, "trigger": policy.get("trigger", "auto")})
+                print(f"  📊 Đã cập nhật dung lượng {len(report)} tài khoản lên dashboard.")
+    except Exception as e:
+        print(f"  (storage report skip: {e})")
+
     print(f"🧹 Cleanup mode = {mode} | keep_days = {keep_days}"
           f"{' | DRY-RUN' if dry_run else ''}{' | NGAY' if force_now else ''}")
     if mode == "keep":

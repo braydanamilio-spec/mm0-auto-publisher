@@ -30,5 +30,13 @@ service cloud.firestore {
     match /connections/{doc} {
       allow read, write: if false;
     }
+    match /storage/{doc} {
+      allow read: if isOwner();
+      allow write: if false;
+    }
+    match /settings/{doc} {
+      allow read: if isOwner();
+      allow write: if false;
+    }
   }
 }

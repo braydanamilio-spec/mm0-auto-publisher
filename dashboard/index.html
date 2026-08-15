@@ -264,6 +264,8 @@
       <div class="nav" data-view="schedule"><span class="ic" data-i="cal"></span> Lịch <span class="badge" id="nvSched">0</span></div>
       <div class="nav-label">Hệ thống</div>
       <div class="nav" data-view="connections"><span class="ic" data-i="plug"></span> Kết nối API <span class="dotwarn hide" id="connWarn"></span></div>
+      <div class="nav" data-view="storage"><span class="ic" data-i="disk"></span> Kho lưu trữ</div>
+      <div class="nav" data-view="settings"><span class="ic" data-i="gear"></span> Cài đặt</div>
       <div class="side-foot">
         <button class="ghost" id="themeBtn"><span id="themeIc">🌙</span> <span id="themeTx">Giao diện tối</span></button>
         <div class="userchip"><img id="uImg" alt=""><span class="em" id="uEmail">—</span></div>
@@ -340,6 +342,33 @@
           </ol>
         </div>
       </section>
+
+      <section id="v-storage" class="content hide">
+        <div class="kpis" id="stKpis"></div>
+        <div class="panel" style="margin-bottom:16px">
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive)</div><div class="p-sub" id="stMode"></div></div>
+          <div id="stAccounts"></div>
+        </div>
+        <div class="panel help">
+          <div class="p-title">🧹 Dọn dẹp</div>
+          <ol>
+            <li><b>keep</b> = giữ tất cả (Google One) · <b>delete</b> = xoá file đã đăng cũ · <b>archive</b> = chuyển sang kho lạnh.</li>
+            <li>Chỉnh trong <code>config/storage.yaml</code> → <code>cleanup.mode</code> / <code>trigger</code> / <code>keep_days</code>.</li>
+            <li>Thủ công: <code>python src/cleanup.py --now</code> hoặc Actions → MM0 Storage Cleanup.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section id="v-settings" class="content hide">
+        <div class="panel" style="margin-bottom:16px">
+          <div class="p-head"><div class="p-title">⚙️ Cấu hình hệ thống</div><div class="p-sub" id="setUpdated"></div></div>
+          <div id="setSummary"></div>
+        </div>
+        <div class="panel">
+          <div class="p-head"><div class="p-title">📅 Thư viện template gói đăng bài</div></div>
+          <div class="conn-grid" id="setTemplates"></div>
+        </div>
+      </section>
     </div>
   </div>
 
@@ -387,6 +416,8 @@
       sub("videos", s => { window.setData(s.docs.map(d=>({id:d.id,...d.data()})), null, null); setLive(true); });
       sub("channels", s => { const c={}; s.docs.forEach(d=>c[d.id]=d.data()); window.setData(null,c,null); });
       sub("counters", s => { const k={}; s.docs.forEach(d=>k[d.id]=d.data()); window.setData(null,null,k); });
+      sub("storage", s => { const d=s.docs.find(x=>x.id==="pool"); window.setStorage(d?d.data():null); });
+      sub("settings", s => { const d=s.docs.find(x=>x.id==="config"); window.setSettings(d?d.data():null); });
     }
     function setLive(ok){
       const el=document.getElementById("live"); el.classList.toggle("err",!ok);
@@ -408,8 +439,20 @@
       if (!channel) return alert("Nhập tên kênh trước (vd BROKE).");
       window.open(`${WORKER_URL}/auth/start?channel=${encodeURIComponent(channel)}&kind=${kind}`, "_blank");
     }
-    let __V=[], __C={}, __K={};
+    let __V=[], __C={}, __K={}, __STORAGE=null, __SETTINGS=null;
     window.setData = (v,c,k) => { if(v)__V=v; if(c)__C=c; if(k)__K=k; renderAll(); };
+    window.setStorage = (s) => { __STORAGE=s; renderStorage(); };
+    window.setSettings = (s) => { __SETTINGS=s; renderSettings(); };
+    // Catalog template (khớp config/posting_templates.yaml) — hiển thị ở trang Cài đặt
+    const TEMPLATE_CATALOG = [
+      {id:"balanced_1long_3short",name:"Cân bằng ⚖️",desc:"1 Long + 3 Short/ngày · 12:00·17:00·20:00 + 15:00 (ET)",star:true},
+      {id:"authority_daily",name:"Authority Daily 📚",desc:"1 Long + 1 Short/ngày"},
+      {id:"shorts_growth",name:"Shorts Machine 🔥",desc:"4 Short/ngày + 2 Long/tuần"},
+      {id:"sprint_7d",name:"Launch Sprint 🚀",desc:"Ra mắt 7 ngày: 3 Short/ngày + 3 Long/tuần"},
+      {id:"growth_30d",name:"Growth Engine 📈",desc:"2 Short/ngày + 3 Long/tuần"},
+      {id:"scale_90d",name:"Authority Scale 🏆",desc:"1 Short/ngày + 4 Long/tuần"},
+      {id:"minimal_sustainable",name:"Tối giản 🌙",desc:"1 Short/ngày + 3 Long/tuần"},
+    ];
 
     const ICONS = {
       grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
@@ -417,6 +460,8 @@
       film:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M17 9h4M3 15h4M17 15h4"/>',
       cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
       plug:'<path d="M12 22v-5M9 8V2M15 8V2M6 8h12v3a6 6 0 0 1-12 0z"/>',
+      disk:'<path d="M22 12A10 10 0 1 1 12 2"/><path d="M12 2v10l6.5 6.5"/><circle cx="12" cy="12" r="2.5"/>',
+      gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
     };
     window.paintIcons = () => document.querySelectorAll(".ic[data-i]").forEach(e=>{
       e.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[e.dataset.i]||""}</svg>`; });
@@ -437,11 +482,13 @@
     function wireNav(){
       const T={overview:["Tổng quan","Toàn bộ kênh"],analytics:["Phân tích","Hiệu suất view & subscriber"],
         videos:["Thư viện video","Quản lý, tìm kiếm & lọc"],schedule:["Lịch đăng","Dòng thời gian"],
-        connections:["Kết nối API","Trạng thái YouTube · Facebook · quota"]};
+        connections:["Kết nối API","Trạng thái YouTube · Facebook · quota"],
+        storage:["Kho lưu trữ","Dung lượng pool & dọn dẹp"],settings:["Cài đặt","Template & cấu hình hệ thống"]};
+      const VIEWS=["overview","analytics","videos","schedule","connections","storage","settings"];
       document.querySelectorAll(".nav").forEach(n=>n.onclick=()=>{
         document.querySelectorAll(".nav").forEach(x=>x.classList.remove("active")); n.classList.add("active");
         const v=n.dataset.view;
-        ["overview","analytics","videos","schedule","connections"].forEach(x=>$("v-"+x).classList.toggle("hide",x!==v));
+        VIEWS.forEach(x=>$("v-"+x).classList.toggle("hide",x!==v));
         $("vTitle").textContent=T[v][0]; $("vSub").textContent=T[v][1];
       });
       ["search","stFilter","tyFilter","sortBy"].forEach(id=>{const e=$(id);if(e)e.oninput=e.onchange=renderVideos;});
@@ -469,6 +516,7 @@
     function renderAll(){
       buildChanFilter(); renderKPIs(); renderViewsChart(); renderDonut(); renderChannels();
       renderUpcoming(); renderAnalytics(); renderVideos(); renderSchedule(); renderConnections();
+      renderStorage(); renderSettings();
       $("nvVideos").textContent=V().length; $("nvSched").textContent=V().filter(v=>eff(v)==="scheduled").length;
     }
     function buildChanFilter(){const sel=$("chFilter"),c=sel.value;const ks=Object.keys(chanMap()).sort();
@@ -484,6 +532,7 @@
       yt:'<path d="M22.5 6.5a3 3 0 0 0-2.1-2.1C18.5 4 12 4 12 4s-6.5 0-8.4.4A3 3 0 0 0 1.5 6.5 31 31 0 0 0 1 12a31 31 0 0 0 .5 5.5 3 3 0 0 0 2.1 2.1C5.5 20 12 20 12 20s6.5 0 8.4-.4a3 3 0 0 0 2.1-2.1A31 31 0 0 0 23 12a31 31 0 0 0-.5-5.5z"/><polygon points="10,8.5 16,12 10,15.5" fill="currentColor" stroke="none"/>',
       fb:'<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>',
       check:'<polyline points="20 6 9 17 4 12"/>', x:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+      disk:'<path d="M22 12A10 10 0 1 1 12 2"/><path d="M12 2v10l6.5 6.5"/><circle cx="12" cy="12" r="2.5"/>',
     }[p]||"";}
     const wrap=(p,c)=>`<svg viewBox="0 0 24 24" fill="none" stroke="${c||'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${svgIcon(p)}</svg>`;
 
@@ -622,6 +671,45 @@
       $("connGrid").innerHTML = cards.join("") || "";
       $("connWarn").classList.toggle("hide", warnCount===0);
     }
+    const fmtBytes=(n)=>{if(n==null)return"—";const u=["B","KB","MB","GB","TB"];let i=0,x=n;while(x>=1000&&i<u.length-1){x/=1000;i++;}return x.toFixed(x<10&&i>0?1:0)+" "+u[i];};
+
+    function renderStorage(){
+      const s=__STORAGE;
+      const mode=(s&&s.cleanup_mode)||(__SETTINGS&&__SETTINGS.cleanup&&__SETTINGS.cleanup.mode)||"—";
+      $("stMode").textContent="Chế độ dọn: "+mode;
+      const accs=(s&&s.accounts)||[];
+      if(!accs.length){$("stKpis").innerHTML="";$("stAccounts").innerHTML=emptyBox("Chưa cấu hình tài khoản pool. Xem docs/STORAGE.md — mỗi tài khoản Google free 15GB, gộp lại thành 150GB/1TB.");return;}
+      const used=accs.reduce((a,x)=>a+(x.used||0),0),cap=accs.reduce((a,x)=>a+(x.cap||0),0);
+      $("stKpis").innerHTML=kpi("disk","var(--accent-soft)","var(--accent)",fmtBytes(cap),"Tổng dung lượng pool")
+        +kpi("disk","var(--info-soft)","var(--info)",fmtBytes(used),"Đã dùng")
+        +kpi("disk","var(--good-soft)","var(--good)",fmtBytes(cap-used),"Còn trống")
+        +kpi("disk","var(--warn-soft)","var(--warn)",String(accs.length),"Tài khoản");
+      $("stAccounts").innerHTML=accs.map(a=>{const pct=a.cap?Math.min(100,Math.round((a.used||0)/a.cap*100)):0;
+        const col=pct>=95?"var(--bad)":pct>=80?"var(--warn)":"var(--good)";
+        return `<div class="chan-item"><div class="ava" style="background:linear-gradient(145deg,var(--accent),var(--violet))">${esc((a.name||'?').slice(0,2).toUpperCase())}</div>
+          <div class="chan-mid"><div class="nm">${esc(a.name)}</div><div class="st">${fmtBytes(a.used||0)} / ${fmtBytes(a.cap||0)}</div>
+          <div class="bar"><i style="width:${pct}%;background:${col}"></i></div></div>
+          <div class="chan-right"><div class="big tnum" style="color:${col}">${pct}%</div><div class="cap">đã dùng</div></div></div>`;}).join("");
+    }
+
+    function renderSettings(){
+      const s=__SETTINGS;
+      $("setUpdated").textContent=s&&s.updated_at?"Cập nhật "+ago(s.updated_at):"";
+      const def=(s&&s.default_template)||"balanced_1long_3short";
+      const cl=(s&&s.cleanup)||{}, sf=(s&&s.safety)||{youtube_max_uploads_per_day:6,facebook_max_uploads_per_day:10,min_minutes_between_uploads:30};
+      const chMap=(s&&s.channels)||{};
+      const rows=Object.keys(chMap).length?Object.entries(chMap).map(([k,t])=>`<div class="svc"><div class="snm">${esc(k)}</div><span class="tag t-scheduled" style="margin-left:auto">${esc(t)}</span></div>`).join(""):`<div class="p-sub" style="padding:8px 0">Chưa có dữ liệu kênh (pipeline chưa chạy).</div>`;
+      $("setSummary").innerHTML=`
+        <div class="svc"><div class="snm">Template mặc định</div><span class="tag t-connected" style="margin-left:auto">${esc(def)}</span></div>
+        <div class="svc"><div class="snm">Chế độ dọn dẹp</div><span class="tag t-unknown" style="margin-left:auto">${esc(cl.mode||'—')} · ${cl.keep_days||14} ngày · ${esc(cl.trigger||'auto')}</span></div>
+        <div class="svc"><div class="snm">Trần an toàn/ngày</div><span class="sd" style="margin-left:auto">YT ${sf.youtube_max_uploads_per_day} · FB ${sf.facebook_max_uploads_per_day} · giãn ${sf.min_minutes_between_uploads}'</span></div>
+        <div class="p-sub" style="margin:12px 0 4px">Template theo từng kênh:</div>${rows}`;
+      $("setTemplates").innerHTML=TEMPLATE_CATALOG.map(t=>`<div class="conn" style="padding:16px">
+        <div style="display:flex;align-items:center;gap:8px"><b>${t.name}</b>${t.id===def?'<span class="tag t-connected" style="margin-left:auto">Đang dùng</span>':(t.star?'<span class="p-sub" style="margin-left:auto">gợi ý</span>':'')}</div>
+        <div class="p-sub" style="margin-top:6px">${esc(t.desc)}</div>
+        <div class="sd" style="margin-top:8px;font-family:monospace;color:var(--faint)">${t.id}</div></div>`).join("");
+    }
+
     function emptyBox(m){return `<div class="empty"><div class="big">🗂️</div>${m}</div>`;}
 
     window.renderAll=renderAll; window.initTheme=initTheme; window.wireNav=wireNav;

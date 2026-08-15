@@ -378,6 +378,22 @@ def main():
             print(f"  ❌ Pool lỗi tổng: {e}")
             traceback.print_exc()
 
+    # Ghi cấu hình cho dashboard (trang Cài đặt)
+    try:
+        default_tmpl = os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short")
+        ch_tmpl = {k: c.get("active_template", default_tmpl)
+                   for k, c in channels["channels"].items() if c.get("enabled")}
+        cleanup = {}
+        try:
+            with open(os.path.join(CONFIG_DIR, "storage.yaml"), encoding="utf-8") as f:
+                cleanup = (yaml.safe_load(f) or {}).get("cleanup", {})
+        except FileNotFoundError:
+            pass
+        state.set_doc("settings", "config", {"default_template": default_tmpl,
+                                             "channels": ch_tmpl, "cleanup": cleanup, "safety": safety})
+    except Exception as e:
+        print(f"  (settings write skip: {e})")
+
     print("\n✔ Hoàn tất lần chạy.")
 
 
