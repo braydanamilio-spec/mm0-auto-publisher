@@ -115,6 +115,7 @@ def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now):
             "warnings": warns,
             "thumbnail": sidecar.get("thumbnail"),
             "captions": sidecar.get("captions"),
+            "playlist": sidecar.get("playlist"),
             "results": doc.get("results") or {},   # để bỏ qua nền tảng đã đăng (chống trùng)
         }
         if item["publish_at"]:
@@ -204,7 +205,8 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now):
             print("     ↺ YouTube đã đăng trước đó — bỏ qua (chống trùng).")
         elif need_yt:
             r = YT.upload(tmp, meta, ch["youtube"], resolved["yt_creds"],
-                          it.get("publish_at"), thumbnail_path=thumb_tmp, captions=caption_specs)
+                          it.get("publish_at"), thumbnail_path=thumb_tmp,
+                          captions=caption_specs, playlist=it.get("playlist"))
             results["youtube"] = r
             yt_ok = True
             state.upsert_video(it["drive_file_id"], {"results": results})  # LƯU NGAY -> không đăng lại
@@ -314,7 +316,8 @@ def process_pool(channels_cfg, templates, safety, tz, dry_run, state, now):
                 "status": "pending" if doc.get("status") == "uploading" else doc.get("status", "pending"),
                 "attempts": doc.get("attempts", 0),
                 "warnings": M.lint(meta), "thumbnail": sidecar.get("thumbnail"),
-                "captions": sidecar.get("captions"), "results": doc.get("results") or {},
+                "captions": sidecar.get("captions"), "playlist": sidecar.get("playlist"),
+                "results": doc.get("results") or {},
                 "_drive": drv, "_root": acc["root"],
             })
 

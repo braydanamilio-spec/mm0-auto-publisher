@@ -45,7 +45,8 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
             hashtags: list[str] | None = None, tags: list[str] | None = None,
             platforms: list[str] | None = None, publish_at: str | None = None,
             thumbnail: str | None = None, pool: bool = False,
-            subtitle: str | None = None, subtitle_lang: str | None = None) -> dict:
+            subtitle: str | None = None, subtitle_lang: str | None = None,
+            playlist: str | None = None) -> dict:
     cfg = _load_channels()
     ch = cfg["channels"].get(channel)
     if not ch:
@@ -72,6 +73,8 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
     }
     if publish_at:
         sidecar["publish_at"] = publish_at
+    if playlist:
+        sidecar["playlist"] = playlist
     vbase = os.path.basename(video).rsplit(".", 1)[0]
     if thumbnail and os.path.exists(thumbnail):
         ext = os.path.splitext(thumbnail)[1] or ".jpg"
@@ -123,6 +126,7 @@ def main():
     ap.add_argument("--pool", action="store_true", help="Đẩy vào HỒ CHỨA (tự chọn acc còn trống).")
     ap.add_argument("--subtitle", help="File phụ đề .srt/.vtt đi kèm (tự upload lên YouTube).")
     ap.add_argument("--subtitle-lang", dest="subtitle_lang", help="Mã ngôn ngữ phụ đề, vd en, vi.")
+    ap.add_argument("--playlist", help="Tên playlist (tự tạo nếu chưa có).")
     a = ap.parse_args()
 
     enqueue(
@@ -132,7 +136,7 @@ def main():
         tags=a.tags.split(",") if a.tags else None,
         platforms=a.platforms.split(",") if a.platforms else None,
         publish_at=a.publish_at, thumbnail=a.thumbnail, pool=a.pool,
-        subtitle=a.subtitle, subtitle_lang=a.subtitle_lang,
+        subtitle=a.subtitle, subtitle_lang=a.subtitle_lang, playlist=a.playlist,
     )
 
 

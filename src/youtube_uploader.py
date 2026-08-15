@@ -48,6 +48,7 @@ def upload(
     publish_at_iso: str | None = None,
     thumbnail_path: str | None = None,
     captions: list[dict] | None = None,
+    playlist: str | None = None,
 ) -> dict:
     """
     Upload 1 video. Trả về {"id": <videoId>, "url": ...} hoặc raise.
@@ -75,6 +76,7 @@ def upload(
             "tags": meta.get("tags", []),
             "categoryId": str(yt_conf.get("category_id", "27")),
             "defaultLanguage": yt_conf.get("default_language", "en"),
+            "defaultAudioLanguage": yt_conf.get("default_language", "en"),  # giúp đề xuất đúng US
         },
         "status": status,
     }
@@ -126,4 +128,29 @@ def upload(
         except HttpError as e:
             print(f"     ⚠️  Không upload được phụ đề: {e}")
 
+    # Thêm vào playlist (tự tạo nếu chưa có)
+    if playlist:
+        try:
+            pid = _ensure_playlist(svc, playlist, yt_conf.get("privacy", "public"))
+            svc.playlistItems().insert(part="snippet", body={"snippet": {
+                "playlistId": pid,
+                "resourceId": {"kind": "youtube#video", "videoId": vid},
+            }}).execute()
+            print(f"     ✅ Đã thêm vào playlist: {playlist!r}")
+        except HttpError as e:
+            print(f"     ⚠️  Không thêm được playlist: {e}")
+
     return {"id": vid, "url": f"https://youtu.be/{vid}"}
+
+
+def _ensure_playlist(svc, title: str, privacy: str = "public") -> str:
+    """Tìm playlist theo tên (của kênh) hoặc tạo mới. Trả playlistId."""
+    res = svc.playlists().list(part="snippet", mine=True, maxResults=50).execute()
+    for it in res.get("items", []):
+        if it["snippet"]["title"].strip().lower() == title.strip().lower():
+            return it["id"]
+    created = svc.playlists().insert(
+        part="snippet,status",
+        body={"snippet": {"title": title}, "status": {"privacyStatus": privacy}},
+    ).execute()
+    return created["id"]
