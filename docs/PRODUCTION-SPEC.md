@@ -6,12 +6,13 @@
 
 ## 1. Nguyên tắc vàng
 
-1 video = **1 file video** + **1 file `.json` (metadata)** + **1 file thumbnail** (long-form) → đặt cùng tên, cùng thư mục. Cả 3 dùng **chung 1 "slug"** làm tên.
+1 video = **1 file video** + **1 file `.json` (metadata)** + **1 file thumbnail** (long-form) + **phụ đề (tùy chọn)** → đặt cùng tên, cùng thư mục. Tất cả dùng **chung 1 "slug"** làm tên.
 
 ```
 broke-ep012-broke-to-10k.mp4     ← video
 broke-ep012-broke-to-10k.json    ← metadata (title/desc/hashtag/lịch)
 broke-ep012-broke-to-10k.jpg     ← thumbnail
+broke-ep012-broke-to-10k.srt     ← phụ đề (tùy chọn; .srt hoặc .vtt) → tự upload lên YouTube
 ```
 
 Chỉ cần đặt đúng, mọi thứ còn lại **tự động**: hệ thống đọc `.json`, đăng đúng kênh, đúng giờ, gắn thumbnail, rồi tự phân loại đã/chưa đăng.
@@ -105,9 +106,14 @@ OUTBOX/
   "tags":        ["make money online", "broke to rich"],   // keyword YouTube (khác hashtag)
   "platforms":   ["youtube", "facebook"],                  // đăng nền tảng nào
   "thumbnail":   "broke-ep012-broke-to-10k.jpg",           // tên file thumb (long-form)
+  "captions":    [                                         // TÙY CHỌN — phụ đề, tự upload lên YouTube
+    { "file": "broke-ep012-broke-to-10k.srt", "language": "en", "name": "English" }
+  ],
   "publish_at":  "2026-08-16T20:30:00+07:00"               // TÙY CHỌN. Bỏ trống = auto theo template lịch
 }
 ```
+
+**Phụ đề (subtitle):** đặt file `.srt` hoặc `.vtt` cùng slug với video. Nếu dùng `watch_and_enqueue`/`OUTBOX`, hệ thống **tự nhận** `<slug>.srt`/`.vtt` — không cần khai báo. Nhiều ngôn ngữ thì thêm nhiều mục trong `captions`.
 
 ### Ví dụ tối giản cho SHORT (để hệ thống tự lo phần còn lại)
 
@@ -179,6 +185,7 @@ QUY CHUẨN XUẤT FILE (bắt buộc tuân thủ tuyệt đối):
                     SHORT = 1080x1920 (9:16), <60s lý tưởng, H.264/AAC.
    - <slug>.json  : metadata theo schema bên dưới.
    - <slug>.jpg   : thumbnail 1280x720 (<2MB) cho LONG (SHORT có thể bỏ).
+   - <slug>.srt   : (TÙY CHỌN) phụ đề .srt/.vtt cùng slug -> hệ thống tự upload lên YouTube.
 
 4. Nội dung <slug>.json (English):
    {

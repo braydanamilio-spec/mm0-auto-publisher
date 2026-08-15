@@ -187,7 +187,8 @@ class Drive:
 
     # ---- ĐẨY video (+ sidecar) từ máy lên _QUEUE/<type> ----
     def upload_to_queue(self, channel_root_id: str, local_path: str, vtype: str,
-                        sidecar: dict | None = None, thumbnail_path: str | None = None) -> dict:
+                        sidecar: dict | None = None, thumbnail_path: str | None = None,
+                        subtitle_path: str | None = None) -> dict:
         """
         Dùng bởi enqueue.py: sau khi render xong, đẩy file lên đúng _QUEUE/long|short.
         Kèm sidecar .json và thumbnail (nếu có). Trả về {"id":..., "name":...}.
@@ -216,6 +217,14 @@ class Drive:
             self.svc.files().create(
                 body={"name": f"{base}{ext}", "parents": [folder]},
                 media_body=MediaFileUpload(thumbnail_path, resumable=True),
+                fields="id",
+            ).execute()
+
+        if subtitle_path and os.path.exists(subtitle_path):
+            ext = os.path.splitext(subtitle_path)[1] or ".srt"
+            self.svc.files().create(
+                body={"name": f"{base}{ext}", "parents": [folder]},
+                media_body=MediaFileUpload(subtitle_path, resumable=True),
                 fields="id",
             ).execute()
         return created

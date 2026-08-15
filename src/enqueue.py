@@ -44,7 +44,8 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
             title: str | None = None, description: str | None = None,
             hashtags: list[str] | None = None, tags: list[str] | None = None,
             platforms: list[str] | None = None, publish_at: str | None = None,
-            thumbnail: str | None = None, pool: bool = False) -> dict:
+            thumbnail: str | None = None, pool: bool = False,
+            subtitle: str | None = None, subtitle_lang: str | None = None) -> dict:
     cfg = _load_channels()
     ch = cfg["channels"].get(channel)
     if not ch:
@@ -71,10 +72,14 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
     }
     if publish_at:
         sidecar["publish_at"] = publish_at
+    vbase = os.path.basename(video).rsplit(".", 1)[0]
     if thumbnail and os.path.exists(thumbnail):
-        base = os.path.basename(video).rsplit(".", 1)[0]
         ext = os.path.splitext(thumbnail)[1] or ".jpg"
-        sidecar["thumbnail"] = f"{base}{ext}"
+        sidecar["thumbnail"] = f"{vbase}{ext}"
+    if subtitle and os.path.exists(subtitle):
+        sext = os.path.splitext(subtitle)[1] or ".srt"
+        lang = subtitle_lang or ch["youtube"].get("default_language", "en")
+        sidecar["captions"] = [{"file": f"{vbase}{sext}", "language": lang, "name": lang.upper()}]
 
     # Chọn đích: HỒ CHỨA (tự chọn acc còn trống) hoặc folder riêng của kênh
     if pool:
@@ -92,7 +97,8 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
         drive = Drive()
         where = "kênh"
 
-    created = drive.upload_to_queue(root, video, meta["type"], sidecar, thumbnail_path=thumbnail)
+    created = drive.upload_to_queue(root, video, meta["type"], sidecar,
+                                    thumbnail_path=thumbnail, subtitle_path=subtitle)
 
     print(f"✅ Đã đưa vào hàng đợi [{where}] kênh {channel} [{meta['type']}]: {meta['title']!r}")
     print(f"   Drive file id: {created['id']}")
@@ -115,6 +121,8 @@ def main():
     ap.add_argument("--publish-at", dest="publish_at", help="ISO. Bỏ trống = auto theo template.")
     ap.add_argument("--thumbnail", help="Đường dẫn ảnh thumbnail (long-form nên có).")
     ap.add_argument("--pool", action="store_true", help="Đẩy vào HỒ CHỨA (tự chọn acc còn trống).")
+    ap.add_argument("--subtitle", help="File phụ đề .srt/.vtt đi kèm (tự upload lên YouTube).")
+    ap.add_argument("--subtitle-lang", dest="subtitle_lang", help="Mã ngôn ngữ phụ đề, vd en, vi.")
     a = ap.parse_args()
 
     enqueue(
@@ -124,6 +132,7 @@ def main():
         tags=a.tags.split(",") if a.tags else None,
         platforms=a.platforms.split(",") if a.platforms else None,
         publish_at=a.publish_at, thumbnail=a.thumbnail, pool=a.pool,
+        subtitle=a.subtitle, subtitle_lang=a.subtitle_lang,
     )
 
 

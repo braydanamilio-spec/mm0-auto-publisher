@@ -19,7 +19,8 @@ from googleapiclient.errors import HttpError
 
 TOKEN_URI = "https://oauth2.googleapis.com/token"
 SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
-          "https://www.googleapis.com/auth/youtube"]
+          "https://www.googleapis.com/auth/youtube",
+          "https://www.googleapis.com/auth/youtube.force-ssl"]  # force-ssl cần cho captions
 
 
 class QuotaExceeded(Exception):
@@ -46,6 +47,7 @@ def upload(
     creds_env: dict,
     publish_at_iso: str | None = None,
     thumbnail_path: str | None = None,
+    captions: list[dict] | None = None,
 ) -> dict:
     """
     Upload 1 video. Trả về {"id": <videoId>, "url": ...} hoặc raise.
@@ -106,5 +108,22 @@ def upload(
         except HttpError as e:
             # kênh chưa xác minh có thể chưa được đặt thumbnail tùy chỉnh -> không chặn
             print(f"     ⚠️  Không đặt được thumbnail: {e}")
+
+    # Upload phụ đề (captions) — mỗi ngôn ngữ 1 track
+    for cap in captions or []:
+        try:
+            svc.captions().insert(
+                part="snippet",
+                body={"snippet": {
+                    "videoId": vid,
+                    "language": cap.get("language", "en"),
+                    "name": cap.get("name", ""),
+                    "isDraft": False,
+                }},
+                media_body=MediaFileUpload(cap["path"]),
+            ).execute()
+            print(f"     ✅ Phụ đề [{cap.get('language','en')}] đã lên.")
+        except HttpError as e:
+            print(f"     ⚠️  Không upload được phụ đề: {e}")
 
     return {"id": vid, "url": f"https://youtu.be/{vid}"}

@@ -67,6 +67,14 @@ def scan_once(outbox: str):
                         thumb = cand
                         break
 
+                # phụ đề đi kèm (nếu có): <base>.srt / .vtt
+                sub = None
+                for ext in (".srt", ".vtt"):
+                    cand = os.path.join(type_dir, base + ext)
+                    if os.path.exists(cand):
+                        sub = cand
+                        break
+
                 topic = extra.get("topic") or base.replace("_", " ").replace("-", " ").title()
                 try:
                     enqueue(
@@ -74,12 +82,12 @@ def scan_once(outbox: str):
                         title=extra.get("title"), description=extra.get("description"),
                         hashtags=extra.get("hashtags"), tags=extra.get("tags"),
                         platforms=extra.get("platforms"), publish_at=extra.get("publish_at"),
-                        thumbnail=thumb,
+                        thumbnail=thumb, subtitle=sub, subtitle_lang=extra.get("subtitle_lang"),
                     )
                     # chuyển file local đã gửi -> _sent (để không đẩy lại)
                     dest = os.path.join(sent_dir, channel + "__" + fn)
                     shutil.move(path, dest)
-                    for side in (jpath, tpath, thumb):
+                    for side in (jpath, tpath, thumb, sub):
                         if side and os.path.exists(side):
                             shutil.move(side, os.path.join(sent_dir, channel + "__" + os.path.basename(side)))
                 except Exception as e:

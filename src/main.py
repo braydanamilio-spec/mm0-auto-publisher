@@ -98,6 +98,7 @@ def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now):
             "attempts": doc.get("attempts", 0),
             "warnings": warns,
             "thumbnail": sidecar.get("thumbnail"),
+            "captions": sidecar.get("captions"),
         }
         if item["publish_at"]:
             used_slots.add(item["publish_at"])
@@ -154,6 +155,7 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now):
     state.upsert_video(it["drive_file_id"], {"status": "uploading"})
     tmp = os.path.join(tempfile.gettempdir(), name)
     thumb_tmp = None
+    caption_tmps = []
     results = {}
     yt_ok = fb_ok = False
     try:
@@ -166,9 +168,20 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now):
                 thumb_tmp = os.path.join(tempfile.gettempdir(), it["thumbnail"])
                 drive.download(tid, thumb_tmp)
 
+        # Tải phụ đề (nếu sidecar khai báo captions)
+        caption_specs = []
+        for cap in it.get("captions") or []:
+            cidf = drive.find_file(it["parent_id"], cap["file"])
+            if cidf:
+                cpath = os.path.join(tempfile.gettempdir(), cap["file"])
+                drive.download(cidf, cpath)
+                caption_tmps.append(cpath)
+                caption_specs.append({"path": cpath, "language": cap.get("language", "en"),
+                                      "name": cap.get("name", "")})
+
         if "youtube" in meta["platforms"] and resolved.get("yt_creds"):
             r = YT.upload(tmp, meta, ch["youtube"], resolved["yt_creds"],
-                          it.get("publish_at"), thumbnail_path=thumb_tmp)
+                          it.get("publish_at"), thumbnail_path=thumb_tmp, captions=caption_specs)
             results["youtube"] = r
             yt_ok = True
             print(f"     ✅ YouTube: {r['url']}")
@@ -182,7 +195,9 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now):
         # Thành công (ít nhất 1 nền tảng) -> chuyển video + sidecar + thumbnail sang _POSTED
         drive.move(it["drive_file_id"], root, "_POSTED")
         base = name.rsplit(".", 1)[0]
-        for companion in (f"{base}.json", it.get("thumbnail")):
+        companions = [f"{base}.json", it.get("thumbnail")]
+        companions += [c["file"] for c in (it.get("captions") or [])]
+        for companion in companions:
             if not companion:
                 continue
             cid = drive.find_file(it["parent_id"], companion)
@@ -223,7 +238,7 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now):
             except Exception:
                 pass
     finally:
-        for p in (tmp, thumb_tmp):
+        for p in [tmp, thumb_tmp, *caption_tmps]:
             if p and os.path.exists(p):
                 os.remove(p)
 
@@ -264,6 +279,7 @@ def process_pool(channels_cfg, templates, safety, tz, dry_run, state, now):
                 "publish_at": doc.get("publish_at") or raw.get("publish_at"),
                 "status": doc.get("status", "pending"), "attempts": doc.get("attempts", 0),
                 "warnings": M.lint(meta), "thumbnail": sidecar.get("thumbnail"),
+                "captions": sidecar.get("captions"),
                 "_drive": drv, "_root": acc["root"],
             })
 

@@ -7,5 +7,9 @@
   "hashtags": ["#money", "#sidehustle", "#finance"],
   "tags": ["make money online", "passive income", "broke to rich"],
   "platforms": ["youtube", "facebook"],
+  "thumbnail": "how-i-went-broke.jpg",
+  "captions": [
+    { "file": "how-i-went-broke.srt", "language": "en", "name": "English" }
+  ],
   "publish_at": "2026-08-16T20:30:00+07:00"
 }
