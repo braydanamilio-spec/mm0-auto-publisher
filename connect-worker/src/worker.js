@@ -234,9 +234,15 @@ async function apiFiles(request, url, env) {
   const { conn, dat } = await driveCtx(env, uid, account);
   // Mặc định duyệt từ My Drive (root) để thấy TOÀN BỘ dữ liệu; MM0-STORE là 1 thư mục con.
   const parent = folder || "root";
-  const q = encodeURIComponent(`'${parent}' in parents and trashed=false`);
-  const fields = encodeURIComponent("files(id,name,mimeType,size,modifiedTime,webViewLink,thumbnailLink)");
-  const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=${fields}&pageSize=300&orderBy=folder,name`,
+  const search = (url.searchParams.get("q") || "").trim();
+  // Có 'q' -> TÌM KIẾM theo tên trên cả tài khoản; không thì liệt kê thư mục.
+  const drvQ = search
+    ? `name contains '${search.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}' and trashed=false`
+    : `'${parent}' in parents and trashed=false`;
+  const q = encodeURIComponent(drvQ);
+  const fields = encodeURIComponent("files(id,name,mimeType,size,modifiedTime,webViewLink,thumbnailLink,parents)");
+  const orderBy = search ? "modifiedTime desc" : "folder,name";
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=${fields}&pageSize=200&orderBy=${orderBy}`,
     { headers: { Authorization: `Bearer ${dat}` } });
   const j = await r.json();
   if (!r.ok) throw new Error((j.error && j.error.message) || ("Drive " + r.status));
