@@ -18,17 +18,21 @@ import json
 
 from google_auth_oauthlib.flow import InstalledAppFlow
 
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
-          "https://www.googleapis.com/auth/youtube"]
+YT_SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
+             "https://www.googleapis.com/auth/youtube"]
+DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--client-secret", required=True,
                     help="File client_secret_*.json tải từ Google Cloud (OAuth Desktop app).")
+    ap.add_argument("--drive", action="store_true",
+                    help="Lấy token DRIVE (cho tài khoản kho lưu trữ) thay vì YouTube.")
     args = ap.parse_args()
 
-    flow = InstalledAppFlow.from_client_secrets_file(args.client_secret, SCOPES)
+    scopes = DRIVE_SCOPES if args.drive else YT_SCOPES
+    flow = InstalledAppFlow.from_client_secrets_file(args.client_secret, scopes)
     # run_local_server tự mở trình duyệt + nhận callback
     creds = flow.run_local_server(port=0, prompt="consent", access_type="offline")
 

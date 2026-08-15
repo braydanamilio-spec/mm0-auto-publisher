@@ -23,23 +23,48 @@ import json
 import os
 
 from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload, MediaInMemoryUpload
 
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 VIDEO_MIME = ("video/mp4", "video/quicktime", "video/x-matroska", "video/webm")
+TOKEN_URI = "https://oauth2.googleapis.com/token"
 
 
 def _service():
+    """Drive qua SERVICE ACCOUNT (đọc folder được share) — mặc định."""
     key_path = os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
     creds = service_account.Credentials.from_service_account_file(key_path, scopes=SCOPES)
     return build("drive", "v3", credentials=creds, cache_discovery=False)
 
 
+def _oauth_service(creds: dict):
+    """Drive qua OAuth CỦA TỪNG TÀI KHOẢN (để dùng đủ 15GB + XOÁ được file mình sở hữu)."""
+    c = Credentials(
+        token=None, refresh_token=creds["refresh_token"],
+        client_id=creds["client_id"], client_secret=creds["client_secret"],
+        token_uri=TOKEN_URI, scopes=SCOPES,
+    )
+    return build("drive", "v3", credentials=c, cache_discovery=False)
+
+
 class Drive:
-    def __init__(self):
-        self.svc = _service()
+    def __init__(self, service=None):
+        self.svc = service or _service()
         self._folder_cache: dict[str, str] = {}
+
+    @classmethod
+    def from_oauth(cls, creds: dict):
+        """Tạo Drive dùng token OAuth của 1 tài khoản kho lưu trữ."""
+        return cls(_oauth_service(creds))
+
+    # ---- dung lượng tài khoản (chỉ đúng khi dùng OAuth của chính acc đó) ----
+    def usage(self) -> dict:
+        q = self.svc.about().get(fields="storageQuota").execute().get("storageQuota", {})
+        limit = int(q.get("limit", 0)) if q.get("limit") else 0
+        used = int(q.get("usage", 0))
+        return {"used": used, "limit": limit, "free": (limit - used) if limit else None}
 
     # ---- tìm / tạo folder con theo tên ----
     def child_folder(self, parent_id: str, name: str, create: bool = True) -> str | None:
@@ -82,7 +107,7 @@ class Drive:
         while True:
             res = self.svc.files().list(
                 q=f"'{folder_id}' in parents and trashed = false",
-                fields="nextPageToken, files(id,name,mimeType,size,parents)",
+                fields="nextPageToken, files(id,name,mimeType,size,parents,modifiedTime,createdTime)",
                 pageToken=token,
                 pageSize=100,
             ).execute()
@@ -125,6 +150,15 @@ class Drive:
                 _status, done = downloader.next_chunk()
         return dest_path
 
+    # ---- upload 1 file vào folder đích (dùng cho archive kho lạnh) ----
+    def upload_file(self, dest_folder_id: str, local_path: str, name: str | None = None) -> dict:
+        name = name or os.path.basename(local_path)
+        return self.svc.files().create(
+            body={"name": name, "parents": [dest_folder_id]},
+            media_body=MediaFileUpload(local_path, resumable=True, chunksize=1024 * 1024 * 8),
+            fields="id",
+        ).execute()
+
     # ---- di chuyển file sang _POSTED / _FAILED ----
     def move(self, file_id: str, channel_root_id: str, target: str = "_POSTED"):
         dest = self.child_folder(channel_root_id, target)
@@ -133,6 +167,23 @@ class Drive:
         self.svc.files().update(
             fileId=file_id, addParents=dest, removeParents=prev, fields="id,parents"
         ).execute()
+
+    # ---- chuyển file sang 1 folder bất kỳ (theo id folder đích) ----
+    def move_to_folder(self, file_id: str, dest_folder_id: str):
+        f = self.svc.files().get(fileId=file_id, fields="parents").execute()
+        prev = ",".join(f.get("parents", []))
+        self.svc.files().update(
+            fileId=file_id, addParents=dest_folder_id, removeParents=prev, fields="id"
+        ).execute()
+
+    # ---- XOÁ file (chỉ được khi token là chủ sở hữu file) ----
+    def delete(self, file_id: str):
+        self.svc.files().delete(fileId=file_id).execute()
+
+    # ---- liệt kê file trong 1 subfolder theo tên (vd _POSTED) ----
+    def list_folder_videos(self, root_id: str, subfolder: str) -> list[dict]:
+        fid = self.child_folder(root_id, subfolder, create=False)
+        return self._list_videos(fid) if fid else []
 
     # ---- ĐẨY video (+ sidecar) từ máy lên _QUEUE/<type> ----
     def upload_to_queue(self, channel_root_id: str, local_path: str, vtype: str,

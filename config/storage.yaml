@@ -1,0 +1,49 @@
+# ============================================================================
+#  MM0 — CẤU HÌNH KHO LƯU TRỮ (multi-account pool + dọn dẹp + backup)
+# ============================================================================
+#  Ý tưởng: gộp nhiều tài khoản Google free (15GB mỗi cái) thành 1 "hồ chứa"
+#  lớn (150GB, 1TB...). Hệ thống tự chọn tài khoản còn trống để đẩy video vào,
+#  và tự (hoặc thủ công) dọn dẹp file đã đăng để luôn còn chỗ.
+#
+#  Mỗi tài khoản pool cấp quyền Drive 1 LẦN (giống YouTube) -> lấy refresh token:
+#      python src/auth_setup.py --drive --client-secret client_secret.json
+#  rồi nạp vào GitHub Secrets theo tên *_env bên dưới.
+# ============================================================================
+
+# --------- CHẾ ĐỘ DỌN DẸP (anh tích chọn 1 trong 3) ---------
+cleanup:
+  # keep    = GIỮ TẤT CẢ (hợp khi dùng Google One dung lượng lớn, khỏi xoá)
+  # delete  = XOÁ hẳn file đã đăng sau 'keep_days' (YouTube là bản backup)
+  # archive = CHUYỂN file sang tài khoản 'backup' (kho lạnh) — cần thì tải lại đăng lại
+  mode: archive
+  keep_days: 14            # số ngày giữ trong _POSTED trước khi dọn
+  trigger: auto            # auto = chạy theo lịch (cleanup.yml) | manual = chỉ chạy khi anh bấm/gõ lệnh
+
+# --------- HỒ CHỨA: nhiều tài khoản Drive free ---------
+# Thêm bao nhiêu tài khoản tuỳ anh -> tổng dung lượng cộng dồn.
+# cap_gb: giới hạn mềm để hệ thống chuyển sang acc khác trước khi đầy (chừa ~1GB).
+pool:
+  - name: store1
+    root_env: STORE1_FOLDER_ID          # id folder gốc "MM0-STORE" trên acc này
+    client_id_env: STORE1_DRIVE_CLIENT_ID
+    client_secret_env: STORE1_DRIVE_CLIENT_SECRET
+    refresh_token_env: STORE1_DRIVE_REFRESH_TOKEN
+    cap_gb: 14
+
+  - name: store2
+    root_env: STORE2_FOLDER_ID
+    client_id_env: STORE2_DRIVE_CLIENT_ID
+    client_secret_env: STORE2_DRIVE_CLIENT_SECRET
+    refresh_token_env: STORE2_DRIVE_REFRESH_TOKEN
+    cap_gb: 14
+
+  # ... copy thêm store3, store4 để lên 150GB / 1TB
+
+# --------- KHO LẠNH BACKUP (dùng khi cleanup.mode = archive) ---------
+# Nên là 1 tài khoản Google One dung lượng lớn để chứa bản gốc lâu dài.
+backup:
+  enabled: true
+  root_env: BACKUP_FOLDER_ID
+  client_id_env: BACKUP_DRIVE_CLIENT_ID
+  client_secret_env: BACKUP_DRIVE_CLIENT_SECRET
+  refresh_token_env: BACKUP_DRIVE_REFRESH_TOKEN

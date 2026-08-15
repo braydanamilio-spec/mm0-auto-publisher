@@ -228,6 +228,71 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now):
                 os.remove(p)
 
 
+def process_pool(channels_cfg, templates, safety, tz, dry_run, state, now):
+    """Quét HỒ CHỨA (nhiều tài khoản Drive), định tuyến kênh theo sidecar['channel']."""
+    try:
+        import storage as ST
+        accounts = ST.pool_accounts()
+    except Exception as e:
+        print(f"  (pool) bỏ qua: {e}")
+        return
+    if not accounts:
+        return
+
+    print("\n=== HỒ CHỨA (pool đa tài khoản) ===")
+    groups: dict[str, list] = {}
+    for acc in accounts:
+        drv = ST.account_drive(acc)
+        for f in drv.list_queue(acc["root"]):
+            sidecar = drv.read_sidecar(f["parents"][0], f["name"])
+            channel = sidecar.get("channel")
+            if not channel or channel not in channels_cfg:
+                print(f"  ⚠️  {f['name']}: sidecar thiếu 'channel' hợp lệ -> bỏ qua.")
+                continue
+            ch = channels_cfg[channel]
+            doc = state.get_video(f["id"]) or {}
+            raw = {
+                "topic": sidecar.get("topic") or M.slug_to_topic(f["name"]),
+                "type": sidecar.get("type") or f["type"],
+                **{k: sidecar[k] for k in ("title", "description", "hashtags", "tags",
+                                           "platforms", "publish_at") if k in sidecar},
+            }
+            meta = M.build_metadata(raw, ch["branding"])
+            groups.setdefault(channel, []).append({
+                "drive_file_id": f["id"], "drive_name": f["name"], "parent_id": f["parents"][0],
+                "channel": channel, "type": meta["type"], "meta": meta,
+                "publish_at": doc.get("publish_at") or raw.get("publish_at"),
+                "status": doc.get("status", "pending"), "attempts": doc.get("attempts", 0),
+                "warnings": M.lint(meta), "thumbnail": sidecar.get("thumbnail"),
+                "_drive": drv, "_root": acc["root"],
+            })
+
+    for channel, items in groups.items():
+        ch = channels_cfg[channel]
+        tmpl_name = ch.get("active_template", os.environ.get("POSTING_TEMPLATE", "growth_30d"))
+        template = templates["templates"][tmpl_name]
+        used = {it["publish_at"] for it in items if it.get("publish_at")}
+        S.assign_slots(items, template, tz, now, used)
+        for it in items:
+            state.upsert_video(it["drive_file_id"], {
+                "channel": channel, "drive_name": it["drive_name"], "type": it["type"],
+                "title": it["meta"]["title"], "publish_at": it.get("publish_at"),
+                "status": it["status"], "warnings": it["warnings"], "storage": "pool",
+            })
+        ready = S.due_items(items, now)
+        counters = state.get_counters(channel, now)
+        last = state.last_upload_at(channel, now)
+        todo = S.apply_limits(ready, safety, counters.get("yt", 0), counters.get("fb", 0), last, now)
+        print(f"  [{channel}] pool: {len(ready)} đến giờ, đăng {len(todo)}")
+        resolved = resolve_channel_env(ch)
+        for it in todo:
+            try:
+                publish_one(it, ch, resolved, it["_drive"], state, it["_root"], dry_run, now)
+            except YT.QuotaExceeded:
+                print(f"  ⏸ {channel}: hết quota, dừng.")
+                break
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true", help="Không upload, chỉ mô phỏng.")
@@ -252,6 +317,14 @@ def main():
             process_channel(key, ch, templates, safety, tz, args.dry_run, drive, state, now)
         except Exception as e:
             print(f"  ❌ Kênh {key} lỗi tổng: {e}")
+            traceback.print_exc()
+
+    # Quét hồ chứa pool (nếu có cấu hình) — định tuyến kênh theo sidecar
+    if not args.only:
+        try:
+            process_pool(channels["channels"], templates, safety, tz, args.dry_run, state, now)
+        except Exception as e:
+            print(f"  ❌ Pool lỗi tổng: {e}")
             traceback.print_exc()
 
     print("\n✔ Hoàn tất lần chạy.")

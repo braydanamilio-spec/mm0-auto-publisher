@@ -44,15 +44,11 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
             title: str | None = None, description: str | None = None,
             hashtags: list[str] | None = None, tags: list[str] | None = None,
             platforms: list[str] | None = None, publish_at: str | None = None,
-            thumbnail: str | None = None) -> dict:
+            thumbnail: str | None = None, pool: bool = False) -> dict:
     cfg = _load_channels()
     ch = cfg["channels"].get(channel)
     if not ch:
         raise SystemExit(f"❌ Không có kênh '{channel}' trong channels.yaml")
-
-    folder_id = os.environ.get(ch["drive_folder_id_env"])
-    if not folder_id:
-        raise SystemExit(f"❌ Chưa set biến {ch['drive_folder_id_env']} (Drive folder id).")
 
     # Dựng metadata chuẩn từ branding kênh
     raw = {"topic": topic, "type": vtype}
@@ -64,6 +60,7 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
     warns = M.lint(meta)
 
     sidecar = {
+        "channel": channel,          # để hệ thống định tuyến đúng kênh khi dùng pool
         "topic": topic,
         "type": meta["type"],
         "title": meta["title"],
@@ -79,10 +76,25 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
         ext = os.path.splitext(thumbnail)[1] or ".jpg"
         sidecar["thumbnail"] = f"{base}{ext}"
 
-    drive = Drive()
-    created = drive.upload_to_queue(folder_id, video, meta["type"], sidecar, thumbnail_path=thumbnail)
+    # Chọn đích: HỒ CHỨA (tự chọn acc còn trống) hoặc folder riêng của kênh
+    if pool:
+        import storage as ST
+        picked = ST.pick_upload_account()
+        if not picked:
+            raise SystemExit("❌ Hồ chứa đã đầy hết — thêm tài khoản pool hoặc dọn dẹp.")
+        acc, drive = picked
+        root = acc["root"]
+        where = f"pool:{acc['name']}"
+    else:
+        root = os.environ.get(ch["drive_folder_id_env"])
+        if not root:
+            raise SystemExit(f"❌ Chưa set biến {ch['drive_folder_id_env']} (Drive folder id).")
+        drive = Drive()
+        where = "kênh"
 
-    print(f"✅ Đã đưa vào hàng đợi kênh {channel} [{meta['type']}]: {meta['title']!r}")
+    created = drive.upload_to_queue(root, video, meta["type"], sidecar, thumbnail_path=thumbnail)
+
+    print(f"✅ Đã đưa vào hàng đợi [{where}] kênh {channel} [{meta['type']}]: {meta['title']!r}")
     print(f"   Drive file id: {created['id']}")
     if warns:
         print("   ⚠️  " + " | ".join(warns))
@@ -102,6 +114,7 @@ def main():
     ap.add_argument("--platforms", help="VD: youtube,facebook")
     ap.add_argument("--publish-at", dest="publish_at", help="ISO. Bỏ trống = auto theo template.")
     ap.add_argument("--thumbnail", help="Đường dẫn ảnh thumbnail (long-form nên có).")
+    ap.add_argument("--pool", action="store_true", help="Đẩy vào HỒ CHỨA (tự chọn acc còn trống).")
     a = ap.parse_args()
 
     enqueue(
@@ -110,7 +123,7 @@ def main():
         hashtags=a.hashtags.split() if a.hashtags else None,
         tags=a.tags.split(",") if a.tags else None,
         platforms=a.platforms.split(",") if a.platforms else None,
-        publish_at=a.publish_at, thumbnail=a.thumbnail,
+        publish_at=a.publish_at, thumbnail=a.thumbnail, pool=a.pool,
     )
 
 

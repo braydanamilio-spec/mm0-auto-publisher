@@ -28,7 +28,17 @@
 - [x] Firestore DB (asia-southeast1) đã tạo; APIs (Firestore/Drive/YouTube/IdentityToolkit) đã bật; rules + hosting đã deploy.
 - [x] Test tự động `tests/test_core.py` + CI `ci.yml`. `.env.example`.
 
+## ✅ ĐÃ XONG THÊM (phiên 5 — kho lưu trữ)
+
+- [x] Pool nhiều tài khoản Drive free (OAuth mỗi acc → dùng đủ 15GB + xoá được): `src/storage.py`, `config/storage.yaml`.
+- [x] `enqueue --pool` tự chọn acc còn trống; `main.process_pool` quét pool, định tuyến kênh theo sidecar.
+- [x] Dọn dẹp 3 chế độ (keep/delete/archive) auto|manual: `src/cleanup.py` + `.github/workflows/cleanup.yml`.
+- [x] Backup kho lạnh (archive → tài khoản Google One); sổ link đã đăng: `src/export_links.py` (CSV).
+- [x] `auth_setup.py --drive` lấy token Drive cho acc kho. Tài liệu: `docs/STORAGE.md`.
+
 ## 🔲 CẦN NGƯỜI DÙNG LÀM (cần đăng nhập / thao tác thủ công — không tự động được)
+
+- [ ] **BẬT 2SV cho adisondurham@gmail.com** (myaccount.google.com) → mở khoá Firebase Console → bật Auth provider → dashboard login được. (Blocker hiện tại; chỉ user làm được.)
 
 - [ ] **BẬT Google Sign-in** (Firebase Console → Authentication → Sign-in method → Google → Enable). *(bước duy nhất còn kẹt vì cần client_id auto-tạo trên console)*
 - [ ] **Bước 1–2 (SETUP.md):** Tạo OAuth consent + Desktop client; chạy `auth_setup.py` cho **mỗi kênh** → lấy refresh token.
