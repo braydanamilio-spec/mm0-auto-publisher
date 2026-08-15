@@ -88,7 +88,8 @@
     /* shell */
     #app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
     .sidebar{background:var(--surface);border-right:1px solid var(--border);padding:20px 14px;
-      display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh}
+      display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh;overflow-y:auto}
+    .sidebar::-webkit-scrollbar{width:7px} .sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px}
     .brand{display:flex;align-items:center;gap:11px;padding:6px 10px 18px}
     .brand .b{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:18px;
       background:linear-gradient(145deg,var(--accent),var(--violet));box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
@@ -380,7 +381,12 @@
           <div class="p-sub" style="margin-top:9px" data-i18n="conn_hint">Click → sign in to that channel's Google → grant once → token saved. No GitHub Secrets needed.</div>
         </div>
         <div id="connBanner"></div>
-        <div class="conn-grid" id="connGrid"></div>
+        <div class="conn-tools">
+          <input type="search" id="connSearch" placeholder="🔍 Tìm theo tên kênh / nhãn / email…">
+          <button class="mini" id="connCollapse">⊟ Thu gọn tất cả</button>
+          <button class="mini" id="connExpand">⊞ Mở tất cả</button>
+        </div>
+        <div id="connGrid"></div>
         <div class="panel help">
           <div class="p-title">🔗 Cách kết nối / khắc phục</div>
           <ol>
@@ -451,8 +457,16 @@
           <div class="p-head"><div class="p-title">🚀 <span data-i18n="pub_bulk">Bulk schedule / publish</span></div></div>
           <div class="pubbar">
             <label class="fld"><span data-i18n="pub_channel">Channel</span><select id="pubChannel"></select></label>
-            <label class="fld"><span data-i18n="pub_perday">Videos / day</span><input id="pubPerDay" type="number" min="1" max="20" value="3"></label>
-            <label class="fld"><span data-i18n="pub_times">Times (ET-style, comma)</span><input id="pubTimes" type="text" value="12:00, 17:00, 20:00"></label>
+            <label class="fld"><span data-i18n="pub_tz">Timezone</span><select id="pubTz">
+              <option value="America/New_York">🇺🇸 US Eastern (ET) — giờ vàng Mỹ</option>
+              <option value="America/Los_Angeles">🇺🇸 US Pacific (PT)</option>
+              <option value="America/Chicago">🇺🇸 US Central (CT)</option>
+              <option value="Asia/Ho_Chi_Minh">🇻🇳 Việt Nam (ICT)</option>
+              <option value="UTC">UTC</option>
+            </select></label>
+            <label class="fld"><span data-i18n="pub_long_day">Long / ngày</span><input id="pubLong" type="number" min="0" max="20" value="1"></label>
+            <label class="fld"><span data-i18n="pub_short_day">Short / ngày</span><input id="pubShort" type="number" min="0" max="20" value="3"></label>
+            <label class="fld" style="grid-column:span 2"><span data-i18n="pub_times">Khung giờ (Long trước, rồi Short) — cách nhau dấu phẩy</span><input id="pubTimes" type="text" value="12:00, 15:00, 18:00, 21:00"></label>
             <label class="fld"><span data-i18n="pub_start">Start date</span><input id="pubStart" type="date"></label>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
@@ -460,7 +474,8 @@
             <button class="mini" id="pubAllNow">⚡ <span data-i18n="pub_all_now">Publish all now</span></button>
             <span class="p-sub" id="pubMsg" style="align-self:center"></span>
           </div>
-          <div class="p-sub" style="margin-top:9px" data-i18n="pub_note">Operates on videos already in your Drive queue. “Publish now” = next cron run (~30 min) posts it. Posted videos aren’t touched.</div>
+          <div class="p-sub" style="margin-top:9px" id="pubHint"></div>
+          <div class="p-sub" style="margin-top:4px" data-i18n="pub_note">Operates on videos already in your Drive queue. “Publish now” = next cron run (~30 min) posts it. Posted videos aren’t touched.</div>
         </div>
         <div class="panel">
           <div class="p-head"><div class="p-title">📋 <span data-i18n="pub_queue">Queue (not posted yet)</span></div><div class="p-sub" id="pubCount"></div></div>
@@ -479,7 +494,8 @@
         .chub-acts button{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:9px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans)}
         .chub-acts button:hover{border-color:var(--accent);color:var(--accent)}
         .pubbar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-        @media(max-width:720px){.pubbar{grid-template-columns:1fr 1fr}}
+        @media(max-width:900px){.pubbar{grid-template-columns:1fr 1fr}}
+        @media(max-width:560px){.pubbar{grid-template-columns:1fr}}
         .pubbar select,.pubbar input{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:9px 11px;font-family:var(--sans);font-size:14px}
         .pub-row{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid var(--border2)}
         .pub-row .tag2{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface2);color:var(--muted)}
@@ -513,6 +529,12 @@
         .gmail-ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex:none;
           background:var(--accent-soft);color:var(--accent);font-size:16px}
         .gmail-em{font-weight:700;font-size:14.5px;word-break:break-all}
+        .gmail-caret{font-size:12px;color:var(--muted);width:14px;flex:none}
+        .gmail-idx{display:inline-block;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;margin-right:6px}
+        .conn-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+        .conn-tools input[type=search]{flex:1;min-width:220px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 13px;font-family:var(--sans);font-size:14px}
+        .conn-num{position:absolute;top:10px;right:12px;font-size:11px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums}
+        .conn{position:relative}
         .btn-reconn.danger{flex:none;width:auto;padding-left:12px;padding-right:12px;color:var(--bad);border-color:var(--bad)}
         .btn-reconn.danger:hover{background:var(--bad);color:#fff}
       </style>
@@ -676,7 +698,8 @@
         sub_videos:"Manage, search & filter", sub_schedule:"Timeline",
         publish:"Publish", sub_publish:"Publish now & bulk schedule",
         pub_bulk:"Bulk schedule / publish", pub_channel:"Channel", pub_perday:"Videos / day",
-        pub_times:"Times (comma)", pub_start:"Start date", pub_spread:"Spread schedule",
+        pub_tz:"Timezone", pub_long_day:"Long / day", pub_short_day:"Short / day",
+        pub_times:"Times (Long first, then Short) — comma", pub_start:"Start date", pub_spread:"Spread schedule",
         pub_all_now:"Publish all now", pub_queue:"Queue (not posted yet)",
         pub_note:"Operates on videos already in your Drive queue. “Publish now” = next cron run (~30 min) posts it. Posted videos aren’t touched.",
         pub_empty:"No videos in queue yet. Add videos to your Drive store (OUTBOX → watch_and_enqueue) and they appear here to schedule.",
@@ -733,7 +756,8 @@
         sub_videos:"Quản lý, tìm kiếm & lọc", sub_schedule:"Dòng thời gian",
         publish:"Đăng bài", sub_publish:"Đăng ngay & rải lịch hàng loạt",
         pub_bulk:"Rải lịch / đăng hàng loạt", pub_channel:"Kênh", pub_perday:"Video / ngày",
-        pub_times:"Khung giờ (cách nhau dấu phẩy)", pub_start:"Ngày bắt đầu", pub_spread:"Rải lịch",
+        pub_tz:"Múi giờ", pub_long_day:"Long / ngày", pub_short_day:"Short / ngày",
+        pub_times:"Khung giờ (Long trước, rồi Short) — cách nhau dấu phẩy", pub_start:"Ngày bắt đầu", pub_spread:"Rải lịch",
         pub_all_now:"Đăng tất cả ngay", pub_queue:"Hàng đợi (chưa đăng)",
         pub_note:"Áp dụng cho video ĐÃ có trong kho Drive. “Đăng ngay” = cron chạy lần tới (~30') sẽ đăng. Video đã đăng không bị đụng.",
         pub_empty:"Chưa có video trong hàng đợi. Đưa video vào kho Drive (OUTBOX → watch_and_enqueue), chúng sẽ hiện ở đây để rải lịch.",
@@ -866,13 +890,17 @@
       const VIEWS=["overview","analytics","videos","schedule","publish","connections","storage","settings","channels","branding","comments"];
       const setTitle=(v)=>{ window.__view=v; $("vTitle").textContent=t(v); $("vSub").textContent=t("sub_"+v); };
       window.__setTitle=setTitle;
-      document.querySelectorAll(".nav").forEach(n=>n.onclick=()=>{
-        document.querySelectorAll(".nav").forEach(x=>x.classList.remove("active")); n.classList.add("active");
-        const v=n.dataset.view;
+      // ROUTING theo URL hash: mỗi mục 1 đường dẫn (#publish, #channels…) -> F5 giữ nguyên trang
+      function activateView(v){
+        if(!VIEWS.includes(v)) v="overview";
+        document.querySelectorAll(".nav").forEach(x=>x.classList.toggle("active", x.dataset.view===v));
         VIEWS.forEach(x=>$("v-"+x).classList.toggle("hide",x!==v));
         setTitle(v);
-        if(v==="branding"||v==="comments") fillChannelPickers();
-      });
+        if(["branding","comments","publish","channels"].includes(v)) fillChannelPickers();
+      }
+      window.__activateView=activateView;
+      document.querySelectorAll(".nav").forEach(n=>n.onclick=()=>{ location.hash=n.dataset.view; });
+      window.addEventListener("hashchange",()=>activateView((location.hash||"#overview").slice(1)));
       ["search","stFilter","tyFilter","sortBy"].forEach(id=>{const e=$(id);if(e)e.oninput=e.onchange=renderVideos;});
       $("chFilter").onchange=renderAll;
       const cbtn=$("btnConnYT");
@@ -886,6 +914,12 @@
       if($("cmLoad"))$("cmLoad").onclick=loadComments;
       if($("pubSpread"))$("pubSpread").onclick=window.pubSpread;
       if($("pubAllNow"))$("pubAllNow").onclick=window.pubAllNow;
+      if($("pubTz"))$("pubTz").onchange=renderPublish;
+      if($("pubChannel"))$("pubChannel").onchange=renderPublish;
+      if($("connSearch"))$("connSearch").oninput=renderConnections;
+      if($("connCollapse"))$("connCollapse").onclick=()=>{ const s=window.__collapsedGmail=window.__collapsedGmail||new Set();
+        new Set(Object.values(C()).map(c=>c.email||"__none")).forEach(e=>s.add(e)); renderConnections(); };
+      if($("connExpand"))$("connExpand").onclick=()=>{ if(window.__collapsedGmail)window.__collapsedGmail.clear(); renderConnections(); };
       const lb=$("langBtn"); if(lb)lb.onclick=()=>setLang(LANG==="en"?"vi":"en");
       // menu mobile (hamburger)
       const hb=$("hamb"), sb=document.querySelector(".sidebar"), scr=$("scrim");
@@ -893,7 +927,8 @@
       if(hb)hb.onclick=()=>{ if(sb)sb.classList.toggle("open"); if(scr)scr.classList.toggle("show"); };
       if(scr)scr.onclick=closeSide;
       document.querySelectorAll(".nav").forEach(n=>n.addEventListener("click",closeSide));
-      applyI18n(); syncLangBtn(); setTitle("overview");
+      applyI18n(); syncLangBtn();
+      activateView((location.hash||"#overview").slice(1));   // mở đúng trang theo URL khi tải/F5
     }
     window.connectChannel = connectChannel;
 
@@ -1136,6 +1171,11 @@
       const st=$("pubStart"); if(st && !st.value){ const d=new Date(); st.value=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
       const rows=V().filter(notPosted).sort((a,b)=>(a.publish_at||"").localeCompare(b.publish_at||""));
       $("pubCount").textContent=rows.length+" video";
+      // Gợi ý: múi giờ đang chọn + số long/short trong hàng đợi (theo kênh đang lọc)
+      const chSel=sel?sel.value:"", tzSel=($("pubTz")&&$("pubTz").value)||"America/New_York";
+      const scope=chSel?rows.filter(v=>v.channel===chSel):rows;
+      const nLong=scope.filter(v=>v.type==="long").length, nShort=scope.filter(v=>v.type!=="long"&&v.type).length;
+      if($("pubHint")) $("pubHint").innerHTML=`🕐 Giờ đăng tính theo múi giờ <b>${esc(tzSel)}</b> · hàng đợi${chSel?" ("+esc(chName(chSel))+")":""}: <b>${nLong}</b> long · <b>${nShort}</b> short`;
       if(!rows.length){ $("pubList").innerHTML=emptyBox(t("pub_empty")); return; }
       $("pubList").innerHTML=rows.map(v=>{
         const col=chColor(v.channel);
@@ -1153,25 +1193,47 @@
         toastMsg("⚡ "+t("pub_now")+" — cron sẽ đăng trong ~30'"); }
       catch(e){ alert("❌ "+e.message); }
     };
+    // Đổi giờ "treo tường" ở 1 múi giờ (IANA) -> instant UTC chuẩn (tự xử lý DST)
+    function tzOffsetMs(date, tz){
+      const dtf=new Intl.DateTimeFormat('en-US',{timeZone:tz,hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      const p=dtf.formatToParts(date).reduce((a,x)=>{a[x.type]=x.value;return a;},{});
+      const hh=p.hour==='24'?'00':p.hour;
+      const asUTC=Date.UTC(+p.year,+p.month-1,+p.day,+hh,+p.minute,+p.second);
+      return asUTC-date.getTime();
+    }
+    function zonedTimeToUtc(y,mo,d,h,mi,tz){
+      const utc=Date.UTC(y,mo-1,d,h,mi,0);
+      return new Date(utc-tzOffsetMs(new Date(utc),tz));
+    }
     window.pubSpread=async ()=>{
       const ch=$("pubChannel").value;
-      const perDay=Math.max(1,Number($("pubPerDay").value)||3);
-      const times=($("pubTimes").value||"12:00").split(",").map(s=>s.trim()).filter(Boolean);
+      const longPerDay=Math.max(0,Number($("pubLong").value)||0);
+      const shortPerDay=Math.max(0,Number($("pubShort").value)||0);
+      const perDay=longPerDay+shortPerDay;
+      if(perDay<1) return alert("Đặt Long/ngày hoặc Short/ngày ≥ 1.");
+      const times=($("pubTimes").value||"").split(",").map(s=>s.trim()).filter(Boolean);
+      if(times.length<perDay) return alert(`Cần ít nhất ${perDay} khung giờ (Long ${longPerDay} + Short ${shortPerDay}). Hiện có ${times.length}.`);
+      const tz=$("pubTz").value||"America/New_York";
       const start=$("pubStart").value; if(!start) return alert("Chọn ngày bắt đầu.");
       let rows=V().filter(notPosted); if(ch) rows=rows.filter(v=>v.channel===ch);
-      rows.sort((a,b)=>(a.drive_name||"").localeCompare(b.drive_name||""));
-      if(!rows.length) return alert(t("pub_empty"));
+      const bykey=(a,b)=>(a.drive_name||"").localeCompare(b.drive_name||"");
+      let longs=rows.filter(v=>v.type==="long").sort(bykey);
+      let shorts=rows.filter(v=>v.type!=="long").sort(bykey);
+      if(!longs.length && !shorts.length) return alert(t("pub_empty"));
       const [Y,M,D]=start.split("-").map(Number);
-      const updates=[]; let idx=0;
-      for(const v of rows){ const day=Math.floor(idx/(perDay*times.length)); // sang ngày mới
-        const within=idx%(perDay*times.length); const tIdx=within%times.length; const extraDay=Math.floor(within/times.length);
-        const [hh,mm]=(times[tIdx]||"12:00").split(":").map(Number);
-        const dt=new Date(Y,M-1,D+day+extraDay,hh||12,mm||0,0);
-        updates.push({id:v.id, data:{status:"pending", publish_at:dt.toISOString()}}); idx++;
+      const updates=[]; let day=0;
+      while((longs.length||shorts.length) && day<3650){
+        const dayVids=[];
+        for(let i=0;i<longPerDay&&longs.length;i++) dayVids.push(longs.shift());
+        for(let i=0;i<shortPerDay&&shorts.length;i++) dayVids.push(shorts.shift());
+        dayVids.forEach((v,i)=>{ const [hh,mm]=(times[i]||times[times.length-1]).split(":").map(Number);
+          const dt=zonedTimeToUtc(Y,M,D+day,hh||12,mm||0,tz);
+          updates.push({id:v.id, data:{status:"pending", publish_at:dt.toISOString()}}); });
+        day++;
       }
       $("pubMsg").textContent=t("working");
       const ok=await window.__bulkUpdateVideos(updates);
-      $("pubMsg").textContent="✔ "+t("pub_done")+" "+ok+"/"+rows.length; toastMsg("✔ "+t("pub_done")+" "+ok);
+      $("pubMsg").textContent=`✔ ${t("pub_done")} ${ok}/${updates.length} · ${day} ngày`; toastMsg("✔ "+t("pub_done")+" "+ok);
     };
     window.pubAllNow=async ()=>{
       const ch=$("pubChannel").value; let rows=V().filter(notPosted); if(ch) rows=rows.filter(v=>v.channel===ch);
@@ -1182,7 +1244,7 @@
       const ok=await window.__bulkUpdateVideos(rows.map(v=>({id:v.id, data:{status:"pending", publish_at:now}})));
       $("pubMsg").textContent="⚡ "+ok+"/"+rows.length; toastMsg("⚡ "+ok);
     };
-    window.gotoView=(v)=>{ const n=document.querySelector('.nav[data-view="'+v+'"]'); if(n) n.click(); };
+    window.gotoView=(v)=>{ location.hash=v; if(window.__activateView) window.__activateView(v); };
     window.opChannel=(k, what)=>{
       if(what==='videos'){ const f=$("chFilter"); if(f)f.value=k; gotoView('videos'); renderAll(); return; }
       if(what==='branding'){ gotoView('branding'); const s=$("brChannel"); if(s){s.value=k; if(s.value===k) loadBranding();} return; }
@@ -1258,7 +1320,7 @@
     function renderConnections(){
       const ks=Object.keys(chanMap()); const chK=Object.keys(C()); const all=[...new Set([...ks,...chK])].sort();
       let okCount=0, warnCount=0;
-      const cardHtml=(k)=>{
+      const cardHtml=(k, num)=>{
         const c=C()[k]||{}, col=chColor(k);
         const ytState=c.yt_ok===true?"connected":c.yt_ok===false?"error":"unknown";
         const fbState=c.fb_ok===true?"connected":"unknown";
@@ -1266,7 +1328,7 @@
         const used=(K()[k+"_"+todayId()]?.yt)||(K()[k]?.yt)||0;
         const gaugeColor=used>=YT_CAP?"var(--bad)":used>=YT_CAP-2?"var(--warn)":"var(--good)";
         const dots=Array.from({length:YT_CAP},(_,i)=>`<i style="background:${i<used?gaugeColor:'var(--surface2)'}"></i>`).join("");
-        return `<div class="conn"><div class="conn-head"><div class="ava" style="background:linear-gradient(145deg,${col},${col}aa)">${esc((c.channel_title||k).slice(0,2).toUpperCase())}</div>
+        return `<div class="conn"><div class="conn-head"><span class="conn-num">#${num}</span><div class="ava" style="background:linear-gradient(145deg,${col},${col}aa)">${esc((c.channel_title||k).slice(0,2).toUpperCase())}</div>
           <div class="nm">${esc((c.channel_title)||k)}${c.channel_title&&c.channel_title.toUpperCase()!==k?` <span class="p-sub">· nhãn ${esc(k)}</span>`:""}</div></div>
           ${svcRow('yt','#ff0033','YouTube', ytState, c.subscribers!=null?fmtN(c.subscribers)+' subs · kiểm tra '+ago(c.yt_checked_at):(c.yt_error||'chưa có dữ liệu'))}
           ${svcRow('fb','#1877f2','Facebook Page', fbState, fbState==="connected"?'đăng gần nhất '+ago(c.last_publish_at):'chưa ghi nhận bài Facebook')}
@@ -1277,26 +1339,36 @@
           </div>
         </div>`;
       };
+      // LỌC theo ô tìm kiếm (tên kênh / nhãn / email)
+      const q=($("connSearch")&&$("connSearch").value||"").trim().toLowerCase();
+      const match=(k)=>{ const c=C()[k]||{}; return !q ||
+        (chName(k).toLowerCase().includes(q)) || k.toLowerCase().includes(q) || ((c.email||"").toLowerCase().includes(q)); };
+      const shown=all.filter(match);
       // GOM NHÓM theo Gmail: mỗi email -> các kênh dưới nó (minh bạch: 1 mail có mấy kênh)
       const groups={};
-      all.forEach(k=>{ const em=(C()[k]&&C()[k].email)||""; (groups[em]=groups[em]||[]).push(k); });
+      shown.forEach(k=>{ const em=(C()[k]&&C()[k].email)||""; (groups[em]=groups[em]||[]).push(k); });
       const emails=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length);
-      $("connGrid").innerHTML = emails.map(em=>{
+      const collapsed=window.__collapsedGmail=window.__collapsedGmail||new Set();
+      let stt=0, gi=0;
+      $("connGrid").innerHTML = emails.length ? emails.map(em=>{
+        gi++;
         const keys=groups[em].sort();
-        const cardsHtml=keys.map(cardHtml).join("");   // gọi trước -> cập nhật okCount/warnCount
+        const cardsHtml=keys.map(k=>{ stt++; return cardHtml(k, stt); }).join("");
         const subs=keys.reduce((a,k)=>a+((C()[k]&&C()[k].subscribers)||0),0);
         const known=!!em;
+        const isCol=collapsed.has(em||"__none");
         return `<div class="gmail-group">
-          <div class="gmail-head">
+          <div class="gmail-head" onclick="toggleGmail('${esc(em||'__none')}')" style="cursor:pointer">
+            <span class="gmail-caret">${isCol?'▸':'▾'}</span>
             <div class="gmail-ic">${known?'✉':'?'}</div>
-            <div style="flex:1"><div class="gmail-em">${known?esc(em):'⚠ Kênh nối bản cũ (chưa lưu email) — Kết nối lại để gắn Gmail, hoặc 🗑 để gỡ'}</div>
+            <div style="flex:1"><div class="gmail-em"><span class="gmail-idx">Gmail ${gi}</span> ${known?esc(em):'⚠ Kênh nối bản cũ (chưa lưu email) — Kết nối lại để gắn Gmail, hoặc 🗑 để gỡ'}</div>
               <div class="p-sub">${keys.length} kênh${subs?` · ${fmtN(subs)} subs tổng`:''}</div></div>
-            ${known?`<button class="mini bad" onclick="removeGmailGroup('${esc(em)}')">🗑 ${esc(t('remove_gmail'))}</button>`:''}
+            ${known?`<button class="mini bad" onclick="event.stopPropagation();removeGmailGroup('${esc(em)}')">🗑 ${esc(t('remove_gmail'))}</button>`:''}
           </div>
-          <div class="conn-grid">${cardsHtml}</div>
+          <div class="conn-grid" style="${isCol?'display:none':''}">${cardsHtml}</div>
         </div>`;
-      }).join("");
-      const total=all.length, nMail=emails.filter(e=>e).length;
+      }).join("") : emptyBox(q?`Không có kênh khớp “${esc(q)}”.`:"Chưa có kênh nào — bấm Kết nối YouTube.");
+      const total=all.length, nMail=Object.keys(groups).filter(e=>e).length;
       const bannerOk = total>0 && warnCount===0;
       const bd = bannerOk?"var(--good)":warnCount>0?"var(--bad)":"var(--warn)";
       const bicon = bannerOk?"check":warnCount>0?"warn":"warn";
@@ -1307,6 +1379,8 @@
         <div><div class="bt">Chưa có kênh nào kết nối</div><div class="bs">Bấm “Kết nối YouTube” — không cần gõ tên, hệ tự lấy tên kênh thật.</div></div></div>`;
       $("connWarn").classList.toggle("hide", warnCount===0);
     }
+    window.toggleGmail=(em)=>{ const s=window.__collapsedGmail=window.__collapsedGmail||new Set();
+      if(s.has(em)) s.delete(em); else s.add(em); renderConnections(); };
     const fmtBytes=(n)=>{if(n==null)return"—";const u=["B","KB","MB","GB","TB"];let i=0,x=n;while(x>=1000&&i<u.length-1){x/=1000;i++;}return x.toFixed(x<10&&i>0?1:0)+" "+u[i];};
 
     function renderStorage(){
