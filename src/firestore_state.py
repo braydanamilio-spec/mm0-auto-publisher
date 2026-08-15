@@ -83,6 +83,20 @@ class State:
         data = {**data, "channel": channel, "updated_at": datetime.now(timezone.utc).isoformat()}
         self.db.collection("channels").document(channel).set(data, merge=True)
 
+    def set_channel_health(self, channel: str, data: dict):
+        """Ghi trạng thái KẾT NỐI/vận hành để trang 'Kết nối API' hiển thị realtime."""
+        self.db.collection("channels").document(channel).set(
+            {**data, "channel": channel}, merge=True)
+
+    def all_counters_today(self, day: datetime) -> dict:
+        """Bộ đếm đăng hôm nay của mọi kênh: {channel: {yt, fb}} (cho dashboard)."""
+        suffix = day.strftime("%Y%m%d")
+        out = {}
+        for d in self.db.collection("counters").stream():
+            if d.id.endswith(suffix):
+                out[d.id[: -(len(suffix) + 1)]] = d.to_dict()
+        return out
+
     def posted_youtube(self, channel: str) -> list[tuple[str, str]]:
         """Trả [(doc_id, youtube_video_id)] cho video đã đăng có id YouTube."""
         q = (self.db.collection("videos")

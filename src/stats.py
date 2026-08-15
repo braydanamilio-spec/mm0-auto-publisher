@@ -13,6 +13,7 @@ Chạy (thường do workflow stats.yml gọi vài lần/ngày):
 from __future__ import annotations
 import os
 import sys
+from datetime import datetime, timezone
 
 import yaml
 
@@ -50,9 +51,13 @@ def refresh_channel(key: str, ch: dict, state: State):
         snip = items[0]["snippet"]
         state.set_channel_stats(key, {
             "title": snip.get("title"),
+            "channel_title": snip.get("title"),
             "subscribers": int(s.get("subscriberCount", 0)),
             "total_views": int(s.get("viewCount", 0)),
             "video_count": int(s.get("videoCount", 0)),
+            # token đọc được số liệu -> chứng tỏ kết nối YouTube còn sống
+            "yt_ok": True,
+            "yt_checked_at": datetime.now(timezone.utc).isoformat(),
         })
         print(f"  ✔ {key}: {s.get('subscriberCount','?')} subs, {s.get('viewCount','?')} views")
 

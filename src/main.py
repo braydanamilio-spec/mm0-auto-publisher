@@ -193,6 +193,11 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now):
             "posted_at": now.isoformat(),
         })
         state.bump_counters(it["channel"], now, yt=int(yt_ok), fb=int(fb_ok))
+        state.set_channel_health(it["channel"], {
+            "last_publish_at": now.isoformat(),
+            **({"yt_ok": True} if yt_ok else {}),
+            **({"fb_ok": True} if fb_ok else {}),
+        })
         print("     📦 Đã chuyển sang _POSTED.")
 
     except YT.QuotaExceeded:
@@ -203,6 +208,8 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now):
         attempts = it["attempts"] + 1
         print(f"     ❌ LỖI: {e}")
         traceback.print_exc()
+        if any(k in str(e).lower() for k in ("invalid_grant", "unauthorized", "invalid credentials")):
+            state.set_channel_health(it["channel"], {"yt_ok": False, "yt_error": str(e)[:200]})
         target_status = "failed"
         state.upsert_video(it["drive_file_id"], {
             "status": target_status, "attempts": attempts,

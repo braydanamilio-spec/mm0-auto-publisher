@@ -8,9 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
-    /* ================= DESIGN TOKENS ================= */
     :root{
-      --bg:#f5f6fb; --surface:#ffffff; --surface2:#f7f8fc; --elevated:#ffffff;
+      --bg:#f5f6fb; --surface:#ffffff; --surface2:#f7f8fc;
       --border:#e7e9f2; --border2:#eef0f7;
       --text:#12141c; --text2:#3a4152; --muted:#727a8f; --faint:#9aa1b4;
       --accent:#6c4ee6; --accent2:#8b6dff; --accent-soft:rgba(108,78,230,.10);
@@ -19,14 +18,14 @@
       --warn:#d97706; --warn-soft:rgba(217,119,6,.14);
       --bad:#dc2626;  --bad-soft:rgba(220,38,38,.12);
       --violet:#7c3aed; --violet-soft:rgba(124,58,237,.12);
-      --shadow:0 1px 2px rgba(18,20,28,.04), 0 8px 24px rgba(18,20,28,.06);
+      --shadow:0 1px 2px rgba(18,20,28,.04),0 8px 24px rgba(18,20,28,.06);
       --shadow-sm:0 1px 2px rgba(18,20,28,.05);
       --r-sm:9px; --r:14px; --r-lg:20px;
       --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
       --display:'Space Grotesk','Inter',sans-serif;
     }
     @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
-      --bg:#0a0c11; --surface:#12151d; --surface2:#161a24; --elevated:#171b25;
+      --bg:#0a0c11; --surface:#12151d; --surface2:#161a24;
       --border:#242a38; --border2:#1c212c;
       --text:#eef1f7; --text2:#c3c9d6; --muted:#8990a2; --faint:#5b6273;
       --accent:#8b6dff; --accent2:#a992ff; --accent-soft:rgba(139,109,255,.14);
@@ -35,11 +34,11 @@
       --warn:#fbbf24; --warn-soft:rgba(251,191,36,.14);
       --bad:#f87171;  --bad-soft:rgba(248,113,113,.13);
       --violet:#a78bfa; --violet-soft:rgba(167,139,250,.14);
-      --shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 30px rgba(0,0,0,.35);
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 30px rgba(0,0,0,.35);
       --shadow-sm:0 1px 2px rgba(0,0,0,.3);
     }}
     :root[data-theme="dark"]{
-      --bg:#0a0c11; --surface:#12151d; --surface2:#161a24; --elevated:#171b25;
+      --bg:#0a0c11; --surface:#12151d; --surface2:#161a24;
       --border:#242a38; --border2:#1c212c;
       --text:#eef1f7; --text2:#c3c9d6; --muted:#8990a2; --faint:#5b6273;
       --accent:#8b6dff; --accent2:#a992ff; --accent-soft:rgba(139,109,255,.14);
@@ -48,26 +47,31 @@
       --warn:#fbbf24; --warn-soft:rgba(251,191,36,.14);
       --bad:#f87171;  --bad-soft:rgba(248,113,113,.13);
       --violet:#a78bfa; --violet-soft:rgba(167,139,250,.14);
-      --shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 30px rgba(0,0,0,.35);
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 12px 30px rgba(0,0,0,.35);
       --shadow-sm:0 1px 2px rgba(0,0,0,.3);
     }
-
     *{box-sizing:border-box;margin:0;padding:0}
-    html{-webkit-text-size-adjust:100%}
-    body{font-family:var(--sans);background:var(--bg);color:var(--text);
-      min-height:100vh;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
-      font-size:14px;line-height:1.5}
+    body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;
+      -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-size:14px;line-height:1.5}
     a{color:var(--accent);text-decoration:none}
     .tnum{font-variant-numeric:tabular-nums}
     .hide{display:none !important}
+    svg{display:block}
     :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
     ::-webkit-scrollbar{width:10px;height:10px}
     ::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px;border:2px solid transparent;background-clip:padding-box}
-    ::-webkit-scrollbar-thumb:hover{background:var(--faint)}
 
-    /* ================= LOGIN ================= */
+    /* splash */
+    #splash{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);z-index:100}
+    .spin{width:34px;height:34px;border-radius:50%;border:3px solid var(--border);
+      border-top-color:var(--accent);animation:sp .8s linear infinite;margin:0 auto 14px}
+    @keyframes sp{to{transform:rotate(360deg)}}
+    #splash .lbl{color:var(--muted);font-size:13px;text-align:center}
+    @media (prefers-reduced-motion: reduce){.spin{animation:none}*{transition:none!important}}
+
+    /* login */
     #login{min-height:100vh;display:grid;place-items:center;padding:24px;
-      background:radial-gradient(1200px 600px at 50% -10%, var(--accent-soft), transparent 70%)}
+      background:radial-gradient(1200px 600px at 50% -10%,var(--accent-soft),transparent 70%)}
     .login-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);
       padding:44px 40px;text-align:center;max-width:400px;box-shadow:var(--shadow)}
     .logo-badge{width:60px;height:60px;border-radius:17px;margin:0 auto 20px;display:grid;place-items:center;
@@ -75,86 +79,74 @@
       box-shadow:0 10px 30px var(--accent-soft),inset 0 1px 0 rgba(255,255,255,.25)}
     .login-card h1{font-family:var(--display);font-size:23px;letter-spacing:-.4px;margin-bottom:8px}
     .login-card p{color:var(--muted);font-size:14px;margin-bottom:26px;line-height:1.55}
-    .btn-google{width:100%;padding:13px;border:none;border-radius:11px;cursor:pointer;
-      font-family:var(--sans);font-size:14.5px;font-weight:600;color:#fff;
-      background:linear-gradient(145deg,var(--accent),var(--violet));
-      display:flex;align-items:center;justify-content:center;gap:10px;
-      transition:transform .16s ease,box-shadow .16s ease}
+    .btn-google{width:100%;padding:13px;border:none;border-radius:11px;cursor:pointer;font-family:var(--sans);
+      font-size:14.5px;font-weight:600;color:#fff;background:linear-gradient(145deg,var(--accent),var(--violet));
+      display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .16s,box-shadow .16s}
     .btn-google:hover{transform:translateY(-1px);box-shadow:0 12px 26px var(--accent-soft)}
     .login-foot{margin-top:18px;font-size:12px;color:var(--faint)}
 
-    /* ================= APP SHELL ================= */
+    /* shell */
     #app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
-    .sidebar{background:var(--surface);border-right:1px solid var(--border);
-      padding:20px 14px;display:flex;flex-direction:column;gap:3px;position:sticky;top:0;height:100vh}
-    .brand{display:flex;align-items:center;gap:11px;padding:6px 10px 20px}
+    .sidebar{background:var(--surface);border-right:1px solid var(--border);padding:20px 14px;
+      display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh}
+    .brand{display:flex;align-items:center;gap:11px;padding:6px 10px 18px}
     .brand .b{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:18px;
       background:linear-gradient(145deg,var(--accent),var(--violet));box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
     .brand .bt{font-family:var(--display);font-weight:700;font-size:15.5px;letter-spacing:-.3px}
-    .brand .bs{font-size:10.5px;color:var(--faint);letter-spacing:.4px;text-transform:uppercase;margin-top:1px}
-    .nav-label{font-size:10.5px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;
-      color:var(--faint);padding:14px 12px 6px}
-    .nav{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:10px;
-      color:var(--text2);font-weight:500;font-size:13.5px;cursor:pointer;transition:.13s;position:relative}
+    .brand .bs{font-size:10px;color:var(--faint);letter-spacing:.4px;text-transform:uppercase;margin-top:1px}
+    .nav-label{font-size:10px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;color:var(--faint);padding:14px 12px 6px}
+    .nav{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:10px;color:var(--text2);
+      font-weight:500;font-size:13.5px;cursor:pointer;transition:.13s}
     .nav:hover{background:var(--surface2);color:var(--text)}
     .nav.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
-    .nav .ic{width:18px;height:18px;display:grid;place-items:center}
+    .nav .ic{width:18px;display:grid;place-items:center;color:currentColor}
     .nav .ic svg{width:17px;height:17px}
     .badge{margin-left:auto;background:var(--surface2);color:var(--muted);font-size:11px;font-weight:600;
       padding:1px 8px;border-radius:20px;font-variant-numeric:tabular-nums}
     .nav.active .badge{background:var(--surface);color:var(--accent)}
+    .dotwarn{margin-left:auto;width:7px;height:7px;border-radius:50%;background:var(--bad);box-shadow:0 0 0 3px var(--bad-soft)}
     .side-foot{margin-top:auto;display:flex;flex-direction:column;gap:6px;padding-top:14px;border-top:1px solid var(--border2)}
     .userchip{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:10px;font-size:12.5px;color:var(--text2)}
     .userchip img{width:28px;height:28px;border-radius:50%;object-fit:cover;background:var(--surface2)}
     .userchip .em{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .ghost{background:transparent;border:1px solid var(--border);color:var(--muted);
-      padding:8px 11px;border-radius:9px;font-size:12.5px;cursor:pointer;font-family:var(--sans);
-      display:flex;align-items:center;gap:8px;transition:.13s}
+    .ghost{background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 11px;border-radius:9px;
+      font-size:12.5px;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;gap:8px;transition:.13s}
     .ghost:hover{color:var(--text);border-color:var(--faint)}
 
     .main{min-width:0}
     .topbar{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 82%,transparent);
-      backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--border);
-      padding:16px 28px;display:flex;align-items:center;gap:16px}
+      backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--border);padding:16px 28px;display:flex;align-items:center;gap:16px}
     .topbar h2{font-family:var(--display);font-size:20px;font-weight:700;letter-spacing:-.4px}
     .topbar .sub{font-size:12.5px;color:var(--muted);margin-top:1px}
     .grow{flex:1}
-    .live{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);
-      background:var(--surface);border:1px solid var(--border);padding:7px 12px;border-radius:20px;box-shadow:var(--shadow-sm)}
+    .live{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);background:var(--surface);
+      border:1px solid var(--border);padding:7px 12px;border-radius:20px;box-shadow:var(--shadow-sm);white-space:nowrap}
     .live .dot{width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px var(--good-soft)}
     .live.err .dot{background:var(--bad);box-shadow:0 0 0 3px var(--bad-soft)}
-    select{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;
-      padding:9px 12px;font-size:13px;font-family:var(--sans);cursor:pointer;box-shadow:var(--shadow-sm)}
-    input[type=search]{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;
-      padding:9px 13px;font-size:13.5px;font-family:var(--sans);min-width:240px;box-shadow:var(--shadow-sm)}
+    select,input[type=search]{background:var(--surface);color:var(--text);border:1px solid var(--border);
+      border-radius:10px;padding:9px 12px;font-size:13px;font-family:var(--sans);box-shadow:var(--shadow-sm)}
+    select{cursor:pointer}
+    input[type=search]{min-width:240px}
     input::placeholder{color:var(--faint)}
     .content{padding:24px 28px 60px;max-width:1320px}
 
-    /* ================= KPI ================= */
     .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:22px}
-    .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 18px 16px;
-      box-shadow:var(--shadow-sm);position:relative}
+    .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px;box-shadow:var(--shadow-sm)}
     .kpi-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
     .kpi .icn{width:38px;height:38px;border-radius:11px;display:grid;place-items:center}
     .kpi .icn svg{width:19px;height:19px}
     .kpi .n{font-family:var(--display);font-size:29px;font-weight:700;letter-spacing:-.5px;line-height:1}
     .kpi .l{font-size:12.5px;color:var(--muted);margin-top:6px;font-weight:500}
-    .chip{font-size:11px;font-weight:600;padding:3px 8px;border-radius:7px;display:inline-flex;align-items:center;gap:3px}
 
-    /* ================= PANELS ================= */
     .grid{display:grid;gap:16px;margin-bottom:16px}
     .g-2{grid-template-columns:1.5fr 1fr}
-    .g-1-1{grid-template-columns:1fr 1fr}
-    @media(max-width:960px){.g-2,.g-1-1{grid-template-columns:1fr}}
-    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
-      padding:18px 20px;box-shadow:var(--shadow-sm)}
+    @media(max-width:960px){.g-2{grid-template-columns:1fr}}
+    .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;box-shadow:var(--shadow-sm)}
     .p-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
     .p-title{font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:8px}
     .p-title .d{color:var(--muted);font-weight:500}
     .p-sub{font-size:11.5px;color:var(--faint)}
 
-    /* channel progress cards */
-    .chan{display:flex;flex-direction:column}
     .chan-item{display:flex;align-items:center;gap:13px;padding:13px 6px;border-bottom:1px solid var(--border2)}
     .chan-item:last-child{border-bottom:none}
     .ava{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-family:var(--display);
@@ -166,9 +158,8 @@
     .bar>i{display:block;height:100%;border-radius:20px;background:linear-gradient(90deg,var(--accent),var(--violet))}
     .chan-right{text-align:right;flex-shrink:0}
     .chan-right .big{font-family:var(--display);font-weight:700;font-size:16px;font-variant-numeric:tabular-nums}
-    .chan-right .cap{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.4px}
+    .chan-right .cap{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.4px}
 
-    /* upcoming / activity list */
     .list{display:flex;flex-direction:column;max-height:360px;overflow:auto;margin:-6px}
     .li{display:flex;align-items:center;gap:12px;padding:11px 8px;border-radius:10px}
     .li:hover{background:var(--surface2)}
@@ -176,7 +167,6 @@
     .li .tx{font-size:13px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .li .cd{font-size:11px;color:var(--muted);background:var(--surface2);padding:3px 8px;border-radius:6px;white-space:nowrap}
 
-    /* charts */
     canvas{display:block;width:100%}
     .legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px}
     .lg{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
@@ -187,31 +177,28 @@
     .donut-center .mid .v{font-family:var(--display);font-weight:700;font-size:22px;line-height:1}
     .donut-center .mid .k{font-size:10.5px;color:var(--muted);margin-top:2px}
 
-    /* ================= TABLE ================= */
     .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
     .tbl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow-sm)}
     .scroll-x{overflow-x:auto}
     table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:720px}
-    thead th{text-align:left;padding:12px 16px;font-size:11px;font-weight:600;text-transform:uppercase;
-      letter-spacing:.5px;color:var(--muted);background:var(--surface2);border-bottom:1px solid var(--border);
-      position:sticky;top:0;white-space:nowrap}
+    thead th{text-align:left;padding:12px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;
+      color:var(--muted);background:var(--surface2);border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap}
     th.num,td.num{text-align:right;font-variant-numeric:tabular-nums}
     tbody td{padding:13px 16px;border-bottom:1px solid var(--border2);vertical-align:middle}
     tbody tr:last-child td{border-bottom:none}
     tbody tr:hover{background:var(--surface2)}
     .vtitle{font-weight:600;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .vwarn{font-size:11px;color:var(--warn);margin-top:2px;display:flex;align-items:center;gap:4px}
-    .type{font-size:10.5px;font-weight:600;color:var(--muted);border:1px solid var(--border);
-      padding:2px 7px;border-radius:6px;text-transform:uppercase;letter-spacing:.3px}
+    .type{font-size:10.5px;font-weight:600;color:var(--muted);border:1px solid var(--border);padding:2px 7px;border-radius:6px;text-transform:uppercase}
     .tag{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:600;white-space:nowrap}
     .tag::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
-    .t-posted{background:var(--good-soft);color:var(--good)}
+    .t-posted,.t-connected{background:var(--good-soft);color:var(--good)}
     .t-scheduled{background:var(--info-soft);color:var(--info)}
-    .t-pending{background:var(--warn-soft);color:var(--warn)}
+    .t-pending,.t-unknown{background:var(--warn-soft);color:var(--warn)}
     .t-uploading{background:var(--violet-soft);color:var(--violet)}
-    .t-failed{background:var(--bad-soft);color:var(--bad)}
-    .lk{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:4px 9px;
-      border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);margin-right:5px}
+    .t-failed,.t-error{background:var(--bad-soft);color:var(--bad)}
+    .lk{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:8px;
+      background:var(--surface2);border:1px solid var(--border);color:var(--text2);margin-right:5px}
     .lk:hover{border-color:var(--faint)}
     .empty{padding:56px 20px;text-align:center;color:var(--muted);font-size:13.5px}
     .empty .big{font-size:30px;margin-bottom:10px;opacity:.6}
@@ -219,16 +206,35 @@
       background:var(--surface2);color:var(--muted);font-variant-numeric:tabular-nums}
     .rank.top{background:var(--accent-soft);color:var(--accent)}
 
-    /* skeleton */
-    .sk{background:linear-gradient(90deg,var(--surface2),var(--border2),var(--surface2));
-      background-size:200% 100%;animation:sh 1.3s infinite;border-radius:6px}
-    @keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
-    @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+    /* connections */
+    .banner{display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:var(--r);margin-bottom:20px;
+      border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow-sm)}
+    .banner .bd{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;flex-shrink:0}
+    .banner .bt{font-weight:600;font-size:14px}
+    .banner .bs{font-size:12px;color:var(--muted);margin-top:1px}
+    .conn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+    .conn{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;box-shadow:var(--shadow-sm)}
+    .conn-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+    .conn-head .nm{font-family:var(--display);font-weight:700;font-size:15px;flex:1}
+    .svc{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border2)}
+    .svc .si{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex-shrink:0}
+    .svc .snm{font-size:13px;font-weight:600;flex:1}
+    .svc .sd{font-size:11px;color:var(--faint)}
+    .gauge{margin-top:14px;padding-top:14px;border-top:1px solid var(--border2)}
+    .gauge .gl{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:7px}
+    .dots{display:flex;gap:5px}
+    .dots i{flex:1;height:7px;border-radius:4px;background:var(--surface2)}
+    .help{margin-top:20px}
+    .help ol{margin:8px 0 0 18px;font-size:13px;color:var(--text2);line-height:1.9}
+    code{background:var(--surface2);border:1px solid var(--border2);border-radius:5px;padding:1px 6px;font-size:12px}
+
+    @media (prefers-reduced-motion: reduce){*{animation:none!important}}
   </style>
 </head>
 <body>
-  <!-- ================= LOGIN ================= -->
-  <div id="login">
+  <div id="splash"><div><div class="spin"></div><div class="lbl">Đang tải bảng điều khiển…</div></div></div>
+
+  <div id="login" class="hide">
     <div class="login-card">
       <div class="logo-badge">📺</div>
       <h1>MM0 Publisher Console</h1>
@@ -241,18 +247,16 @@
     </div>
   </div>
 
-  <!-- ================= APP ================= -->
   <div id="app" class="hide">
     <aside class="sidebar">
-      <div class="brand">
-        <div class="b">📺</div>
-        <div><div class="bt">MM0 Publisher</div><div class="bs">Auto Console</div></div>
-      </div>
+      <div class="brand"><div class="b">📺</div><div><div class="bt">MM0 Publisher</div><div class="bs">Auto Console</div></div></div>
       <div class="nav-label">Điều hướng</div>
-      <div class="nav active" data-view="overview"><span class="ic">📊</span> Tổng quan</div>
-      <div class="nav" data-view="analytics"><span class="ic">📈</span> Phân tích</div>
-      <div class="nav" data-view="videos"><span class="ic">🎬</span> Video <span class="badge" id="nvVideos">0</span></div>
-      <div class="nav" data-view="schedule"><span class="ic">🗓️</span> Lịch <span class="badge" id="nvSched">0</span></div>
+      <div class="nav active" data-view="overview"><span class="ic" data-i="grid"></span> Tổng quan</div>
+      <div class="nav" data-view="analytics"><span class="ic" data-i="chart"></span> Phân tích</div>
+      <div class="nav" data-view="videos"><span class="ic" data-i="film"></span> Video <span class="badge" id="nvVideos">0</span></div>
+      <div class="nav" data-view="schedule"><span class="ic" data-i="cal"></span> Lịch <span class="badge" id="nvSched">0</span></div>
+      <div class="nav-label">Hệ thống</div>
+      <div class="nav" data-view="connections"><span class="ic" data-i="plug"></span> Kết nối API <span class="dotwarn hide" id="connWarn"></span></div>
       <div class="side-foot">
         <button class="ghost" id="themeBtn"><span id="themeIc">🌙</span> <span id="themeTx">Giao diện tối</span></button>
         <div class="userchip"><img id="uImg" alt=""><span class="em" id="uEmail">—</span></div>
@@ -262,87 +266,63 @@
 
     <div class="main">
       <div class="topbar">
-        <div>
-          <h2 id="vTitle">Tổng quan</h2>
-          <div class="sub" id="vSub">Toàn bộ kênh</div>
-        </div>
+        <div><h2 id="vTitle">Tổng quan</h2><div class="sub" id="vSub">Toàn bộ kênh</div></div>
         <div class="grow"></div>
         <div class="live" id="live"><span class="dot"></span> <span id="liveTx">Đang kết nối…</span></div>
         <select id="chFilter"><option value="">Tất cả kênh</option></select>
       </div>
 
-      <!-- OVERVIEW -->
       <section id="v-overview" class="content">
         <div class="kpis" id="kpis"></div>
         <div class="grid g-2">
-          <div class="panel">
-            <div class="p-head"><div class="p-title">Lượt xem theo kênh <span class="d">· tổng tích luỹ</span></div></div>
-            <canvas id="chViews" height="260"></canvas>
-            <div class="legend" id="lgViews"></div>
-          </div>
-          <div class="panel">
-            <div class="p-head"><div class="p-title">Phân bố trạng thái</div></div>
-            <div class="donut-wrap">
-              <div class="donut-center"><canvas id="chDonut" width="150" height="150" style="width:150px"></canvas>
-                <div class="mid"><div><div class="v tnum" id="donutTotal">0</div><div class="k">video</div></div></div>
-              </div>
-              <div class="legend" id="lgDonut" style="flex-direction:column;gap:9px;margin:0"></div>
-            </div>
-          </div>
+          <div class="panel"><div class="p-head"><div class="p-title">Lượt xem theo kênh <span class="d">· tích luỹ</span></div></div>
+            <canvas id="chViews" height="260"></canvas><div class="legend" id="lgViews"></div></div>
+          <div class="panel"><div class="p-head"><div class="p-title">Phân bố trạng thái</div></div>
+            <div class="donut-wrap"><div class="donut-center"><canvas id="chDonut" width="150" height="150" style="width:150px"></canvas>
+              <div class="mid"><div><div class="v tnum" id="donutTotal">0</div><div class="k">video</div></div></div></div>
+              <div class="legend" id="lgDonut" style="flex-direction:column;gap:9px;margin:0"></div></div></div>
         </div>
         <div class="grid g-2">
-          <div class="panel">
-            <div class="p-head"><div class="p-title">🏆 Tiến độ theo kênh</div><div class="p-sub">đã đăng / tổng hàng đợi</div></div>
-            <div class="chan" id="chanList"></div>
-          </div>
-          <div class="panel">
-            <div class="p-head"><div class="p-title">⏰ Sắp lên sóng</div><div class="p-sub">8 video kế tiếp</div></div>
-            <div class="list" id="upcoming"></div>
-          </div>
+          <div class="panel"><div class="p-head"><div class="p-title">🏆 Tiến độ theo kênh</div><div class="p-sub">đã đăng / hàng đợi</div></div><div id="chanList"></div></div>
+          <div class="panel"><div class="p-head"><div class="p-title">⏰ Sắp lên sóng</div><div class="p-sub">8 video kế tiếp</div></div><div class="list" id="upcoming"></div></div>
         </div>
       </section>
 
-      <!-- ANALYTICS -->
       <section id="v-analytics" class="content hide">
         <div class="kpis" id="aKpis"></div>
         <div class="grid g-2">
-          <div class="panel">
-            <div class="p-head"><div class="p-title">🥇 Video xem nhiều nhất</div><div class="p-sub">top 10</div></div>
-            <div id="topVideos"></div>
-          </div>
-          <div class="panel">
-            <div class="p-head"><div class="p-title">Chỉ số kênh</div></div>
-            <div class="scroll-x"><table id="chanTable" style="min-width:0"></table></div>
-          </div>
+          <div class="panel"><div class="p-head"><div class="p-title">🥇 Video xem nhiều nhất</div><div class="p-sub">top 10</div></div><div id="topVideos"></div></div>
+          <div class="panel"><div class="p-head"><div class="p-title">Chỉ số kênh</div></div><div class="scroll-x"><table id="chanTable" style="min-width:0"></table></div></div>
         </div>
       </section>
 
-      <!-- VIDEOS -->
       <section id="v-videos" class="content hide">
         <div class="toolbar">
           <input type="search" id="search" placeholder="🔍 Tìm tiêu đề…" />
-          <select id="stFilter">
-            <option value="">Mọi trạng thái</option>
-            <option value="posted">Đã đăng</option><option value="scheduled">Đã lên lịch</option>
-            <option value="pending">Chờ</option><option value="uploading">Đang upload</option><option value="failed">Lỗi</option>
-          </select>
+          <select id="stFilter"><option value="">Mọi trạng thái</option><option value="posted">Đã đăng</option><option value="scheduled">Đã lên lịch</option><option value="pending">Chờ</option><option value="uploading">Đang upload</option><option value="failed">Lỗi</option></select>
           <select id="tyFilter"><option value="">Long &amp; Short</option><option value="long">Long</option><option value="short">Short</option></select>
           <select id="sortBy"><option value="publish_at">Sắp theo giờ đăng</option><option value="views">Sắp theo lượt xem</option></select>
         </div>
         <div class="tbl-card"><div class="scroll-x"><table>
-          <thead><tr>
-            <th>Kênh</th><th>Tiêu đề</th><th>Loại</th><th>Trạng thái</th><th>Giờ đăng</th>
-            <th class="num">Views</th><th class="num">Likes</th><th>Link</th>
-          </tr></thead>
-          <tbody id="rows"></tbody>
-        </table></div></div>
+          <thead><tr><th>Kênh</th><th>Tiêu đề</th><th>Loại</th><th>Trạng thái</th><th>Giờ đăng</th><th class="num">Views</th><th class="num">Likes</th><th>Link</th></tr></thead>
+          <tbody id="rows"></tbody></table></div></div>
       </section>
 
-      <!-- SCHEDULE -->
       <section id="v-schedule" class="content hide">
-        <div class="panel">
-          <div class="p-head"><div class="p-title">🗓️ Toàn bộ lịch đăng</div><div class="p-sub">sắp xếp theo thời gian</div></div>
-          <div id="scheduleList"></div>
+        <div class="panel"><div class="p-head"><div class="p-title">🗓️ Toàn bộ lịch đăng</div><div class="p-sub">theo thời gian</div></div><div id="scheduleList"></div></div>
+      </section>
+
+      <section id="v-connections" class="content hide">
+        <div id="connBanner"></div>
+        <div class="conn-grid" id="connGrid"></div>
+        <div class="panel help">
+          <div class="p-title">🔗 Cách kết nối / khắc phục</div>
+          <ol>
+            <li>Chạy <code>python src/auth_setup.py</code> cho mỗi kênh → lấy refresh token YouTube.</li>
+            <li>Nạp token vào <b>GitHub → Settings → Secrets</b> (theo tên trong <code>channels.yaml</code>).</li>
+            <li>Facebook: lấy Page long-lived token (xem <code>SETUP.md</code> bước 6).</li>
+            <li>Trạng thái bên trên tự cập nhật sau mỗi lần đăng / mỗi lần chạy thống kê (6 giờ).</li>
+          </ol>
         </div>
       </section>
     </div>
@@ -366,11 +346,14 @@
     const auth = getAuth(appFb);
     const db = getFirestore(appFb);
 
-    /* auth */
     document.getElementById("signin").onclick = () =>
       signInWithPopup(auth, new GoogleAuthProvider()).catch(e => alert(e.message));
     document.getElementById("signout").onclick = () => signOut(auth);
+
+    let resolved = false;
     onAuthStateChanged(auth, (user) => {
+      resolved = true;
+      document.getElementById("splash").classList.add("hide");
       document.getElementById("login").classList.toggle("hide", !!user);
       document.getElementById("app").classList.toggle("hide", !user);
       if (user) {
@@ -380,254 +363,241 @@
         subscribe();
       }
     });
+    // fallback: nếu 6s chưa có phản hồi auth -> hiện login (tránh kẹt splash)
+    setTimeout(() => { if (!resolved){ document.getElementById("splash").classList.add("hide");
+      document.getElementById("login").classList.remove("hide"); } }, 6000);
+
+    function sub(name, cb){ onSnapshot(query(collection(db,name)), cb, () => setLive(false)); }
     function subscribe(){
-      onSnapshot(query(collection(db,"videos")), s => {
-        window.setData(s.docs.map(d => ({id:d.id, ...d.data()})), null);
-        setLive(true);
-      }, () => setLive(false));
-      onSnapshot(query(collection(db,"channels")), s => {
-        const c = {}; s.docs.forEach(d => c[d.id] = d.data());
-        window.setData(null, c);
-      }, () => {});
+      sub("videos", s => { window.setData(s.docs.map(d=>({id:d.id,...d.data()})), null, null); setLive(true); });
+      sub("channels", s => { const c={}; s.docs.forEach(d=>c[d.id]=d.data()); window.setData(null,c,null); });
+      sub("counters", s => { const k={}; s.docs.forEach(d=>k[d.id]=d.data()); window.setData(null,null,k); });
     }
     function setLive(ok){
-      const el = document.getElementById("live");
-      el.classList.toggle("err", !ok);
+      const el=document.getElementById("live"); el.classList.toggle("err",!ok);
       document.getElementById("liveTx").textContent = ok
-        ? "Đồng bộ " + new Date().toLocaleTimeString("vi-VN")
-        : "Lỗi kết nối — kiểm tra rules";
+        ? "Đồng bộ "+new Date().toLocaleTimeString("vi-VN") : "Lỗi kết nối — kiểm tra rules";
     }
-    window.initTheme(); window.wireNav();
+    window.initTheme(); window.wireNav(); window.paintIcons();
   </script>
 
   <script>
-    /* ============ RENDER (không phụ thuộc Firebase — dùng biến toàn cục) ============ */
     const $ = (id) => document.getElementById(id);
     const CH_COLORS = ["#6c4ee6","#2563eb","#16a34a","#d97706","#dc2626","#0891b2","#7c3aed","#db2777"];
-    let __V = [], __C = {};
-    window.setData = (v, c) => { if (v) __V = v; if (c) __C = c; renderAll(); };
+    const YT_CAP = 6, FB_CAP = 10;
+    let __V=[], __C={}, __K={};
+    window.setData = (v,c,k) => { if(v)__V=v; if(c)__C=c; if(k)__K=k; renderAll(); };
+
+    const ICONS = {
+      grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+      chart:'<path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6" rx="1"/><rect x="12" y="7" width="3" height="10" rx="1"/><rect x="17" y="13" width="3" height="4" rx="1"/>',
+      film:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M17 9h4M3 15h4M17 15h4"/>',
+      cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+      plug:'<path d="M12 22v-5M9 8V2M15 8V2M6 8h12v3a6 6 0 0 1-12 0z"/>',
+    };
+    window.paintIcons = () => document.querySelectorAll(".ic[data-i]").forEach(e=>{
+      e.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[e.dataset.i]||""}</svg>`; });
 
     function initTheme(){
-      const saved = localStorage.mm0theme;
-      if (saved) document.documentElement.setAttribute("data-theme", saved);
+      if (localStorage.mm0theme) document.documentElement.setAttribute("data-theme", localStorage.mm0theme);
       syncThemeBtn();
-      $("themeBtn").onclick = () => {
-        const cur = document.documentElement.getAttribute("data-theme");
-        const isDark = cur ? cur === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
-        const next = isDark ? "light" : "dark";
-        document.documentElement.setAttribute("data-theme", next);
-        localStorage.mm0theme = next; syncThemeBtn();
-        if (window.__lastRender) renderAll();
-      };
+      $("themeBtn").onclick = () => { const cur=document.documentElement.getAttribute("data-theme");
+        const dark = cur ? cur==="dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+        const nx = dark ? "light":"dark"; document.documentElement.setAttribute("data-theme",nx);
+        localStorage.mm0theme=nx; syncThemeBtn(); renderAll(); };
     }
-    function syncThemeBtn(){
-      const cur = document.documentElement.getAttribute("data-theme");
-      const isDark = cur ? cur === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
-      $("themeIc").textContent = isDark ? "☀️" : "🌙";
-      $("themeTx").textContent = isDark ? "Giao diện sáng" : "Giao diện tối";
-    }
+    function syncThemeBtn(){ const cur=document.documentElement.getAttribute("data-theme");
+      const dark = cur ? cur==="dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+      $("themeIc").textContent = dark?"☀️":"🌙"; $("themeTx").textContent = dark?"Giao diện sáng":"Giao diện tối"; }
     function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
 
     function wireNav(){
-      const titles = {overview:["Tổng quan","Toàn bộ kênh"],analytics:["Phân tích","Hiệu suất view & subscriber"],
-        videos:["Thư viện video","Quản lý, tìm kiếm & lọc"],schedule:["Lịch đăng","Dòng thời gian"]};
-      document.querySelectorAll(".nav").forEach(n => n.onclick = () => {
-        document.querySelectorAll(".nav").forEach(x => x.classList.remove("active"));
-        n.classList.add("active");
-        const v = n.dataset.view;
-        ["overview","analytics","videos","schedule"].forEach(x => $("v-"+x).classList.toggle("hide", x!==v));
-        $("vTitle").textContent = titles[v][0]; $("vSub").textContent = titles[v][1];
+      const T={overview:["Tổng quan","Toàn bộ kênh"],analytics:["Phân tích","Hiệu suất view & subscriber"],
+        videos:["Thư viện video","Quản lý, tìm kiếm & lọc"],schedule:["Lịch đăng","Dòng thời gian"],
+        connections:["Kết nối API","Trạng thái YouTube · Facebook · quota"]};
+      document.querySelectorAll(".nav").forEach(n=>n.onclick=()=>{
+        document.querySelectorAll(".nav").forEach(x=>x.classList.remove("active")); n.classList.add("active");
+        const v=n.dataset.view;
+        ["overview","analytics","videos","schedule","connections"].forEach(x=>$("v-"+x).classList.toggle("hide",x!==v));
+        $("vTitle").textContent=T[v][0]; $("vSub").textContent=T[v][1];
       });
-      ["search","stFilter","tyFilter","sortBy"].forEach(id => { const e=$(id); if(e) e.oninput=e.onchange=renderVideos; });
-      $("chFilter").onchange = renderAll;
+      ["search","stFilter","tyFilter","sortBy"].forEach(id=>{const e=$(id);if(e)e.oninput=e.onchange=renderVideos;});
+      $("chFilter").onchange=renderAll;
     }
 
-    /* helpers */
-    const V = () => __V;
-    const C = () => __C;
-    const eff = v => v.status === "pending" && v.publish_at ? "scheduled" : v.status;
-    const LABEL = {posted:"Đã đăng",scheduled:"Đã lên lịch",pending:"Chờ",uploading:"Đang upload",failed:"Lỗi"};
-    const fmtN = n => (n==null?"—":Intl.NumberFormat("en",{notation:n>=10000?"compact":"standard",maximumFractionDigits:1}).format(n));
-    const fmtDt = i => i ? new Date(i).toLocaleString("vi-VN",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "—";
-    const esc = (s="") => String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-    const cur = () => $("chFilter").value;
-    const scoped = () => { const c = cur(); return c ? V().filter(v=>v.channel===c) : V(); };
-    function countdown(i){ const d=new Date(i)-Date.now(); if(d<=0)return"đến giờ";
-      const h=Math.floor(d/3.6e6),m=Math.floor(d%3.6e6/6e4); return h>24?Math.floor(h/24)+" ngày":h>0?h+"h"+m+"m":m+" phút"; }
-    const chColor = (k) => { const ks=Object.keys(chanMap()); const i=ks.indexOf(k); return CH_COLORS[(i<0?ks.length:i)%CH_COLORS.length]; };
-    function chanMap(){ const m={}; V().forEach(v=>{ if(v.channel) (m[v.channel]=m[v.channel]||[]).push(v); }); return m; }
+    const V=()=>__V, C=()=>__C, K=()=>__K;
+    const eff=v=>v.status==="pending"&&v.publish_at?"scheduled":v.status;
+    const LABEL={posted:"Đã đăng",scheduled:"Đã lên lịch",pending:"Chờ",uploading:"Đang upload",failed:"Lỗi"};
+    const fmtN=n=>(n==null?"—":Intl.NumberFormat("en",{notation:n>=10000?"compact":"standard",maximumFractionDigits:1}).format(n));
+    const fmtDt=i=>i?new Date(i).toLocaleString("vi-VN",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"—";
+    const ago=i=>{ if(!i)return"chưa có"; const d=Date.now()-new Date(i); const m=Math.floor(d/6e4);
+      return m<1?"vừa xong":m<60?m+" phút trước":m<1440?Math.floor(m/60)+" giờ trước":Math.floor(m/1440)+" ngày trước"; };
+    const esc=(s="")=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    const cur=()=>$("chFilter").value;
+    const scoped=()=>{const c=cur();return c?V().filter(v=>v.channel===c):V();};
+    const chanMap=()=>{const m={};V().forEach(v=>{if(v.channel)(m[v.channel]=m[v.channel]||[]).push(v);});return m;};
+    const chColor=k=>{const ks=Object.keys(chanMap());const i=ks.indexOf(k);return CH_COLORS[(i<0?ks.length:i)%CH_COLORS.length];};
+    const todayId=()=>{const d=new Date();return d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0");};
+    const countdown=i=>{const d=new Date(i)-Date.now();if(d<=0)return"đến giờ";const h=Math.floor(d/3.6e6),m=Math.floor(d%3.6e6/6e4);return h>24?Math.floor(h/24)+" ngày":h>0?h+"h"+m+"m":m+" phút";};
 
     function renderAll(){
-      window.__lastRender = 1;
-      buildChanFilter(); renderKPIs(); renderViewsChart(); renderDonut();
-      renderChannels(); renderUpcoming(); renderAnalytics(); renderVideos(); renderSchedule();
-      $("nvVideos").textContent = V().length;
-      $("nvSched").textContent = V().filter(v=>eff(v)==="scheduled").length;
+      buildChanFilter(); renderKPIs(); renderViewsChart(); renderDonut(); renderChannels();
+      renderUpcoming(); renderAnalytics(); renderVideos(); renderSchedule(); renderConnections();
+      $("nvVideos").textContent=V().length; $("nvSched").textContent=V().filter(v=>eff(v)==="scheduled").length;
     }
-    function buildChanFilter(){ const sel=$("chFilter"),c=sel.value;
-      const ks=Object.keys(chanMap()).sort();
-      sel.innerHTML='<option value="">Tất cả kênh</option>'+ks.map(k=>`<option>${esc(k)}</option>`).join(""); sel.value=c; }
+    function buildChanFilter(){const sel=$("chFilter"),c=sel.value;const ks=Object.keys(chanMap()).sort();
+      sel.innerHTML='<option value="">Tất cả kênh</option>'+ks.map(k=>`<option>${esc(k)}</option>`).join("");sel.value=c;}
 
-    function icon(p){ return {
-      sub:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-      view:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
-      up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
-      cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
-      warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-      like:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>',
-    }[p]; }
+    function svgIcon(p){return {
+      sub:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+      view:'<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+      up:'<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+      cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+      warn:'<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+      like:'<path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>',
+      yt:'<path d="M22.5 6.5a3 3 0 0 0-2.1-2.1C18.5 4 12 4 12 4s-6.5 0-8.4.4A3 3 0 0 0 1.5 6.5 31 31 0 0 0 1 12a31 31 0 0 0 .5 5.5 3 3 0 0 0 2.1 2.1C5.5 20 12 20 12 20s6.5 0 8.4-.4a3 3 0 0 0 2.1-2.1A31 31 0 0 0 23 12a31 31 0 0 0-.5-5.5z"/><polygon points="10,8.5 16,12 10,15.5" fill="currentColor" stroke="none"/>',
+      fb:'<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>',
+      check:'<polyline points="20 6 9 17 4 12"/>', x:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+    }[p]||"";}
+    const wrap=(p,c)=>`<svg viewBox="0 0 24 24" fill="none" stroke="${c||'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${svgIcon(p)}</svg>`;
 
-    function kpiCard(iconKey, soft, color, value, label, chip){
-      return `<div class="kpi"><div class="kpi-top">
-        <div class="icn" style="background:${soft};color:${color}">${icon(iconKey)}</div>
-        ${chip||""}</div>
-        <div class="n tnum">${value}</div><div class="l">${label}</div></div>`;
-    }
+    function kpi(icn,soft,color,val,label){return `<div class="kpi"><div class="kpi-top">
+      <div class="icn" style="background:${soft};color:${color}">${wrap(icn)}</div></div>
+      <div class="n tnum">${val}</div><div class="l">${label}</div></div>`;}
     function renderKPIs(){
-      const ch = cur(); const chs = ch ? {[ch]:C()[ch]} : C();
-      let subs=0, cviews=0; Object.values(chs).forEach(c=>{ if(c){subs+=c.subscribers||0; cviews+=c.total_views||0;} });
-      const d = scoped();
-      const posted = d.filter(v=>eff(v)==="posted").length;
-      const sched = d.filter(v=>eff(v)==="scheduled").length;
-      const vViews = d.reduce((a,v)=>a+(v.stats?.views||0),0);
-      $("kpis").innerHTML =
-        kpiCard("sub", "var(--accent-soft)","var(--accent)", fmtN(subs), "Người đăng ký") +
-        kpiCard("view","var(--info-soft)","var(--info)", fmtN(cviews||vViews), "Lượt xem tích luỹ") +
-        kpiCard("up",  "var(--good-soft)","var(--good)", fmtN(posted), "Video đã đăng") +
-        kpiCard("cal", "var(--warn-soft)","var(--warn)", fmtN(sched), "Đang chờ lịch");
+      const ch=cur(); const chs=ch?{[ch]:C()[ch]}:C();
+      let subs=0,cviews=0; Object.values(chs).forEach(c=>{if(c){subs+=c.subscribers||0;cviews+=c.total_views||0;}});
+      const d=scoped();
+      $("kpis").innerHTML=kpi("sub","var(--accent-soft)","var(--accent)",fmtN(subs),"Người đăng ký")
+        +kpi("view","var(--info-soft)","var(--info)",fmtN(cviews||d.reduce((a,v)=>a+(v.stats?.views||0),0)),"Lượt xem tích luỹ")
+        +kpi("up","var(--good-soft)","var(--good)",fmtN(d.filter(v=>eff(v)==="posted").length),"Video đã đăng")
+        +kpi("cal","var(--warn-soft)","var(--warn)",fmtN(d.filter(v=>eff(v)==="scheduled").length),"Đang chờ lịch");
     }
 
-    /* ---- canvas bar chart (views per channel) ---- */
-    function prepCanvas(cv, h){ const dpr=devicePixelRatio||1, w=cv.clientWidth||cv.parentElement.clientWidth;
-      cv.width=w*dpr; cv.height=h*dpr; const x=cv.getContext("2d"); x.scale(dpr,dpr); return {x,w,h}; }
+    function prep(cv,h){const dpr=devicePixelRatio||1,w=cv.clientWidth||cv.parentElement.clientWidth;
+      cv.width=w*dpr;cv.height=h*dpr;const x=cv.getContext("2d");x.scale(dpr,dpr);return{x,w,h};}
+    function rr(x,X,Y,W,H,r){if(H<=0)return;r=Math.min(r,W/2,H/2);x.beginPath();x.moveTo(X+r,Y);
+      x.arcTo(X+W,Y,X+W,Y+H,r);x.arcTo(X+W,Y+H,X,Y+H,r);x.arcTo(X,Y+H,X,Y,r);x.arcTo(X,Y,X+W,Y,r);x.closePath();}
     function renderViewsChart(){
-      const cv=$("chViews"); if(!cv) return;
-      const map=chanMap(); const data=Object.keys(map).sort().map(k=>({
-        label:k, value:(C()[k]?.total_views) || map[k].reduce((a,v)=>a+(v.stats?.views||0),0), color:chColor(k)}));
-      const {x,w,h}=prepCanvas(cv,260); x.clearRect(0,0,w,h);
-      $("lgViews").innerHTML = data.map(d=>`<span class="lg"><span class="sw" style="background:${d.color}"></span>${esc(d.label)}</span>`).join("");
-      if(!data.length){ x.fillStyle=cssVar("--faint"); x.font="13px "+cssVar("--sans"); x.fillText("Chưa có dữ liệu view.",10,30); return; }
-      const max=Math.max(...data.map(d=>d.value),1), pad=30, bw=Math.min(70,(w-pad*2)/data.length-16);
-      const baseY=h-34, top=14;
-      data.forEach((d,i)=>{ const cx=pad+(i+.5)*((w-pad*2)/data.length);
-        const bh=(baseY-top)*(d.value/max); const y=baseY-bh;
-        const g=x.createLinearGradient(0,y,0,baseY); g.addColorStop(0,d.color); g.addColorStop(1,d.color+"66");
-        x.fillStyle=g; roundRect(x,cx-bw/2,y,bw,bh,6); x.fill();
-        x.fillStyle=cssVar("--text"); x.font="600 12px "+cssVar("--sans"); x.textAlign="center";
-        x.fillText(fmtN(d.value),cx,y-7);
-        x.fillStyle=cssVar("--muted"); x.font="11px "+cssVar("--sans");
-        x.fillText(d.label.length>10?d.label.slice(0,9)+"…":d.label,cx,h-12); });
+      const cv=$("chViews");if(!cv)return;const map=chanMap();
+      const data=Object.keys(map).sort().map(k=>({label:k,value:(C()[k]?.total_views)||map[k].reduce((a,v)=>a+(v.stats?.views||0),0),color:chColor(k)}));
+      const {x,w,h}=prep(cv,260);x.clearRect(0,0,w,h);
+      $("lgViews").innerHTML=data.map(d=>`<span class="lg"><span class="sw" style="background:${d.color}"></span>${esc(d.label)}</span>`).join("");
+      if(!data.length){x.fillStyle=cssVar("--faint");x.font="13px "+cssVar("--sans");x.fillText("Chưa có dữ liệu view.",10,30);return;}
+      const max=Math.max(...data.map(d=>d.value),1),pad=30,bw=Math.min(70,(w-pad*2)/data.length-16),baseY=h-34,top=14;
+      data.forEach((d,i)=>{const cx=pad+(i+.5)*((w-pad*2)/data.length),bh=(baseY-top)*(d.value/max),y=baseY-bh;
+        const g=x.createLinearGradient(0,y,0,baseY);g.addColorStop(0,d.color);g.addColorStop(1,d.color+"66");
+        x.fillStyle=g;rr(x,cx-bw/2,y,bw,bh,6);x.fill();
+        x.fillStyle=cssVar("--text");x.font="600 12px "+cssVar("--sans");x.textAlign="center";x.fillText(fmtN(d.value),cx,y-7);
+        x.fillStyle=cssVar("--muted");x.font="11px "+cssVar("--sans");x.fillText(d.label.length>10?d.label.slice(0,9)+"…":d.label,cx,h-12);});
     }
-    function roundRect(x,X,Y,W,H,r){ r=Math.min(r,W/2,H/2); if(H<=0){return;} x.beginPath();
-      x.moveTo(X+r,Y); x.arcTo(X+W,Y,X+W,Y+H,r); x.arcTo(X+W,Y+H,X,Y+H,r);
-      x.arcTo(X,Y+H,X,Y,r); x.arcTo(X,Y,X+W,Y,r); x.closePath(); }
-
-    /* ---- donut status ---- */
     function renderDonut(){
-      const cv=$("chDonut"); if(!cv) return; const d=scoped();
-      const counts={posted:0,scheduled:0,pending:0,uploading:0,failed:0};
-      d.forEach(v=>{ const s=eff(v); if(counts[s]!=null)counts[s]++; });
+      const cv=$("chDonut");if(!cv)return;const d=scoped();const cnt={posted:0,scheduled:0,pending:0,uploading:0,failed:0};
+      d.forEach(v=>{const s=eff(v);if(cnt[s]!=null)cnt[s]++;});
       const segs=[["posted","--good"],["scheduled","--info"],["pending","--warn"],["uploading","--violet"],["failed","--bad"]]
-        .map(([k,c])=>({k,label:LABEL[k],value:counts[k],color:cssVar(c)})).filter(s=>s.value>0);
-      const total=d.length; $("donutTotal").textContent=total;
-      const dpr=devicePixelRatio||1; cv.width=150*dpr; cv.height=150*dpr; const x=cv.getContext("2d"); x.scale(dpr,dpr);
-      x.clearRect(0,0,150,150); const cx=75,cy=75,R=62,r=42; let a=-Math.PI/2;
-      if(!total){ x.strokeStyle=cssVar("--border"); x.lineWidth=R-r; x.beginPath(); x.arc(cx,cy,(R+r)/2,0,2*Math.PI); x.stroke(); }
-      segs.forEach(s=>{ const ang=2*Math.PI*(s.value/total); x.beginPath();
-        x.arc(cx,cy,R,a,a+ang); x.arc(cx,cy,r,a+ang,a,true); x.closePath(); x.fillStyle=s.color; x.fill(); a+=ang; });
-      $("lgDonut").innerHTML = segs.map(s=>`<span class="lg"><span class="sw" style="background:${s.color}"></span>
-        ${s.label} <b class="tnum" style="color:var(--text);margin-left:4px">${s.value}</b></span>`).join("")
-        || `<span class="lg" style="color:var(--faint)">Chưa có video</span>`;
+        .map(([k,c])=>({label:LABEL[k],value:cnt[k],color:cssVar(c)})).filter(s=>s.value>0);
+      const total=d.length;$("donutTotal").textContent=total;
+      const dpr=devicePixelRatio||1;cv.width=150*dpr;cv.height=150*dpr;const x=cv.getContext("2d");x.scale(dpr,dpr);
+      x.clearRect(0,0,150,150);const cx=75,cy=75,R=62,r=42;let a=-Math.PI/2;
+      if(!total){x.strokeStyle=cssVar("--border");x.lineWidth=R-r;x.beginPath();x.arc(cx,cy,(R+r)/2,0,2*Math.PI);x.stroke();}
+      segs.forEach(s=>{const ang=2*Math.PI*(s.value/total);x.beginPath();x.arc(cx,cy,R,a,a+ang);x.arc(cx,cy,r,a+ang,a,true);x.closePath();x.fillStyle=s.color;x.fill();a+=ang;});
+      $("lgDonut").innerHTML=segs.map(s=>`<span class="lg"><span class="sw" style="background:${s.color}"></span>${s.label} <b class="tnum" style="color:var(--text);margin-left:4px">${s.value}</b></span>`).join("")||`<span class="lg" style="color:var(--faint)">Chưa có video</span>`;
     }
-
     function renderChannels(){
-      const map=chanMap(); const ks=Object.keys(map).sort();
-      $("chanList").innerHTML = ks.map(k=>{
-        const vids=map[k], posted=vids.filter(v=>eff(v)==="posted").length, pct=vids.length?Math.round(posted/vids.length*100):0;
-        const subs=C()[k]?.subscribers; const col=chColor(k);
-        return `<div class="chan-item">
-          <div class="ava" style="background:linear-gradient(145deg,${col},${col}aa)">${esc(k.slice(0,2).toUpperCase())}</div>
+      const map=chanMap();const ks=Object.keys(map).sort();
+      $("chanList").innerHTML=ks.map(k=>{const vids=map[k],posted=vids.filter(v=>eff(v)==="posted").length,pct=vids.length?Math.round(posted/vids.length*100):0;
+        const subs=C()[k]?.subscribers,col=chColor(k);
+        return `<div class="chan-item"><div class="ava" style="background:linear-gradient(145deg,${col},${col}aa)">${esc(k.slice(0,2).toUpperCase())}</div>
           <div class="chan-mid"><div class="nm">${esc(k)} ${subs!=null?`<span class="p-sub tnum">· ${fmtN(subs)} subs</span>`:""}</div>
-            <div class="st">${posted}/${vids.length} đã đăng · ${vids.length-posted} trong hàng đợi</div>
-            <div class="bar"><i style="width:${pct}%"></i></div></div>
-          <div class="chan-right"><div class="big tnum">${pct}%</div><div class="cap">hoàn tất</div></div>
-        </div>`;
-      }).join("") || emptyBox("Chưa có kênh nào có dữ liệu.");
+          <div class="st">${posted}/${vids.length} đã đăng · ${vids.length-posted} hàng đợi</div><div class="bar"><i style="width:${pct}%"></i></div></div>
+          <div class="chan-right"><div class="big tnum">${pct}%</div><div class="cap">hoàn tất</div></div></div>`;
+      }).join("")||emptyBox("Chưa có kênh nào.");
     }
     function renderUpcoming(){
       const up=scoped().filter(v=>eff(v)==="scheduled"&&v.publish_at).sort((a,b)=>a.publish_at.localeCompare(b.publish_at)).slice(0,8);
-      $("upcoming").innerHTML = up.map(v=>`<div class="li"><div class="tm">${fmtDt(v.publish_at)}</div>
-        <div class="tx">${esc(v.title||v.drive_name)}</div><div class="cd">${countdown(v.publish_at)}</div></div>`).join("")
-        || emptyBox("Không có video nào đang chờ lịch.");
+      $("upcoming").innerHTML=up.map(v=>`<div class="li"><div class="tm">${fmtDt(v.publish_at)}</div><div class="tx">${esc(v.title||v.drive_name)}</div><div class="cd">${countdown(v.publish_at)}</div></div>`).join("")||emptyBox("Không có video chờ lịch.");
     }
-
     function renderAnalytics(){
-      const d=scoped();
-      const totalViews=d.reduce((a,v)=>a+(v.stats?.views||0),0);
-      const totalLikes=d.reduce((a,v)=>a+(v.stats?.likes||0),0);
-      const totalCmt=d.reduce((a,v)=>a+(v.stats?.comments||0),0);
-      const withStats=d.filter(v=>v.stats?.views!=null);
-      const avg=withStats.length?Math.round(totalViews/withStats.length):0;
-      $("aKpis").innerHTML =
-        kpiCard("view","var(--info-soft)","var(--info)",fmtN(totalViews),"Tổng lượt xem") +
-        kpiCard("like","var(--accent-soft)","var(--accent)",fmtN(totalLikes),"Tổng lượt thích") +
-        kpiCard("up","var(--good-soft)","var(--good)",fmtN(avg),"View trung bình/video") +
-        kpiCard("cal","var(--violet-soft)","var(--violet)",fmtN(totalCmt),"Tổng bình luận");
-
-      const top=[...d].filter(v=>v.stats?.views!=null).sort((a,b)=>(b.stats.views)-(a.stats.views)).slice(0,10);
+      const d=scoped();const tv=d.reduce((a,v)=>a+(v.stats?.views||0),0),tl=d.reduce((a,v)=>a+(v.stats?.likes||0),0),tc=d.reduce((a,v)=>a+(v.stats?.comments||0),0);
+      const ws=d.filter(v=>v.stats?.views!=null);const avg=ws.length?Math.round(tv/ws.length):0;
+      $("aKpis").innerHTML=kpi("view","var(--info-soft)","var(--info)",fmtN(tv),"Tổng lượt xem")
+        +kpi("like","var(--accent-soft)","var(--accent)",fmtN(tl),"Tổng lượt thích")
+        +kpi("up","var(--good-soft)","var(--good)",fmtN(avg),"View TB/video")
+        +kpi("cal","var(--violet-soft)","var(--violet)",fmtN(tc),"Tổng bình luận");
+      const top=[...d].filter(v=>v.stats?.views!=null).sort((a,b)=>b.stats.views-a.stats.views).slice(0,10);
       const max=Math.max(...top.map(v=>v.stats.views),1);
-      $("topVideos").innerHTML = top.map((v,i)=>`
-        <div style="padding:10px 4px;border-bottom:1px solid var(--border2)">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-            <span class="rank ${i<3?'top':''}">${i+1}</span>
-            <span class="vtitle" style="flex:1">${esc(v.title||v.drive_name)}</span>
-            <b class="tnum">${fmtN(v.stats.views)}</b>
-          </div>
-          <div class="bar"><i style="width:${Math.round(v.stats.views/max*100)}%;background:${chColor(v.channel)}"></i></div>
-        </div>`).join("") || emptyBox("Chưa có số liệu view (chạy stats.py hoặc chờ workflow thống kê).");
-
+      $("topVideos").innerHTML=top.map((v,i)=>`<div style="padding:10px 4px;border-bottom:1px solid var(--border2)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span class="rank ${i<3?'top':''}">${i+1}</span>
+        <span class="vtitle" style="flex:1">${esc(v.title||v.drive_name)}</span><b class="tnum">${fmtN(v.stats.views)}</b></div>
+        <div class="bar"><i style="width:${Math.round(v.stats.views/max*100)}%;background:${chColor(v.channel)}"></i></div></div>`).join("")||emptyBox("Chưa có số liệu view.");
       const ks=Object.keys(chanMap()).sort();
-      $("chanTable").innerHTML = `<thead><tr><th>Kênh</th><th class="num">Subs</th><th class="num">Views</th><th class="num">Videos</th></tr></thead>
-        <tbody>${ks.map(k=>{const c=C()[k]||{};const m=chanMap()[k];
-          return `<tr><td><b>${esc(k)}</b></td><td class="num tnum">${fmtN(c.subscribers)}</td>
-          <td class="num tnum">${fmtN(c.total_views||m.reduce((a,v)=>a+(v.stats?.views||0),0))}</td>
-          <td class="num tnum">${m.length}</td></tr>`;}).join("")}</tbody>`;
+      $("chanTable").innerHTML=`<thead><tr><th>Kênh</th><th class="num">Subs</th><th class="num">Views</th><th class="num">Videos</th></tr></thead>
+        <tbody>${ks.map(k=>{const c=C()[k]||{},m=chanMap()[k];return `<tr><td><b>${esc(k)}</b></td><td class="num tnum">${fmtN(c.subscribers)}</td><td class="num tnum">${fmtN(c.total_views||m.reduce((a,v)=>a+(v.stats?.views||0),0))}</td><td class="num tnum">${m.length}</td></tr>`;}).join("")}</tbody>`;
     }
-
     function renderVideos(){
-      const term=($("search").value||"").toLowerCase(), st=$("stFilter").value, ty=$("tyFilter").value, sort=$("sortBy").value;
-      let rows=scoped().filter(v=>{ const s=eff(v);
-        return (!st||s===st)&&(!ty||v.type===ty)&&(!term||(v.title||v.drive_name||"").toLowerCase().includes(term)); });
-      rows.sort((a,b)=> sort==="views" ? (b.stats?.views||0)-(a.stats?.views||0)
-        : String(b.publish_at||"").localeCompare(String(a.publish_at||"")));
-      $("rows").innerHTML = rows.map(v=>{ const s=eff(v);
-        const links=[]; if(v.results?.youtube?.url)links.push(`<a class="lk" href="${v.results.youtube.url}" target="_blank">▶ YT</a>`);
-        if(v.results?.facebook?.url)links.push(`<a class="lk" href="${v.results.facebook.url}" target="_blank">f FB</a>`);
-        const warn=v.warnings?.length?`<div class="vwarn">${icon('warn')} ${v.warnings.length} cảnh báo</div>`:"";
-        return `<tr><td><b>${esc(v.channel||"")}</b></td>
-          <td><div class="vtitle">${esc(v.title||v.drive_name||"")}</div>${warn}</td>
-          <td><span class="type">${esc((v.type||"").toUpperCase())}</span></td>
-          <td><span class="tag t-${s}">${LABEL[s]||s}</span></td>
+      const term=($("search").value||"").toLowerCase(),st=$("stFilter").value,ty=$("tyFilter").value,sort=$("sortBy").value;
+      let rows=scoped().filter(v=>{const s=eff(v);return(!st||s===st)&&(!ty||v.type===ty)&&(!term||(v.title||v.drive_name||"").toLowerCase().includes(term));});
+      rows.sort((a,b)=>sort==="views"?(b.stats?.views||0)-(a.stats?.views||0):String(b.publish_at||"").localeCompare(String(a.publish_at||"")));
+      $("rows").innerHTML=rows.map(v=>{const s=eff(v);const L=[];
+        if(v.results?.youtube?.url)L.push(`<a class="lk" href="${v.results.youtube.url}" target="_blank">▶ YT</a>`);
+        if(v.results?.facebook?.url)L.push(`<a class="lk" href="${v.results.facebook.url}" target="_blank">f FB</a>`);
+        const warn=v.warnings?.length?`<div class="vwarn">${wrap('warn')} ${v.warnings.length} cảnh báo</div>`:"";
+        return `<tr><td><b>${esc(v.channel||"")}</b></td><td><div class="vtitle">${esc(v.title||v.drive_name||"")}</div>${warn}</td>
+          <td><span class="type">${esc((v.type||"").toUpperCase())}</span></td><td><span class="tag t-${s}">${LABEL[s]||s}</span></td>
           <td style="color:var(--muted);white-space:nowrap">${fmtDt(v.publish_at)}</td>
-          <td class="num tnum">${v.stats?.views!=null?fmtN(v.stats.views):"—"}</td>
-          <td class="num tnum">${v.stats?.likes!=null?fmtN(v.stats.likes):"—"}</td>
-          <td style="white-space:nowrap">${links.join("")||"—"}</td></tr>`;
-      }).join("") || `<tr><td colspan="8">${emptyBox("Không có video khớp bộ lọc.")}</td></tr>`;
+          <td class="num tnum">${v.stats?.views!=null?fmtN(v.stats.views):"—"}</td><td class="num tnum">${v.stats?.likes!=null?fmtN(v.stats.likes):"—"}</td>
+          <td style="white-space:nowrap">${L.join("")||"—"}</td></tr>`;}).join("")||`<tr><td colspan="8">${emptyBox("Không có video khớp bộ lọc.")}</td></tr>`;
     }
     function renderSchedule(){
-      const list=scoped().filter(v=>v.publish_at).sort((a,b)=>a.publish_at.localeCompare(b.publish_at));
-      let html="", lastDay="";
-      list.forEach(v=>{ const day=new Date(v.publish_at).toLocaleDateString("vi-VN",{weekday:"long",day:"2-digit",month:"2-digit"});
-        if(day!==lastDay){ html+=`<div class="p-sub" style="margin:14px 0 6px;font-weight:600;color:var(--text2)">${day}</div>`; lastDay=day; }
-        const s=eff(v);
-        html+=`<div class="li"><div class="tm">${new Date(v.publish_at).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})}</div>
-          <div class="tx">${esc(v.title||v.drive_name)}</div><span class="tag t-${s}">${LABEL[s]||s}</span></div>`; });
-      $("scheduleList").innerHTML = html || emptyBox("Chưa có lịch đăng.");
+      const list=scoped().filter(v=>v.publish_at).sort((a,b)=>a.publish_at.localeCompare(b.publish_at));let html="",last="";
+      list.forEach(v=>{const day=new Date(v.publish_at).toLocaleDateString("vi-VN",{weekday:"long",day:"2-digit",month:"2-digit"});
+        if(day!==last){html+=`<div class="p-sub" style="margin:14px 0 6px;font-weight:600;color:var(--text2)">${day}</div>`;last=day;}
+        const s=eff(v);html+=`<div class="li"><div class="tm">${new Date(v.publish_at).toLocaleTimeString("vi-VN",{hour:"2-digit",minute:"2-digit"})}</div><div class="tx">${esc(v.title||v.drive_name)}</div><span class="tag t-${s}">${LABEL[s]||s}</span></div>`;});
+      $("scheduleList").innerHTML=html||emptyBox("Chưa có lịch.");
     }
-    function emptyBox(msg){ return `<div class="empty"><div class="big">🗂️</div>${msg}</div>`; }
 
-    // expose to module scope
-    window.renderAll = renderAll; window.initTheme = initTheme; window.wireNav = wireNav;
+    /* ---------- CONNECTIONS (quản lý API) ---------- */
+    function svcRow(icon,iconColor,name,state,detail){
+      const cls={connected:"t-connected",error:"t-error",unknown:"t-unknown"}[state];
+      const txt={connected:"Đã kết nối",error:"Lỗi token",unknown:"Chưa xác minh"}[state];
+      return `<div class="svc"><div class="si" style="background:${iconColor}22;color:${iconColor}">${wrap(icon,iconColor)}</div>
+        <div><div class="snm">${name}</div><div class="sd">${detail||""}</div></div>
+        <span class="tag ${cls}" style="margin-left:auto">${txt}</span></div>`;
+    }
+    function renderConnections(){
+      const ks=Object.keys(chanMap()); const chK=Object.keys(C()); const all=[...new Set([...ks,...chK])].sort();
+      let okCount=0, warnCount=0;
+      const cards=all.map(k=>{
+        const c=C()[k]||{}, col=chColor(k);
+        const ytState=c.yt_ok===true?"connected":c.yt_ok===false?"error":"unknown";
+        const fbState=c.fb_ok===true?"connected":"unknown";
+        if(ytState==="connected")okCount++; if(ytState==="error")warnCount++;
+        const used=(K()[k+"_"+todayId()]?.yt)||(K()[k]?.yt)||0;
+        const pct=Math.min(1,used/YT_CAP);
+        const gaugeColor=used>=YT_CAP?"var(--bad)":used>=YT_CAP-2?"var(--warn)":"var(--good)";
+        const dots=Array.from({length:YT_CAP},(_,i)=>`<i style="background:${i<used?gaugeColor:'var(--surface2)'}"></i>`).join("");
+        return `<div class="conn"><div class="conn-head"><div class="ava" style="background:linear-gradient(145deg,${col},${col}aa)">${esc(k.slice(0,2).toUpperCase())}</div>
+          <div class="nm">${esc(k)}</div></div>
+          ${svcRow('yt','#ff0033','YouTube', ytState, c.subscribers!=null?fmtN(c.subscribers)+' subs · kiểm tra '+ago(c.yt_checked_at):(c.yt_error||'chưa có dữ liệu'))}
+          ${svcRow('fb','#1877f2','Facebook Page', fbState, fbState==="connected"?'đăng gần nhất '+ago(c.last_publish_at):'chưa ghi nhận bài Facebook')}
+          <div class="gauge"><div class="gl"><span>Quota YouTube hôm nay</span><span class="tnum" style="color:${gaugeColor};font-weight:700">${used}/${YT_CAP}</span></div><div class="dots">${dots}</div></div>
+        </div>`;
+      });
+      const total=all.length;
+      const bannerOk = total>0 && warnCount===0;
+      const bd = bannerOk?"var(--good)":warnCount>0?"var(--bad)":"var(--warn)";
+      const bicon = bannerOk?"check":warnCount>0?"warn":"warn";
+      $("connBanner").innerHTML = total? `<div class="banner"><div class="bd" style="background:${bd}22;color:${bd}">${wrap(bicon,bd)}</div>
+        <div><div class="bt">${bannerOk?"Tất cả kết nối hoạt động tốt":warnCount>0?warnCount+" kênh có vấn đề token":"Đang chờ dữ liệu kết nối"}</div>
+        <div class="bs">${okCount}/${total} kênh YouTube đã xác minh · dữ liệu cập nhật sau mỗi lần đăng & mỗi 6 giờ</div></div></div>`
+        : `<div class="banner"><div class="bd" style="background:var(--warn-soft);color:var(--warn)">${wrap('warn','var(--warn)')}</div>
+        <div><div class="bt">Chưa có kênh nào kết nối</div><div class="bs">Hoàn tất SETUP.md để nạp token, trạng thái sẽ hiện ở đây.</div></div></div>`;
+      $("connGrid").innerHTML = cards.join("") || "";
+      $("connWarn").classList.toggle("hide", warnCount===0);
+    }
+    function emptyBox(m){return `<div class="empty"><div class="big">🗂️</div>${m}</div>`;}
+
+    window.renderAll=renderAll; window.initTheme=initTheme; window.wireNav=wireNav;
   </script>
 </body>
 </html>
