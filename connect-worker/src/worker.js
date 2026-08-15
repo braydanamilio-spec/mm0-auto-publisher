@@ -314,8 +314,10 @@ async function startAuth(url, env) {
        <p>Xem hướng dẫn trong <code>SETUP.md</code> (mục Facebook).</p>`, "facebook");
     const fp = new URLSearchParams({
       client_id: env.FB_APP_ID, redirect_uri: redirect, response_type: "code", state,
-      scope: "pages_show_list,pages_manage_posts,pages_read_engagement,business_management,pages_manage_metadata",
     });
+    // App "Facebook Login for Business" dùng config_id; app thường dùng scope.
+    if (env.FB_CONFIG_ID) fp.set("config_id", env.FB_CONFIG_ID);
+    else fp.set("scope", "pages_show_list,pages_manage_posts,pages_read_engagement,business_management,instagram_basic,instagram_content_publish");
     return Response.redirect("https://www.facebook.com/v19.0/dialog/oauth?" + fp.toString(), 302);
   }
 
@@ -450,17 +452,27 @@ async function fbCallback(url, env, uid, code, redirect) {
     `<p>Tài khoản Facebook này chưa quản lý Page nào, hoặc chưa cấp quyền Page.</p>
      <p>${escapeHtml((pages.error && pages.error.message) || "")}</p>`, "facebook");
   const at = await saAccessToken(env);
+  let igCount = 0;
   for (const pg of list) {
     const slug = slugLabel(pg.name) || ("PAGE_" + String(pg.id).slice(-6));
+    // Lấy Instagram Business account liên kết với Page (để đăng IG luôn)
+    let ig_user_id = "", ig_username = "";
+    try {
+      const igr = await (await fetch(
+        `https://graph.facebook.com/v19.0/${pg.id}?fields=instagram_business_account{id,username}&access_token=${pg.access_token}`)).json();
+      const ig = igr.instagram_business_account;
+      if (ig && ig.id) { ig_user_id = ig.id; ig_username = ig.username || ""; igCount++; }
+    } catch (_) {}
     await fsPatch(env, at, `connections/${uid}__${slug}__facebook`,
       { channel: slug, kind: "facebook", owner: uid, page_id: pg.id, page_name: pg.name,
-        page_token: pg.access_token, connected_at: new Date().toISOString() });
+        page_token: pg.access_token, ig_user_id, ig_username, connected_at: new Date().toISOString() });
     await fsPatch(env, at, `fb_pages/${uid}__${slug}`,
-      { name: slug, owner: uid, page_id: pg.id, page_name: pg.name, fb_ok: true, connected_at: new Date().toISOString() },
-      ["name", "owner", "page_id", "page_name", "fb_ok", "connected_at"]);
+      { name: slug, owner: uid, page_id: pg.id, page_name: pg.name,
+        ig_user_id, ig_username, fb_ok: true, connected_at: new Date().toISOString() },
+      ["name", "owner", "page_id", "page_name", "ig_user_id", "ig_username", "fb_ok", "connected_at"]);
   }
   return page("Kết nối Facebook thành công 🎉",
-    `<p>✅ Đã kết nối <b>${list.length}</b> Page: ${list.map(p => escapeHtml(p.name)).join(", ")}.</p>
+    `<p>✅ Đã kết nối <b>${list.length}</b> Page${igCount ? ` · <b>${igCount}</b> có Instagram` : ""}: ${list.map(p => escapeHtml(p.name)).join(", ")}.</p>
      <p>Quản lý ở tab <b>Facebook</b> trên dashboard.</p>`, "facebook");
 }
 
