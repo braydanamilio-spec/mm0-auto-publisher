@@ -372,7 +372,7 @@
         <div class="panel" style="margin-bottom:20px">
           <div class="p-title">➕ <span data-i18n="conn_add">Connect / add channel</span></div>
           <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;align-items:center">
-            <input type="search" id="connChannel" data-i18n-ph="ch_name_ph" placeholder="Channel name (e.g. BROKE)" style="min-width:200px" />
+            <input type="search" id="connChannel" data-i18n-ph="ch_name_ph" placeholder="(optional) leave blank = use real channel name" style="min-width:260px" />
             <button class="btn-conn" id="btnConnYT">🔗 <span data-i18n="connect_yt">Connect YouTube</span></button>
           </div>
           <div class="p-sub" style="margin-top:9px" data-i18n="conn_hint">Click → sign in to that channel's Google → grant once → token saved. No GitHub Secrets needed.</div>
@@ -461,6 +461,12 @@
           padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--sans)}
         .mini:hover{border-color:var(--accent)} .mini:disabled{opacity:.5;cursor:default}
         .mini.warn{color:var(--warn)} .mini.bad{color:var(--bad)}
+        .gmail-group{margin-bottom:22px}
+        .gmail-head{display:flex;align-items:center;gap:12px;padding:11px 14px;margin-bottom:12px;
+          background:var(--surface2);border:1px solid var(--border);border-radius:12px}
+        .gmail-ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex:none;
+          background:var(--accent-soft);color:var(--accent);font-size:16px}
+        .gmail-em{font-weight:700;font-size:14.5px;word-break:break-all}
       </style>
       <section id="v-branding" class="content hide">
         <div class="panel" style="margin-bottom:16px">
@@ -633,8 +639,8 @@
         posted:"Posted", scheduled:"Scheduled", pending:"Pending", uploading:"Uploading", failed:"Failed",
         long_short:"Long & Short", long:"Long", short:"Short", sort_time:"Sort by time", sort_views:"Sort by views",
         th_channel:"Channel", th_title:"Title", th_type:"Type", th_status:"Status", th_time:"Publish time", th_link:"Link",
-        conn_add:"Connect / add channel", ch_name_ph:"Channel name (e.g. BROKE)", connect_yt:"Connect YouTube",
-        conn_hint:"Click → sign in to that channel's Google → grant once → token saved. No GitHub Secrets needed.",
+        conn_add:"Connect / add channel", ch_name_ph:"(optional) blank = use real channel name", connect_yt:"Connect YouTube",
+        conn_hint:"Just click Connect → pick the Google account of that channel → grant once. The real channel name is taken automatically — no typing needed. (Type a label only if you want a custom routing name.)",
         no_conn:"No channel connected yet", no_conn_sub:"Finish SETUP.md to load tokens; status shows here.",
         how_connect:"How to connect / fix",
         st_add:"Connect a storage Drive account (+15GB free each)", acc_name_ph:"Account name (e.g. store1)",
@@ -678,8 +684,8 @@
         posted:"Đã đăng", scheduled:"Đã lên lịch", pending:"Chờ", uploading:"Đang upload", failed:"Lỗi",
         long_short:"Long & Short", long:"Long", short:"Short", sort_time:"Sắp theo giờ đăng", sort_views:"Sắp theo lượt xem",
         th_channel:"Kênh", th_title:"Tiêu đề", th_type:"Loại", th_status:"Trạng thái", th_time:"Giờ đăng", th_link:"Link",
-        conn_add:"Kết nối / thêm kênh mới", ch_name_ph:"Tên kênh (vd BROKE)", connect_yt:"Kết nối YouTube",
-        conn_hint:"Bấm → đăng nhập Google của kênh đó → cấp quyền 1 lần → token tự lưu. Không cần sửa GitHub Secrets.",
+        conn_add:"Kết nối / thêm kênh mới", ch_name_ph:"(không bắt buộc) để trống = tự lấy tên kênh thật", connect_yt:"Kết nối YouTube",
+        conn_hint:"Cứ bấm Kết nối → chọn tài khoản Google của kênh đó → cấp quyền 1 lần. Tên kênh thật được lấy TỰ ĐỘNG — không cần gõ. (Chỉ gõ nhãn nếu anh muốn đặt tên định tuyến riêng.)",
         no_conn:"Chưa có kênh nào kết nối", no_conn_sub:"Hoàn tất SETUP.md để nạp token, trạng thái sẽ hiện ở đây.",
         how_connect:"Cách kết nối / khắc phục",
         st_add:"Kết nối tài khoản Drive lưu trữ (mỗi acc +15GB free)", acc_name_ph:"Tên tài khoản (vd store1)",
@@ -713,7 +719,7 @@
     async function connectChannel(channel, kind){
       if (!WORKER_URL || WORKER_URL === "PASTE_WORKER_URL")
         return alert("Chưa cấu hình WORKER_URL trong dashboard/index.html. Deploy Worker rồi dán URL vào.");
-      if (!channel) return alert("Nhập tên kênh trước (vd BROKE).");
+      // channel để TRỐNG cũng được: Worker tự lấy đúng tên kênh thật làm nhãn.
       let tk=""; try { tk = await window.__getIdToken(); } catch(e){}
       if (!tk) return alert("Chưa đăng nhập.");
       window.open(`${WORKER_URL}/auth/start?channel=${encodeURIComponent(channel)}&kind=${kind}&t=${encodeURIComponent(tk)}`, "_blank");
@@ -1045,33 +1051,49 @@
     function renderConnections(){
       const ks=Object.keys(chanMap()); const chK=Object.keys(C()); const all=[...new Set([...ks,...chK])].sort();
       let okCount=0, warnCount=0;
-      const cards=all.map(k=>{
+      const cardHtml=(k)=>{
         const c=C()[k]||{}, col=chColor(k);
         const ytState=c.yt_ok===true?"connected":c.yt_ok===false?"error":"unknown";
         const fbState=c.fb_ok===true?"connected":"unknown";
         if(ytState==="connected")okCount++; if(ytState==="error")warnCount++;
         const used=(K()[k+"_"+todayId()]?.yt)||(K()[k]?.yt)||0;
-        const pct=Math.min(1,used/YT_CAP);
         const gaugeColor=used>=YT_CAP?"var(--bad)":used>=YT_CAP-2?"var(--warn)":"var(--good)";
         const dots=Array.from({length:YT_CAP},(_,i)=>`<i style="background:${i<used?gaugeColor:'var(--surface2)'}"></i>`).join("");
-        return `<div class="conn"><div class="conn-head"><div class="ava" style="background:linear-gradient(145deg,${col},${col}aa)">${esc(k.slice(0,2).toUpperCase())}</div>
-          <div class="nm">${esc((c.channel_title)||k)}${c.channel_title?` <span class="p-sub">· nhãn ${esc(k)}</span>`:""}</div></div>
+        return `<div class="conn"><div class="conn-head"><div class="ava" style="background:linear-gradient(145deg,${col},${col}aa)">${esc((c.channel_title||k).slice(0,2).toUpperCase())}</div>
+          <div class="nm">${esc((c.channel_title)||k)}${c.channel_title&&c.channel_title.toUpperCase()!==k?` <span class="p-sub">· nhãn ${esc(k)}</span>`:""}</div></div>
           ${svcRow('yt','#ff0033','YouTube', ytState, c.subscribers!=null?fmtN(c.subscribers)+' subs · kiểm tra '+ago(c.yt_checked_at):(c.yt_error||'chưa có dữ liệu'))}
           ${svcRow('fb','#1877f2','Facebook Page', fbState, fbState==="connected"?'đăng gần nhất '+ago(c.last_publish_at):'chưa ghi nhận bài Facebook')}
           <div class="gauge"><div class="gl"><span>Quota YouTube hôm nay</span><span class="tnum" style="color:${gaugeColor};font-weight:700">${used}/${YT_CAP}</span></div><div class="dots">${dots}</div></div>
           <button class="btn-reconn" onclick="connectChannel('${esc(k)}','youtube')">🔗 ${ytState==='connected'?'Kết nối lại':'Kết nối'} YouTube</button>
         </div>`;
-      });
-      const total=all.length;
+      };
+      // GOM NHÓM theo Gmail: mỗi email -> các kênh dưới nó (minh bạch: 1 mail có mấy kênh)
+      const groups={};
+      all.forEach(k=>{ const em=(C()[k]&&C()[k].email)||""; (groups[em]=groups[em]||[]).push(k); });
+      const emails=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length);
+      $("connGrid").innerHTML = emails.map(em=>{
+        const keys=groups[em].sort();
+        const cardsHtml=keys.map(cardHtml).join("");   // gọi trước -> cập nhật okCount/warnCount
+        const subs=keys.reduce((a,k)=>a+((C()[k]&&C()[k].subscribers)||0),0);
+        const known=!!em;
+        return `<div class="gmail-group">
+          <div class="gmail-head">
+            <div class="gmail-ic">${known?'✉':'?'}</div>
+            <div style="flex:1"><div class="gmail-em">${known?esc(em):'Chưa rõ Gmail — bấm “Kết nối lại” để hiện email'}</div>
+              <div class="p-sub">${keys.length} kênh${subs?` · ${fmtN(subs)} subs tổng`:''}</div></div>
+          </div>
+          <div class="conn-grid">${cardsHtml}</div>
+        </div>`;
+      }).join("");
+      const total=all.length, nMail=emails.filter(e=>e).length;
       const bannerOk = total>0 && warnCount===0;
       const bd = bannerOk?"var(--good)":warnCount>0?"var(--bad)":"var(--warn)";
       const bicon = bannerOk?"check":warnCount>0?"warn":"warn";
       $("connBanner").innerHTML = total? `<div class="banner"><div class="bd" style="background:${bd}22;color:${bd}">${wrap(bicon,bd)}</div>
         <div><div class="bt">${bannerOk?"Tất cả kết nối hoạt động tốt":warnCount>0?warnCount+" kênh có vấn đề token":"Đang chờ dữ liệu kết nối"}</div>
-        <div class="bs">${okCount}/${total} kênh YouTube đã xác minh · dữ liệu cập nhật sau mỗi lần đăng & mỗi 6 giờ</div></div></div>`
+        <div class="bs">${okCount}/${total} kênh YouTube đã xác minh · ${nMail} Gmail · dữ liệu cập nhật sau mỗi lần đăng & mỗi 6 giờ</div></div></div>`
         : `<div class="banner"><div class="bd" style="background:var(--warn-soft);color:var(--warn)">${wrap('warn','var(--warn)')}</div>
-        <div><div class="bt">Chưa có kênh nào kết nối</div><div class="bs">Hoàn tất SETUP.md để nạp token, trạng thái sẽ hiện ở đây.</div></div></div>`;
-      $("connGrid").innerHTML = cards.join("") || "";
+        <div><div class="bt">Chưa có kênh nào kết nối</div><div class="bs">Bấm “Kết nối YouTube” — không cần gõ tên, hệ tự lấy tên kênh thật.</div></div></div>`;
       $("connWarn").classList.toggle("hide", warnCount===0);
     }
     const fmtBytes=(n)=>{if(n==null)return"—";const u=["B","KB","MB","GB","TB"];let i=0,x=n;while(x>=1000&&i<u.length-1){x/=1000;i++;}return x.toFixed(x<10&&i>0?1:0)+" "+u[i];};

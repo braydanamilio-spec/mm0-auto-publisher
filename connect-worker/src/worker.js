@@ -212,10 +212,9 @@ const DRIVE_SCOPES = [
 ].join(" ");
 
 async function startAuth(url, env) {
-  const channel = url.searchParams.get("channel");
+  const channel = url.searchParams.get("channel") || "";  // để trống -> tự lấy tên kênh thật ở callback
   const kind = url.searchParams.get("kind") || "youtube";
   const idToken = url.searchParams.get("t");
-  if (!channel) return page("Thiếu tham số", "<p>Thiếu ?channel=</p>");
   // Xác thực người dùng đang đăng nhập -> lấy uid (multi-tenant, chống giả mạo)
   let uid = null;
   if (idToken) {
@@ -278,13 +277,16 @@ async function callback(url, env) {
   // 3) lưu token vào Firestore
   const at = await saAccessToken(env);
   const base = {
-    channel, kind, email, owner: uid,
+    kind, email, owner: uid,
     client_id: env.YT_CLIENT_ID, client_secret: env.YT_CLIENT_SECRET,
     refresh_token: tok.refresh_token, connected_at: new Date().toISOString(),
   };
 
-  let connectedName = channel;
+  let connectedName = channel, label = channel;
   if (kind === "drive") {
+    // Nhãn kho: người dùng để trống -> tự đặt theo phần đầu email
+    label = channel || slugLabel((email || "").split("@")[0]) || "STORE";
+    base.channel = label;
     // tạo/tìm folder kho "MM0-STORE" trong tài khoản Drive này
     const root = await ensureDriveFolder(tok.access_token, "MM0-STORE");
     // Đọc DUNG LƯỢNG THẬT của tài khoản (free 15GB hay Google One 100GB/2TB) -> dùng cả 2
@@ -297,14 +299,14 @@ async function callback(url, env) {
       if (q.limit) cap_gb = Math.max(1, Math.floor(Number(q.limit) / 1e9) - 1); // chừa ~1GB
       used = Number(q.usage || 0);
     } catch (_) {}
-    await fsPatch(env, at, `connections/${uid}__${channel}__drive`, { ...base, root, cap_gb });
-    await fsPatch(env, at, `storage_accounts/${uid}__${channel}`,
-      { name: channel, owner: uid, email, cap_gb, used, root,
+    await fsPatch(env, at, `connections/${uid}__${label}__drive`, { ...base, root, cap_gb });
+    await fsPatch(env, at, `storage_accounts/${uid}__${label}`,
+      { name: label, owner: uid, email, cap_gb, used, root,
         connected_at: new Date().toISOString() },
       ["name", "owner", "email", "cap_gb", "used", "root", "connected_at"]);
+    connectedName = label;
   } else {
-    await fsPatch(env, at, `connections/${uid}__${channel}__youtube`, base);
-    // Lấy thông tin kênh THẬT (title/subs/id) để hiển thị đúng, không chỉ nhãn
+    // Lấy thông tin kênh THẬT (title/subs/id) TRƯỚC -> tự đặt nhãn theo tên kênh nếu để trống
     let info = {};
     try {
       const r = await (await fetch(
@@ -312,21 +314,26 @@ async function callback(url, env) {
         { headers: { Authorization: `Bearer ${tok.access_token}` } })).json();
       const it = (r.items || [])[0];
       if (it) info = {
-        channel_title: (it.snippet && it.snippet.title) || channel,
+        channel_title: (it.snippet && it.snippet.title) || "",
         channel_id: it.id || "",
         subscribers: Number((it.statistics && it.statistics.subscriberCount) || 0),
         total_views: Number((it.statistics && it.statistics.viewCount) || 0),
         video_count: Number((it.statistics && it.statistics.videoCount) || 0),
       };
     } catch (_) {}
-    connectedName = info.channel_title || channel;
-    await fsPatch(env, at, `channels/${uid}__${channel}`,
-      { channel, owner: uid, yt_ok: true, yt_checked_at: new Date().toISOString(), ...info },
-      ["channel", "owner", "yt_ok", "yt_checked_at", ...Object.keys(info)]);
+    // Nhãn định tuyến = do người dùng gõ, HOẶC tự tạo từ tên kênh thật, HOẶC từ channel_id
+    label = channel || slugLabel(info.channel_title) || ("CH_" + String(info.channel_id || "").slice(-6)) || "CHANNEL";
+    base.channel = label;
+    connectedName = info.channel_title || label;
+    await fsPatch(env, at, `connections/${uid}__${label}__youtube`, base);
+    await fsPatch(env, at, `channels/${uid}__${label}`,
+      { channel: label, owner: uid, email, yt_ok: true, yt_checked_at: new Date().toISOString(), ...info },
+      ["channel", "owner", "email", "yt_ok", "yt_checked_at", ...Object.keys(info)]);
   }
 
   return page("Kết nối thành công 🎉",
-    `<p>✅ Đã kết nối <b>${escapeHtml(connectedName)}</b> (nhãn: ${escapeHtml(channel)}, ${kind})${email ? " · " + escapeHtml(email) : ""}.</p>
+    `<p>✅ Đã kết nối kênh <b>${escapeHtml(connectedName)}</b>${email ? " · " + escapeHtml(email) : ""}.</p>
+     <p class="sub">Nhãn định tuyến nội bộ: <code>${escapeHtml(label)}</code> — dùng để đặt tên thư mục video (OUTBOX/${escapeHtml(label)}/…).</p>
      <p>Token đã lưu an toàn. Anh có thể đóng tab này và quay lại dashboard.</p>`);
 }
 
@@ -455,6 +462,11 @@ function ub64url(s) {
   return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 }
 function escapeHtml(s) { return String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
+// Chuẩn hoá tên kênh thật -> nhãn định tuyến an toàn (VD "Broke Money 💸" -> "BROKE_MONEY")
+function slugLabel(s) {
+  return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 32);
+}
 function page(title, body) {
   return new Response(
     `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
