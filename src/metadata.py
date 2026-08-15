@@ -46,7 +46,14 @@ def detect_type(filename: str, folder: str | None = None) -> str:
 
 def _clip(text: str, limit: int) -> str:
     text = (text or "").strip()
-    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+    if len(text) <= limit:
+        return text
+    cut = text[: limit - 1].rstrip()
+    # Cắt ở ranh giới TỪ nếu khoảng trắng nằm gần cuối (giữ ≥60% để không quá cụt)
+    sp = cut.rfind(" ")
+    if sp >= int((limit - 1) * 0.6):
+        cut = cut[:sp].rstrip()
+    return cut + "…"
 
 
 def build_metadata(item: dict, branding: dict) -> dict:
@@ -69,6 +76,7 @@ def build_metadata(item: dict, branding: dict) -> dict:
             "{topic}",
         )
         title = tmpl.format(topic=topic)
+    title = title.replace("<", "").replace(">", "")   # YouTube từ chối cứng < >
     title = _clip(title, YT_TITLE_MAX)
 
     # ---- DESCRIPTION ----

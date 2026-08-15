@@ -303,6 +303,7 @@
       <div class="nav" data-view="storage"><span class="ic" data-i="disk"></span> <span data-i18n="storage">Storage</span></div>
       <div class="nav" data-view="settings"><span class="ic" data-i="gear"></span> <span data-i18n="settings">Settings</span></div>
       <div class="nav-label" data-i18n="nav_channel">Channel</div>
+      <div class="nav" data-view="channels"><span class="ic" data-i="stack"></span> <span data-i18n="channels_hub">My Channels</span> <span class="badge" id="nvChans">0</span></div>
       <div class="nav" data-view="branding"><span class="ic" data-i="badge"></span> <span data-i18n="branding">Branding</span></div>
       <div class="nav" data-view="comments"><span class="ic" data-i="chat"></span> <span data-i18n="comments">Comments</span></div>
       <div class="side-foot">
@@ -439,7 +440,21 @@
         </div>
       </section>
 
+      <section id="v-channels" class="content hide">
+        <div id="chHubBanner"></div>
+        <div class="conn-grid" id="channelHub"></div>
+      </section>
+
       <style>
+        .chub{border:1px solid var(--border);border-radius:16px;padding:18px;background:var(--surface);display:flex;flex-direction:column;gap:14px}
+        .chub-top{display:flex;align-items:center;gap:12px}
+        .chub-av{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:16px;flex:none}
+        .chub-nm{font-weight:800;font-size:16px;line-height:1.2}
+        .chub-stats{display:flex;gap:18px;flex-wrap:wrap}
+        .chub-st{display:flex;flex-direction:column} .chub-st b{font-size:18px;font-family:var(--mono,monospace)} .chub-st span{font-size:12px;color:var(--muted)}
+        .chub-acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+        .chub-acts button{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:9px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+        .chub-acts button:hover{border-color:var(--accent);color:var(--accent)}
         .brgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
         .fld{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--muted)}
         .fld.full{grid-column:1/-1}
@@ -621,7 +636,9 @@
         sub_videos:"Manage, search & filter", sub_schedule:"Timeline",
         sub_connections:"YouTube · Facebook · quota status", sub_storage:"Pool usage & cleanup",
         sub_settings:"Templates & system config",
-        branding:"Branding", comments:"Comments",
+        branding:"Branding", comments:"Comments", channels_hub:"My Channels", sub_channels:"Your connected channels — pick one to manage",
+        act_branding:"Branding", act_comments:"Comments", act_videos:"Videos", act_reconnect:"Reconnect", act_template:"Template",
+        ch_ready:"No videos yet — ready to receive", ch_connect_first:"No channel yet — connect one in API Connections.",
         sub_branding:"Channel identity via API", sub_comments:"Read, reply & moderate",
         nav_channel:"Channel", br_pick:"Pick a connected channel", br_load:"Load current",
         br_title:"Channel name", br_desc:"Description", br_keywords:"Keywords (space-separated)",
@@ -669,7 +686,9 @@
         sub_videos:"Quản lý, tìm kiếm & lọc", sub_schedule:"Dòng thời gian",
         sub_connections:"Trạng thái YouTube · Facebook · quota", sub_storage:"Dung lượng pool & dọn dẹp",
         sub_settings:"Template & cấu hình hệ thống",
-        branding:"Thương hiệu", comments:"Bình luận",
+        branding:"Thương hiệu", comments:"Bình luận", channels_hub:"Kênh của tôi", sub_channels:"Các kênh đã kết nối — chọn 1 kênh để quản lý",
+        act_branding:"Thương hiệu", act_comments:"Bình luận", act_videos:"Video", act_reconnect:"Kết nối lại", act_template:"Template",
+        ch_ready:"Chưa có video — sẵn sàng nhận bài", ch_connect_first:"Chưa có kênh — kết nối ở tab Kết nối API.",
         sub_branding:"Nhận diện kênh qua API", sub_comments:"Đọc, trả lời & kiểm duyệt",
         nav_channel:"Kênh", br_pick:"Chọn kênh đã kết nối", br_load:"Tải hiện tại",
         br_title:"Tên kênh", br_desc:"Mô tả", br_keywords:"Từ khoá (cách nhau bằng dấu cách)",
@@ -758,6 +777,7 @@
       gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
       badge:'<path d="M12 2l2.4 2.1 3.1-.4 1.1 3 2.8 1.4-1.1 3 1.1 3-2.8 1.4-1.1 3-3.1-.4L12 22l-2.4-2.1-3.1.4-1.1-3L2.6 15.5l1.1-3-1.1-3 2.8-1.4 1.1-3 3.1.4z"/><path d="M9 12l2 2 4-4"/>',
       chat:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+      stack:'<path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>',
     };
     window.paintIcons = () => document.querySelectorAll(".ic[data-i]").forEach(e=>{
       e.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[e.dataset.i]||""}</svg>`; });
@@ -788,7 +808,7 @@
     function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
 
     function wireNav(){
-      const VIEWS=["overview","analytics","videos","schedule","connections","storage","settings","branding","comments"];
+      const VIEWS=["overview","analytics","videos","schedule","connections","storage","settings","channels","branding","comments"];
       const setTitle=(v)=>{ window.__view=v; $("vTitle").textContent=t(v); $("vSub").textContent=t("sub_"+v); };
       window.__setTitle=setTitle;
       document.querySelectorAll(".nav").forEach(n=>n.onclick=()=>{
@@ -937,8 +957,9 @@
     function renderAll(){
       buildChanFilter(); renderKPIs(); renderViewsChart(); renderDonut(); renderChannels();
       renderUpcoming(); renderAnalytics(); renderLongShort(); renderVideos(); renderSchedule(); renderConnections();
-      renderStorage(); renderSettings();
+      renderStorage(); renderSettings(); renderChannelHub();
       $("nvVideos").textContent=V().length; $("nvSched").textContent=V().filter(v=>eff(v)==="scheduled").length;
+      $("nvChans").textContent=allChannels().length;
     }
     function buildChanFilter(){const sel=$("chFilter"),c=sel.value;const ks=allChannels();
       sel.innerHTML=`<option value="">${t("all_channels")}</option>`+ks.map(k=>`<option value="${esc(k)}">${esc(chName(k))}</option>`).join("");sel.value=c;}
@@ -1009,6 +1030,45 @@
           <div class="chan-right"><div class="big tnum">${pct}%</div><div class="cap">hoàn tất</div></div></div>`;
       }).join("")||emptyBox("Chưa có kênh nào — kết nối kênh ở tab Kết nối API.");
     }
+    // ==== HUB "Kênh của tôi": mỗi kênh 1 thẻ, có video hay chưa cũng hiện + thao tác ====
+    function renderChannelHub(){
+      const map=chanMap(); const ks=allChannels();
+      if(!ks.length){ $("channelHub").innerHTML=emptyBox(t("ch_connect_first")); $("chHubBanner").innerHTML=""; return; }
+      $("chHubBanner").innerHTML=`<div class="p-sub" style="margin-bottom:14px">${esc(t("sub_channels"))}</div>`;
+      $("channelHub").innerHTML=ks.map(k=>{
+        const c=C()[k]||{}, col=chColor(k), vids=map[k]||[];
+        const posted=vids.filter(v=>eff(v)==="posted").length, queue=vids.length-posted;
+        const linked=!!C()[k], em=c.email||"";
+        return `<div class="chub">
+          <div class="chub-top">
+            <div class="chub-av" style="background:linear-gradient(145deg,${col},${col}aa)">${esc(chName(k).slice(0,2).toUpperCase())}</div>
+            <div style="flex:1;min-width:0"><div class="chub-nm">${esc(chName(k))}</div>
+              <div class="p-sub" style="word-break:break-all">${em?esc(em):(linked?'✓ đã kết nối':'⚠ nhãn cũ')}${chName(k).toUpperCase()!==k?` · <code>${esc(k)}</code>`:""}</div></div>
+            <span class="tag ${c.yt_ok?'t-connected':'t-unknown'}">${c.yt_ok?'YouTube ✓':'—'}</span>
+          </div>
+          <div class="chub-stats">
+            <div class="chub-st"><b class="tnum">${c.subscribers!=null?fmtN(c.subscribers):'—'}</b><span>subs</span></div>
+            <div class="chub-st"><b class="tnum">${fmtN(posted)}</b><span>đã đăng</span></div>
+            <div class="chub-st"><b class="tnum">${fmtN(queue)}</b><span>hàng đợi</span></div>
+            <div class="chub-st"><b class="tnum">${c.total_views!=null?fmtN(c.total_views):'—'}</b><span>views</span></div>
+          </div>
+          ${vids.length?'':`<div class="p-sub">📭 ${esc(t("ch_ready"))}</div>`}
+          <div class="chub-acts">
+            <button onclick="opChannel('${esc(k)}','branding')">🎨 ${esc(t("act_branding"))}</button>
+            <button onclick="opChannel('${esc(k)}','comments')">💬 ${esc(t("act_comments"))}</button>
+            <button onclick="opChannel('${esc(k)}','videos')">🎬 ${esc(t("act_videos"))}</button>
+            <button onclick="connectChannel('${esc(k)}','youtube')">🔗 ${esc(t("act_reconnect"))}</button>
+          </div>
+        </div>`;
+      }).join("");
+    }
+    window.gotoView=(v)=>{ const n=document.querySelector('.nav[data-view="'+v+'"]'); if(n) n.click(); };
+    window.opChannel=(k, what)=>{
+      if(what==='videos'){ const f=$("chFilter"); if(f)f.value=k; gotoView('videos'); renderAll(); return; }
+      if(what==='branding'){ gotoView('branding'); const s=$("brChannel"); if(s){s.value=k; if(s.value===k) loadBranding();} return; }
+      if(what==='comments'){ gotoView('comments'); const s=$("cmChannel"); if(s){s.value=k; if(s.value===k) loadComments();} return; }
+    };
+
     function renderUpcoming(){
       const up=scoped().filter(v=>eff(v)==="scheduled"&&v.publish_at).sort((a,b)=>a.publish_at.localeCompare(b.publish_at)).slice(0,8);
       $("upcoming").innerHTML=up.map(v=>`<div class="li"><div class="tm">${fmtDt(v.publish_at)}</div><div class="tx">${esc(v.title||v.drive_name)}</div><div class="cd">${countdown(v.publish_at)}</div></div>`).join("")||emptyBox("Không có video chờ lịch.");
