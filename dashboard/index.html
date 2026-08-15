@@ -303,6 +303,10 @@
           <div class="panel"><div class="p-head"><div class="p-title">🥇 Video xem nhiều nhất</div><div class="p-sub">top 10</div></div><div id="topVideos"></div></div>
           <div class="panel"><div class="p-head"><div class="p-title">Chỉ số kênh</div></div><div class="scroll-x"><table id="chanTable" style="min-width:0"></table></div></div>
         </div>
+        <div class="panel">
+          <div class="p-head"><div class="p-title">📊 Long vs Short theo kênh</div><div class="p-sub">view minh bạch từng loại</div></div>
+          <div class="scroll-x"><table id="lsTable" style="min-width:0"></table></div>
+        </div>
       </section>
 
       <section id="v-videos" class="content hide">
@@ -537,7 +541,7 @@
 
     function renderAll(){
       buildChanFilter(); renderKPIs(); renderViewsChart(); renderDonut(); renderChannels();
-      renderUpcoming(); renderAnalytics(); renderVideos(); renderSchedule(); renderConnections();
+      renderUpcoming(); renderAnalytics(); renderLongShort(); renderVideos(); renderSchedule(); renderConnections();
       renderStorage(); renderSettings();
       $("nvVideos").textContent=V().length; $("nvSched").textContent=V().filter(v=>eff(v)==="scheduled").length;
     }
@@ -631,6 +635,20 @@
       $("chanTable").innerHTML=`<thead><tr><th>Kênh</th><th class="num">Subs</th><th class="num">Views</th><th class="num">Videos</th></tr></thead>
         <tbody>${ks.map(k=>{const c=C()[k]||{},m=chanMap()[k];return `<tr><td><b>${esc(k)}</b></td><td class="num tnum">${fmtN(c.subscribers)}</td><td class="num tnum">${fmtN(c.total_views||m.reduce((a,v)=>a+(v.stats?.views||0),0))}</td><td class="num tnum">${m.length}</td></tr>`;}).join("")}</tbody>`;
     }
+    function renderLongShort(){
+      const el=$("lsTable"); if(!el) return;
+      const map=chanMap(); const ks=Object.keys(map).sort();
+      const rows=ks.map(k=>{const v=map[k];
+        const L=v.filter(x=>x.type==="long"), S=v.filter(x=>x.type==="short");
+        const lv=L.reduce((a,x)=>a+(x.stats?.views||0),0), sv=S.reduce((a,x)=>a+(x.stats?.views||0),0);
+        return {k,lc:L.length,sc:S.length,lv,sv,la:L.length?Math.round(lv/L.length):0,sa:S.length?Math.round(sv/S.length):0};});
+      el.innerHTML=`<thead><tr><th>Kênh</th><th class="num">Long</th><th class="num">Long views</th><th class="num">TB/long</th><th class="num">Short</th><th class="num">Short views</th><th class="num">TB/short</th></tr></thead>
+        <tbody>${rows.map(r=>`<tr><td><b>${esc(r.k)}</b></td>
+          <td class="num tnum">${r.lc}</td><td class="num tnum" style="color:var(--info)">${fmtN(r.lv)}</td><td class="num tnum">${fmtN(r.la)}</td>
+          <td class="num tnum">${r.sc}</td><td class="num tnum" style="color:var(--violet)">${fmtN(r.sv)}</td><td class="num tnum">${fmtN(r.sa)}</td></tr>`).join("")
+          ||`<tr><td colspan="7" class="empty">Chưa có dữ liệu.</td></tr>`}</tbody>`;
+    }
+
     function renderVideos(){
       const term=($("search").value||"").toLowerCase(),st=$("stFilter").value,ty=$("tyFilter").value,sort=$("sortBy").value;
       let rows=scoped().filter(v=>{const s=eff(v);return(!st||s===st)&&(!ty||v.type===ty)&&(!term||(v.title||v.drive_name||"").toLowerCase().includes(term));});
