@@ -241,6 +241,26 @@
     code{background:var(--surface2);border:1px solid var(--border2);border-radius:5px;padding:1px 6px;font-size:12px}
 
     @media (prefers-reduced-motion: reduce){*{animation:none!important}}
+
+    /* ================= MOBILE ================= */
+    .hamb{display:none;width:40px;height:40px;border-radius:10px;border:1px solid var(--border);
+      background:var(--surface);place-items:center;cursor:pointer;color:var(--text);font-size:18px;flex-shrink:0}
+    #scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:70;display:none}
+    #scrim.show{display:block}
+    @media (max-width:820px){
+      #app{grid-template-columns:1fr}
+      .sidebar{position:fixed;left:0;top:0;height:100vh;width:250px;z-index:80;
+        transform:translateX(-100%);transition:transform .25s ease;box-shadow:0 0 40px rgba(0,0,0,.4)}
+      .sidebar.open{transform:translateX(0)}
+      .hamb{display:grid}
+      .content{padding:16px 14px 60px}
+      .topbar{padding:12px 14px}
+      .topbar h2{font-size:18px}
+      .grid.g-2{grid-template-columns:1fr}
+      .kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+      .conn-grid{grid-template-columns:1fr}
+      input[type=search]{min-width:0;flex:1}
+    }
   </style>
 </head>
 <body>
@@ -255,6 +275,17 @@
         <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#fff" d="M12 11v2.85h4.05c-.24 1.2-1.5 3.5-4.05 3.5-2.44 0-4.43-2.02-4.43-4.5S9.56 8.35 12 8.35c1.39 0 2.32.59 2.85 1.1l1.94-1.87C15.53 6.4 13.94 5.7 12 5.7 8.3 5.7 5.3 8.7 5.3 12s3 6.3 6.7 6.3c3.87 0 6.43-2.72 6.43-6.55 0-.44-.05-.78-.11-1.12z"/></svg>
         <span data-i18n="login_google">Sign in with Google</span>
       </button>
+      <div style="display:flex;align-items:center;gap:10px;margin:18px 0;color:var(--faint);font-size:12px">
+        <div style="flex:1;height:1px;background:var(--border)"></div><span data-i18n="or">OR</span><div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+      <input type="email" id="emailIn" placeholder="Email" autocomplete="username"
+        style="width:100%;padding:12px;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--text);font-size:14px;margin-bottom:10px">
+      <input type="password" id="passIn" placeholder="••••••••" autocomplete="current-password"
+        style="width:100%;padding:12px;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--text);font-size:14px">
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn-google" id="emailSignin" style="flex:1;background:var(--surface2);color:var(--text);border:1px solid var(--border)"><span data-i18n="signin">Sign in</span></button>
+        <button class="btn-google" id="emailSignup" style="flex:1;background:transparent;color:var(--accent);border:1px solid var(--accent)"><span data-i18n="signup">Sign up</span></button>
+      </div>
       <div class="login-foot" data-i18n="login_foot">Only authorized accounts can access.</div>
     </div>
   </div>
@@ -278,11 +309,13 @@
         <button class="ghost" id="signout">↪ <span data-i18n="signout">Sign out</span></button>
       </div>
     </aside>
+    <div id="scrim"></div>
 
     <div class="main">
       <div id="toast" style="position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);padding:12px 16px;border-radius:12px;font-size:13px;font-weight:600;color:var(--good);opacity:0;transition:opacity .3s;z-index:60"></div>
       <div class="topbar">
-        <div><h2 id="vTitle">Tổng quan</h2><div class="sub" id="vSub">Toàn bộ kênh</div></div>
+        <button class="hamb" id="hamb" aria-label="Menu">☰</button>
+        <div><h2 id="vTitle">Overview</h2><div class="sub" id="vSub">All channels</div></div>
         <div class="grow"></div>
         <div class="live" id="live"><span class="dot"></span> <span id="liveTx" data-i18n="connecting">Connecting…</span></div>
         <select id="chFilter"><option value="" data-i18n="all_channels">All channels</option></select>
@@ -407,7 +440,8 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+      signInWithEmailAndPassword, createUserWithEmailAndPassword }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { getFirestore, collection, onSnapshot, query, doc, setDoc }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -425,6 +459,13 @@
 
     document.getElementById("signin").onclick = () =>
       signInWithPopup(auth, new GoogleAuthProvider()).catch(e => alert(e.message));
+    const emVal=()=>[document.getElementById("emailIn").value.trim(), document.getElementById("passIn").value];
+    document.getElementById("emailSignin").onclick = () => { const [e,p]=emVal();
+      if(!e||!p) return alert("Nhập email + mật khẩu."); signInWithEmailAndPassword(auth,e,p).catch(err=>alert(err.message)); };
+    document.getElementById("emailSignup").onclick = () => { const [e,p]=emVal();
+      if(!e||p.length<6) return alert("Email hợp lệ + mật khẩu ≥ 6 ký tự.");
+      createUserWithEmailAndPassword(auth,e,p).catch(err=>alert(err.message)); };
+    document.getElementById("passIn").addEventListener("keydown",ev=>{ if(ev.key==="Enter")document.getElementById("emailSignin").click(); });
     document.getElementById("signout").onclick = () => signOut(auth);
 
     let resolved = false;
@@ -523,7 +564,7 @@
         default_tpl:"Default template", cleanup_mode:"Cleanup mode", safety_cap:"Daily safety cap",
         tpl_per_channel:"Template per channel:", approve:"Approve", empty_filter:"No videos match the filter.",
         all_channels:"All channels", connecting:"Connecting…", synced:"Synced", no_view_data:"No view data yet.", no_video:"No video yet",
-        cleanup_cfg:"Cleanup settings", keep_days:"Keep (days)", save:"Save",
+        cleanup_cfg:"Cleanup settings", keep_days:"Keep (days)", save:"Save", or:"OR", signup:"Sign up",
         login_sub:"Auto publish & analytics console for YouTube and Facebook.",
         login_google:"Sign in with Google", login_foot:"Only authorized accounts can access.",
       },
@@ -558,7 +599,7 @@
         default_tpl:"Template mặc định", cleanup_mode:"Chế độ dọn dẹp", safety_cap:"Trần an toàn/ngày",
         tpl_per_channel:"Template theo từng kênh:", approve:"Duyệt", empty_filter:"Không có video khớp bộ lọc.",
         all_channels:"Tất cả kênh", connecting:"Đang kết nối…", synced:"Đồng bộ", no_view_data:"Chưa có dữ liệu view.", no_video:"Chưa có video",
-        cleanup_cfg:"Cấu hình dọn dẹp", keep_days:"Giữ (ngày)", save:"Lưu",
+        cleanup_cfg:"Cấu hình dọn dẹp", keep_days:"Giữ (ngày)", save:"Lưu", or:"HOẶC", signup:"Tạo tài khoản",
         login_sub:"Trung tâm điều khiển đăng & phân tích video tự động trên YouTube và Facebook.",
         login_google:"Đăng nhập bằng Google", login_foot:"Chỉ tài khoản được cấp quyền mới truy cập được.",
       },
@@ -655,6 +696,12 @@
       const sc=$("btnSaveClean");
       if(sc)sc.onclick=()=>saveCleanup($("clMode").value,$("clDays").value);
       const lb=$("langBtn"); if(lb)lb.onclick=()=>setLang(LANG==="en"?"vi":"en");
+      // menu mobile (hamburger)
+      const hb=$("hamb"), sb=document.querySelector(".sidebar"), sc=$("scrim");
+      const closeSide=()=>{ if(sb)sb.classList.remove("open"); if(sc)sc.classList.remove("show"); };
+      if(hb)hb.onclick=()=>{ if(sb)sb.classList.toggle("open"); if(sc)sc.classList.toggle("show"); };
+      if(sc)sc.onclick=closeSide;
+      document.querySelectorAll(".nav").forEach(n=>n.addEventListener("click",closeSide));
       applyI18n(); syncLangBtn(); setTitle("overview");
     }
     window.connectChannel = connectChannel;
