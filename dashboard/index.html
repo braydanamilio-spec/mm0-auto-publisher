@@ -325,7 +325,10 @@
         <div><h2 id="vTitle">Overview</h2><div class="sub" id="vSub">All channels</div></div>
         <div class="grow"></div>
         <div class="live" id="live"><span class="dot"></span> <span id="liveTx" data-i18n="connecting">Connecting…</span></div>
-        <select id="chFilter"><option value="" data-i18n="all_channels">All channels</option></select>
+        <div class="chpick" id="chPick">
+          <button class="chpick-btn" id="chPickBtn" type="button"></button>
+          <div class="chpick-menu hide" id="chPickMenu"></div>
+        </div>
       </div>
 
       <section id="v-overview" class="content">
@@ -562,6 +565,16 @@
         .fb-acts .mini{padding:5px 10px;font-size:12px}
         @media(max-width:560px){ .fb-meta{display:none} .fb-acts .mini{padding:5px 8px} }
         .tier-badge{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:20px;background:var(--accent-soft);color:var(--accent);vertical-align:middle}
+        /* Dropdown chọn kênh có avatar */
+        .chpick{position:relative}
+        .chpick-btn{display:flex;align-items:center;gap:8px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:6px 12px;font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;min-width:180px}
+        .chpick-ava{width:22px;height:22px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;font-size:10px;font-weight:800;object-fit:cover}
+        .chpick-nm{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .chpick-all{flex:1;text-align:left;font-weight:600}
+        .chpick-caret{color:var(--muted);font-size:11px}
+        .chpick-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 34px rgba(0,0,0,.28);padding:6px;min-width:230px;max-height:340px;overflow-y:auto}
+        .chpick-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:500}
+        .chpick-item:hover{background:var(--surface2)} .chpick-item.on{background:var(--accent-soft);color:var(--accent);font-weight:700}
         /* Chống tràn khi NHIỀU tài khoản / nhiều file: cuộn gọn trong khung */
         #stAccounts{max-height:340px;overflow-y:auto}
         #fbList{max-height:440px;overflow-y:auto}
@@ -1029,7 +1042,8 @@
       document.querySelectorAll(".nav").forEach(n=>n.onclick=()=>{ location.hash=n.dataset.view; });
       window.addEventListener("hashchange",()=>activateView((location.hash||"#overview").slice(1)));
       ["search","stFilter","tyFilter","sortBy"].forEach(id=>{const e=$(id);if(e)e.oninput=e.onchange=renderVideos;});
-      $("chFilter").onchange=renderAll;
+      if($("chPickBtn"))$("chPickBtn").onclick=(e)=>{ e.stopPropagation(); const m=$("chPickMenu"); if(m)m.classList.toggle("hide"); };
+      document.addEventListener("click",()=>{ const m=$("chPickMenu"); if(m)m.classList.add("hide"); });
       const cbtn=$("btnConnYT");
       if(cbtn)cbtn.onclick=()=>connectChannel(($("connChannel").value||"").trim().toUpperCase(),"youtube");
       const dbtn=$("btnConnDrive");
@@ -1261,7 +1275,7 @@
     const ago=i=>{ if(!i)return"chưa có"; const d=Date.now()-new Date(i); const m=Math.floor(d/6e4);
       return m<1?"vừa xong":m<60?m+" phút trước":m<1440?Math.floor(m/60)+" giờ trước":Math.floor(m/1440)+" ngày trước"; };
     const esc=(s="")=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-    const cur=()=>$("chFilter").value;
+    const cur=()=>window.__chFilter||"";
     const scoped=()=>{const c=cur();return c?V().filter(v=>v.channel===c):V();};
     const chanMap=()=>{const m={};V().forEach(v=>{if(v.channel)(m[v.channel]=m[v.channel]||[]).push(v);});return m;};
     // Gộp kênh có video + kênh đã KẾT NỐI (để kênh mới nối vẫn hiện dù chưa có video nào)
@@ -1284,8 +1298,16 @@
       $("nvChans").textContent=allChannels().length;
       $("nvPub").textContent=V().filter(v=>eff(v)!=="posted").length;
     }
-    function buildChanFilter(){const sel=$("chFilter"),c=sel.value;const ks=allChannels();
-      sel.innerHTML=`<option value="">${t("all_channels")}</option>`+ks.map(k=>`<option value="${esc(k)}">${esc(chName(k))}</option>`).join("");sel.value=c;}
+    function buildChanFilter(){
+      const btn=$("chPickBtn"), menu=$("chPickMenu"); if(!btn||!menu) return;
+      const cval=window.__chFilter||"";
+      const allLbl=`<span class="chpick-all">🌐 ${esc(t("all_channels"))}</span>`;
+      btn.innerHTML=(cval?`${chAva(cval,'chpick-ava')}<span class="chpick-nm">${esc(chName(cval))}</span>`:allLbl)+`<span class="chpick-caret">▾</span>`;
+      const ks=allChannels();
+      menu.innerHTML=`<div class="chpick-item ${!cval?'on':''}" onclick="pickChannel('')">${allLbl}</div>`
+        +ks.map(k=>`<div class="chpick-item ${cval===k?'on':''}" onclick="pickChannel('${esc(k)}')">${chAva(k,'chpick-ava')}<span class="chpick-nm">${esc(chName(k))}</span></div>`).join("");
+    }
+    window.pickChannel=(k)=>{ window.__chFilter=k; const m=$("chPickMenu"); if(m)m.classList.add("hide"); buildChanFilter(); renderAll(); };
 
     function svgIcon(p){return {
       sub:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
