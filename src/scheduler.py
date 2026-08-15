@@ -31,7 +31,9 @@ def assign_slots(
     - used_slots: tập ISO string các slot đã bị chiếm (từ video đã lên lịch trước).
     Trả về items (đã bổ sung item["publish_at"]).
     """
-    tz = ZoneInfo(tz_name)
+    # Ưu tiên múi giờ KHÁN GIẢ của template (vd America/New_York) để canh giờ vàng USA;
+    # nếu template không khai báo thì dùng múi giờ chung.
+    tz = ZoneInfo(template.get("timezone", tz_name))
     used = set(used_slots or set())
     cadence = template["cadence"]
     best = template["best_times"]

@@ -66,7 +66,7 @@ def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now):
         print("  ⚠️  Thiếu Drive folder id (secret chưa set) -> bỏ qua.")
         return
 
-    tmpl_name = ch.get("active_template", os.environ.get("POSTING_TEMPLATE", "growth_30d"))
+    tmpl_name = ch.get("active_template", os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short"))
     template = templates["templates"][tmpl_name]
 
     # 1) Quét Drive
@@ -306,7 +306,7 @@ def process_pool(channels_cfg, templates, safety, tz, dry_run, state, now):
 
     for channel, items in groups.items():
         ch = channels_cfg[channel]
-        tmpl_name = ch.get("active_template", os.environ.get("POSTING_TEMPLATE", "growth_30d"))
+        tmpl_name = ch.get("active_template", os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short"))
         template = templates["templates"][tmpl_name]
         used = {it["publish_at"] for it in items if it.get("publish_at")}
         S.assign_slots(items, template, tz, now, used)

@@ -1,53 +1,118 @@
 # ============================================================================
-#  MM0 AUTO-PUBLISHER — TEMPLATE LỊCH ĐĂNG (7 / 30 / 90 NGÀY)
+#  MM0 — TEMPLATE GÓI ĐĂNG BÀI (chuẩn giờ vàng KHÁN GIẢ MỸ)
 # ============================================================================
-#  Bộ generator (scheduler.py) đọc file này để tự rải "publish_at" cho video
-#  trong hàng đợi (_QUEUE) — đúng nhịp, đúng giờ vàng, không dồn cục.
+#  best_times = giờ ĐĂNG theo múi giờ 'timezone' của template (America/New_York).
+#  Scheduler tự quy đổi ra giờ tuyệt đối -> đăng đúng lúc khán giả US online,
+#  bất kể máy/cron ở múi giờ nào.
 #
-#  best_times = giờ ĐĂNG tốt (giờ VN theo config timezone).
-#  Giờ vàng YouTube/FB (khán giả US xem) quy đổi sang giờ VN đã canh sẵn.
+#  Chọn template: đặt Variable POSTING_TEMPLATE trên GitHub, hoặc
+#  'active_template: <tên>' cho từng kênh trong channels.yaml.
+#
+#  KHUNG GIỜ VÀNG US (giờ ET đã canh sẵn):
+#    Shorts: 12:00 (nghỉ trưa) · 17:00 (tan làm) · 20:00 (tối) · 22:00 (khuya)
+#    Long  : 15:00 (đăng chiều -> "chín" kịp giờ xem đỉnh 19-22h tối)
+#    Cuối tuần: khán giả online sớm hơn -> có thể thêm 10:00.
 # ============================================================================
 
 templates:
 
-  # ------------------- GÓI 7 NGÀY: BÙNG NỔ RA MẮT -------------------
+  # ⭐ MẶC ĐỊNH — đúng ví dụ của anh: 1 LONG + 3 SHORT mỗi ngày
+  balanced_1long_3short:
+    name: "Cân bằng: 1 Long + 3 Short/ngày ⚖️"
+    goal: "Nhịp chuẩn nhất để vừa reach (shorts) vừa giữ chân + kiếm tiền (long)."
+    timezone: "America/New_York"
+    duration_days: 30
+    cadence:
+      short_per_day: 3
+      long_per_week: 7          # 7 = mỗi ngày 1 long
+    best_times:
+      short: ["12:00", "17:00", "20:00"]
+      long:  ["15:00"]
+    notes: "Gói phổ biến & hiệu quả nhất hiện nay cho kênh US kể chuyện/explainer."
+
+  # 🚀 RA MẮT 7 NGÀY — đẩy mạnh nhận diện
   sprint_7d:
     name: "7-Day Launch Sprint 🚀"
-    goal: "Kích hoạt kênh, dạy thuật toán nhận diện nội dung, gom subs đầu tiên."
+    goal: "Kích hoạt kênh, dạy thuật toán, gom subs đầu."
+    timezone: "America/New_York"
     duration_days: 7
     cadence:
-      short_per_day: 3        # dồn shorts để tạo nhịp + reach nhanh
-      long_per_week: 2        # 2 video dài trong tuần
+      short_per_day: 3
+      long_per_week: 3
     best_times:
-      short: ["07:30", "12:30", "20:00"]   # giờ VN (canh giờ vàng US tối)
-      long:  ["20:30"]
-    notes: "Ưu tiên shorts hook mạnh. Không đăng quá 6 shorts/ngày (tránh bị coi spam)."
+      short: ["12:00", "17:00", "20:00"]
+      long:  ["15:00"]
+    notes: "Ưu tiên shorts hook mạnh. Không quá 6 shorts/ngày (tránh spam)."
 
-  # ------------------- GÓI 30 NGÀY: TĂNG TRƯỞNG ĐỀU -------------------
+  # 📈 TĂNG TRƯỞNG 30 NGÀY — nhịp bền
   growth_30d:
     name: "30-Day Growth Engine 📈"
     goal: "Xây thói quen xem, đẩy watch-time, lên đề xuất ổn định."
+    timezone: "America/New_York"
     duration_days: 30
     cadence:
       short_per_day: 2
       long_per_week: 3
     best_times:
-      short: ["12:30", "20:00"]
-      long:  ["20:30"]
-    notes: "Nhịp bền vững. Xen kẽ short kéo view — long giữ chân."
+      short: ["17:00", "20:00"]
+      long:  ["15:00"]
+    notes: "Xen kẽ short kéo view — long giữ chân."
 
-  # ------------------- GÓI 90 NGÀY: SCALE BỀN VỮNG -------------------
+  # 🏆 SCALE 90 NGÀY — uy tín, thư viện sâu
   scale_90d:
     name: "90-Day Authority Scale 🏆"
-    goal: "Trở thành kênh top niche, đủ điều kiện bật kiếm tiền, thư viện nội dung sâu."
+    goal: "Trở thành kênh top niche, đủ điều kiện kiếm tiền, thư viện nội dung sâu."
+    timezone: "America/New_York"
     duration_days: 90
     cadence:
       short_per_day: 1
       long_per_week: 4
     best_times:
       short: ["20:00"]
-      long:  ["20:30", "12:30"]
-    notes: "Chất lượng > số lượng. Mỗi long là 1 trụ nội dung (pillar) có thể cắt ra nhiều short."
+      long:  ["15:00"]
+    notes: "Chất > lượng. Mỗi long là 1 pillar, cắt ra nhiều short."
+
+  # 🔥 CÀY SHORTS — reach tối đa
+  shorts_growth:
+    name: "Shorts Machine 🔥 (4 short/ngày)"
+    goal: "Bùng nổ reach bằng shorts, long duy trì tối thiểu."
+    timezone: "America/New_York"
+    duration_days: 30
+    cadence:
+      short_per_day: 4
+      long_per_week: 2
+    best_times:
+      short: ["11:00", "14:00", "18:00", "21:00"]
+      long:  ["15:00"]
+    notes: "Hợp niche facts/curiosity. Giữ hook 1-2s đầu cực mạnh."
+
+  # 📚 CHIỀU SÂU — 1 long + 1 short mỗi ngày
+  authority_daily:
+    name: "Authority Daily 📚 (1 Long + 1 Short/ngày)"
+    goal: "Kênh chiều sâu, mỗi ngày 1 câu chuyện dài + 1 short dẫn dắt."
+    timezone: "America/New_York"
+    duration_days: 30
+    cadence:
+      short_per_day: 1
+      long_per_week: 7
+    best_times:
+      short: ["20:00"]
+      long:  ["15:00"]
+    notes: "Short nên là trailer/cắt cảnh hay nhất của long trong ngày."
+
+  # 🌙 NHẸ NHÀNG — bền vững ít thời gian
+  minimal_sustainable:
+    name: "Tối giản bền vững 🌙"
+    goal: "Ít công sức, giữ kênh sống, tránh burnout."
+    timezone: "America/New_York"
+    duration_days: 90
+    cadence:
+      short_per_day: 1
+      long_per_week: 3
+    best_times:
+      short: ["20:00"]
+      long:  ["15:00"]
+    notes: "Phù hợp khi làm một mình / kho nội dung có hạn."
 
 # ============================================================================
 #  QUY TẮC AN TOÀN (chống spam / vi phạm chính sách nền tảng)
@@ -56,5 +121,4 @@ safety_limits:
   youtube_max_uploads_per_day: 6      # trần thực tế do quota API (10.000/1.600)
   facebook_max_uploads_per_day: 10
   min_minutes_between_uploads: 30     # giãn cách để không bị gắn cờ spam
-  # Nếu tổng video "due" vượt trần/ngày -> tự đẩy phần dư sang ngày kế tiếp.
-  overflow_policy: "rollover_next_day"
+  overflow_policy: "rollover_next_day"  # dư quá trần/ngày -> tự đẩy sang ngày kế
