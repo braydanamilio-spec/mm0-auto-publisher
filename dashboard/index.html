@@ -426,6 +426,12 @@
           <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive)</div><div class="p-sub" id="stMode"></div></div>
           <div id="stAccounts"></div>
         </div>
+        <div class="panel" style="margin-bottom:16px">
+          <div class="p-head"><div class="p-title">📂 Duyệt file trong kho <span class="sd">(xem · đổi tên · xoá tay)</span></div>
+            <select id="fbAccount" class="set-sel" style="max-width:240px"></select></div>
+          <div id="fbBread" class="fb-bread"></div>
+          <div id="fbList"></div>
+        </div>
         <div class="panel help">
           <div class="p-title">🧹 Dọn dẹp</div>
           <ol>
@@ -517,6 +523,18 @@
         .nm,.gmail-em,.chub-nm,.cm-tx,.cm-au{overflow-wrap:anywhere}
         code{overflow-wrap:anywhere}
         @media(max-width:560px){ .set-sel{max-width:52%} .vtitle,#vTitle{font-size:20px} }
+        /* Trình duyệt file kho */
+        .fb-bread{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0 12px;font-size:13px;color:var(--muted)}
+        .fb-crumb{cursor:pointer;color:var(--accent);font-weight:600} .fb-crumb:hover{text-decoration:underline}
+        .fb-sep{color:var(--faint)}
+        .fb-row{display:flex;align-items:center;gap:11px;padding:10px 6px;border-bottom:1px solid var(--border2);min-width:0}
+        .fb-ic{font-size:20px;flex:none;width:24px;text-align:center}
+        .fb-name{font-size:14px;font-weight:500;overflow-wrap:anywhere}
+        .fb-fold{color:var(--accent);cursor:pointer;font-weight:600} .fb-fold:hover{text-decoration:underline}
+        .fb-meta{font-size:12px;color:var(--faint);margin-top:2px}
+        .fb-acts{display:flex;gap:6px;flex:none;align-items:center}
+        .fb-acts .mini{padding:5px 10px;font-size:12px}
+        @media(max-width:560px){ .fb-meta{display:none} .fb-acts .mini{padding:5px 8px} }
         .brgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
         .fld{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--muted)}
         .fld.full{grid-column:1/-1}
@@ -949,6 +967,7 @@
       if($("connCollapse"))$("connCollapse").onclick=()=>{ const s=window.__collapsedGmail=window.__collapsedGmail||new Set();
         new Set(Object.values(C()).map(c=>c.email||"__none")).forEach(e=>s.add(e)); renderConnections(); };
       if($("connExpand"))$("connExpand").onclick=()=>{ if(window.__collapsedGmail)window.__collapsedGmail.clear(); renderConnections(); };
+      if($("fbAccount"))$("fbAccount").onchange=()=>{ window.__fb.account=$("fbAccount").value; window.__fb.stack=[]; fbOpen(null,"MM0-STORE"); };
       const lb=$("langBtn"); if(lb)lb.onclick=()=>setLang(LANG==="en"?"vi":"en");
       // menu mobile (hamburger)
       const hb=$("hamb"), sb=document.querySelector(".sidebar"), scr=$("scrim");
@@ -1040,6 +1059,59 @@
       }catch(e){ alert("❌ "+e.message); btn.textContent=old; btn.disabled=false; }
     };
     window.fillChannelPickers = fillChannelPickers;
+
+    /* ===== Trình duyệt file trong kho Drive (xem / đổi tên / xoá vào thùng rác) ===== */
+    window.__fb = { account:"", stack:[], files:[] };
+    function fbSyncAccounts(){
+      const sel=$("fbAccount"); if(!sel) return;
+      const accs=(__STORAGE&&__STORAGE.accounts)||[];
+      const keep=sel.value;
+      sel.innerHTML=accs.map(a=>`<option value="${esc(a.name)}">${esc(a.name)}${a.email?" · "+esc(a.email):""}</option>`).join("");
+      if(!accs.length){ if($("fbList"))$("fbList").innerHTML=emptyBox("Chưa có tài khoản kho — kết nối Google Drive trước."); if($("fbBread"))$("fbBread").innerHTML=""; window.__fb.account=""; return; }
+      sel.value=accs.some(a=>a.name===keep)?keep:accs[0].name;
+      if(sel.value!==window.__fb.account){ window.__fb.account=sel.value; window.__fb.stack=[]; fbOpen(null,"MM0-STORE"); }
+    }
+    async function fbOpen(folderId, folderName){
+      const acc=window.__fb.account; if(!acc||!$("fbList")) return;
+      $("fbList").innerHTML=`<div class="p-sub" style="padding:12px">${t("working")}</div>`;
+      try{
+        const d=await workerApi(`/api/files?account=${encodeURIComponent(acc)}${folderId?`&folder=${encodeURIComponent(folderId)}`:""}`);
+        if(!folderId) window.__fb.stack=[{id:d.parent, name:folderName||"MM0-STORE"}];
+        fbRender(d.files||[]);
+      }catch(e){ $("fbList").innerHTML=`<div class="p-sub" style="padding:12px">❌ ${esc(e.message)}</div>`; }
+    }
+    function fbRefresh(){ const st=window.__fb.stack, i=st.length-1, top=st[i]; if(top) fbOpen(i===0?null:top.id, top.name); }
+    const FOLDER_MIME="application/vnd.google-apps.folder";
+    function fbRender(files){
+      window.__fb.files=files;
+      $("fbBread").innerHTML=window.__fb.stack.map((s,i)=>`<span class="fb-crumb" onclick="fbCrumb(${i})">${esc(s.name)}</span>`).join('<span class="fb-sep">/</span>')
+        + `<button class="mini" style="margin-left:auto" onclick="fbRefresh()">↻</button>`;
+      const isFold=f=>f.mimeType===FOLDER_MIME;
+      const rows=[...files].sort((a,b)=>(isFold(b)-isFold(a))||String(a.name).localeCompare(b.name)).map(f=>{
+        const fold=isFold(f);
+        const size=f.size?fmtBytes(Number(f.size)):"";
+        const icon=fold?"📁":(/\.(mp4|mov|mkv|webm)$/i.test(f.name)?"🎬":/\.(jpe?g|png|webp)$/i.test(f.name)?"🖼️":/\.(srt|vtt)$/i.test(f.name)?"💬":/\.json$/i.test(f.name)?"🧾":"📄");
+        const name=fold?`<a class="fb-name fb-fold" onclick="fbEnter('${f.id}')">${esc(f.name)}</a>`:`<span class="fb-name">${esc(f.name)}</span>`;
+        const view=f.webViewLink?`<a href="${esc(f.webViewLink)}" target="_blank" class="mini">Xem</a>`:"";
+        return `<div class="fb-row">
+          <span class="fb-ic">${icon}</span>
+          <div style="flex:1;min-width:0">${name}<div class="fb-meta">${esc(size)}${size&&f.modifiedTime?" · ":""}${f.modifiedTime?ago(f.modifiedTime):""}</div></div>
+          <span class="fb-acts">${view}
+            <button class="mini" onclick="fbRename('${f.id}')">Đổi tên</button>
+            <button class="mini bad" onclick="fbTrash('${f.id}')">Xoá</button></span>
+        </div>`;
+      }).join("");
+      $("fbList").innerHTML=rows||emptyBox("Thư mục trống.");
+    }
+    window.fbEnter=(id)=>{ const f=(window.__fb.files||[]).find(x=>x.id===id); if(f){ window.__fb.stack.push({id,name:f.name}); fbOpen(id,f.name); } };
+    window.fbCrumb=(i)=>{ window.__fb.stack=window.__fb.stack.slice(0,i+1); const top=window.__fb.stack[i]; fbOpen(i===0?null:top.id, top.name); };
+    window.fbRefresh=fbRefresh;
+    window.fbRename=async(id)=>{ const f=(window.__fb.files||[]).find(x=>x.id===id); const old=f?f.name:""; const nn=prompt("Tên mới:",old); if(!nn||nn===old) return;
+      try{ await workerApi("/api/file-action",{method:"POST",body:{account:window.__fb.account,action:"rename",fileId:id,newName:nn}}); toastMsg("✔ Đã đổi tên"); fbRefresh(); }catch(e){ alert("❌ "+e.message); } };
+    window.fbTrash=async(id)=>{ const f=(window.__fb.files||[]).find(x=>x.id===id); const name=f?f.name:"file";
+      if(!confirm(`Đưa "${name}" vào THÙNG RÁC Drive? (khôi phục được trong 30 ngày)`)) return;
+      try{ await workerApi("/api/file-action",{method:"POST",body:{account:window.__fb.account,action:"trash",fileId:id}}); toastMsg("✔ Đã xoá (thùng rác)"); fbRefresh(); }catch(e){ alert("❌ "+e.message); } };
+    window.fbSyncAccounts=fbSyncAccounts;
 
     /* ===== Gỡ kênh / Gmail khỏi tài khoản quản lý ===== */
     window.disconnectChannel = async (channel, kind, name)=>{
@@ -1414,6 +1486,7 @@
 
     function renderStorage(){
       const s=__STORAGE;
+      if(typeof fbSyncAccounts==="function") fbSyncAccounts();   // đồng bộ ô chọn tài khoản của trình duyệt file
       // nạp cấu hình dọn dẹp vào form (không đè khi đang gõ)
       const clcfg=(__OVERRIDES&&__OVERRIDES.cleanup)||(s&&{mode:s.cleanup_mode,keep_days:s.keep_days})||(__SETTINGS&&__SETTINGS.cleanup)||{};
       const cm=$("clMode"),cd=$("clDays");
