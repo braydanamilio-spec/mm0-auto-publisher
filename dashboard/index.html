@@ -224,6 +224,13 @@
     .gauge .gl{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-bottom:7px}
     .dots{display:flex;gap:5px}
     .dots i{flex:1;height:7px;border-radius:4px;background:var(--surface2)}
+    .btn-conn{background:linear-gradient(145deg,var(--accent),var(--violet));color:#fff;border:none;
+      padding:10px 16px;border-radius:10px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:var(--sans);
+      transition:transform .15s,box-shadow .15s}
+    .btn-conn:hover{transform:translateY(-1px);box-shadow:0 8px 20px var(--accent-soft)}
+    .btn-reconn{font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:8px;border:1px solid var(--border);
+      background:var(--surface2);color:var(--accent);cursor:pointer;margin-top:12px;font-family:var(--sans)}
+    .btn-reconn:hover{border-color:var(--accent)}
     .help{margin-top:20px}
     .help ol{margin:8px 0 0 18px;font-size:13px;color:var(--text2);line-height:1.9}
     code{background:var(--surface2);border:1px solid var(--border2);border-radius:5px;padding:1px 6px;font-size:12px}
@@ -313,6 +320,14 @@
       </section>
 
       <section id="v-connections" class="content hide">
+        <div class="panel" style="margin-bottom:20px">
+          <div class="p-title">➕ Kết nối / thêm kênh mới</div>
+          <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;align-items:center">
+            <input type="search" id="connChannel" placeholder="Tên kênh (vd BROKE)" style="min-width:200px" />
+            <button class="btn-conn" id="btnConnYT">🔗 Kết nối YouTube</button>
+          </div>
+          <div class="p-sub" style="margin-top:9px">Bấm → đăng nhập Google của kênh đó → cấp quyền 1 lần → token tự lưu. Không cần sửa GitHub Secrets.</div>
+        </div>
         <div id="connBanner"></div>
         <div class="conn-grid" id="connGrid"></div>
         <div class="panel help">
@@ -385,6 +400,14 @@
     const $ = (id) => document.getElementById(id);
     const CH_COLORS = ["#6c4ee6","#2563eb","#16a34a","#d97706","#dc2626","#0891b2","#7c3aed","#db2777"];
     const YT_CAP = 6, FB_CAP = 10;
+    // 🔧 THAY bằng URL Worker sau khi deploy (vd https://mm0-connect.<subdomain>.workers.dev)
+    const WORKER_URL = "PASTE_WORKER_URL";
+    function connectChannel(channel, kind){
+      if (!WORKER_URL || WORKER_URL === "PASTE_WORKER_URL")
+        return alert("Chưa cấu hình WORKER_URL trong dashboard/index.html. Deploy Worker rồi dán URL vào.");
+      if (!channel) return alert("Nhập tên kênh trước (vd BROKE).");
+      window.open(`${WORKER_URL}/auth/start?channel=${encodeURIComponent(channel)}&kind=${kind}`, "_blank");
+    }
     let __V=[], __C={}, __K={};
     window.setData = (v,c,k) => { if(v)__V=v; if(c)__C=c; if(k)__K=k; renderAll(); };
 
@@ -423,7 +446,10 @@
       });
       ["search","stFilter","tyFilter","sortBy"].forEach(id=>{const e=$(id);if(e)e.oninput=e.onchange=renderVideos;});
       $("chFilter").onchange=renderAll;
+      const cbtn=$("btnConnYT");
+      if(cbtn)cbtn.onclick=()=>connectChannel(($("connChannel").value||"").trim().toUpperCase(),"youtube");
     }
+    window.connectChannel = connectChannel;
 
     const V=()=>__V, C=()=>__C, K=()=>__K;
     const eff=v=>v.status==="pending"&&v.publish_at?"scheduled":v.status;
@@ -581,6 +607,7 @@
           ${svcRow('yt','#ff0033','YouTube', ytState, c.subscribers!=null?fmtN(c.subscribers)+' subs · kiểm tra '+ago(c.yt_checked_at):(c.yt_error||'chưa có dữ liệu'))}
           ${svcRow('fb','#1877f2','Facebook Page', fbState, fbState==="connected"?'đăng gần nhất '+ago(c.last_publish_at):'chưa ghi nhận bài Facebook')}
           <div class="gauge"><div class="gl"><span>Quota YouTube hôm nay</span><span class="tnum" style="color:${gaugeColor};font-weight:700">${used}/${YT_CAP}</span></div><div class="dots">${dots}</div></div>
+          <button class="btn-reconn" onclick="connectChannel('${esc(k)}','youtube')">🔗 ${ytState==='connected'?'Kết nối lại':'Kết nối'} YouTube</button>
         </div>`;
       });
       const total=all.length;

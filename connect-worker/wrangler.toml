@@ -1,0 +1,11 @@
+name = "mm0-connect"
+main = "src/worker.js"
+compatibility_date = "2024-11-01"
+
+# Secrets (KHÔNG ghi giá trị ở đây) — đặt bằng: wrangler secret put <TÊN>
+#   YT_CLIENT_ID        (OAuth client "Web application" client_id)
+#   YT_CLIENT_SECRET
+#   SA_CLIENT_EMAIL     (service account email: ...@...iam.gserviceaccount.com)
+#   SA_PRIVATE_KEY      (private_key trong file JSON service account, cả -----BEGIN...-----)
+#   FIREBASE_PROJECT_ID (mm0-auto-publisher)
+#   ALLOW_EMAIL         (tuỳ chọn: chỉ email này mới được kết nối)

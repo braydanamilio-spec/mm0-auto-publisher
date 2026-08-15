@@ -25,5 +25,10 @@ service cloud.firestore {
       allow read: if isOwner();
       allow write: if false;
     }
+    // TOKEN kết nối — TUYỆT ĐỐI không cho client đọc/ghi.
+    // Chỉ service account (pipeline) + Worker ghi qua Admin/REST (bỏ qua rules).
+    match /connections/{doc} {
+      allow read, write: if false;
+    }
   }
 }

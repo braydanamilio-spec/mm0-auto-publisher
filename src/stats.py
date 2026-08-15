@@ -24,10 +24,15 @@ from youtube_uploader import _client
 CONFIG = os.path.join(os.path.dirname(__file__), "..", "config", "channels.yaml")
 
 
-def _resolve_creds(ch: dict) -> dict | None:
+def _resolve_creds(ch: dict, state=None, key=None) -> dict | None:
     yt = ch.get("youtube", {})
     if not yt.get("enabled"):
         return None
+    # Ưu tiên token đã 'Kết nối' qua dashboard (Firestore), sau đó tới GitHub Secrets
+    conn = state.get_connection(key, "youtube") if (state and key) else None
+    if conn and conn.get("refresh_token"):
+        return {"client_id": conn["client_id"], "client_secret": conn["client_secret"],
+                "refresh_token": conn["refresh_token"]}
     cid = os.environ.get(yt["client_id_env"])
     csec = os.environ.get(yt["client_secret_env"])
     ref = os.environ.get(yt["refresh_token_env"])
@@ -37,7 +42,7 @@ def _resolve_creds(ch: dict) -> dict | None:
 
 
 def refresh_channel(key: str, ch: dict, state: State):
-    creds = _resolve_creds(ch)
+    creds = _resolve_creds(ch, state, key)
     if not creds:
         print(f"  – {key}: thiếu YouTube creds, bỏ qua.")
         return

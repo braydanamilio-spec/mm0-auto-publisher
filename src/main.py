@@ -42,25 +42,39 @@ def env(name_or_key: str) -> str | None:
     return os.environ.get(name_or_key)
 
 
-def resolve_channel_env(ch: dict) -> dict:
-    """Đổi các *_env trong config thành giá trị thật từ biến môi trường."""
+def resolve_channel_env(ch: dict, state=None, key=None) -> dict:
+    """
+    Lấy credentials cho kênh. ƯU TIÊN token đã 'Kết nối' qua dashboard (Firestore
+    connections/), nếu chưa có thì dùng GitHub Secrets (*_env). Nhờ vậy kênh mới
+    chỉ cần bấm Kết nối là chạy, khỏi sửa Secrets.
+    """
     out = {"drive_folder_id": env(ch["drive_folder_id_env"])}
     yt = ch.get("youtube", {})
     if yt.get("enabled"):
-        out["yt_creds"] = {
-            "client_id": env(yt["client_id_env"]),
-            "client_secret": env(yt["client_secret_env"]),
-            "refresh_token": env(yt["refresh_token_env"]),
-        }
+        conn = state.get_connection(key, "youtube") if (state and key) else None
+        if conn and conn.get("refresh_token"):
+            out["yt_creds"] = {"client_id": conn["client_id"],
+                               "client_secret": conn["client_secret"],
+                               "refresh_token": conn["refresh_token"]}
+        else:
+            out["yt_creds"] = {
+                "client_id": env(yt["client_id_env"]),
+                "client_secret": env(yt["client_secret_env"]),
+                "refresh_token": env(yt["refresh_token_env"]),
+            }
     fb = ch.get("facebook", {})
     if fb.get("enabled"):
-        out["fb"] = {"page_id": env(fb["page_id_env"]), "page_token": env(fb["page_token_env"])}
+        conn = state.get_connection(key, "facebook") if (state and key) else None
+        if conn and conn.get("page_token"):
+            out["fb"] = {"page_id": conn.get("page_id"), "page_token": conn["page_token"]}
+        else:
+            out["fb"] = {"page_id": env(fb["page_id_env"]), "page_token": env(fb["page_token_env"])}
     return out
 
 
 def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now):
     print(f"\n=== KÊNH: {ch['display_name']} ({key}) ===")
-    resolved = resolve_channel_env(ch)
+    resolved = resolve_channel_env(ch, state, key)
     root = resolved["drive_folder_id"]
     if not root:
         print("  ⚠️  Thiếu Drive folder id (secret chưa set) -> bỏ qua.")
@@ -321,7 +335,7 @@ def process_pool(channels_cfg, templates, safety, tz, dry_run, state, now):
         last = state.last_upload_at(channel, now)
         todo = S.apply_limits(ready, safety, counters.get("yt", 0), counters.get("fb", 0), last, now)
         print(f"  [{channel}] pool: {len(ready)} đến giờ, đăng {len(todo)}")
-        resolved = resolve_channel_env(ch)
+        resolved = resolve_channel_env(ch, state, channel)
         for it in todo:
             try:
                 publish_one(it, ch, resolved, it["_drive"], state, it["_root"], dry_run, now)

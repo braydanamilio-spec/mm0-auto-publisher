@@ -78,6 +78,12 @@ class State:
         v = c.get("last_upload_at")
         return datetime.fromisoformat(v) if v else None
 
+    # ---------- CONNECTIONS (token do Cloudflare Worker ghi) ----------
+    def get_connection(self, channel: str, kind: str = "youtube") -> dict | None:
+        """Đọc token đã kết nối qua dashboard. None nếu chưa kết nối."""
+        doc = self.db.collection("connections").document(f"{channel}_{kind}").get()
+        return doc.to_dict() if doc.exists else None
+
     # ---------- STATS (view / sub) ----------
     def set_channel_stats(self, channel: str, data: dict):
         data = {**data, "channel": channel, "updated_at": datetime.now(timezone.utc).isoformat()}
