@@ -697,10 +697,10 @@
       if(sc)sc.onclick=()=>saveCleanup($("clMode").value,$("clDays").value);
       const lb=$("langBtn"); if(lb)lb.onclick=()=>setLang(LANG==="en"?"vi":"en");
       // menu mobile (hamburger)
-      const hb=$("hamb"), sb=document.querySelector(".sidebar"), sc=$("scrim");
-      const closeSide=()=>{ if(sb)sb.classList.remove("open"); if(sc)sc.classList.remove("show"); };
-      if(hb)hb.onclick=()=>{ if(sb)sb.classList.toggle("open"); if(sc)sc.classList.toggle("show"); };
-      if(sc)sc.onclick=closeSide;
+      const hb=$("hamb"), sb=document.querySelector(".sidebar"), scr=$("scrim");
+      const closeSide=()=>{ if(sb)sb.classList.remove("open"); if(scr)scr.classList.remove("show"); };
+      if(hb)hb.onclick=()=>{ if(sb)sb.classList.toggle("open"); if(scr)scr.classList.toggle("show"); };
+      if(scr)scr.onclick=closeSide;
       document.querySelectorAll(".nav").forEach(n=>n.addEventListener("click",closeSide));
       applyI18n(); syncLangBtn(); setTitle("overview");
     }
