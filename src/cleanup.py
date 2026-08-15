@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import storage as ST
 
 IMG_EXT = (".jpg", ".jpeg", ".png")
+CAP_EXT = (".srt", ".vtt")          # phụ đề đi kèm -> dọn luôn, tránh file mồ côi chiếm dung lượng
 GB = 1_000_000_000
 
 
@@ -37,7 +38,7 @@ def _age_days(f: dict, now: datetime) -> float:
 
 def _companions(drv, parent_id: str, base: str) -> list[str]:
     ids = []
-    for name in (f"{base}.json", *[f"{base}{e}" for e in IMG_EXT]):
+    for name in (f"{base}.json", *[f"{base}{e}" for e in (*IMG_EXT, *CAP_EXT)]):
         cid = drv.find_file(parent_id, name)
         if cid:
             ids.append(cid)
@@ -112,7 +113,8 @@ def run(dry_run=False, force_now=False):
                 if not force_now and age < keep_days:
                     continue
                 base = f["name"].rsplit(".", 1)[0]
-                comp = _companions(drv, f["parents"][0], base)
+                parent = (f.get("parents") or [None])[0]
+                comp = _companions(drv, parent, base) if parent else []
                 if dry_run:
                     print(f"     • [delete] {f['name']} ({age:.0f} ngày)")
                     continue

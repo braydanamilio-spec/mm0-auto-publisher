@@ -133,8 +133,12 @@ class State:
         suffix = day.strftime("%Y%m%d")
         out = {}
         for d in self.db.collection("counters").stream():
-            if d.id.endswith(suffix):
-                out[d.id[: -(len(suffix) + 1)]] = d.to_dict()
+            if not d.id.endswith(suffix):
+                continue
+            data = d.to_dict() or {}
+            # dùng field 'channel' đã lưu (chuẩn cho cả id {channel}_{date} lẫn {uid}__{channel}__{date})
+            key = data.get("channel") or d.id.rsplit("_", 1)[0].rstrip("_")
+            out[key] = data
         return out
 
     def posted_youtube(self, channel: str, owner: str | None = None) -> list[tuple[str, str]]:
