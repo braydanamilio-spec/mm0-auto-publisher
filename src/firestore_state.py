@@ -89,6 +89,13 @@ class State:
         doc = self.db.collection("connections").document(f"{channel}_{kind}").get()
         return doc.to_dict() if doc.exists else None
 
+    def list_connections(self, kind: str) -> list[dict]:
+        """Danh sách connection theo loại (vd 'drive') do Worker ghi."""
+        out = []
+        for d in self.db.collection("connections").where("kind", "==", kind).stream():
+            out.append(d.to_dict())
+        return out
+
     # ---------- STATS (view / sub) ----------
     def set_channel_stats(self, channel: str, data: dict):
         data = {**data, "channel": channel, "updated_at": datetime.now(timezone.utc).isoformat()}

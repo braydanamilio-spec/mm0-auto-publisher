@@ -38,13 +38,39 @@ def _resolve(acc: dict) -> dict | None:
     }
 
 
+def firestore_pool_accounts() -> list[dict]:
+    """Tài khoản Drive đã 'Kết nối' qua dashboard (Firestore) — token do Worker ghi."""
+    try:
+        from firestore_state import State
+        out = []
+        for c in State().list_connections("drive"):
+            if c.get("refresh_token") and c.get("root"):
+                out.append({
+                    "name": c.get("channel", "drive"),
+                    "root": c["root"], "cap_gb": c.get("cap_gb", 14),
+                    "creds": {"client_id": c["client_id"], "client_secret": c["client_secret"],
+                              "refresh_token": c["refresh_token"]},
+                })
+        return out
+    except Exception:
+        return []
+
+
 def pool_accounts(cfg: dict | None = None) -> list[dict]:
     cfg = cfg or load_config()
     out = []
+    seen = set()
+    # 1) tài khoản khai báo trong storage.yaml (env)
     for acc in cfg.get("pool", []):
         r = _resolve(acc)
         if r:
             out.append(r)
+            seen.add(r["root"])
+    # 2) tài khoản kết nối qua dashboard (Firestore) — không trùng
+    for r in firestore_pool_accounts():
+        if r["root"] not in seen:
+            out.append(r)
+            seen.add(r["root"])
     return out
 
 

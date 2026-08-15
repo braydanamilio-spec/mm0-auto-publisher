@@ -344,6 +344,14 @@
       </section>
 
       <section id="v-storage" class="content hide">
+        <div class="panel" style="margin-bottom:16px">
+          <div class="p-title">➕ Kết nối tài khoản Drive lưu trữ (mỗi acc +15GB free)</div>
+          <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;align-items:center">
+            <input type="search" id="stAccName" placeholder="Tên tài khoản (vd store1)" style="min-width:200px" />
+            <button class="btn-conn" id="btnConnDrive">🔗 Kết nối Google Drive</button>
+          </div>
+          <div class="p-sub" style="margin-top:9px">Bấm → đăng nhập tài khoản Drive → cấp quyền → tự tạo folder kho + lưu token. Gộp nhiều acc thành 150GB/1TB. (Google One trả phí cũng kết nối y vậy để giữ tất cả.)</div>
+        </div>
         <div class="kpis" id="stKpis"></div>
         <div class="panel" style="margin-bottom:16px">
           <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive)</div><div class="p-sub" id="stMode"></div></div>
@@ -507,6 +515,8 @@
       $("chFilter").onchange=renderAll;
       const cbtn=$("btnConnYT");
       if(cbtn)cbtn.onclick=()=>connectChannel(($("connChannel").value||"").trim().toUpperCase(),"youtube");
+      const dbtn=$("btnConnDrive");
+      if(dbtn)dbtn.onclick=()=>connectChannel(($("stAccName").value||"").trim(),"drive");
     }
     window.connectChannel = connectChannel;
 

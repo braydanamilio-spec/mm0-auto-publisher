@@ -36,6 +36,10 @@ const YT_SCOPES = [
   "https://www.googleapis.com/auth/youtube.force-ssl",
   "https://www.googleapis.com/auth/userinfo.email",
 ].join(" ");
+const DRIVE_SCOPES = [
+  "https://www.googleapis.com/auth/drive",
+  "https://www.googleapis.com/auth/userinfo.email",
+].join(" ");
 
 function startAuth(url, env) {
   const channel = url.searchParams.get("channel");
@@ -47,7 +51,7 @@ function startAuth(url, env) {
     client_id: env.YT_CLIENT_ID,
     redirect_uri: redirect,
     response_type: "code",
-    scope: YT_SCOPES,
+    scope: kind === "drive" ? DRIVE_SCOPES : YT_SCOPES,
     access_type: "offline",
     prompt: "consent",           // luôn xin refresh_token mới
     include_granted_scopes: "true",
@@ -94,21 +98,40 @@ async function callback(url, env) {
 
   // 3) lưu token vào Firestore
   const at = await saAccessToken(env);
-  await fsPatch(env, at, `connections/${channel}_${kind}`, {
+  const base = {
     channel, kind, email,
-    client_id: env.YT_CLIENT_ID,
-    client_secret: env.YT_CLIENT_SECRET,
-    refresh_token: tok.refresh_token,
-    connected_at: new Date().toISOString(),
-  });
-  // 4) đánh dấu kênh đã kết nối (cho dashboard) — KHÔNG chứa token
-  await fsPatch(env, at, `channels/${channel}`,
-    { channel, yt_ok: true, yt_checked_at: new Date().toISOString() },
-    ["channel", "yt_ok", "yt_checked_at"]);
+    client_id: env.YT_CLIENT_ID, client_secret: env.YT_CLIENT_SECRET,
+    refresh_token: tok.refresh_token, connected_at: new Date().toISOString(),
+  };
+
+  if (kind === "drive") {
+    // tạo/tìm folder kho "MM0-STORE" trong tài khoản Drive này
+    const root = await ensureDriveFolder(tok.access_token, "MM0-STORE");
+    await fsPatch(env, at, `connections/${channel}_drive`, { ...base, root });
+    await fsPatch(env, at, `storage_accounts/${channel}`,
+      { name: channel, email, connected_at: new Date().toISOString() },
+      ["name", "email", "connected_at"]);
+  } else {
+    await fsPatch(env, at, `connections/${channel}_youtube`, base);
+    await fsPatch(env, at, `channels/${channel}`,
+      { channel, yt_ok: true, yt_checked_at: new Date().toISOString() },
+      ["channel", "yt_ok", "yt_checked_at"]);
+  }
 
   return page("Kết nối thành công 🎉",
     `<p>✅ Đã kết nối <b>${escapeHtml(channel)}</b> (${kind})${email ? " · " + escapeHtml(email) : ""}.</p>
      <p>Token đã lưu an toàn. Anh có thể đóng tab này và quay lại dashboard.</p>`);
+}
+
+async function ensureDriveFolder(accessToken, name) {
+  const q = encodeURIComponent(`name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const list = await (await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`,
+    { headers: { Authorization: `Bearer ${accessToken}` } })).json();
+  if (list.files && list.files.length) return list.files[0].id;
+  const created = await (await fetch("https://www.googleapis.com/drive/v3/files?fields=id",
+    { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+      body: JSON.stringify({ name, mimeType: "application/vnd.google-apps.folder" }) })).json();
+  return created.id;
 }
 
 /* ---------- Firestore REST bằng service account (JWT RS256) ---------- */
