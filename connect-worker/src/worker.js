@@ -28,6 +28,8 @@ export default {
       if (url.pathname === "/api/comments") return corsResp(await apiComments(request, url, env));
       if (url.pathname === "/api/comment-action") return corsResp(await apiCommentAction(request, url, env));
       if (url.pathname === "/api/disconnect") return corsResp(await apiDisconnect(request, url, env));
+      if (url.pathname === "/api/files") return corsResp(await apiFiles(request, url, env));
+      if (url.pathname === "/api/file-action") return corsResp(await apiFileAction(request, url, env));
     } catch (e) {
       // API trả JSON lỗi; trang HTML trả trang lỗi
       if (url.pathname.startsWith("/api/")) return corsResp(json({ error: String(e && e.message || e) }, 400));
@@ -213,6 +215,55 @@ async function apiDisconnect(request, url, env) {
   return json({ ok: true, channel, kind });
 }
 
+// Lấy access token của 1 tài khoản KHO (Drive) thuộc uid — dùng chung cho files/file-action
+async function driveCtx(env, uid, account) {
+  const at = await saAccessToken(env);
+  const conn = await fsGet(env, at, `connections/${uid}__${account}__drive`);
+  if (!conn || !conn.refresh_token) throw new Error("Tài khoản kho chưa kết nối.");
+  const dat = await ytAccessToken(conn.client_id, conn.client_secret, conn.refresh_token);
+  return { conn, dat };
+}
+
+// GET /api/files?t=&account=&folder=<id?>  -> liệt kê file/thư mục con (mặc định gốc MM0-STORE)
+async function apiFiles(request, url, env) {
+  const t = url.searchParams.get("t"), account = url.searchParams.get("account");
+  const folder = url.searchParams.get("folder");
+  if (!t) throw new Error("Thiếu token đăng nhập.");
+  if (!account) throw new Error("Thiếu account.");
+  const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
+  const { conn, dat } = await driveCtx(env, uid, account);
+  const parent = folder || conn.root;
+  const q = encodeURIComponent(`'${parent}' in parents and trashed=false`);
+  const fields = encodeURIComponent("files(id,name,mimeType,size,modifiedTime,webViewLink,thumbnailLink)");
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=${fields}&pageSize=300&orderBy=folder,name`,
+    { headers: { Authorization: `Bearer ${dat}` } });
+  const j = await r.json();
+  if (!r.ok) throw new Error((j.error && j.error.message) || ("Drive " + r.status));
+  return json({ ok: true, root: conn.root, parent, files: j.files || [] });
+}
+
+// POST /api/file-action {t,account,action,fileId,newName}
+//   action: rename | trash | untrash   (xoá = đưa vào THÙNG RÁC Drive, khôi phục được)
+async function apiFileAction(request, url, env) {
+  const body = request.method === "POST" ? await request.json().catch(() => ({})) : {};
+  const { t, account, action, fileId, newName } = body;
+  if (!t) throw new Error("Thiếu token đăng nhập.");
+  if (!account || !fileId || !action) throw new Error("Thiếu tham số.");
+  const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
+  const { dat } = await driveCtx(env, uid, account);
+  let patch;
+  if (action === "rename") { if (!newName) throw new Error("Thiếu tên mới."); patch = { name: newName }; }
+  else if (action === "trash") patch = { trashed: true };
+  else if (action === "untrash") patch = { trashed: false };
+  else throw new Error("action không hỗ trợ: " + action);
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,name,trashed`,
+    { method: "PATCH", headers: { Authorization: `Bearer ${dat}`, "content-type": "application/json" },
+      body: JSON.stringify(patch) });
+  const j = await r.json();
+  if (!r.ok) throw new Error((j.error && j.error.message) || ("Drive " + r.status));
+  return json({ ok: true, ...j });
+}
+
 /* ---------- YouTube access token từ refresh_token ---------- */
 async function ytAccessToken(client_id, client_secret, refresh_token) {
   const r = await (await fetch("https://oauth2.googleapis.com/token", {
@@ -293,9 +344,9 @@ async function callback(url, env) {
     email = ui.email || "";
   } catch (_) {}
 
-  if (env.ALLOW_EMAIL && email && email !== env.ALLOW_EMAIL) {
-    return page("Không được phép", `<p>Email ${escapeHtml(email)} không nằm trong danh sách cho phép.</p>`);
-  }
+  // KHÔNG chặn theo email tài khoản Google được nối: multi-account pool cần nối NHIỀU Gmail khác nhau
+  // (mỗi acc 15GB) + nhiều kênh. Bảo mật đã có: chỉ user đã đăng nhập dashboard (ID token -> uid) mới connect,
+  // token lưu dưới uid đó. ALLOW_EMAIL chỉ còn ý nghĩa giới hạn ai được LOGIN dashboard (không áp ở đây).
 
   // 3) lưu token vào Firestore
   const at = await saAccessToken(env);

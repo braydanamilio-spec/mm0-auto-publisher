@@ -502,6 +502,21 @@
         .pub-when{font-family:var(--mono,monospace);font-size:12.5px;color:var(--muted);white-space:nowrap}
         .pub-now{background:var(--good);color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap}
         .pub-now:hover{filter:brightness(1.08)}
+        /* Thẻ template bấm chọn được (Cài đặt) */
+        .tpl-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;cursor:pointer;transition:.14s;min-width:0}
+        .tpl-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 6px 20px rgba(108,78,230,.14)}
+        .tpl-card.on{border-color:var(--good);background:linear-gradient(180deg,var(--good-soft),transparent)}
+        .tpl-card .tpl-pick{margin-top:10px;font-size:12.5px;font-weight:700;color:var(--accent);opacity:0;transition:.14s}
+        .tpl-card:hover .tpl-pick{opacity:1}
+        .tpl-card b{word-break:break-word}
+        .set-sel{margin-left:auto;max-width:60%}
+        /* ===== VÁ TRÀN (web + mobile): cho phép co, không tràn ngang ===== */
+        select,input,textarea{max-width:100%}
+        #app,.main,.content,.panel,.conn,.chub,.gmail-group,.chan-item,.pub-row,.li{min-width:0}
+        .main{overflow-x:hidden}
+        .nm,.gmail-em,.chub-nm,.cm-tx,.cm-au{overflow-wrap:anywhere}
+        code{overflow-wrap:anywhere}
+        @media(max-width:560px){ .set-sel{max-width:52%} .vtitle,#vTitle{font-size:20px} }
         .brgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
         .fld{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--muted)}
         .fld.full{grid-column:1/-1}
@@ -674,6 +689,13 @@
         toastMsg("✔ Đã lưu dọn dẹp: "+mode+" · "+(Number(days)||0)+" ngày"); }
       catch(e){ alert("Lỗi: "+e.message); }
     };
+    // Áp 1 gói template cho NHIỀU kênh cùng lúc (từ thư viện template ở Cài đặt)
+    window.saveTemplateAll = async (tmpl, channels) => {
+      const map = {}; (channels || []).forEach(c => map[c] = tmpl);
+      try { await setDoc(ovDoc(), {owner:window.__uid, channels:map}, {merge:true});
+        toastMsg(`✔ Đã áp "${tmpl}" cho ${channels.length} kênh (áp dụng lần chạy tới)`); }
+      catch(e){ alert("Lỗi: "+e.message); }
+    };
     // Cập nhật 1 video (chỉ field được rules cho phép: status/publish_at/reviewed_at)
     window.__updateVideo = async (id, data) => {
       await setDoc(doc(db,"videos",id), data, {merge:true});
@@ -709,7 +731,7 @@
         pub_now:"Publish now", pub_done:"Scheduled", pub_all_ch:"All channels",
         sub_connections:"YouTube · Facebook · quota status", sub_storage:"Pool usage & cleanup",
         sub_settings:"Templates & system config",
-        branding:"Branding", comments:"Comments", channels_hub:"My Channels", sub_channels:"Your connected channels — pick one to manage",
+        channels:"My Channels", branding:"Branding", comments:"Comments", channels_hub:"My Channels", sub_channels:"Your connected channels — pick one to manage",
         act_branding:"Branding", act_comments:"Comments", act_videos:"Videos", act_reconnect:"Reconnect", act_template:"Template",
         ch_ready:"No videos yet — ready to receive", ch_connect_first:"No channel yet — connect one in API Connections.",
         sub_branding:"Channel identity via API", sub_comments:"Read, reply & moderate",
@@ -767,7 +789,7 @@
         pub_now:"Đăng ngay", pub_done:"Đã xếp lịch", pub_all_ch:"Tất cả kênh",
         sub_connections:"Trạng thái YouTube · Facebook · quota", sub_storage:"Dung lượng pool & dọn dẹp",
         sub_settings:"Template & cấu hình hệ thống",
-        branding:"Thương hiệu", comments:"Bình luận", channels_hub:"Kênh của tôi", sub_channels:"Các kênh đã kết nối — chọn 1 kênh để quản lý",
+        channels:"Kênh của tôi", branding:"Thương hiệu", comments:"Bình luận", channels_hub:"Kênh của tôi", sub_channels:"Các kênh đã kết nối — chọn 1 kênh để quản lý",
         act_branding:"Thương hiệu", act_comments:"Bình luận", act_videos:"Video", act_reconnect:"Kết nối lại", act_template:"Template",
         ch_ready:"Chưa có video — sẵn sàng nhận bài", ch_connect_first:"Chưa có kênh — kết nối ở tab Kết nối API.",
         sub_branding:"Nhận diện kênh qua API", sub_comments:"Đọc, trả lời & kiểm duyệt",
@@ -1423,25 +1445,36 @@
       const ov=__OVERRIDES||{}, ovch=ov.channels||{}; const rv=!!ov.review_mode;
       const chMap=(s&&s.channels)||{};
       const cl = (ov.cleanup) || (s && s.cleanup) || {};  // ưu tiên lựa chọn đổi trên dashboard
-      const chans=[...new Set([...Object.keys(chMap),...Object.keys(chanMap())])].sort();
+      const chans=allChannels();
       const opts=(sel)=>TEMPLATE_CATALOG.map(t=>`<option value="${t.id}" ${t.id===sel?"selected":""}>${esc(t.name)}</option>`).join("");
-      const rows=chans.length?chans.map(k=>`<div class="svc"><div class="snm">${esc(k)}</div>
-        <select style="margin-left:auto" onchange="saveOverride('${esc(k)}',this.value)">${opts(ovch[k]||chMap[k]||def)}</select></div>`).join("")
-        :`<div class="p-sub" style="padding:8px 0">Chưa có kênh — kết nối kênh ở tab Kết nối API trước.</div>`;
+      const rows=chans.length?chans.map(k=>`<div class="svc"><div class="snm">${esc(chName(k))}</div>
+        <select class="set-sel" onchange="saveOverride('${esc(k)}',this.value)">${opts(ovch[k]||chMap[k]||def)}</select></div>`).join("")
+        :`<div class="p-sub" style="padding:8px 0">Chưa có kênh — kết nối kênh ở tab <b>Kết nối API</b> trước.</div>`;
+      // template phổ biến nhất trong các kênh (để đánh dấu "đang dùng")
+      const inUse = {}; chans.forEach(k=>{const tp=ovch[k]||chMap[k]||def; inUse[tp]=(inUse[tp]||0)+1;});
       $("setSummary").innerHTML=`
         <div class="svc"><div class="snm">🔎 Duyệt trước khi đăng <span class="sd">(video mới chờ anh duyệt)</span></div>
           <label style="margin-left:auto;display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:${rv?'var(--good)':'var(--muted)'}">
             <input type="checkbox" ${rv?"checked":""} onchange="saveReviewMode(this.checked)" style="width:16px;height:16px;cursor:pointer"> ${rv?"BẬT":"Tắt"}</label></div>
-        <div class="svc"><div class="snm">Template mặc định</div><span class="tag t-connected" style="margin-left:auto">${esc(def)}</span></div>
         <div class="svc"><div class="snm">Chế độ dọn dẹp</div><span class="tag t-unknown" style="margin-left:auto">${esc(cl.mode||'—')} · ${cl.keep_days||14} ngày · ${esc(cl.trigger||'auto')}</span></div>
         <div class="svc"><div class="snm">Trần an toàn/ngày</div><span class="sd" style="margin-left:auto">YT ${sf.youtube_max_uploads_per_day} · FB ${sf.facebook_max_uploads_per_day} · giãn ${sf.min_minutes_between_uploads}'</span></div>
-        <div class="p-sub" style="margin:12px 0 4px">Template theo từng kênh:</div>${rows}`;
-      $("setTemplates").innerHTML=TEMPLATE_CATALOG.map(t=>`<div class="conn" style="padding:16px">
-        <div style="display:flex;align-items:center;gap:8px"><b>${t.name}</b>${t.id===def?'<span class="tag t-connected" style="margin-left:auto">Đang dùng</span>':(t.star?'<span class="p-sub" style="margin-left:auto">gợi ý</span>':'')}</div>
-        <div class="p-sub" style="margin-top:6px">${esc(t.desc)}</div>
-        <div class="sd" style="margin-top:8px;font-family:monospace;color:var(--faint)">${t.id}</div></div>`).join("");
+        <div class="p-sub" style="margin:14px 0 6px">📅 Gói đăng theo từng kênh <span class="sd">(chọn nhanh)</span>:</div>${rows}`;
+      $("setTemplates").innerHTML=TEMPLATE_CATALOG.map(t=>{
+        const on=inUse[t.id]>0;
+        return `<div class="tpl-card${on?' on':''}" onclick="pickTemplate('${t.id}')" title="Bấm để áp dụng cho tất cả kênh">
+          <div style="display:flex;align-items:center;gap:8px"><b>${t.name}</b>
+            ${on?`<span class="tag t-connected" style="margin-left:auto">Đang dùng · ${inUse[t.id]}</span>`:(t.star?'<span class="p-sub" style="margin-left:auto">⭐ gợi ý</span>':'')}</div>
+          <div class="p-sub" style="margin-top:6px">${esc(t.desc)}</div>
+          <div class="tpl-pick">Chọn gói này →</div></div>`;
+      }).join("");
     }
 
+    window.pickTemplate = (id)=>{
+      const chans=allChannels();
+      if(!chans.length) return alert("Chưa có kênh — kết nối kênh ở tab Kết nối API trước.");
+      if(!confirm(`Áp gói "${id}" cho tất cả ${chans.length} kênh?`)) return;
+      window.saveTemplateAll(id, chans);
+    };
     function emptyBox(m){return `<div class="empty"><div class="big">🗂️</div>${m}</div>`;}
 
     window.renderAll=renderAll; window.initTheme=initTheme; window.wireNav=wireNav;
