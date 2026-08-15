@@ -461,6 +461,19 @@
           <div class="p-head"><div class="p-title">📅 Thư viện template gói đăng bài</div></div>
           <div class="conn-grid" id="setTemplates"></div>
         </div>
+        <div class="panel" style="margin-top:16px">
+          <div class="p-head"><div class="p-title">💾 Sao lưu & khôi phục cấu hình</div></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+            <button class="btn-conn" id="btnExport">⬇️ Xuất bản sao (.json)</button>
+            <button class="mini" id="btnImport">⬆️ Nhập bản sao</button>
+            <input type="file" id="importFile" accept="application/json" style="display:none">
+          </div>
+          <div class="p-sub" style="margin-top:10px;line-height:1.6">
+            🔒 <b>Vì bảo mật, file KHÔNG chứa token/API key</b> (giống mọi SaaS lớn — không giữ token dạng file để tránh lộ).
+            File lưu <b>danh sách kết nối + cấu hình</b> (kênh · Page · tài khoản kho · template · dọn dẹp) để anh khôi phục nhanh.
+            Token thì bấm <b>Kết nối lại 1 lần</b> (an toàn hơn giữ file token).
+          </div>
+        </div>
       </section>
 
       <section id="v-channels" class="content hide">
@@ -738,6 +751,7 @@
         toastMsg("✔ Đã lưu dọn dẹp: "+mode+" · "+(Number(days)||0)+" ngày"); }
       catch(e){ alert("Lỗi: "+e.message); }
     };
+    window.__setOverridesDoc = async (data) => { await setDoc(ovDoc(), {owner:window.__uid, ...data}, {merge:true}); };
     // Áp 1 gói template cho NHIỀU kênh cùng lúc (từ thư viện template ở Cài đặt)
     window.saveTemplateAll = async (tmpl, channels) => {
       const map = {}; (channels || []).forEach(c => map[c] = tmpl);
@@ -1023,6 +1037,9 @@
       if($("fbSearch"))$("fbSearch").oninput=(e)=>window.fbSearchInput(e.target.value);
       if($("stSort"))$("stSort").onchange=renderStorage;
       if($("btnConnFB"))$("btnConnFB").onclick=()=>connectChannel("","facebook");
+      if($("btnExport"))$("btnExport").onclick=window.exportBackup;
+      if($("btnImport"))$("btnImport").onclick=()=>$("importFile").click();
+      if($("importFile"))$("importFile").onchange=(e)=>{ if(e.target.files[0])window.importBackup(e.target.files[0]); e.target.value=""; };
       const lb=$("langBtn"); if(lb)lb.onclick=()=>setLang(LANG==="en"?"vi":"en");
       // menu mobile (hamburger)
       const hb=$("hamb"), sb=document.querySelector(".sidebar"), scr=$("scrim");
@@ -1674,6 +1691,31 @@
            <span style="color:var(--good)">Video CHƯA đăng & đang chờ lịch KHÔNG bao giờ bị đụng.</span>
            YouTube giữ bản gốc + link đã lưu lại. Áp dụng khi chạy dọn dẹp (tự động/thủ công).`
         : `🛡️ <b>An toàn nhất — không xoá bất cứ gì.</b> Kho gần đầy thì kết nối thêm Google Drive hoặc nâng Google One. Phù hợp khi muốn giữ lại toàn bộ video gốc.`;
+    };
+    // ===== Sao lưu / Khôi phục CẤU HÌNH (KHÔNG token — an toàn) =====
+    function _download(name, text){ const b=new Blob([text],{type:"application/json"}); const u=URL.createObjectURL(b);
+      const a=document.createElement("a"); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),1500); }
+    window.exportBackup=()=>{
+      const data={ _app:"MM0-AutoPublisher", _version:1, exported_at:new Date().toISOString(),
+        channels:Object.values(__C||{}).map(c=>({label:c.channel, title:c.channel_title, email:c.email, channel_id:c.channel_id})),
+        fb_pages:(__FBP||[]).map(p=>({name:p.name, page_name:p.page_name, page_id:p.page_id})),
+        storage:((__STORAGE&&__STORAGE.accounts)||[]).map(a=>({name:a.name, email:a.email, cap_gb:Math.round((a.cap||0)/1e9)})),
+        settings:{ templates:(__OVERRIDES.channels||{}), cleanup:(__OVERRIDES.cleanup||{}), review_mode:!!__OVERRIDES.review_mode } };
+      _download(`mm0-backup-${new Date().toISOString().slice(0,10)}.json`, JSON.stringify(data,null,2));
+      toastMsg("✔ Đã xuất bản sao cấu hình (không chứa token — an toàn)");
+    };
+    window.importBackup=(file)=>{ const r=new FileReader();
+      r.onload=async()=>{ try{ const d=JSON.parse(r.result);
+        if(d._app!=="MM0-AutoPublisher") return alert("File không đúng định dạng MM0.");
+        const st=d.settings||{};
+        await window.__setOverridesDoc({channels:st.templates||{}, cleanup:st.cleanup||{}, review_mode:!!st.review_mode});
+        const yt=(d.channels||[]).map(c=>c.title||c.label).filter(Boolean).join(", ");
+        const fb=(d.fb_pages||[]).map(p=>p.page_name||p.name).filter(Boolean).join(", ");
+        const dr=(d.storage||[]).map(s=>s.email||s.name).filter(Boolean).join(", ");
+        alert(`✔ Đã khôi phục cấu hình (template · dọn dẹp · duyệt).\n\nCẦN KẾT NỐI LẠI (token không lưu trong file vì bảo mật):\n• YouTube: ${yt||'—'}\n• Facebook: ${fb||'—'}\n• Drive kho: ${dr||'—'}`);
+        toastMsg("✔ Đã khôi phục cấu hình");
+      }catch(e){ alert("Đọc file lỗi: "+e.message); } };
+      r.readAsText(file);
     };
     function emptyBox(m){return `<div class="empty"><div class="big">🗂️</div>${m}</div>`;}
 
