@@ -20,15 +20,22 @@
 - [x] Repo GitHub được tạo + push (xem HANDOFF.md).
 - [x] Firebase project được tạo (xem HANDOFF.md).
 
+## ✅ ĐÃ XONG THÊM (phiên 2)
+
+- [x] Xử lý quota YouTube thông minh (hết quota → giữ pending, thử lại ngày mai, không đánh failed).
+- [x] Module thống kê `stats.py` + workflow `stats.yml` (view/like/comment + subs, read-only, nhẹ).
+- [x] **Dashboard v2** chuẩn SaaS: sửa bug đè layout, biểu đồ (bar/donut canvas), KPI subs/views, trang Phân tích, bảng xếp hạng video, dark/light chuẩn 3 trạng thái. **Đã deploy LIVE:** https://mm0-auto-publisher.web.app
+- [x] Firestore DB (asia-southeast1) đã tạo; APIs (Firestore/Drive/YouTube/IdentityToolkit) đã bật; rules + hosting đã deploy.
+- [x] Test tự động `tests/test_core.py` + CI `ci.yml`. `.env.example`.
+
 ## 🔲 CẦN NGƯỜI DÙNG LÀM (cần đăng nhập / thao tác thủ công — không tự động được)
 
-- [ ] **Bước 1–2 (SETUP.md):** Bật YouTube Data API + Drive API; tạo OAuth consent + Desktop client; chạy `auth_setup.py` cho **mỗi kênh** → lấy refresh token.
-- [ ] **Bước 3:** Bật Firestore (Native mode) + Authentication (Google) + Hosting trong Firebase Console.
-- [ ] **Bước 4:** Tạo service account + key JSON; gán role `Cloud Datastore User`.
+- [ ] **BẬT Google Sign-in** (Firebase Console → Authentication → Sign-in method → Google → Enable). *(bước duy nhất còn kẹt vì cần client_id auto-tạo trên console)*
+- [ ] **Bước 1–2 (SETUP.md):** Tạo OAuth consent + Desktop client; chạy `auth_setup.py` cho **mỗi kênh** → lấy refresh token.
+- [ ] **Bước 4:** Tạo service account + key JSON; gán role `Cloud Datastore User`; tải JSON.
 - [ ] **Bước 5:** Tạo folder Drive mỗi kênh, share cho email service account (Editor); chạy `init_drive_structure.py`.
 - [ ] **Bước 6:** (Nếu đăng FB) Tạo FB app + lấy Page long-lived token.
 - [ ] **Bước 7:** Nạp toàn bộ Secrets vào GitHub repo.
-- [ ] **Bước 8:** Dán `firebaseConfig` vào `dashboard/index.html`; sửa email trong `firestore.rules`; `firebase deploy`.
 - [ ] Chạy thử `Run workflow` (dry-run) → rồi thật.
 
 ## 💡 NÂNG CẤP TƯƠNG LAI (ý tưởng, chưa làm)

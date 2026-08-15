@@ -8,9 +8,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // 👉 Thêm/bớt email được xem dashboard tại đây rồi deploy lại.
     function isOwner() {
       return request.auth != null
-        && request.auth.token.email == "YOUR_EMAIL@gmail.com";
+        && request.auth.token.email in [
+             "braydanamilio@gmail.com",
+             "adisondurham@gmail.com"
+           ];
     }
 
     match /videos/{doc} {

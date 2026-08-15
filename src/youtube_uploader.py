@@ -22,6 +22,11 @@ SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
           "https://www.googleapis.com/auth/youtube"]
 
 
+class QuotaExceeded(Exception):
+    """Hết quota YouTube ngày hôm nay — KHÔNG phải lỗi của video.
+    Bắt riêng để giữ video ở trạng thái pending (thử lại ngày mai), không đánh failed."""
+
+
 def _client(client_id: str, client_secret: str, refresh_token: str):
     creds = Credentials(
         token=None,
@@ -81,10 +86,14 @@ def upload(
         try:
             _status, response = request.next_chunk()
         except HttpError as e:
-            # 5xx -> thử lại; 4xx (vd 403 quota) -> ném ra để đánh dấu failed
+            # 5xx -> thử lại
             if e.resp.status in (500, 502, 503, 504) and retries < 5:
                 retries += 1
                 continue
+            # hết quota -> ném QuotaExceeded (giữ video pending, thử lại ngày mai)
+            body = (getattr(e, "content", b"") or b"").decode("utf-8", "ignore").lower()
+            if e.resp.status == 403 and ("quota" in body or "dailylimit" in body):
+                raise QuotaExceeded(str(e))
             raise
     vid = response["id"]
 

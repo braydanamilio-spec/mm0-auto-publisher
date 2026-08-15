@@ -133,7 +133,11 @@ def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now):
 
     # 4) Đăng
     for it in todo:
-        publish_one(it, ch, resolved, drive, state, root, dry_run, now)
+        try:
+            publish_one(it, ch, resolved, drive, state, root, dry_run, now)
+        except YT.QuotaExceeded:
+            print(f"  ⏸ Kênh {key}: hết quota — dừng đăng hôm nay, phần còn lại để ngày mai.")
+            break
 
 
 def publish_one(it, ch, resolved, drive, state, root, dry_run, now):
@@ -191,6 +195,10 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now):
         state.bump_counters(it["channel"], now, yt=int(yt_ok), fb=int(fb_ok))
         print("     📦 Đã chuyển sang _POSTED.")
 
+    except YT.QuotaExceeded:
+        print("     ⏸ Hết quota YouTube hôm nay — giữ video ở 'pending', tự thử lại ngày mai.")
+        state.upsert_video(it["drive_file_id"], {"status": "pending", "note": "quota_wait"})
+        raise  # báo process_channel dừng đăng kênh này
     except Exception as e:
         attempts = it["attempts"] + 1
         print(f"     ❌ LỖI: {e}")

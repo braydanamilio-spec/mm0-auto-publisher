@@ -1,0 +1,43 @@
+name: MM0 Stats Refresh
+
+# ============================================================================
+#  Kéo view/like/comment + subscriber về Firestore để dashboard hiển thị.
+#  Chạy 4 lần/ngày (mỗi 6 giờ). Read-only, tốn < 10 quota/lần -> an toàn tuyệt đối.
+# ============================================================================
+
+on:
+  schedule:
+    - cron: "30 */6 * * *"   # 00:30, 06:30, 12:30, 18:30 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: mm0-stats
+  cancel-in-progress: true
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - run: pip install -r requirements.txt
+      - name: Ghi service account key
+        run: echo '${{ secrets.GCP_SA_KEY }}' > /tmp/sa.json
+      - name: Refresh stats
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          BROKE_YT_CLIENT_ID:      ${{ secrets.BROKE_YT_CLIENT_ID }}
+          BROKE_YT_CLIENT_SECRET:  ${{ secrets.BROKE_YT_CLIENT_SECRET }}
+          BROKE_YT_REFRESH_TOKEN:  ${{ secrets.BROKE_YT_REFRESH_TOKEN }}
+          INSIDE_YOU_YT_CLIENT_ID:     ${{ secrets.INSIDE_YOU_YT_CLIENT_ID }}
+          INSIDE_YOU_YT_CLIENT_SECRET: ${{ secrets.INSIDE_YOU_YT_CLIENT_SECRET }}
+          INSIDE_YOU_YT_REFRESH_TOKEN: ${{ secrets.INSIDE_YOU_YT_REFRESH_TOKEN }}
+          HUH_YT_CLIENT_ID:     ${{ secrets.HUH_YT_CLIENT_ID }}
+          HUH_YT_CLIENT_SECRET: ${{ secrets.HUH_YT_CLIENT_SECRET }}
+          HUH_YT_REFRESH_TOKEN: ${{ secrets.HUH_YT_REFRESH_TOKEN }}
+        run: python src/stats.py

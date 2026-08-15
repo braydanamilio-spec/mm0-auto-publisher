@@ -77,3 +77,26 @@ class State:
         c = self.get_counters(channel, day)
         v = c.get("last_upload_at")
         return datetime.fromisoformat(v) if v else None
+
+    # ---------- STATS (view / sub) ----------
+    def set_channel_stats(self, channel: str, data: dict):
+        data = {**data, "channel": channel, "updated_at": datetime.now(timezone.utc).isoformat()}
+        self.db.collection("channels").document(channel).set(data, merge=True)
+
+    def posted_youtube(self, channel: str) -> list[tuple[str, str]]:
+        """Trả [(doc_id, youtube_video_id)] cho video đã đăng có id YouTube."""
+        q = (self.db.collection("videos")
+             .where("channel", "==", channel).where("status", "==", "posted"))
+        out = []
+        for d in q.stream():
+            r = d.to_dict()
+            yid = ((r.get("results") or {}).get("youtube") or {}).get("id")
+            if yid:
+                out.append((d.id, yid))
+        return out
+
+    def set_video_stats(self, doc_id: str, stats: dict):
+        self.db.collection("videos").document(doc_id).set(
+            {"stats": {**stats, "updated_at": datetime.now(timezone.utc).isoformat()}},
+            merge=True,
+        )

@@ -1,0 +1,24 @@
+name: CI
+
+# Kiểm tra code mỗi lần push / PR: cú pháp Python + test logic + cú pháp JS dashboard.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Cài thư viện
+        run: pip install -r requirements.txt
+      - name: Kiểm tra cú pháp Python
+        run: python -m py_compile src/*.py scripts/*.py
+      - name: Chạy test logic
+        run: python tests/test_core.py
+      - name: Kiểm tra cú pháp JS dashboard
+        run: |
+          node -e "const fs=require('fs');const h=fs.readFileSync('dashboard/index.html','utf8');const m=[...h.matchAll(/<script(?: type=\"module\")?>([\s\S]*?)<\/script>/g)];let bad=0;m.forEach((x,i)=>{try{new Function(x[1].replace(/^\s*import\s.*?;/gm,''))}catch(e){if(!/import|export/.test(e.message)){console.error('script',i,e.message);bad++}}});process.exit(bad?1:0)"
