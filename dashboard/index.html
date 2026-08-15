@@ -1267,6 +1267,11 @@
     // Gộp kênh có video + kênh đã KẾT NỐI (để kênh mới nối vẫn hiện dù chưa có video nào)
     const allChannels=()=>[...new Set([...Object.keys(chanMap()), ...Object.keys(C())])].sort();
     const chName=k=>(C()[k]&&C()[k].channel_title)||k;
+    // Avatar kênh: có ảnh profile YouTube -> hiện ảnh; chưa có -> chữ viết tắt gradient
+    const chAva=(k,cls,extra="")=>{ const c=C()[k]||{}, col=chColor(k);
+      return c.avatar
+        ? `<div class="${cls}" style="${extra};background-image:url('${esc(c.avatar)}');background-size:cover;background-position:center"></div>`
+        : `<div class="${cls}" style="${extra};background:linear-gradient(145deg,${col},${col}aa)">${esc((chName(k)||'?').slice(0,2).toUpperCase())}</div>`; };
     const chColor=k=>{const ks=allChannels();const i=ks.indexOf(k);return CH_COLORS[(i<0?ks.length:i)%CH_COLORS.length];};
     const todayId=()=>{const d=new Date();return d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0");};
     const countdown=i=>{const d=new Date(i)-Date.now();if(d<=0)return"đến giờ";const h=Math.floor(d/3.6e6),m=Math.floor(d%3.6e6/6e4);return h>24?Math.floor(h/24)+" ngày":h>0?h+"h"+m+"m":m+" phút";};
@@ -1342,7 +1347,7 @@
       const map=chanMap();const ks=allChannels();
       $("chanList").innerHTML=ks.map(k=>{const vids=map[k]||[],posted=vids.filter(v=>eff(v)==="posted").length,pct=vids.length?Math.round(posted/vids.length*100):0;
         const subs=C()[k]?.subscribers,col=chColor(k);const linked=!!C()[k];
-        return `<div class="chan-item"><div class="ava" style="background:linear-gradient(145deg,${col},${col}aa)">${esc(chName(k).slice(0,2).toUpperCase())}</div>
+        return `<div class="chan-item">${chAva(k,'ava')}
           <div class="chan-mid"><div class="nm">${esc(chName(k))} ${subs!=null?`<span class="p-sub tnum">· ${fmtN(subs)} subs</span>`:(linked?`<span class="p-sub">· đã kết nối</span>`:"")}</div>
           <div class="st">${vids.length?`${posted}/${vids.length} đã đăng · ${vids.length-posted} hàng đợi`:`chưa có video — sẵn sàng nhận bài`}</div><div class="bar"><i style="width:${pct}%"></i></div></div>
           <div class="chan-right"><div class="big tnum">${pct}%</div><div class="cap">hoàn tất</div></div></div>`;
@@ -1359,7 +1364,7 @@
         const linked=!!C()[k], em=c.email||"";
         return `<div class="chub">
           <div class="chub-top">
-            <div class="chub-av" style="background:linear-gradient(145deg,${col},${col}aa)">${esc(chName(k).slice(0,2).toUpperCase())}</div>
+            ${chAva(k,'chub-av')}
             <div style="flex:1;min-width:0"><div class="chub-nm">${esc(chName(k))}</div>
               <div class="p-sub" style="word-break:break-all">${em?esc(em):(linked?'✓ đã kết nối':'⚠ nhãn cũ')}${chName(k).toUpperCase()!==k?` · <code>${esc(k)}</code>`:""}</div></div>
             <span class="tag ${c.yt_ok?'t-connected':'t-unknown'}">${c.yt_ok?'YouTube ✓':'—'}</span>
@@ -1570,7 +1575,7 @@
         const used=(K()[k+"_"+todayId()]?.yt)||(K()[k]?.yt)||0;
         const gaugeColor=used>=YT_CAP?"var(--bad)":used>=YT_CAP-2?"var(--warn)":"var(--good)";
         const dots=Array.from({length:YT_CAP},(_,i)=>`<i style="background:${i<used?gaugeColor:'var(--surface2)'}"></i>`).join("");
-        return `<div class="conn"><div class="conn-head"><span class="conn-num">#${num}</span><div class="ava" style="background:linear-gradient(145deg,${col},${col}aa)">${esc((c.channel_title||k).slice(0,2).toUpperCase())}</div>
+        return `<div class="conn"><div class="conn-head"><span class="conn-num">#${num}</span>${chAva(k,'ava')}
           <div class="nm">${esc((c.channel_title)||k)}${c.channel_title&&c.channel_title.toUpperCase()!==k?` <span class="p-sub">· nhãn ${esc(k)}</span>`:""}</div></div>
           ${svcRow('yt','#ff0033','YouTube', ytState, c.subscribers!=null?fmtN(c.subscribers)+' subs · kiểm tra '+ago(c.yt_checked_at):(c.yt_error||'chưa có dữ liệu'))}
           <div class="gauge"><div class="gl"><span>Quota YouTube hôm nay</span><span class="tnum" style="color:${gaugeColor};font-weight:700">${used}/${YT_CAP}</span></div><div class="dots">${dots}</div></div>

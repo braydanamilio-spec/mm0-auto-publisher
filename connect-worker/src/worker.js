@@ -414,6 +414,7 @@ async function callback(url, env) {
       const it = (r.items || [])[0];
       if (it) info = {
         channel_title: (it.snippet && it.snippet.title) || "",
+        avatar: (it.snippet && it.snippet.thumbnails && (it.snippet.thumbnails.medium || it.snippet.thumbnails.default || {}).url) || "",
         channel_id: it.id || "",
         subscribers: Number((it.statistics && it.statistics.subscriberCount) || 0),
         total_views: Number((it.statistics && it.statistics.viewCount) || 0),

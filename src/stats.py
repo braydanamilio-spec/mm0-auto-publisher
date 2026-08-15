@@ -54,6 +54,7 @@ def refresh_conn(uid: str, channel: str, creds: dict, state: State):
         state.set_channel_stats(channel, {
             "title": snip.get("title"),
             "channel_title": snip.get("title"),
+            "avatar": (((snip.get("thumbnails") or {}).get("medium") or (snip.get("thumbnails") or {}).get("default") or {}).get("url")) or "",
             "subscribers": int(s.get("subscriberCount", 0)),
             "total_views": int(s.get("viewCount", 0)),
             "video_count": int(s.get("videoCount", 0)),
