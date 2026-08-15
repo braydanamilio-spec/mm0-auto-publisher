@@ -298,6 +298,7 @@
       <div class="nav" data-view="analytics"><span class="ic" data-i="chart"></span> <span data-i18n="analytics">Analytics</span></div>
       <div class="nav" data-view="videos"><span class="ic" data-i="film"></span> <span data-i18n="videos">Videos</span> <span class="badge" id="nvVideos">0</span></div>
       <div class="nav" data-view="schedule"><span class="ic" data-i="cal"></span> <span data-i18n="schedule">Schedule</span> <span class="badge" id="nvSched">0</span></div>
+      <div class="nav" data-view="publish"><span class="ic" data-i="send"></span> <span data-i18n="publish">Publish</span> <span class="badge" id="nvPub">0</span></div>
       <div class="nav-label" data-i18n="nav_system">System</div>
       <div class="nav" data-view="connections"><span class="ic" data-i="plug"></span> <span data-i18n="connections">API Connections</span> <span class="dotwarn hide" id="connWarn"></span></div>
       <div class="nav" data-view="storage"><span class="ic" data-i="disk"></span> <span data-i18n="storage">Storage</span></div>
@@ -445,6 +446,28 @@
         <div class="conn-grid" id="channelHub"></div>
       </section>
 
+      <section id="v-publish" class="content hide">
+        <div class="panel" style="margin-bottom:16px">
+          <div class="p-head"><div class="p-title">🚀 <span data-i18n="pub_bulk">Bulk schedule / publish</span></div></div>
+          <div class="pubbar">
+            <label class="fld"><span data-i18n="pub_channel">Channel</span><select id="pubChannel"></select></label>
+            <label class="fld"><span data-i18n="pub_perday">Videos / day</span><input id="pubPerDay" type="number" min="1" max="20" value="3"></label>
+            <label class="fld"><span data-i18n="pub_times">Times (ET-style, comma)</span><input id="pubTimes" type="text" value="12:00, 17:00, 20:00"></label>
+            <label class="fld"><span data-i18n="pub_start">Start date</span><input id="pubStart" type="date"></label>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+            <button class="btn-conn" id="pubSpread">📅 <span data-i18n="pub_spread">Spread schedule</span></button>
+            <button class="mini" id="pubAllNow">⚡ <span data-i18n="pub_all_now">Publish all now</span></button>
+            <span class="p-sub" id="pubMsg" style="align-self:center"></span>
+          </div>
+          <div class="p-sub" style="margin-top:9px" data-i18n="pub_note">Operates on videos already in your Drive queue. “Publish now” = next cron run (~30 min) posts it. Posted videos aren’t touched.</div>
+        </div>
+        <div class="panel">
+          <div class="p-head"><div class="p-title">📋 <span data-i18n="pub_queue">Queue (not posted yet)</span></div><div class="p-sub" id="pubCount"></div></div>
+          <div id="pubList"></div>
+        </div>
+      </section>
+
       <style>
         .chub{border:1px solid var(--border);border-radius:16px;padding:18px;background:var(--surface);display:flex;flex-direction:column;gap:14px}
         .chub-top{display:flex;align-items:center;gap:12px}
@@ -455,6 +478,14 @@
         .chub-acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
         .chub-acts button{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:9px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans)}
         .chub-acts button:hover{border-color:var(--accent);color:var(--accent)}
+        .pubbar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+        @media(max-width:720px){.pubbar{grid-template-columns:1fr 1fr}}
+        .pubbar select,.pubbar input{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:9px 11px;font-family:var(--sans);font-size:14px}
+        .pub-row{display:flex;align-items:center;gap:12px;padding:11px 4px;border-bottom:1px solid var(--border2)}
+        .pub-row .tag2{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface2);color:var(--muted)}
+        .pub-when{font-family:var(--mono,monospace);font-size:12.5px;color:var(--muted);white-space:nowrap}
+        .pub-now{background:var(--good);color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+        .pub-now:hover{filter:brightness(1.08)}
         .brgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
         .fld{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--muted)}
         .fld.full{grid-column:1/-1}
@@ -618,6 +649,15 @@
         toastMsg("✔ Đã lưu dọn dẹp: "+mode+" · "+(Number(days)||0)+" ngày"); }
       catch(e){ alert("Lỗi: "+e.message); }
     };
+    // Cập nhật 1 video (chỉ field được rules cho phép: status/publish_at/reviewed_at)
+    window.__updateVideo = async (id, data) => {
+      await setDoc(doc(db,"videos",id), data, {merge:true});
+    };
+    // Cập nhật hàng loạt: list = [{id, data}]
+    window.__bulkUpdateVideos = async (list) => {
+      let ok=0; for(const it of list){ try{ await setDoc(doc(db,"videos",it.id), it.data, {merge:true}); ok++; }catch(e){} }
+      return ok;
+    };
     window.initTheme(); window.wireNav(); window.paintIcons(); window.paintBrand();
   </script>
 
@@ -634,6 +674,13 @@
         connections:"API Connections", storage:"Storage", settings:"Settings",
         sub_overview:"All channels", sub_analytics:"Views & subscriber performance",
         sub_videos:"Manage, search & filter", sub_schedule:"Timeline",
+        publish:"Publish", sub_publish:"Publish now & bulk schedule",
+        pub_bulk:"Bulk schedule / publish", pub_channel:"Channel", pub_perday:"Videos / day",
+        pub_times:"Times (comma)", pub_start:"Start date", pub_spread:"Spread schedule",
+        pub_all_now:"Publish all now", pub_queue:"Queue (not posted yet)",
+        pub_note:"Operates on videos already in your Drive queue. “Publish now” = next cron run (~30 min) posts it. Posted videos aren’t touched.",
+        pub_empty:"No videos in queue yet. Add videos to your Drive store (OUTBOX → watch_and_enqueue) and they appear here to schedule.",
+        pub_now:"Publish now", pub_done:"Scheduled", pub_all_ch:"All channels",
         sub_connections:"YouTube · Facebook · quota status", sub_storage:"Pool usage & cleanup",
         sub_settings:"Templates & system config",
         branding:"Branding", comments:"Comments", channels_hub:"My Channels", sub_channels:"Your connected channels — pick one to manage",
@@ -684,6 +731,13 @@
         connections:"Kết nối API", storage:"Kho lưu trữ", settings:"Cài đặt",
         sub_overview:"Toàn bộ kênh", sub_analytics:"Hiệu suất view & subscriber",
         sub_videos:"Quản lý, tìm kiếm & lọc", sub_schedule:"Dòng thời gian",
+        publish:"Đăng bài", sub_publish:"Đăng ngay & rải lịch hàng loạt",
+        pub_bulk:"Rải lịch / đăng hàng loạt", pub_channel:"Kênh", pub_perday:"Video / ngày",
+        pub_times:"Khung giờ (cách nhau dấu phẩy)", pub_start:"Ngày bắt đầu", pub_spread:"Rải lịch",
+        pub_all_now:"Đăng tất cả ngay", pub_queue:"Hàng đợi (chưa đăng)",
+        pub_note:"Áp dụng cho video ĐÃ có trong kho Drive. “Đăng ngay” = cron chạy lần tới (~30') sẽ đăng. Video đã đăng không bị đụng.",
+        pub_empty:"Chưa có video trong hàng đợi. Đưa video vào kho Drive (OUTBOX → watch_and_enqueue), chúng sẽ hiện ở đây để rải lịch.",
+        pub_now:"Đăng ngay", pub_done:"Đã xếp lịch", pub_all_ch:"Tất cả kênh",
         sub_connections:"Trạng thái YouTube · Facebook · quota", sub_storage:"Dung lượng pool & dọn dẹp",
         sub_settings:"Template & cấu hình hệ thống",
         branding:"Thương hiệu", comments:"Bình luận", channels_hub:"Kênh của tôi", sub_channels:"Các kênh đã kết nối — chọn 1 kênh để quản lý",
@@ -778,6 +832,7 @@
       badge:'<path d="M12 2l2.4 2.1 3.1-.4 1.1 3 2.8 1.4-1.1 3 1.1 3-2.8 1.4-1.1 3-3.1-.4L12 22l-2.4-2.1-3.1.4-1.1-3L2.6 15.5l1.1-3-1.1-3 2.8-1.4 1.1-3 3.1.4z"/><path d="M9 12l2 2 4-4"/>',
       chat:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
       stack:'<path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>',
+      send:'<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
     };
     window.paintIcons = () => document.querySelectorAll(".ic[data-i]").forEach(e=>{
       e.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[e.dataset.i]||""}</svg>`; });
@@ -808,7 +863,7 @@
     function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
 
     function wireNav(){
-      const VIEWS=["overview","analytics","videos","schedule","connections","storage","settings","channels","branding","comments"];
+      const VIEWS=["overview","analytics","videos","schedule","publish","connections","storage","settings","channels","branding","comments"];
       const setTitle=(v)=>{ window.__view=v; $("vTitle").textContent=t(v); $("vSub").textContent=t("sub_"+v); };
       window.__setTitle=setTitle;
       document.querySelectorAll(".nav").forEach(n=>n.onclick=()=>{
@@ -829,6 +884,8 @@
       if($("brLoad"))$("brLoad").onclick=loadBranding;
       if($("brSave"))$("brSave").onclick=saveBranding;
       if($("cmLoad"))$("cmLoad").onclick=loadComments;
+      if($("pubSpread"))$("pubSpread").onclick=window.pubSpread;
+      if($("pubAllNow"))$("pubAllNow").onclick=window.pubAllNow;
       const lb=$("langBtn"); if(lb)lb.onclick=()=>setLang(LANG==="en"?"vi":"en");
       // menu mobile (hamburger)
       const hb=$("hamb"), sb=document.querySelector(".sidebar"), scr=$("scrim");
@@ -957,9 +1014,10 @@
     function renderAll(){
       buildChanFilter(); renderKPIs(); renderViewsChart(); renderDonut(); renderChannels();
       renderUpcoming(); renderAnalytics(); renderLongShort(); renderVideos(); renderSchedule(); renderConnections();
-      renderStorage(); renderSettings(); renderChannelHub();
+      renderStorage(); renderSettings(); renderChannelHub(); renderPublish();
       $("nvVideos").textContent=V().length; $("nvSched").textContent=V().filter(v=>eff(v)==="scheduled").length;
       $("nvChans").textContent=allChannels().length;
+      $("nvPub").textContent=V().filter(v=>eff(v)!=="posted").length;
     }
     function buildChanFilter(){const sel=$("chFilter"),c=sel.value;const ks=allChannels();
       sel.innerHTML=`<option value="">${t("all_channels")}</option>`+ks.map(k=>`<option value="${esc(k)}">${esc(chName(k))}</option>`).join("");sel.value=c;}
@@ -1068,6 +1126,62 @@
         </div>`;
       }).join("");
     }
+    // ==== ĐĂNG BÀI: đăng ngay + rải lịch hàng loạt cho video trong kho ====
+    const notPosted=v=>eff(v)!=="posted";
+    function renderPublish(){
+      // đổ danh sách kênh vào ô chọn (giữ lựa chọn cũ)
+      const sel=$("pubChannel"); if(sel){ const keep=sel.value;
+        sel.innerHTML=`<option value="">${t("pub_all_ch")}</option>`+allChannels().map(k=>`<option value="${esc(k)}">${esc(chName(k))}</option>`).join("");
+        sel.value=keep; }
+      const st=$("pubStart"); if(st && !st.value){ const d=new Date(); st.value=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+      const rows=V().filter(notPosted).sort((a,b)=>(a.publish_at||"").localeCompare(b.publish_at||""));
+      $("pubCount").textContent=rows.length+" video";
+      if(!rows.length){ $("pubList").innerHTML=emptyBox(t("pub_empty")); return; }
+      $("pubList").innerHTML=rows.map(v=>{
+        const col=chColor(v.channel);
+        return `<div class="pub-row">
+          <div class="ava" style="width:30px;height:30px;font-size:12px;background:linear-gradient(145deg,${col},${col}aa)">${esc((chName(v.channel)||'?').slice(0,2).toUpperCase())}</div>
+          <div style="flex:1;min-width:0"><div class="nm" style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.title||v.drive_name||v.id)}</div>
+            <div class="p-sub">${esc(chName(v.channel))} · <span class="tag2">${esc(v.type||'—')}</span> · <span class="tag2">${esc(eff(v))}</span></div></div>
+          <div class="pub-when">${v.publish_at?fmtDt(v.publish_at):'—'}</div>
+          <button class="pub-now" onclick="publishNow('${esc(v.id)}')">⚡ ${esc(t("pub_now"))}</button>
+        </div>`;
+      }).join("");
+    }
+    window.publishNow=async (id)=>{
+      try{ await window.__updateVideo(id, {status:"pending", publish_at:new Date().toISOString(), reviewed_at:new Date().toISOString()});
+        toastMsg("⚡ "+t("pub_now")+" — cron sẽ đăng trong ~30'"); }
+      catch(e){ alert("❌ "+e.message); }
+    };
+    window.pubSpread=async ()=>{
+      const ch=$("pubChannel").value;
+      const perDay=Math.max(1,Number($("pubPerDay").value)||3);
+      const times=($("pubTimes").value||"12:00").split(",").map(s=>s.trim()).filter(Boolean);
+      const start=$("pubStart").value; if(!start) return alert("Chọn ngày bắt đầu.");
+      let rows=V().filter(notPosted); if(ch) rows=rows.filter(v=>v.channel===ch);
+      rows.sort((a,b)=>(a.drive_name||"").localeCompare(b.drive_name||""));
+      if(!rows.length) return alert(t("pub_empty"));
+      const [Y,M,D]=start.split("-").map(Number);
+      const updates=[]; let idx=0;
+      for(const v of rows){ const day=Math.floor(idx/(perDay*times.length)); // sang ngày mới
+        const within=idx%(perDay*times.length); const tIdx=within%times.length; const extraDay=Math.floor(within/times.length);
+        const [hh,mm]=(times[tIdx]||"12:00").split(":").map(Number);
+        const dt=new Date(Y,M-1,D+day+extraDay,hh||12,mm||0,0);
+        updates.push({id:v.id, data:{status:"pending", publish_at:dt.toISOString()}}); idx++;
+      }
+      $("pubMsg").textContent=t("working");
+      const ok=await window.__bulkUpdateVideos(updates);
+      $("pubMsg").textContent="✔ "+t("pub_done")+" "+ok+"/"+rows.length; toastMsg("✔ "+t("pub_done")+" "+ok);
+    };
+    window.pubAllNow=async ()=>{
+      const ch=$("pubChannel").value; let rows=V().filter(notPosted); if(ch) rows=rows.filter(v=>v.channel===ch);
+      if(!rows.length) return alert(t("pub_empty"));
+      if(!confirm(t("pub_all_now")+" ("+rows.length+")?")) return;
+      const now=new Date().toISOString();
+      $("pubMsg").textContent=t("working");
+      const ok=await window.__bulkUpdateVideos(rows.map(v=>({id:v.id, data:{status:"pending", publish_at:now}})));
+      $("pubMsg").textContent="⚡ "+ok+"/"+rows.length; toastMsg("⚡ "+ok);
+    };
     window.gotoView=(v)=>{ const n=document.querySelector('.nav[data-view="'+v+'"]'); if(n) n.click(); };
     window.opChannel=(k, what)=>{
       if(what==='videos'){ const f=$("chFilter"); if(f)f.value=k; gotoView('videos'); renderAll(); return; }
