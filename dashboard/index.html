@@ -385,6 +385,7 @@
           <div class="p-sub" style="margin-top:9px" data-i18n="conn_hint">Click → sign in to that channel's Google → grant once → token saved. No GitHub Secrets needed.</div>
         </div>
         <div id="connBanner"></div>
+        <div class="panel" id="quotaPanel" style="display:none;margin-bottom:16px"></div>
         <div class="conn-tools">
           <input type="search" id="connSearch" placeholder="🔍 Tìm theo tên kênh / nhãn / email…">
           <button class="mini" id="connCollapse">⊟ Thu gọn tất cả</button>
@@ -768,6 +769,7 @@
         const o=s.docs.find(x=>x.id.startsWith("overrides")); window.setOverrides(o?o.data():{});
       });
       sub("fb_pages", s => { window.setFbPages(s.docs.map(d=>({id:d.id,...d.data()}))); });
+      sub("quota", s => { window.setQuota(s.docs.map(d=>({id:d.id,...d.data()}))); });
     }
     function setLive(ok){
       const el=document.getElementById("live"); el.classList.toggle("err",!ok);
@@ -975,6 +977,30 @@
     window.setStorage = (s) => { __STORAGE=s; renderStorage(); };
     let __FBP=[];
     window.setFbPages = (p) => { __FBP=p||[]; renderFacebook(); };
+    let __QUOTA=[];
+    window.setQuota = (q) => { __QUOTA=q||[]; renderQuota(); };
+    function renderQuota(){
+      const box=$("quotaPanel"); if(!box) return;
+      const suf=todayId();
+      const today=__QUOTA.filter(q=>q.id&&q.id.endsWith(suf));
+      const cap=6;
+      // gộp theo client
+      const byc={}; today.forEach(q=>{ const k=(q.client||q.id).slice(0,40); byc[k]=(byc[k]||0)+(q.uploads||0); });
+      const clients=Object.keys(byc);
+      if(!clients.length){ box.style.display="none"; return; }
+      box.style.display="";
+      const totalUp=clients.reduce((a,k)=>a+byc[k],0), totalCap=clients.length*cap;
+      box.innerHTML=`<div class="p-head"><div class="p-title">📊 Quota đăng hôm nay theo project</div>
+        <div class="p-sub">${totalUp}/${totalCap} upload · ${clients.length} project</div></div>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">${clients.map((k,i)=>{
+          const u=byc[k], pct=Math.min(100,Math.round(u/cap*100)); const col=u>=cap?"var(--bad)":u>=cap-1?"var(--warn)":"var(--good)";
+          return `<div class="chan-item"><div class="ava" style="background:linear-gradient(145deg,var(--accent),var(--violet))">P${i+1}</div>
+            <div class="chan-mid"><div class="nm">Project ${i+1} <span class="p-sub">· …${esc(k.slice(-8))}</span></div>
+            <div class="st">${u}/${cap} upload</div><div class="bar"><i style="width:${pct}%;background:${col}"></i></div></div>
+            <div class="chan-right"><div class="big tnum" style="color:${col}">${u}</div><div class="cap">hôm nay</div></div></div>`;
+        }).join("")}</div>
+        <div class="p-sub" style="margin-top:10px">Mỗi project ~${cap} upload/ngày. Đầy thì bài dời sang mai. Thêm project (secret <code>YT_CLIENTS</code>) để tăng.</div>`;
+    }
     function renderFacebook(){
       if(!$("fbPages")) return;
       if($("nvFb")) $("nvFb").textContent=__FBP.length;
@@ -1326,7 +1352,7 @@
     function renderAll(){
       buildChanFilter(); renderKPIs(); renderViewsChart(); renderDonut(); renderChannels();
       renderUpcoming(); renderAnalytics(); renderLongShort(); renderVideos(); renderSchedule(); renderConnections();
-      renderStorage(); renderSettings(); renderChannelHub(); renderPublish(); renderFacebook();
+      renderStorage(); renderSettings(); renderChannelHub(); renderPublish(); renderFacebook(); renderQuota();
       $("nvVideos").textContent=V().length; $("nvSched").textContent=V().filter(v=>eff(v)==="scheduled").length;
       $("nvChans").textContent=allChannels().length;
       $("nvPub").textContent=V().filter(v=>eff(v)!=="posted").length;
