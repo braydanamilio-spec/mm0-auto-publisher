@@ -921,6 +921,10 @@
         .conn-tools input[type=search]{flex:1;min-width:220px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 13px;font-family:var(--sans);font-size:14px}
         .conn-num{position:absolute;top:10px;right:12px;font-size:11px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums}
         .conn{position:relative}
+        .conn-click,.chan-click{cursor:pointer;transition:border-color .15s,transform .1s}
+        .conn-click:hover,.chan-click:hover{border-color:var(--accent);transform:translateY(-1px)}
+        .chan-go{font-size:11px;color:var(--accent);font-weight:700;opacity:0;transition:opacity .15s}
+        .conn-click:hover .chan-go,.chan-click:hover .chan-go{opacity:1}
         .btn-mini{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 11px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--sans);text-decoration:none;display:inline-block}
         .btn-mini:hover{border-color:var(--accent);color:var(--accent)}
         .btn-mini.danger{color:var(--bad);border-color:var(--bad)} .btn-mini.danger:hover{background:var(--bad);color:#fff}
@@ -2075,7 +2079,7 @@
       const igCount=pages.filter(p=>p.ig_user_id).length;
       box.innerHTML=`<div class="kpis" id="fbovKpis"></div>
         <div class="panel" style="margin-top:16px"><div class="p-head"><div class="p-title">📘📷 Trang & tài khoản</div><div class="p-sub">${pages.length} Page · ${igCount} Instagram</div></div>
-        <div class="conn-grid" style="margin-top:6px">${pages.map(p=>`<div class="conn"><div class="conn-head"><div class="ava" style="overflow:hidden;background:linear-gradient(145deg,#1877f2,#0a58ca)">${fbPageAva(p)}</div><div class="nm">${esc(p.page_name||p.name)}<div class="p-sub" id="fbov-fb-${esc(p.name)}">Đang tải…</div></div></div>${p.ig_user_id?`<div class="p-sub" id="fbov-ig-${esc(p.name)}" style="margin-top:8px">📷 IG: đang tải…</div>`:''}</div>`).join("")}</div></div>`;
+        <div class="conn-grid" style="margin-top:6px">${pages.map(p=>`<div class="conn conn-click" onclick="openFbDetail('${esc(p.name)}','fb')" title="Xem chi tiết ${esc(p.page_name||p.name)}"><div class="conn-head"><div class="ava" style="overflow:hidden;background:linear-gradient(145deg,#1877f2,#0a58ca)">${fbPageAva(p)}</div><div class="nm">${esc(p.page_name||p.name)} <span class="chan-go">chi tiết ›</span><div class="p-sub" id="fbov-fb-${esc(p.name)}">Đang tải…</div></div></div>${p.ig_user_id?`<div class="p-sub" id="fbov-ig-${esc(p.name)}" style="margin-top:8px;cursor:pointer" onclick="event.stopPropagation();openFbDetail('${esc(p.name)}','ig')">📷 IG: đang tải…</div>`:''}</div>`).join("")}</div></div>`;
       let totFol=0, done=0;
       for(const p of pages){
         try{ const d=await workerApi(`/api/social-insights?channel=${encodeURIComponent(p.name)}&platform=fb`); totFol+=d.followers||0; const el=$("fbov-fb-"+p.name); if(el)el.innerHTML=`👥 <b>${fmtN(d.followers||0)}</b> theo dõi`; }catch(_){ const el=$("fbov-fb-"+p.name); if(el)el.textContent="— (kết nối lại)"; }
@@ -2541,11 +2545,15 @@
       menu.innerHTML=`<div class="chpick-item ${!cval?'on':''}" onclick="pickChannel('')">${allLbl}</div>`
         +ks.map(k=>`<div class="chpick-item ${cval===k?'on':''}" onclick="pickChannel('${esc(k)}')">${chAva(k,'chpick-ava')}<span class="chpick-nm">${esc(chName(k))}</span></div>`).join("");
     }
+    // Mở CHI TIẾT 1 Page/IG -> tab Analytics FB/IG, tự chọn + tải
+    window.openFbDetail=(name,plat)=>{ if(window.setPlat) setPlat("fb"); gotoView("analytics");
+      setTimeout(()=>{ if(window.renderFbAnalytics) renderFbAnalytics(); const s=$("faPage"); if(s&&name){ s.value=name; } if(plat&&window.faPlat) faPlat(plat); if(window.faLoad) faLoad(); }, 50);
+    };
     // Chọn Page ở picker top (nền tảng FB) -> đồng bộ các panel FB/IG + tải lại
     window.pickFbPage=(name)=>{ window.__fbFilter=name; const m=$("chPickMenu"); if(m)m.classList.add("hide"); buildChanFilter();
       ["faPage","socPage","socQPage"].forEach(id=>{ const s=$(id); if(s&&name&&[...s.options].some(o=>o.value===name)) s.value=name; });
       const v=window.__view;
-      if(name){ if(v==="analytics"&&window.faLoad) faLoad(); else if(v==="videos"&&window.socLoad) socLoad(); }
+      if(name){ if(v==="analytics"&&window.faLoad) faLoad(); else if(v==="videos"&&window.socLoad) socLoad(); else if(v==="overview") openFbDetail(name,"fb"); }
       else { if(v==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(v==="overview"&&window.renderFbOverview) renderFbOverview(); }
     };
     window.pickChannel=(k)=>{ window.__chFilter=k; const m=$("chPickMenu"); if(m)m.classList.add("hide"); buildChanFilter(); renderAll(); };
