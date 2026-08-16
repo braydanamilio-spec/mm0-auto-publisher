@@ -378,10 +378,17 @@
           <select id="stFilter"><option value="">Mọi trạng thái</option><option value="needs_review">Chờ duyệt</option><option value="posted">Đã đăng</option><option value="scheduled">Đã lên lịch</option><option value="pending">Chờ</option><option value="uploading">Đang upload</option><option value="failed">Lỗi</option></select>
           <select id="tyFilter"><option value="">Long &amp; Short</option><option value="long">Long</option><option value="short">Short</option></select>
           <select id="sortBy"><option value="publish_at">Sắp theo giờ đăng</option><option value="views">Sắp theo lượt xem</option></select>
-          <button class="btn-conn" id="loadYtVids" style="margin-left:auto">📥 Tải toàn bộ video kênh (YouTube)</button>
         </div>
-        <div class="p-sub" style="margin-bottom:10px">Bảng dưới = video hệ quản lý. Bấm <b>“Tải toàn bộ video kênh”</b> (chọn kênh ở góc phải trên) để xem <b>mọi video đã đăng trên kênh</b> như YouTube Studio.</div>
-        <div id="ytVidsPanel" style="display:none;margin-bottom:16px"></div>
+        <div class="panel" style="margin-bottom:14px">
+          <div class="p-head"><div class="p-title">📺 Xem toàn bộ video đã đăng trên kênh <span class="p-sub">— như YouTube Studio</span></div></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px">
+            <select id="ytVidsCh" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:9px 12px;font-family:var(--sans);font-size:13.5px;min-width:220px;max-width:100%"></select>
+            <button class="btn-conn" id="loadYtVids">📥 Tải video kênh</button>
+            <span id="ytVidsActs" style="display:none;gap:8px;flex-wrap:wrap"></span>
+          </div>
+          <div id="ytVidsPanel" style="margin-top:12px"></div>
+        </div>
+        <div class="p-sub" style="margin-bottom:10px">Bảng dưới đây chỉ là video <b>trong hệ quản lý</b> (đăng qua tool).</div>
         <div class="tbl-card"><div class="scroll-x"><table>
           <thead><tr><th data-i18n="th_channel">Channel</th><th data-i18n="th_title">Title</th><th data-i18n="th_type">Type</th><th data-i18n="th_status">Status</th><th data-i18n="th_time">Publish time</th><th class="num">Views</th><th class="num">Likes</th><th data-i18n="th_link">Link</th></tr></thead>
           <tbody id="rows"></tbody></table></div></div>
@@ -668,6 +675,9 @@
         .conn-tools input[type=search]{flex:1;min-width:220px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 13px;font-family:var(--sans);font-size:14px}
         .conn-num{position:absolute;top:10px;right:12px;font-size:11px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums}
         .conn{position:relative}
+        .btn-mini{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 11px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+        .btn-mini:hover{border-color:var(--accent);color:var(--accent)}
+        #ytVidsActs{display:inline-flex;gap:8px}
         .btn-reconn.danger{flex:none;width:auto;padding-left:12px;padding-right:12px;color:var(--bad);border-color:var(--bad)}
         .btn-reconn.danger:hover{background:var(--bad);color:#fff}
       </style>
@@ -1072,37 +1082,68 @@
     window.anInit=anInit;
     // Tải TOÀN BỘ video đã đăng trên kênh (như YouTube Studio) qua Worker
     let __ytVidsFilter="";
+    function fillYtVidsCh(){
+      const sel=$("ytVidsCh"); if(!sel) return; const keep=sel.value||cur();
+      const chans=connectedYT();
+      sel.innerHTML=chans.length?chans.map(k=>`<option value="${esc(k)}">${esc(chName(k))}</option>`).join("")
+        :`<option value="">— Chưa có kênh YouTube kết nối —</option>`;
+      if(chans.includes(keep)) sel.value=keep;
+    }
+    window.fillYtVidsCh=fillYtVidsCh;
     window.loadYtVids=async()=>{
-      const ch=cur(); const box=$("ytVidsPanel"); if(!box) return;
-      if(!ch) return alert("Chọn 1 kênh ở góc phải trên (không phải 'Tất cả kênh') rồi bấm lại.");
-      box.style.display=""; box.innerHTML=`<div class="panel"><div class="p-sub" style="padding:8px">${t("working")} — đang tải video của ${esc(chName(ch))}…</div></div>`;
-      try{ const d=await workerApi(`/api/channel-videos?channel=${encodeURIComponent(ch)}&max=200`);
-        window.__ytVids=d.items||[]; window.__ytVidsCh=ch; renderYtVids();
-      }catch(e){ box.innerHTML=`<div class="panel"><div class="p-sub" style="padding:8px">❌ ${esc(e.message)}</div></div>`; }
+      const sel=$("ytVidsCh"); const ch=(sel&&sel.value)||cur(); const box=$("ytVidsPanel");
+      const acts=$("ytVidsActs"); if(acts){acts.style.display="none";acts.innerHTML="";}
+      if(!box) return;
+      if(!ch){ box.innerHTML=`<div class="p-sub" style="padding:8px">⚠️ Chưa chọn được kênh. Hãy kết nối YouTube ở tab <b>API Connections</b> trước.</div>`; return; }
+      box.innerHTML=`<div class="p-sub" style="padding:8px">${t("working")} — đang tải toàn bộ video của <b>${esc(chName(ch))}</b>… (có thể mất vài giây nếu kênh nhiều video)</div>`;
+      try{ const d=await workerApi(`/api/channel-videos?channel=${encodeURIComponent(ch)}&max=300`);
+        window.__ytVids=d.items||[]; window.__ytVidsCh=ch; __ytVidsFilter=""; renderYtVids();
+      }catch(e){ box.innerHTML=`<div class="panel" style="border-color:var(--bad)"><div style="padding:12px"><b style="color:var(--bad)">❌ Không tải được video</b><div class="p-sub" style="margin-top:6px">${esc(e.message)}</div><div class="p-sub" style="margin-top:8px">Thường do kênh cần <b>Kết nối lại YouTube</b> (token cũ/hết hạn). Vào <b>My Channels → kênh này → 🔗 Kết nối lại</b> rồi thử lại.</div></div></div>`; }
     };
+    function ytVidUrl(v){ return "https://www.youtube.com/watch?v="+v.id; }
     function renderYtVids(){
       const box=$("ytVidsPanel"); if(!box) return; const all=window.__ytVids||[];
-      const tv=all.reduce((a,v)=>a+v.views,0);
-      box.innerHTML=`<div class="panel">
-        <div class="p-head"><div class="p-title">📺 Toàn bộ video kênh ${esc(chName(window.__ytVidsCh))} <span class="p-sub">· ${all.length} video · ${fmtN(tv)} views tổng</span></div>
+      const tv=all.reduce((a,v)=>a+v.views,0), longs=all.filter(v=>v.type==='long').length, shorts=all.length-longs;
+      const acts=$("ytVidsActs");
+      if(acts){ acts.style.display="inline-flex"; acts.innerHTML=all.length?`
+        <button class="btn-mini" onclick="ytVidsCopy()">📋 Copy toàn bộ link</button>
+        <button class="btn-mini" onclick="ytVidsExport('txt')">⬇ Xuất .txt</button>
+        <button class="btn-mini" onclick="ytVidsExport('csv')">⬇ Xuất .csv</button>`:""; }
+      if(!all.length){ box.innerHTML=`<div class="p-sub" style="padding:8px">📭 Kênh <b>${esc(chName(window.__ytVidsCh))}</b> chưa có video công khai nào.</div>`; return; }
+      box.innerHTML=`<div class="p-head" style="margin-bottom:6px"><div class="p-title" style="font-size:15px">📺 ${esc(chName(window.__ytVidsCh))} <span class="p-sub">· ${all.length} video (${longs} long · ${shorts} short) · ${fmtN(tv)} views tổng</span></div>
           <input type="search" id="ytVidSearch" placeholder="🔍 Tìm tiêu đề…" value="${esc(__ytVidsFilter)}" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:8px 11px;font-family:var(--sans);font-size:13px;min-width:180px"></div>
-        <div class="scroll-x" style="margin-top:10px"><table style="min-width:640px"><thead><tr>
-          <th>Video</th><th>Loại</th><th>Đăng</th><th class="num">Views</th><th class="num">Likes</th><th class="num">Bình luận</th><th>Riêng tư</th><th>Link</th></tr></thead>
-          <tbody id="ytVidRows"></tbody></table></div></div>`;
+        <div class="scroll-x"><table style="min-width:680px"><thead><tr>
+          <th>#</th><th>Video</th><th>Loại</th><th>Đăng</th><th class="num">Views</th><th class="num">Likes</th><th class="num">B.luận</th><th>Riêng tư</th><th>Link</th></tr></thead>
+          <tbody id="ytVidRows"></tbody></table></div>`;
       const s=$("ytVidSearch"); if(s) s.oninput=()=>{ __ytVidsFilter=s.value; renderYtRows(); };
       renderYtRows();
     }
     function renderYtRows(){
       const tb=$("ytVidRows"); if(!tb) return; const q=__ytVidsFilter.toLowerCase();
       const rows=(window.__ytVids||[]).filter(v=>!q||v.title.toLowerCase().includes(q));
-      tb.innerHTML=rows.map(v=>`<tr>
-        <td style="max-width:340px"><div style="display:flex;align-items:center;gap:8px">${v.thumb?`<img src="${esc(v.thumb)}" style="width:52px;height:30px;border-radius:4px;object-fit:cover;flex:none">`:""}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.title)}</span></div></td>
+      tb.innerHTML=rows.map((v,i)=>`<tr>
+        <td class="p-sub tnum">${i+1}</td>
+        <td style="max-width:360px"><a href="${ytVidUrl(v)}" target="_blank" title="${esc(v.title)}" style="display:flex;align-items:center;gap:8px;color:var(--text)">${v.thumb?`<img src="${esc(v.thumb)}" style="width:52px;height:30px;border-radius:4px;object-fit:cover;flex:none">`:""}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.title)}</span></a></td>
         <td><span class="tag2 ${v.type==='short'?'warn':''}">${v.type}</span></td>
         <td class="p-sub">${new Date(v.publishedAt).toLocaleDateString('vi-VN')}</td>
         <td class="num tnum">${fmtN(v.views)}</td><td class="num tnum">${fmtN(v.likes)}</td><td class="num tnum">${fmtN(v.comments)}</td>
         <td><span class="p-sub">${esc(v.privacy||'')}</span></td>
-        <td><a href="https://youtu.be/${esc(v.id)}" target="_blank">mở ↗</a></td></tr>`).join("")||`<tr><td colspan="8" class="p-sub" style="padding:12px">Không có video khớp.</td></tr>`;
+        <td style="white-space:nowrap"><a href="${ytVidUrl(v)}" target="_blank">mở ↗</a> · <a href="#" onclick="ytCopyOne('${v.id}');return false;">copy</a></td></tr>`).join("")||`<tr><td colspan="9" class="p-sub" style="padding:12px">Không có video khớp.</td></tr>`;
     }
+    async function _clip(txt){ try{ await navigator.clipboard.writeText(txt); return true; }catch(e){ const ta=document.createElement("textarea");ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");}catch(_){}ta.remove(); return true; } }
+    window.ytCopyOne=async(id)=>{ await _clip("https://www.youtube.com/watch?v="+id); toastMsg("✔ Đã copy link video"); };
+    window.ytVidsCopy=async()=>{ const all=window.__ytVids||[]; await _clip(all.map(ytVidUrl).join("\n")); toastMsg(`✔ Đã copy ${all.length} link`); };
+    window.ytVidsExport=(fmt)=>{
+      const all=window.__ytVids||[]; const nm=(chName(window.__ytVidsCh)||"channel").replace(/[^\w\-]+/g,"_");
+      let data,mime,ext;
+      if(fmt==="csv"){ const esc2=(s)=>`"${String(s==null?"":s).replace(/"/g,'""')}"`;
+        data="STT,Tiêu đề,Link,Loại,Ngày đăng,Views,Likes,Bình luận,Riêng tư\n"+all.map((v,i)=>[i+1,esc2(v.title),ytVidUrl(v),v.type,(v.publishedAt||"").slice(0,10),v.views,v.likes,v.comments,v.privacy].join(",")).join("\n");
+        mime="text/csv;charset=utf-8"; ext="csv";
+      } else { data=all.map((v,i)=>`${i+1}. ${v.title}\n   ${ytVidUrl(v)}`).join("\n\n"); mime="text/plain;charset=utf-8"; ext="txt"; }
+      const blob=new Blob(["﻿"+data],{type:mime}), u=URL.createObjectURL(blob);
+      const a=document.createElement("a"); a.href=u; a.download=`${nm}_${all.length}video.${ext}`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),1500);
+      toastMsg(`✔ Đã xuất ${all.length} link .${ext}`);
+    };
     function renderQuota(){
       const box=$("quotaPanel"); if(!box) return;
       const suf=todayId();
@@ -1877,6 +1918,7 @@
     }
 
     function renderVideos(){
+      fillYtVidsCh();
       const term=($("search").value||"").toLowerCase(),st=$("stFilter").value,ty=$("tyFilter").value,sort=$("sortBy").value;
       let rows=scoped().filter(v=>{const s=eff(v);return(!st||s===st)&&(!ty||v.type===ty)&&(!term||(v.title||v.drive_name||"").toLowerCase().includes(term));});
       rows.sort((a,b)=>sort==="views"?(b.stats?.views||0)-(a.stats?.views||0):String(b.publish_at||"").localeCompare(String(a.publish_at||"")));
