@@ -3837,31 +3837,46 @@
     const _norm=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
     function upGuessChannel(folderName){ const nf=_norm(folderName); if(!nf) return "";
       for(const k of connectedYT()){ const nc=_norm(chName(k)), nk=_norm(k); if(nc&&(nf===nc||nf.includes(nc)||nc.includes(nf))) return k; if(nk&&(nf===nk||nf.includes(nk)||nk.includes(nf))) return k; } return ""; }
-    // đọc file mô tả companion -> {title, description, hashtags, tags}
+    // ---- Parser metadata ĐA FORMAT: UPLOAD.md / publish.md (## Title/## Description/## Tags) · json · txt ----
+    function _mdSec(text,name){ const re=new RegExp("^#{2,3}\\s*"+name+"\\b.*$","im"); const m=re.exec(text); if(!m) return null;
+      let rest=text.slice(m.index+m[0].length); const nx=rest.search(/^\s*#{1,3}\s/m); if(nx>=0) rest=rest.slice(0,nx);
+      const fence=/```[a-z]*\s*\n([\s\S]*?)```/i.exec(rest); const fenced=fence?fence[1].trim():"";
+      const plain=rest.replace(/```[a-z]*\n?/gi,"").replace(/^\s*---\s*$/gm,"").trim(); return {fenced,plain,best:fenced||plain}; }
+    function parseUploadMd(text){
+      const T=_mdSec(text,"Title"), D=_mdSec(text,"Description"), G=_mdSec(text,"Tags");
+      let title=""; if(T){ title=(T.best.split(/\r?\n/).map(s=>s.trim()).filter(Boolean)[0]||"").replace(/\*\*/g,"").replace(/^`+|`+$/g,"").trim(); }
+      const description=D?D.best.trim():"";
+      let tags=[]; if(G){ const src=G.fenced||G.plain; tags=src.split(/[,\n]+/).map(s=>s.trim()).filter(s=>s&&s.length<=30&&!/[→>›]|studio|paste|show more|split|box|char|of \d|tags\)/i.test(s)); }
+      return {title, description, tags, hashtags:(description.match(/#[\w]+/g)||[])}; }
     async function upReadMeta(file){ if(!file) return {}; let text=""; try{ text=await file.text(); }catch(_){ return {}; }
       if(/\.json$/i.test(file.name)){ try{ const j=JSON.parse(text); return {title:j.title, description:j.description||j.desc, hashtags:j.hashtags||[], tags:j.tags||[]}; }catch(_){} }
-      // txt/md: dòng đầu = TITLE, phần còn lại = DESCRIPTION; #hashtag lấy tự động
-      const lines=text.split(/\r?\n/); const title=(lines[0]||"").replace(/^#+\s*/,"").trim();
-      return {title, description:lines.slice(1).join("\n").trim(), hashtags:(text.match(/#[\w]+/g)||[])}; }
+      if(/##\s*(title|description)/i.test(text)) return parseUploadMd(text);   // UPLOAD.md có cấu trúc
+      const lines=text.split(/\r?\n/); return {title:(lines[0]||"").replace(/^#+\s*/,"").trim(), description:lines.slice(1).join("\n").trim(), hashtags:(text.match(/#[\w]+/g)||[])}; }
     function upAdd(files,fromFolder){ const all=(files||[]);
       const vids=all.filter(f=>/\.(mp4|mov|mkv|webm|m4v)$/i.test(f.name)||/^video\//.test(f.type||""));
       if(!vids.length){ toastMsg("Không thấy video (mp4/mov/mkv/webm) trong lựa chọn"); return; }
       const dirOf=f=>{ const rel=f.webkitRelativePath||f.name; const i=rel.lastIndexOf("/"); return i>=0?rel.slice(0,i):""; };
       const baseOf=f=>f.name.replace(/\.[^.]+$/,'');
-      let guessMsg="", nT=0, nM=0;
+      let guessMsg="", nT=0, nM=0, nS=0;
       vids.forEach(f=>{ const rel=f.webkitRelativePath||""; const top=rel.split("/")[0]||"";
         const dir=dirOf(f), base=baseOf(f);
-        // companion CÙNG TÊN, CÙNG THƯ MỤC: thumbnail (ảnh) + mô tả (.json/.txt/.md)
-        const sibs=all.filter(x=>x!==f && dirOf(x)===dir && baseOf(x)===base);
-        const thumbFile=sibs.find(x=>/\.(jpe?g|png|webp)$/i.test(x.name));
-        const metaFile=sibs.find(x=>/\.(json|txt|md)$/i.test(x.name));
-        const it={file:f,name:f.name,size:f.size,pct:0,status:"chờ",err:"",rel,thumbFile,metaFile};
-        if(thumbFile) nT++; if(metaFile) nM++;
-        if(fromFolder&&top){ const g=upGuessChannel(top); if(g){ it.channel=g; guessMsg=`📺 tự nhận kênh: ${chName(g)}`; } }
+        const sibs=all.filter(x=>x!==f && dirOf(x)===dir);   // MỌI file CÙNG THƯ MỤC (mỗi folder = 1 video)
+        // MÔ TẢ: <base>.json/.txt/.md riêng > UPLOAD.md/publish.md của folder
+        const metaFile=sibs.find(x=>baseOf(x)===base && /\.(json|txt|md)$/i.test(x.name))
+          || sibs.find(x=>/^(upload|publish)\.(md|txt)$/i.test(x.name));
+        // THUMBNAIL: ảnh, ưu tiên -thumb/-mb (bản final), bỏ candidate -mb-a/b/c hay -a/b/c
+        const imgs=sibs.filter(x=>/\.(jpe?g|png|webp)$/i.test(x.name));
+        const thumbFile=imgs.find(x=>/-(thumb|mb)\.(jpe?g|png|webp)$/i.test(x.name))
+          || imgs.find(x=>!/-(mb-)?[a-c]\.(jpe?g|png|webp)$/i.test(x.name)) || imgs[0];
+        // PHỤ ĐỀ: <base>.srt hoặc bất kỳ .srt trong folder
+        const srtFile=sibs.find(x=>baseOf(x)===base && /\.srt$/i.test(x.name)) || sibs.find(x=>/\.srt$/i.test(x.name));
+        const it={file:f,name:f.name,size:f.size,pct:0,status:"chờ",err:"",rel,thumbFile,metaFile,srtFile};
+        if(thumbFile) nT++; if(metaFile) nM++; if(srtFile) nS++;
+        if(fromFolder&&top){ const g=upGuessChannel(top); if(g){ it.channel=g; guessMsg=`📺 ${chName(g)}`; } }
         if(/(^|\/)(short|shorts|reel|reels)(\/|$)|[-_](short|reel)\b/i.test(rel||f.name)) it.pathShort=true;
         window.__upQ.push(it); });
       const firstCh=window.__upQ.find(x=>x.channel); if(firstCh){ const sel=$("upChannel"); if(sel&&[...sel.options].some(o=>o.value===firstCh.channel)) sel.value=firstCh.channel; }
-      let msg=`${vids.length} video`; if(nT)msg+=` · ${nT} thumbnail`; if(nM)msg+=` · ${nM} mô tả`;
+      let msg=`${vids.length} video`; if(nM)msg+=` · ${nM} mô tả`; if(nT)msg+=` · ${nT} thumbnail`; if(nS)msg+=` · ${nS} phụ đề`;
       toastMsg((guessMsg?guessMsg+" · ":"⬆️ ")+msg);
       upResched(); upRender(); upPump(); }
     function upRender(){ const box=$("upList"); if(!box) return; if(!window.__upQ.length){ box.innerHTML=""; return; }
@@ -3898,6 +3913,10 @@
         if(it.thumbFile){ try{ it.status="tải thumbnail…"; upRender();
             const ti=await workerApi("/api/upload-init",{method:"POST",body:{account:acct,folderId,name:it.thumbFile.name,mimeType:it.thumbFile.type||"image/jpeg",size:it.thumbFile.size,overwrite:true}});
             if(ti.sessionUri){ await upStream(ti.sessionUri, it.thumbFile); sidecar.thumbnail=it.thumbFile.name; } }catch(_){} it.status="đang tải"; upRender(); }
+        // 3) PHỤ ĐỀ .srt có sẵn -> upload + sidecar.captions (main.py tự up caption, KHÔNG để YouTube tự tạo)
+        if(it.srtFile){ try{ it.status="tải phụ đề…"; upRender();
+            const si=await workerApi("/api/upload-init",{method:"POST",body:{account:acct,folderId,name:it.srtFile.name,mimeType:"application/x-subrip",size:it.srtFile.size,overwrite:true}});
+            if(si.sessionUri){ await upStream(si.sessionUri, it.srtFile); sidecar.captions=[{file:it.srtFile.name,language:"en",name:"English"}]; } }catch(_){} it.status="đang tải"; upRender(); }
         if(channel){ sidecar.channel=channel;
           if(mode==="now") sidecar.publish_at=new Date().toISOString();
           else if(mode==="spread"&&it.publishAt) sidecar.publish_at=it.publishAt; }
