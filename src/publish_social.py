@@ -33,6 +33,7 @@ import storage as ST
 import facebook_uploader as FB
 import instagram_uploader as IG
 import metadata as M
+import affiliate as AFF
 from firestore_state import State
 from scheduler import due_items
 
@@ -74,6 +75,7 @@ def run(dry_run: bool = False):
         fb_map = ov.get("fb_map") or {}
         do_fb = ov.get("post_facebook", True)
         do_ig = ov.get("post_instagram", True)
+        aff_cfg = ov.get("affiliate") or {}
 
         pool = []
         for dc in u["drive"]:
@@ -100,7 +102,7 @@ def run(dry_run: bool = False):
                               "name": f["name"], "results": doc.get("results") or {},
                               "type": doc.get("type") or f["type"], "_drv": drv})
             for it in due_items(items, now):
-                _post_one(it, u["pages"], fb_map, do_fb, do_ig, state, now, dry_run)
+                _post_one(it, u["pages"], fb_map, do_fb, do_ig, state, now, dry_run, aff_cfg)
 
     # HÀNG ĐỢI ĐỘC LẬP (đăng FB/IG không cần kênh YouTube) — chạy chung 1 cron
     run_queue(state, now, dry_run)
@@ -118,6 +120,7 @@ def run_queue(state, now, dry_run=False):
         return
     drive_conns = state.list_connections("drive")
     posted_run = 0
+    _aff_cache: dict[str, dict] = {}   # affiliate cfg theo owner
     for it in items:
         if posted_run >= MAX_SOCIAL_PER_RUN:
             print(f"  ⏸ đủ {MAX_SOCIAL_PER_RUN} bài FB/IG/lần chạy -> phần còn lại để cron sau (chống spam).")
@@ -155,6 +158,12 @@ def run_queue(state, now, dry_run=False):
                                  "title": it.get("title") or "", "description": it.get("description") or "",
                                  "hashtags": it.get("hashtags") or []},
                                 {"hashtags": it.get("hashtags") or []})
+        # TIẾP THỊ LIÊN KẾT: meta RIÊNG từng nền tảng (FB có link mô tả/bình luận; IG chỉ 'link ở bio').
+        if owner not in _aff_cache:
+            _aff_cache[owner] = (state.get_doc("settings", "overrides__" + owner) or {}).get("affiliate") or {}
+        fb_meta, ig_meta = dict(meta), dict(meta)
+        fb_comment = AFF.apply(fb_meta, _aff_cache[owner], "facebook", slug, fid)
+        AFF.apply(ig_meta, _aff_cache[owner], "instagram", slug, fid)
         if dry_run:
             print(f"  (dry) queue {fid} -> Page {slug} FB={want_fb} IG={want_ig}"); continue
         # KHOÁ chống đăng trùng
@@ -177,13 +186,16 @@ def run_queue(state, now, dry_run=False):
             public_url = drv.make_public(fid)
             if want_fb:
                 try:
-                    r = FB.upload(None, meta, conn["page_id"], conn["page_token"], video_url=public_url)
+                    r = FB.upload(None, fb_meta, conn["page_id"], conn["page_token"], video_url=public_url)
                     results["facebook"] = r; print(f"     ✅ Facebook: {r.get('url')}")
+                    if fb_comment and r.get("id"):
+                        FB.post_comment(r["id"], fb_comment, conn["page_token"])
+                        print("     💬 Đã đăng bình luận link tiếp thị (FB)")
                 except Exception as e:
                     errs.append(f"FB: {e}"); print(f"     ❌ Facebook: {e}")
             if want_ig:
                 try:
-                    r = IG.upload(public_url, meta, conn["ig_user_id"], conn["page_token"])
+                    r = IG.upload(public_url, ig_meta, conn["ig_user_id"], conn["page_token"])
                     results["instagram"] = r; print(f"     ✅ Instagram: {r.get('url')}")
                 except Exception as e:
                     errs.append(f"IG: {e}"); print(f"     ❌ Instagram: {e}")
@@ -219,7 +231,7 @@ def run_queue(state, now, dry_run=False):
             time.sleep(random.uniform(4, 12))   # giãn cách nhẹ giữa các bài -> tránh heuristic spam Meta
 
 
-def _post_one(it, pages, fb_map, do_fb, do_ig, state, now, dry_run):
+def _post_one(it, pages, fb_map, do_fb, do_ig, state, now, dry_run, aff_cfg=None):
     drv = it["_drv"]
     sidecar = drv.read_sidecar(it["parent_id"], it["name"]) or {}
     channel = sidecar.get("channel")
@@ -260,21 +272,30 @@ def _post_one(it, pages, fb_map, do_fb, do_ig, state, now, dry_run):
         want_ig = False
         print("     ⏸ IG gần trần 25 bài/ngày -> để cron sau.")
 
+    # TIẾP THỊ LIÊN KẾT: meta riêng từng nền tảng + comment link (FB Reels).
+    fb_meta, ig_meta = dict(meta), dict(meta)
+    _slug = page.get("name") or channel or ""
+    fb_comment = AFF.apply(fb_meta, aff_cfg, "facebook", _slug, fid)
+    AFF.apply(ig_meta, aff_cfg, "instagram", _slug, fid)
+
     print(f"  🚀 FB/IG: {it['name']} -> {page.get('page_name')}")
     public_url = None
     try:
         public_url = drv.make_public(fid)   # FB/IG tự kéo từ link này
         if want_fb:
             try:
-                r = FB.upload(None, meta, page["page_id"], page["page_token"], video_url=public_url)
+                r = FB.upload(None, fb_meta, page["page_id"], page["page_token"], video_url=public_url)
                 results["facebook"] = r
                 state.upsert_video(fid, {"results": results})
                 print(f"     ✅ Facebook: {r.get('url')}")
+                if fb_comment and r.get("id"):
+                    FB.post_comment(r["id"], fb_comment, page["page_token"])
+                    print("     💬 Đã đăng bình luận link tiếp thị (FB)")
             except Exception as e:
                 print(f"     ❌ Facebook lỗi: {e}")
         if want_ig:
             try:
-                r = IG.upload(public_url, meta, page["ig_user_id"], page["page_token"])
+                r = IG.upload(public_url, ig_meta, page["ig_user_id"], page["page_token"])
                 results["instagram"] = r
                 state.upsert_video(fid, {"results": results})
                 print(f"     ✅ Instagram: {r.get('url')}")

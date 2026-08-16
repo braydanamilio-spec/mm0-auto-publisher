@@ -21,6 +21,19 @@ import requests
 GRAPH = "https://graph.facebook.com/v21.0"
 
 
+def post_comment(object_id: str, message: str, page_token: str) -> str | None:
+    """Đăng 1 BÌNH LUẬN (chứa link tiếp thị) lên video/bài — dùng cho Reels vì caption không bấm link được.
+    An toàn: lỗi -> trả None (không chặn luồng đăng)."""
+    try:
+        r = requests.post(f"{GRAPH}/{object_id}/comments",
+                          data={"message": message, "access_token": page_token}, timeout=60)
+        r.raise_for_status()
+        return r.json().get("id")
+    except Exception as e:
+        print(f"     ⚠️ FB post_comment lỗi: {e}")
+        return None
+
+
 def wait_video_ready(video_id: str, page_token: str,
                      poll_seconds: int = 15, max_polls: int = 80) -> bool:
     """Chờ FB KÉO + XỬ LÝ xong video (khi đăng bằng file_url, FB tải ngầm).

@@ -24,6 +24,7 @@ import yaml
 
 sys.path.insert(0, os.path.dirname(__file__))
 import metadata as M
+import affiliate as AFF
 import scheduler as S
 from drive_client import Drive
 from firestore_state import State
@@ -191,9 +192,11 @@ def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now, 
             break
 
 
-def publish_one(it, ch, resolved, drive, state, root, dry_run, now, owner=None):
+def publish_one(it, ch, resolved, drive, state, root, dry_run, now, owner=None, aff_cfg=None):
     name = it["drive_name"]
     meta = it["meta"]
+    # TIẾP THỊ LIÊN KẾT: chèn link vào mô tả YouTube + chuẩn bị bình luận (nếu bật auto_comment).
+    aff_comment = AFF.apply(meta, aff_cfg, "youtube", it["channel"], it["drive_file_id"]) if aff_cfg else None
     print(f"  🚀 Đăng: {name} -> {meta['title']!r} [{it['type']}]")
     if it["warnings"]:
         print("     ⚠️  " + " | ".join(it["warnings"]))
@@ -258,6 +261,8 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now, owner=None):
                               captions=caption_specs, playlist=it.get("playlist"))
                 results["youtube"] = r
                 yt_ok = True
+                if aff_comment and r.get("id"):
+                    YT.post_comment(resolved["yt_creds"], r["id"], aff_comment)
                 state.upsert_video(it["drive_file_id"], {"results": results})   # LƯU NGAY
                 state.bump_counters(it["channel"], now, yt=1, owner=owner)       # ĐẾM NGAY -> cap không lệch
                 if _cid:
@@ -535,7 +540,7 @@ def process_users(channels_cfg, templates, safety, tz, dry_run, state, now):
             for it in todo:
                 try:
                     publish_one(it, ch_cfg, resolved, it["_drive"], state, it["_root"],
-                                dry_run, now, owner=uid)
+                                dry_run, now, owner=uid, aff_cfg=ov.get("affiliate") or {})
                 except YT.QuotaExceeded:
                     print(f"  ⏸ {uid[:8]}/{channel}: hết quota.")
                     break

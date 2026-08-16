@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import storage as ST
 import youtube_uploader as YT
 import metadata as M
+import affiliate as AFF
 from firestore_state import State
 
 # CHỐNG SPAM upload (đúng chính sách YouTube): trần/ngày theo OAuth client + trần mỗi lần cron chạy.
@@ -42,6 +43,7 @@ def run(dry_run: bool = False):
     drive_conns = state.list_connections("drive")
     uploaded_run: dict[str, int] = {}   # đếm upload trong LẦN CHẠY này theo client_id
     done_run = 0
+    _aff_cache: dict[str, dict] = {}    # cache affiliate cfg theo owner (đỡ đọc lặp)
 
     for it in items:
         if done_run >= MAX_PER_RUN:
@@ -97,6 +99,11 @@ def run(dry_run: bool = False):
                "category_id": it.get("category") or "22",
                "default_language": it.get("language") or "en"}
 
+        # TIẾP THỊ LIÊN KẾT: chèn link vào mô tả + (tuỳ chọn) chuẩn bị bình luận đăng sau.
+        if owner not in _aff_cache:
+            _aff_cache[owner] = (state.get_doc("settings", "overrides__" + owner) or {}).get("affiliate") or {}
+        aff_comment = AFF.apply(meta, _aff_cache[owner], "youtube", slug, fid)
+
         if dry_run:
             print(f"  (dry) yt_queue {fid} -> {slug} [{ytc['privacy']}]"); continue
 
@@ -118,6 +125,12 @@ def run(dry_run: bool = False):
             sched = it.get("publish_at") if ytc["privacy"] == "private" else None
             r = YT.upload(tmp, meta, ytc, creds, sched)
             results["youtube"] = r
+            if aff_comment and r.get("id"):
+                try:
+                    YT.post_comment(creds, r["id"], aff_comment)
+                    print("     💬 Đã đăng bình luận link tiếp thị")
+                except Exception:
+                    pass
             state.update_yt_queue(it["id"], {"status": "posted", "results": results,
                                              "attempts": attempts, "posted_at": now.isoformat()})
             done_run += 1

@@ -41,6 +41,24 @@ def _client(client_id: str, client_secret: str, refresh_token: str):
     return build("youtube", "v3", credentials=creds, cache_discovery=False)
 
 
+def post_comment(creds_env: dict, video_id: str, text: str) -> str | None:
+    """Đăng 1 bình luận top-level (chứa link tiếp thị) lên video của chính mình.
+    LƯU Ý: YouTube API KHÔNG có endpoint GHIM bình luận -> chỉ đăng, không ghim được.
+    An toàn: lỗi -> None (không chặn luồng)."""
+    if not (video_id and text):
+        return None
+    try:
+        svc = _client(creds_env["client_id"], creds_env["client_secret"], creds_env["refresh_token"])
+        r = svc.commentThreads().insert(part="snippet", body={
+            "snippet": {"videoId": video_id,
+                        "topLevelComment": {"snippet": {"textOriginal": text[:9000]}}}
+        }).execute()
+        return r.get("id")
+    except Exception as e:
+        print(f"     ⚠️ YT post_comment lỗi: {e}")
+        return None
+
+
 def upload(
     file_path: str,
     meta: dict,

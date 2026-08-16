@@ -713,6 +713,34 @@
           <div class="p-head"><div class="p-title">📅 Thư viện template gói đăng bài</div></div>
           <div class="conn-grid" id="setTemplates"></div>
         </div>
+        <div class="panel" style="margin-top:16px" id="affPanel">
+          <div class="p-head"><div class="p-title">🔗 Tiếp thị liên kết (Affiliate)</div>
+            <label style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer"><input type="checkbox" id="affEnabled" style="width:16px;height:16px"> Bật chèn link tự động</label></div>
+          <div class="p-sub" style="margin:6px 0 12px;line-height:1.6">Chèn link ĐÚNG CHỖ từng nền tảng: YouTube + FB video dài → mô tả · FB Reels → bình luận ghim · Instagram → "link ở bio". Tự thêm <b>UTM</b> (đo hiệu suất, chống spam) + <b>khai báo tiếp thị</b> (đúng chính sách).</div>
+          <div class="pubbar">
+            <label class="fld" style="grid-column:span 2"><span>Link mặc định (áp cho mọi kênh chưa đặt riêng)</span><input id="affUrl" type="url" placeholder="https://shopee.vn/... hoặc link rút gọn có thương hiệu"></label>
+            <label class="fld"><span>Chữ CTA trước link</span><input id="affCta" type="text" placeholder="🛒 Mua ngay:" value="🛒 Link:"></label>
+            <label class="fld"><span>Dòng khai báo tiếp thị</span><input id="affDisc" type="text" placeholder="Tiếp thị liên kết · có thể nhận hoa hồng #ad" value="Tiếp thị liên kết · có thể nhận hoa hồng #ad"></label>
+          </div>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;align-items:center">
+            <span class="p-sub">Áp dụng nền tảng:</span>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="affYt" checked style="width:15px;height:15px"> 📺 YouTube</label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="affFb" checked style="width:15px;height:15px"> 📘 Facebook</label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="affIg" checked style="width:15px;height:15px"> 📷 Instagram</label>
+            <span style="flex:1;min-width:6px"></span>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="affUtm" checked style="width:15px;height:15px"> 🎯 UTM tracking</label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="affComment" checked style="width:15px;height:15px"> 💬 Auto bình luận (FB+YT)</label>
+          </div>
+          <div style="margin-top:12px">
+            <button class="btn-mini" onclick="affToggleOverrides()">🎛️ Link riêng từng kênh/Page ▾</button>
+            <div id="affOverrides" style="display:none;margin-top:10px"></div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:14px">
+            <button class="btn-conn" onclick="affSave()">💾 Lưu cấu hình affiliate</button>
+            <span class="p-sub" id="affMsg"></span>
+          </div>
+          <div class="p-sub" style="margin-top:10px;line-height:1.6">⚠️ <b>Instagram không thể chèn link click qua API</b> (giới hạn Meta) — chỉ ghi "link ở bio", anh tự đặt link-in-bio. <b>Gắn sản phẩm/tag</b> trên Reels cần Facebook Shop + quyền Commerce (không tự động được). Nên dùng <b>link rút gọn có thương hiệu</b> (không bit.ly trần) để không bị giảm reach.</div>
+        </div>
         <div class="panel" style="margin-top:16px">
           <div class="p-head"><div class="p-title">💾 Sao lưu & khôi phục cấu hình</div></div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
@@ -3565,7 +3593,37 @@
           <div class="p-sub" style="margin-top:6px">${esc(t.desc)}</div>
           <div class="tpl-pick">Chọn gói này →</div></div>`;
       }).join("");
+      if(window.affLoad) affLoad();
     }
+
+    /* ===== TIẾP THỊ LIÊN KẾT (affiliate) ===== */
+    window.affLoad=()=>{ const a=(__OVERRIDES.affiliate)||{}; const p=a.platforms||{};
+      const set=(id,v)=>{ const e=$(id); if(e) e.value=v; };
+      const chk=(id,v)=>{ const e=$(id); if(e) e.checked=!!v; };
+      chk("affEnabled",a.enabled); set("affUrl",a.default_url||""); if(a.cta_text!=null) set("affCta",a.cta_text); if(a.disclosure!=null) set("affDisc",a.disclosure);
+      chk("affYt",p.youtube!==false); chk("affFb",p.facebook!==false); chk("affIg",p.instagram!==false);
+      chk("affUtm",a.utm!==false); chk("affComment",a.auto_comment!==false);
+      window.__affLinks=Object.assign({}, a.links||{}); };
+    window.affToggleOverrides=()=>{ const box=$("affOverrides"); if(!box) return;
+      if(box.style.display!=="none"){ box.style.display="none"; return; }
+      const links=window.__affLinks||((__OVERRIDES.affiliate||{}).links)||{};
+      const yt=connectedYT().map(k=>({slug:k,name:chName(k),ico:"📺"}));
+      const fb=(__FBP||[]).map(p=>({slug:p.name,name:(p.page_name||p.name),ico:"📘"}));
+      const rows=[...yt,...fb];
+      box.innerHTML=rows.length?`<div class="p-sub" style="margin-bottom:6px">Để trống = dùng link mặc định. Điền = link riêng kênh/Page đó.</div>`+
+        rows.map(r=>`<div class="svc"><div class="snm" style="min-width:0">${r.ico} ${esc(r.name)}</div>
+          <input class="set-sel" style="flex:1;min-width:120px" placeholder="link mặc định" value="${esc(links[r.slug]||'')}" oninput="(window.__affLinks=window.__affLinks||{})['${esc(r.slug)}']=this.value.trim()"></div>`).join("")
+        :`<div class="p-sub">Chưa có kênh/Page.</div>`;
+      box.style.display=""; };
+    window.affSave=async()=>{ const g=id=>($(id)||{}).value||""; const c=id=>!!($(id)||{}).checked;
+      const links={}; const src=window.__affLinks||{}; Object.keys(src).forEach(k=>{ if((src[k]||"").trim()) links[k]=src[k].trim(); });
+      const cfg={ enabled:c("affEnabled"), default_url:g("affUrl").trim(), cta_text:g("affCta"), disclosure:g("affDisc"),
+        utm:c("affUtm"), auto_comment:c("affComment"),
+        platforms:{youtube:c("affYt"),facebook:c("affFb"),instagram:c("affIg")}, links };
+      const msg=$("affMsg");
+      if(cfg.enabled && !cfg.default_url && !Object.keys(links).length){ if(msg){msg.style.color="var(--bad)";msg.textContent="Nhập link mặc định hoặc link riêng ít nhất 1 kênh.";} return; }
+      try{ await window.__setOverridesDoc({affiliate:cfg}); if(msg){msg.style.color="var(--good)";msg.textContent="✔ Đã lưu — áp dụng lần đăng tới.";} toastMsg("✔ Đã lưu cấu hình affiliate"); }
+      catch(e){ if(msg){msg.style.color="var(--bad)";msg.textContent="❌ "+e.message;} } };
 
     window.pickTemplate = (id)=>{
       const chans=allChannels();
