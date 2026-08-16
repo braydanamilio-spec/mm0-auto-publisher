@@ -332,10 +332,11 @@
       <div class="nav" data-view="facebook"><span class="ic" data-i="fb"></span> <span data-i18n="nav_social">Social</span> <span class="badge" id="nvFb">0</span></div>
       <div class="nav-label" data-i18n="nav_team">Team</div>
       <div class="nav" data-view="tasks"><span class="ic" data-i="check"></span> <span data-i18n="nav_tasks">Tasks</span> <span class="badge" id="nvTasks">0</span></div>
+      <div class="nav" data-view="team"><span class="ic" data-i="sub"></span> <span data-i18n="nav_members">Members</span> <span class="badge" id="nvMembers">0</span></div>
       <div class="side-foot">
         <button class="ghost" id="langBtn">🌐 Tiếng Việt</button>
         <button class="ghost" id="themeBtn"><span id="themeIc">🌙</span> <span id="themeTx" data-i18n="theme_dark">Dark theme</span></button>
-        <div class="userchip"><img id="uImg" alt=""><span class="em" id="uEmail">—</span></div>
+        <div class="userchip"><img id="uImg" alt=""><span class="em" id="uEmail">—</span><span id="uRole" style="display:none;font-size:10px;font-weight:800;background:var(--accent-soft);color:var(--accent);padding:1px 7px;border-radius:20px;margin-left:6px"></span></div>
         <button class="ghost" id="signout">↪ <span data-i18n="signout">Sign out</span></button>
       </div>
     </aside>
@@ -1115,6 +1116,10 @@
         <div class="kanban" id="kanban"></div>
       </section>
 
+      <section id="v-team" class="content hide">
+        <div id="teamBody"></div>
+      </section>
+
       <div id="taskModal" class="modal-back hide">
         <div class="modal-card">
           <div class="modal-head"><b id="taskModalTitle" data-i18n="tk_new">New task</b><button class="modal-x" onclick="taskClose()">✕</button></div>
@@ -1147,7 +1152,7 @@
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
       signInWithEmailAndPassword, createUserWithEmailAndPassword }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query, where, doc, setDoc, addDoc, deleteDoc }
+    import { getFirestore, collection, onSnapshot, query, where, doc, setDoc, addDoc, deleteDoc, getDocs, getDoc }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -1176,17 +1181,30 @@
     document.getElementById("signout").onclick = () => signOut(auth);
 
     let resolved = false;
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => {
       resolved = true;
       document.getElementById("splash").classList.add("hide");
       document.getElementById("login").classList.toggle("hide", !!user);
       document.getElementById("app").classList.toggle("hide", !user);
       if (user) {
-        window.__uid = user.uid;
+        window.__uid = user.uid; window.__uEmail = user.email;
         window.__getIdToken = () => user.getIdToken();
         const im = document.getElementById("uImg");
         if (user.photoURL) im.src = user.photoURL; else im.style.display = "none";
         document.getElementById("uEmail").textContent = user.email;
+        // ---- RBAC: xác định workspace (chủ hay là thành viên của ai) ----
+        window.__ownerUid = user.uid; window.__role = "owner"; window.__workspaces = [];
+        try {
+          const ms = await getDocs(query(collection(db,"team_members"), where("member_uid","==",user.uid)));
+          window.__workspaces = ms.docs.map(d=>({id:d.id, ...d.data()}));
+          if (window.__workspaces.length){
+            const saved = localStorage.mm0ws;
+            const pick = window.__workspaces.find(w=>w.owner===saved) || window.__workspaces[0];
+            window.__ownerUid = pick.owner; window.__role = pick.role || "viewer";
+          }
+        } catch(e){ console.warn("workspace resolve:", e && e.message); }
+        if (window.__applyRole) window.__applyRole();
+        if (window.__renderWorkspace) window.__renderWorkspace();
         subscribe();
       }
     });
@@ -1194,7 +1212,7 @@
     setTimeout(() => { if (!resolved){ document.getElementById("splash").classList.add("hide");
       document.getElementById("login").classList.remove("hide"); } }, 6000);
 
-    function sub(name, cb){ onSnapshot(query(collection(db,name), where("owner","==",window.__uid)), cb, () => setLive(false)); }
+    function sub(name, cb){ onSnapshot(query(collection(db,name), where("owner","==",(window.__ownerUid||window.__uid))), cb, () => setLive(false)); }
     function subscribe(){
       sub("videos", s => { window.setData(s.docs.map(d=>({id:d.id,...d.data()})), null, null); setLive(true); });
       sub("channels", s => { const c={}; s.docs.forEach(d=>{const v=d.data();c[v.channel||d.id]=v;}); window.setData(null,c,null); });
@@ -1214,17 +1232,33 @@
       sub("tasks", s => { if(window.setTasks) window.setTasks(s.docs.map(d=>({id:d.id,...d.data()}))); });
     }
     // Giao việc (Kanban)
-    window.__taskAdd = async (data) => { await addDoc(collection(db,"tasks"), {owner:window.__uid, created_at:new Date().toISOString(), created_by:(window.__uEmail||window.__uid), ...data}); };
-    window.__taskUpdate = async (id, data) => { await setDoc(doc(db,"tasks",id), {owner:window.__uid, ...data}, {merge:true}); };
+    window.__taskAdd = async (data) => { await addDoc(collection(db,"tasks"), {owner:(window.__ownerUid||window.__uid), created_at:new Date().toISOString(), created_by:(window.__uEmail||window.__uid), ...data}); };
+    window.__taskUpdate = async (id, data) => { await setDoc(doc(db,"tasks",id), {owner:(window.__ownerUid||window.__uid), ...data}, {merge:true}); };
     window.__taskDel = async (id) => { await deleteDoc(doc(db,"tasks",id)); };
+    // ---- ĐỘI NHÓM (RBAC) ----
+    window.__teamInvite = async (role) => { const code=(Math.random().toString(36).slice(2,7)+Math.random().toString(36).slice(2,6)).toUpperCase();
+      await addDoc(collection(db,"team_invites"), {owner:window.__uid, owner_name:(window.__uEmail||""), role, code, created_at:new Date().toISOString()}); return code; };
+    window.__teamList = async () => { const [inv,mem]=await Promise.all([
+        getDocs(query(collection(db,"team_invites"), where("owner","==",window.__uid))),
+        getDocs(query(collection(db,"team_members"), where("owner","==",window.__uid)))]);
+      return { invites:inv.docs.map(d=>({id:d.id,...d.data()})), members:mem.docs.map(d=>({id:d.id,...d.data()})) }; };
+    window.__teamRevokeInvite = async (id) => { await deleteDoc(doc(db,"team_invites",id)); };
+    window.__teamRemoveMember = async (id) => { await deleteDoc(doc(db,"team_members",id)); };
+    window.__teamSetRole = async (id, role) => { const d=await getDoc(doc(db,"team_members",id)); if(d.exists()) await setDoc(doc(db,"team_members",id), {...d.data(), role}, {merge:true}); };
+    window.__teamJoin = async (code) => { const q=await getDocs(query(collection(db,"team_invites"), where("code","==",code.trim().toUpperCase())));
+      if(q.empty) throw new Error("Mã mời không hợp lệ"); const inv=q.docs[0].data(), invId=q.docs[0].id;
+      if(inv.owner===window.__uid) throw new Error("Đây là workspace của chính bạn");
+      await setDoc(doc(db,"team_members", inv.owner+"__"+window.__uid), { owner:inv.owner, member_uid:window.__uid, member_email:window.__uEmail||"", role:inv.role, invite_id:invId, joined_at:new Date().toISOString() }); return inv; };
+    window.__teamLeave = async (ownerUid) => { await deleteDoc(doc(db,"team_members", ownerUid+"__"+window.__uid)); };
+    window.__switchWorkspace = (ownerUid) => { try{ localStorage.mm0ws=ownerUid||""; }catch(_){} location.reload(); };
     // Ghi/xoá hàng đợi đăng FB/IG độc lập (client tự tạo item của mình)
-    window.__socQueueAdd = async (data) => { await addDoc(collection(db,"social_queue"), {owner:window.__uid, status:"pending", attempts:0, created_at:new Date().toISOString(), ...data}); };
+    window.__socQueueAdd = async (data) => { await addDoc(collection(db,"social_queue"), {owner:(window.__ownerUid||window.__uid), status:"pending", attempts:0, created_at:new Date().toISOString(), ...data}); };
     window.__socQueueDel = async (id) => { await deleteDoc(doc(db,"social_queue",id)); };
     // Content Hub: hàng đợi đăng YouTube từ Drive
-    window.__ytQueueAdd = async (data) => { await addDoc(collection(db,"yt_queue"), {owner:window.__uid, status:"pending", attempts:0, created_at:new Date().toISOString(), ...data}); };
+    window.__ytQueueAdd = async (data) => { await addDoc(collection(db,"yt_queue"), {owner:(window.__ownerUid||window.__uid), status:"pending", attempts:0, created_at:new Date().toISOString(), ...data}); };
     window.__ytQueueDel = async (id) => { await deleteDoc(doc(db,"yt_queue",id)); };
     // Cập nhật item hàng đợi (retry: đặt lại pending) — coll = yt_queue | social_queue
-    window.__qUpdate = async (coll, id, patch) => { await setDoc(doc(db,coll,id), {owner:window.__uid, ...patch}, {merge:true}); };
+    window.__qUpdate = async (coll, id, patch) => { await setDoc(doc(db,coll,id), {owner:(window.__ownerUid||window.__uid), ...patch}, {merge:true}); };
     function setLive(ok){
       const el=document.getElementById("live"); el.classList.toggle("err",!ok);
       const T=window.t||(x=>x);
@@ -1233,14 +1267,14 @@
     }
     const toastMsg = (m) => { const t=document.getElementById("toast"); if(t){t.textContent=m; t.style.opacity="1"; setTimeout(()=>t.style.opacity="0",2600);} };
     window.toastMsg = toastMsg;   // để script classic (gỡ kết nối, editor…) gọi được
-    const ovDoc = () => doc(db,"settings","overrides__"+window.__uid);
+    const ovDoc = () => doc(db,"settings","overrides__"+(window.__ownerUid||window.__uid));
     window.saveOverride = async (channel, tmpl) => {
-      try { await setDoc(ovDoc(), {owner:window.__uid, channels:{[channel]:tmpl}}, {merge:true});
+      try { await setDoc(ovDoc(), {owner:(window.__ownerUid||window.__uid), channels:{[channel]:tmpl}}, {merge:true});
         toastMsg(`✔ ${channel}: ${tmpl} (áp dụng lần chạy tới)`); }
       catch(e){ alert("Lưu template lỗi: "+e.message); }
     };
     window.saveReviewMode = async (on) => {
-      try { await setDoc(ovDoc(), {owner:window.__uid, review_mode:!!on}, {merge:true});
+      try { await setDoc(ovDoc(), {owner:(window.__ownerUid||window.__uid), review_mode:!!on}, {merge:true});
         toastMsg(on?"✔ Đã bật chế độ DUYỆT (video mới sẽ chờ duyệt)":"✔ Đã tắt duyệt (đăng tự động)"); }
       catch(e){ alert("Lỗi: "+e.message); }
     };
@@ -1250,34 +1284,34 @@
       catch(e){ alert("Duyệt lỗi: "+e.message); }
     };
     window.saveCleanup = async (mode, days) => {
-      try { await setDoc(ovDoc(), {owner:window.__uid, cleanup:{mode, keep_days:Number(days)||0}}, {merge:true});
+      try { await setDoc(ovDoc(), {owner:(window.__ownerUid||window.__uid), cleanup:{mode, keep_days:Number(days)||0}}, {merge:true});
         toastMsg("✔ Đã lưu dọn dẹp: "+mode+" · "+(Number(days)||0)+" ngày"); }
       catch(e){ alert("Lỗi: "+e.message); }
     };
-    window.__setOverridesDoc = async (data) => { await setDoc(ovDoc(), {owner:window.__uid, ...data}, {merge:true}); };
+    window.__setOverridesDoc = async (data) => { await setDoc(ovDoc(), {owner:(window.__ownerUid||window.__uid), ...data}, {merge:true}); };
     // Gộp brand channel vào 1 Gmail thật (Google giấu Gmail của tài khoản thương hiệu)
     window.saveGmailGroup = async (channels, gmail, extra) => {
       const map={}; (channels||[]).forEach(c=>map[c]=gmail);
-      try { await setDoc(ovDoc(), {owner:window.__uid, gmail_group:map, ...(extra||{})}, {merge:true});
+      try { await setDoc(ovDoc(), {owner:(window.__ownerUid||window.__uid), gmail_group:map, ...(extra||{})}, {merge:true});
         toastMsg(`✔ Đã gộp ${channels.length} kênh vào ${gmail}`); }
       catch(e){ alert("Lỗi: "+e.message); }
     };
     // Gán nhóm THỦ CÔNG cho Facebook Page (nick/UID/Gmail) — như gmail_group của YouTube
     window.saveFbGroup = async (slugs, label) => {
       const map={}; (slugs||[]).forEach(s=>map[s]=label);
-      try { await setDoc(ovDoc(), {owner:window.__uid, fb_group:map}, {merge:true});
+      try { await setDoc(ovDoc(), {owner:(window.__ownerUid||window.__uid), fb_group:map}, {merge:true});
         toastMsg(label?`✔ Đã gộp ${slugs.length} Page vào "${label}"`:`✔ Đã bỏ nhóm`); }
       catch(e){ alert("Lỗi: "+e.message); }
     };
     window.saveFbMap = async (channel, pageSlug) => {
-      try { await setDoc(ovDoc(), {owner:window.__uid, fb_map:{[channel]: pageSlug||""}}, {merge:true});
+      try { await setDoc(ovDoc(), {owner:(window.__ownerUid||window.__uid), fb_map:{[channel]: pageSlug||""}}, {merge:true});
         toastMsg(pageSlug?`✔ ${channel} → Page (áp dụng lần đăng tới)`:`✔ ${channel}: bỏ đăng FB/IG`); }
       catch(e){ alert("Lỗi: "+e.message); }
     };
     // Áp 1 gói template cho NHIỀU kênh cùng lúc (từ thư viện template ở Cài đặt)
     window.saveTemplateAll = async (tmpl, channels) => {
       const map = {}; (channels || []).forEach(c => map[c] = tmpl);
-      try { await setDoc(ovDoc(), {owner:window.__uid, channels:map}, {merge:true});
+      try { await setDoc(ovDoc(), {owner:(window.__ownerUid||window.__uid), channels:map}, {merge:true});
         toastMsg(`✔ Đã áp "${tmpl}" cho ${channels.length} kênh (áp dụng lần chạy tới)`); }
       catch(e){ alert("Lỗi: "+e.message); }
     };
@@ -1341,7 +1375,7 @@
         yt_post:"📺 YouTube", yq_title:"📺 Schedule to YouTube (Content Hub)", yq_channel:"Channel", yq_type:"Type", yq_note:"Cron downloads from Drive & uploads to YouTube · no local script · no duplicates.",
         ch_title:"Content Hub — schedule to YouTube from Drive", ch_browse:"📂 Browse Drive → pick videos", ch_hint:"Go to Storage → Browse files → click “📺 YouTube” on a video. Cron downloads from Drive and uploads to YouTube automatically (no local script). Below: everything you queued.",
         ch_all:"All", ch_pending:"Queued", ch_scheduled:"Scheduled", ch_posted:"Posted", ch_failed:"Failed", ch_cleanup:"🧹 Clear posted", ch_empty:"Nothing queued yet.",
-        nav_team:"Team", nav_tasks:"Tasks", tasks:"Tasks", sub_tasks:"Assign & track team work",
+        nav_team:"Team", nav_tasks:"Tasks", nav_members:"Members", tasks:"Tasks", sub_tasks:"Assign & track team work", team:"Members", sub_team:"Invite staff & set roles (Admin/Editor/Viewer)",
         tk_board:"Task board — assign work to your team", tk_new:"New task", tk_hint:"Assign work (make video for a channel, post/edit content…) to team members. Move cards across columns. Realtime.",
         tk_title:"Title", tk_desc:"Description", tk_assignee:"Assignee (name/email)", tk_type:"Type", tk_t_video:"🎬 Make video", tk_t_post:"📤 Post content", tk_t_edit:"✏️ Edit content", tk_t_other:"📌 Other",
         tk_channel:"Channel / Page", tk_priority:"Priority", tk_p_low:"🟢 Low", tk_p_med:"🟡 Medium", tk_p_high:"🔴 High",
@@ -1427,7 +1461,7 @@
         yt_post:"📺 YouTube", yq_title:"📺 Lên lịch YouTube (Content Hub)", yq_channel:"Kênh", yq_type:"Loại", yq_note:"Cron tự tải video từ Drive & đăng YouTube · khỏi script local · chống trùng.",
         ch_title:"Content Hub — lên lịch YouTube từ Drive", ch_browse:"📂 Duyệt Drive → chọn video", ch_hint:"Vào Storage → Duyệt file → bấm “📺 YouTube” trên video. Cron tự tải từ Drive và đăng lên YouTube (khỏi chạy script). Dưới đây là mọi video anh đã xếp.",
         ch_all:"Tất cả", ch_pending:"Chờ đăng", ch_scheduled:"Đã lên lịch", ch_posted:"Đã đăng", ch_failed:"Lỗi", ch_cleanup:"🧹 Dọn bài đã đăng", ch_empty:"Chưa xếp bài nào.",
-        nav_team:"Đội nhóm", nav_tasks:"Giao việc", tasks:"Giao việc", sub_tasks:"Giao & theo dõi việc nhóm",
+        nav_team:"Đội nhóm", nav_tasks:"Giao việc", nav_members:"Nhân viên", tasks:"Giao việc", sub_tasks:"Giao & theo dõi việc nhóm", team:"Nhân viên", sub_team:"Mời nhân viên & phân vai trò (Admin/Editor/Viewer)",
         tk_board:"Bảng giao việc — xếp việc cho nhân viên", tk_new:"Việc mới", tk_hint:"Giao việc (làm video kênh nào, đăng/sửa bài…) cho nhân viên. Kéo thẻ qua các cột. Realtime — mọi người thấy cập nhật.",
         tk_title:"Tiêu đề", tk_desc:"Mô tả", tk_assignee:"Người nhận (tên/email)", tk_type:"Loại việc", tk_t_video:"🎬 Làm video", tk_t_post:"📤 Đăng bài", tk_t_edit:"✏️ Sửa bài", tk_t_other:"📌 Khác",
         tk_channel:"Kênh / Page", tk_priority:"Ưu tiên", tk_p_low:"🟢 Thấp", tk_p_med:"🟡 Trung bình", tk_p_high:"🔴 Cao",
@@ -2185,6 +2219,39 @@
       try{ if(window.__taskEditId) await window.__taskUpdate(window.__taskEditId,data); else await window.__taskAdd(data); toastMsg("✔ Đã lưu việc"); taskClose(); }
       catch(e){ $("tkMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ btn.disabled=false; } };
     window.taskDelete=async()=>{ if(!window.__taskEditId) return; if(!confirm("Xoá việc này?")) return; try{ await window.__taskDel(window.__taskEditId); toastMsg("🗑️ Đã xoá"); taskClose(); }catch(e){ alert("❌ "+e.message); } };
+    /* ===== ĐỘI NHÓM (RBAC): vai trò + quản lý nhân viên ===== */
+    const ROLE_VN={owner:"Chủ workspace",admin:"Admin (full quyền)",editor:"Editor (sửa + đăng)",viewer:"Viewer (chỉ xem)"};
+    window.__applyRole=()=>{ const r=window.__role||"owner"; document.body.setAttribute("data-role",r);
+      const el=$("uRole"); if(el){ el.textContent=({owner:"👑 Chủ",admin:"🛡️ Admin",editor:"✏️ Editor",viewer:"👁️ Viewer"})[r]||r; el.style.display=""; } };
+    window.__renderWorkspace=()=>{ window.__applyRole(); };
+    const curWsName=()=>{ const w=(window.__workspaces||[]).find(x=>x.owner===window.__ownerUid); return w?(w.owner_name||w.member_email||("UID "+String(w.owner).slice(-6))):"—"; };
+    window.renderTeam=async()=>{ const box=$("teamBody"); if(!box) return;
+      const meOwner=(window.__ownerUid||window.__uid)===window.__uid; const wss=window.__workspaces||[];
+      const selStyle="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:8px 11px;font-size:13px";
+      let html="";
+      html+=`<div class="panel" style="margin-bottom:14px"><div class="p-head"><div class="p-title">🏢 Workspace hiện tại</div></div>
+        <div class="p-sub" style="margin:6px 0">Đang ở: <b>${meOwner?"Workspace của tôi":esc(curWsName())}</b> · vai trò <b style="color:var(--accent)">${esc(ROLE_VN[window.__role]||window.__role)}</b></div>
+        ${wss.length?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="btn-mini ${meOwner?'':''}" onclick="__switchWorkspace('')">🏠 Của tôi</button>${wss.map(w=>`<button class="btn-mini" onclick="__switchWorkspace('${esc(w.owner)}')">👤 ${esc(w.owner_name||w.member_email||String(w.owner).slice(-6))} · ${esc(w.role)}</button>`).join("")}</div>`:''}</div>`;
+      html+=`<div class="panel" style="margin-bottom:14px"><div class="p-head"><div class="p-title">🎟️ Tham gia workspace bằng mã</div></div>
+        <div class="p-sub" style="margin:6px 0">Có mã mời từ chủ công ty? Nhập để tham gia với vai trò được cấp.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="joinCode" placeholder="Mã mời" style="${selStyle};text-transform:uppercase"><button class="btn-conn" onclick="teamJoin()">Tham gia</button></div>
+        <div id="joinMsg" class="p-sub" style="margin-top:6px"></div></div>`;
+      if(meOwner){ html+=`<div class="panel"><div class="p-head"><div class="p-title">👥 Nhân viên của tôi</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select id="inviteRole" style="${selStyle}"><option value="editor">Editor (sửa+đăng)</option><option value="admin">Admin (full)</option><option value="viewer">Viewer (chỉ xem)</option></select><button class="btn-conn" onclick="teamMakeInvite()">➕ Tạo mã mời</button></div></div>
+        <div id="teamList"><div class="p-sub" style="padding:6px">Đang tải…</div></div></div>`; }
+      box.innerHTML=html;
+      if(meOwner){ try{ const {invites,members}=await window.__teamList(); const nv=$("nvMembers"); if(nv)nv.textContent=members.length;
+        const rn={admin:"Admin",editor:"Editor",viewer:"Viewer"};
+        $("teamList").innerHTML=`${members.length?`<div class="p-sub" style="margin:12px 0 6px;font-weight:700">Thành viên (${members.length})</div>`+members.map(m=>`<div class="chan-item"><div class="ava" style="background:linear-gradient(145deg,var(--accent),var(--violet))">${esc((m.member_email||"?")[0].toUpperCase())}</div><div class="chan-mid"><div class="nm">${esc(m.member_email||m.member_uid)}</div><div class="st">Vai trò hiện tại: <b>${esc(rn[m.role]||m.role)}</b></div></div><div style="display:flex;gap:6px;align-items:center"><select onchange="teamRole('${m.id}',this.value)" style="${selStyle}">${["admin","editor","viewer"].map(r=>`<option value="${r}" ${m.role===r?'selected':''}>${rn[r]}</option>`).join("")}</select><button class="btn-mini danger" onclick="teamRemove('${m.id}')">Gỡ</button></div></div>`).join(""):'<div class="p-sub" style="padding:8px">Chưa có nhân viên. Tạo mã mời rồi gửi cho nhân viên nhập.</div>'}
+        ${invites.length?`<div class="p-sub" style="margin:16px 0 6px;font-weight:700">Mã mời đang mở (${invites.length})</div>`+invites.map(i=>`<div class="chan-item"><div class="chan-mid"><div class="nm">Mã: <b style="font-family:var(--mono,monospace);letter-spacing:1px">${esc(i.code)}</b></div><div class="st">Vai trò: ${esc(rn[i.role]||i.role)}</div></div><div style="display:flex;gap:6px"><button class="btn-mini" onclick="navigator.clipboard.writeText('${esc(i.code)}').then(()=>toastMsg('✔ Đã copy mã'))">📋 Copy</button><button class="btn-mini danger" onclick="teamRevoke('${i.id}')">Thu hồi</button></div></div>`).join(""):''}`;
+      }catch(e){ $("teamList").innerHTML=`<div class="p-sub" style="color:var(--bad);padding:6px">❌ ${esc(e.message)}</div>`; } }
+    };
+    window.teamMakeInvite=async()=>{ try{ const code=await window.__teamInvite($("inviteRole").value); toastMsg("✔ Đã tạo mã: "+code); renderTeam(); }catch(e){ alert("❌ "+e.message); } };
+    window.teamJoin=async()=>{ const c=($("joinCode")||{}).value||""; if(!c.trim()) return; $("joinMsg").textContent="Đang tham gia…";
+      try{ const inv=await window.__teamJoin(c); $("joinMsg").innerHTML=`<span style="color:var(--good)">✔ Đã tham gia workspace của ${esc(inv.owner_name||'')} (${esc(inv.role)}). Đang tải lại…</span>`; setTimeout(()=>window.__switchWorkspace(inv.owner),900); }catch(e){ $("joinMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } };
+    window.teamRole=async(id,role)=>{ try{ await window.__teamSetRole(id,role); toastMsg("✔ Đã đổi vai trò"); }catch(e){ alert("❌ "+e.message); renderTeam(); } };
+    window.teamRemove=async(id)=>{ if(!confirm("Gỡ nhân viên này khỏi workspace?")) return; try{ await window.__teamRemoveMember(id); toastMsg("🗑️ Đã gỡ"); renderTeam(); }catch(e){ alert("❌ "+e.message); } };
+    window.teamRevoke=async(id)=>{ if(!confirm("Thu hồi mã mời này?")) return; try{ await window.__teamRevokeInvite(id); toastMsg("✔ Đã thu hồi"); renderTeam(); }catch(e){ alert("❌ "+e.message); } };
     /* ===== Analytics + Schedule cho FB/IG (sub-tab) ===== */
     window.renderFbAnalytics=()=>{ const box=$("fbAnalytics"); if(!box) return; const pages=__FBP||[];
       if(!pages.length){ box.innerHTML=`<div class="panel"><div class="p-sub" style="padding:14px">Chưa kết nối Facebook Page. Vào tab <b>Kết nối FB/IG</b> để kết nối.</div></div>`; return; }
@@ -2320,7 +2387,8 @@
       const VIEWS=["overview","analytics","videos","schedule","publish","connections","storage","settings","channels","branding","comments","facebook"];
       const setTitle=(v)=>{ window.__view=v; $("vTitle").textContent=t(v); $("vSub").textContent=t("sub_"+v);
         const ps=$("platSwitch"); if(ps) ps.style.display=["overview","videos","publish","analytics","schedule","comments"].includes(v)?"inline-flex":"none";
-        if(window.__plat==="fb"){ if(v==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(v==="schedule"&&window.renderFbSchedule) renderFbSchedule(); if(v==="overview"&&window.renderFbOverview) renderFbOverview(); if(v==="comments"&&window.renderCmFb) renderCmFb(); } };
+        if(window.__plat==="fb"){ if(v==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(v==="schedule"&&window.renderFbSchedule) renderFbSchedule(); if(v==="overview"&&window.renderFbOverview) renderFbOverview(); if(v==="comments"&&window.renderCmFb) renderCmFb(); }
+        if(v==="team"&&window.renderTeam) renderTeam(); };
       window.__setTitle=setTitle;
       // ROUTING theo URL hash: mỗi mục 1 đường dẫn (#publish, #channels…) -> F5 giữ nguyên trang
       function activateView(v){

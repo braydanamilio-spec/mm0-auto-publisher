@@ -1,20 +1,31 @@
 rules_version = '2';
 // ============================================================================
-//  BẢO MẬT FIRESTORE — MULTI-TENANT (mỗi user chỉ thấy dữ liệu của mình)
-//  Mọi doc có field `owner` = uid. Rules chặn đọc/ghi chéo giữa các user.
-//  Service account (pipeline) + Worker ghi qua Admin/REST -> bỏ qua rules.
+//  BẢO MẬT FIRESTORE — MULTI-TENANT + RBAC (đội nhóm)
+//  Mọi doc dữ liệu có field `owner` = uid CHỦ workspace.
+//  Thành viên (team_members/{owner}__{memberUid}) truy cập theo VAI TRÒ:
+//    admin  = toàn quyền · editor = đọc + sửa/đăng nội dung · viewer = chỉ đọc.
+//  Server/Worker ghi qua Admin/REST -> bỏ qua rules (tokens vẫn kín).
 // ============================================================================
 service cloud.firestore {
   match /databases/{database}/documents {
 
     function signedIn() { return request.auth != null; }
-    function owns(data) { return signedIn() && data.owner == request.auth.uid; }
-    function willOwn()  { return signedIn() && request.resource.data.owner == request.auth.uid; }
+    function uid() { return request.auth.uid; }
+    function owns(data) { return signedIn() && data.owner == uid(); }
+    function willOwn()  { return signedIn() && request.resource.data.owner == uid(); }
 
-    // Video — chủ đọc; chỉ được DUYỆT (đổi status/publish_at/reviewed_at)
+    // ---- RBAC helpers ----
+    function memPath(ownerUid) { return /databases/$(database)/documents/team_members/$(ownerUid + '__' + uid()); }
+    function isMember(ownerUid) { return signedIn() && exists(memPath(ownerUid)); }
+    function roleOf(ownerUid) { return get(memPath(ownerUid)).data.role; }
+    function canRead(ownerUid) { return signedIn() && (ownerUid == uid() || isMember(ownerUid)); }
+    function canEdit(ownerUid) { return signedIn() && (ownerUid == uid() || (isMember(ownerUid) && roleOf(ownerUid) in ['admin','editor'])); }
+    function canAdmin(ownerUid) { return signedIn() && (ownerUid == uid() || (isMember(ownerUid) && roleOf(ownerUid) == 'admin')); }
+
+    // Video — đọc (chủ+thành viên); editor/admin được DUYỆT/sửa metadata.
     match /videos/{doc} {
-      allow read: if owns(resource.data);
-      allow update: if owns(resource.data)
+      allow read: if canRead(resource.data.owner);
+      allow update: if canEdit(resource.data.owner)
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['status', 'publish_at', 'reviewed_at',
                        'title', 'description', 'tags', 'hashtags', 'edited', 'updated_at',
@@ -22,41 +33,64 @@ service cloud.firestore {
       allow create, delete: if false;
     }
 
-    match /channels/{doc}         { allow read: if owns(resource.data); allow write: if false; }
-    match /counters/{doc}         { allow read: if owns(resource.data); allow write: if false; }
-    match /storage/{doc}          { allow read: if owns(resource.data); allow write: if false; }
-    match /storage_accounts/{doc} { allow read: if owns(resource.data); allow write: if false; }
-    match /fb_pages/{doc}         { allow read: if owns(resource.data); allow write: if false; }
+    // Chỉ đọc (server ghi) — chủ + mọi thành viên đọc được.
+    match /channels/{doc}         { allow read: if canRead(resource.data.owner); allow write: if false; }
+    match /counters/{doc}         { allow read: if canRead(resource.data.owner); allow write: if false; }
+    match /storage/{doc}          { allow read: if canRead(resource.data.owner); allow write: if false; }
+    match /storage_accounts/{doc} { allow read: if canRead(resource.data.owner); allow write: if false; }
+    match /fb_pages/{doc}         { allow read: if canRead(resource.data.owner); allow write: if false; }
+    match /quota/{doc}            { allow read: if canRead(resource.data.owner); allow write: if false; }
 
-    // Hàng đợi đăng FB/IG độc lập — chủ tự tạo/sửa/xoá item của mình (KHÔNG chứa token).
+    // Hàng đợi đăng FB/IG — editor/admin tạo/sửa/xoá; viewer chỉ đọc.
     match /social_queue/{doc} {
-      allow read, delete: if owns(resource.data);
-      allow create: if willOwn();
-      allow update: if owns(resource.data) && willOwn();
+      allow read: if canRead(resource.data.owner);
+      allow create: if canEdit(request.resource.data.owner);
+      allow update: if canEdit(resource.data.owner) && canEdit(request.resource.data.owner);
+      allow delete: if canEdit(resource.data.owner);
     }
-
-    // Content Hub — hàng đợi đăng YouTube từ Drive (KHÔNG chứa token).
+    // Content Hub — hàng đợi đăng YouTube từ Drive.
     match /yt_queue/{doc} {
-      allow read, delete: if owns(resource.data);
-      allow create: if willOwn();
-      allow update: if owns(resource.data) && willOwn();
+      allow read: if canRead(resource.data.owner);
+      allow create: if canEdit(request.resource.data.owner);
+      allow update: if canEdit(resource.data.owner) && canEdit(request.resource.data.owner);
+      allow delete: if canEdit(resource.data.owner);
     }
-
-    // Giao việc (Kanban) — chủ tự tạo/sửa/xoá thẻ việc của mình.
+    // Giao việc (Kanban) — editor/admin quản lý; viewer chỉ đọc.
     match /tasks/{doc} {
-      allow read, delete: if owns(resource.data);
-      allow create: if willOwn();
-      allow update: if owns(resource.data) && willOwn();
+      allow read: if canRead(resource.data.owner);
+      allow create: if canEdit(request.resource.data.owner);
+      allow update: if canEdit(resource.data.owner) && canEdit(request.resource.data.owner);
+      allow delete: if canEdit(resource.data.owner);
     }
-    match /quota/{doc}            { allow read: if owns(resource.data); allow write: if false; }
 
     // TOKEN kết nối — không client nào đọc/ghi (chỉ server/Worker qua Admin).
     match /connections/{doc}      { allow read, write: if false; }
 
-    // Cấu hình: chủ đọc doc của mình; chỉ được ghi doc overrides__<uid> của chính mình.
+    // Cấu hình (overrides__<owner>) — đọc: chủ+thành viên; ghi: editor/admin.
     match /settings/{doc} {
-      allow read: if owns(resource.data);
-      allow write: if willOwn() && doc == ('overrides__' + request.auth.uid);
+      allow read: if canRead(resource.data.owner);
+      allow write: if canEdit(request.resource.data.owner)
+        && doc == ('overrides__' + request.resource.data.owner);
+    }
+
+    // ---- ĐỘI NHÓM ----
+    // Lời mời (mã code) — chủ tạo/sửa/xoá; người đăng nhập đọc được để nhập mã tham gia.
+    match /team_invites/{doc} {
+      allow read:   if signedIn();
+      allow create: if willOwn();
+      allow update, delete: if owns(resource.data);
+    }
+    // Thành viên — chủ quản lý; thành viên tự THAM GIA qua lời mời hợp lệ.
+    match /team_members/{doc} {
+      allow read:   if owns(resource.data) || (signedIn() && resource.data.member_uid == uid());
+      allow create: if signedIn()
+        && request.resource.data.member_uid == uid()
+        && doc == (request.resource.data.owner + '__' + uid())
+        && exists(/databases/$(database)/documents/team_invites/$(request.resource.data.invite_id))
+        && get(/databases/$(database)/documents/team_invites/$(request.resource.data.invite_id)).data.owner == request.resource.data.owner
+        && get(/databases/$(database)/documents/team_invites/$(request.resource.data.invite_id)).data.role == request.resource.data.role;
+      allow update: if owns(resource.data) && request.resource.data.member_uid == resource.data.member_uid;
+      allow delete: if owns(resource.data) || (signedIn() && resource.data.member_uid == uid());
     }
   }
 }
