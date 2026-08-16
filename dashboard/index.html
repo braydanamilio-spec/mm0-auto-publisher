@@ -330,6 +330,8 @@
       <div class="nav" data-view="branding"><span class="ic" data-i="badge"></span> <span data-i18n="branding">Branding</span></div>
       <div class="nav" data-view="comments"><span class="ic" data-i="chat"></span> <span data-i18n="comments">Comments</span></div>
       <div class="nav" data-view="facebook"><span class="ic" data-i="fb"></span> <span data-i18n="nav_social">Social</span> <span class="badge" id="nvFb">0</span></div>
+      <div class="nav-label" data-i18n="nav_team">Team</div>
+      <div class="nav" data-view="tasks"><span class="ic" data-i="check"></span> <span data-i18n="nav_tasks">Tasks</span> <span class="badge" id="nvTasks">0</span></div>
       <div class="side-foot">
         <button class="ghost" id="langBtn">🌐 Tiếng Việt</button>
         <button class="ghost" id="themeBtn"><span id="themeIc">🌙</span> <span id="themeTx" data-i18n="theme_dark">Dark theme</span></button>
@@ -871,6 +873,21 @@
         .fb-chk{width:15px;height:15px;cursor:pointer;flex:none;accent-color:var(--accent)}
         .stbulk-pages{display:flex;flex-direction:column;gap:6px;max-height:150px;overflow:auto;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px}
         .stbulk-pg{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer} .stbulk-pg input{width:15px;height:15px;accent-color:var(--accent)}
+        .kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+        @media(max-width:900px){.kanban{grid-template-columns:1fr 1fr}} @media(max-width:560px){.kanban{grid-template-columns:1fr}}
+        .kan-col{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;min-height:120px}
+        .kan-head{display:flex;align-items:center;justify-content:space-between;font-weight:800;font-size:13.5px;margin-bottom:10px;padding:0 2px}
+        .kan-count{background:var(--surface2);color:var(--muted);font-size:11px;font-weight:700;padding:1px 8px;border-radius:20px}
+        .kan-card{background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:11px;margin-bottom:9px;cursor:pointer;transition:border-color .15s}
+        .kan-card:hover{border-color:var(--accent)}
+        .kan-card .tk-nm{font-weight:700;font-size:13.5px;line-height:1.35;margin-bottom:6px}
+        .kan-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:11px}
+        .tk-pill{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:2px 8px;font-weight:600}
+        .tk-pill.high{color:var(--bad);border-color:var(--bad)} .tk-pill.med{color:var(--warn)} .tk-pill.low{color:var(--good)}
+        .tk-move{display:flex;gap:4px;margin-top:8px}
+        .tk-move button{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:4px;font-size:12px;cursor:pointer;color:var(--muted)}
+        .tk-move button:hover{border-color:var(--accent);color:var(--accent)}
+        .tk-ava{width:20px;height:20px;border-radius:50%;background:linear-gradient(145deg,var(--accent),var(--violet));display:inline-grid;place-items:center;color:#fff;font-size:9px;font-weight:800}
         .cm-dot{margin-left:auto;background:var(--bad);color:#fff;font-size:10px;font-weight:800;min-width:18px;height:18px;padding:0 5px;border-radius:20px;display:inline-grid;place-items:center}
         .cm-stats{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;font-size:13px}
         .cm-stats b{color:var(--text);font-variant-numeric:tabular-nums}
@@ -1083,6 +1100,43 @@
         <div class="panel help"><div class="p-title">📘 Cần Facebook App</div>
           <p class="p-sub">Kết nối FB cần <b>Facebook Developer App</b> (đặt secret <code>FB_APP_ID</code>/<code>FB_APP_SECRET</code> cho Worker) + quyền <code>pages_manage_posts</code>. Xem <code>SETUP.md</code> mục Facebook. Bấm Kết nối khi đã cấu hình App.</p></div>
       </section>
+
+      <section id="v-tasks" class="content hide">
+        <div class="panel" style="margin-bottom:14px">
+          <div class="p-head"><div class="p-title">📋 <span data-i18n="tk_board">Task board — assign work to your team</span></div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <select id="tkFilterAssignee" onchange="renderTasks()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:8px 11px;font-size:13px"><option value="">Mọi người nhận</option></select>
+              <button class="btn-conn" onclick="taskOpen()">➕ <span data-i18n="tk_new">New task</span></button>
+            </div></div>
+          <div class="p-sub" data-i18n="tk_hint">Assign work (make video for a channel, post/edit content…) to team members. Move cards across columns. Realtime — everyone sees updates.</div>
+        </div>
+        <div class="kanban" id="kanban"></div>
+      </section>
+
+      <div id="taskModal" class="modal-back hide">
+        <div class="modal-card">
+          <div class="modal-head"><b id="taskModalTitle" data-i18n="tk_new">New task</b><button class="modal-x" onclick="taskClose()">✕</button></div>
+          <div class="modal-body">
+            <label class="fld"><span data-i18n="tk_title">Title</span><input id="tkTitle" maxlength="140"></label>
+            <label class="fld"><span data-i18n="tk_desc">Description</span><textarea id="tkDesc" rows="3"></textarea></label>
+            <div class="fld2">
+              <label class="fld"><span data-i18n="tk_assignee">Assignee (name/email)</span><input id="tkAssignee" placeholder="nhân viên A"></label>
+              <label class="fld"><span data-i18n="tk_type">Type</span><select id="tkType"><option value="video" data-i18n="tk_t_video">🎬 Make video</option><option value="post" data-i18n="tk_t_post">📤 Post content</option><option value="edit" data-i18n="tk_t_edit">✏️ Edit content</option><option value="other" data-i18n="tk_t_other">📌 Other</option></select></label>
+            </div>
+            <div class="fld2">
+              <label class="fld"><span data-i18n="tk_channel">Channel / Page</span><select id="tkChannel"></select></label>
+              <label class="fld"><span data-i18n="tk_priority">Priority</span><select id="tkPriority"><option value="low" data-i18n="tk_p_low">🟢 Low</option><option value="med" data-i18n="tk_p_med" selected>🟡 Medium</option><option value="high" data-i18n="tk_p_high">🔴 High</option></select></label>
+            </div>
+            <div class="fld2">
+              <label class="fld"><span data-i18n="tk_status">Status</span><select id="tkStatus"><option value="todo" data-i18n="tk_c_todo">Cần làm</option><option value="doing" data-i18n="tk_c_doing">Đang làm</option><option value="review" data-i18n="tk_c_review">Chờ duyệt</option><option value="done" data-i18n="tk_c_done">Xong</option></select></label>
+              <label class="fld"><span data-i18n="tk_due">Due date</span><input type="date" id="tkDue"></label>
+            </div>
+            <div id="tkMsg" class="p-sub" style="min-height:18px"></div>
+          </div>
+          <div class="modal-foot"><button class="btn-mini danger" id="tkDelBtn" onclick="taskDelete()" style="display:none">🗑️ Xoá</button><span style="flex:1"></span>
+            <button class="btn-mini" onclick="taskClose()" data-i18n="cancel">Cancel</button><button class="btn-conn" id="tkSave" onclick="taskSubmit()" data-i18n="save">💾 Save</button></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1155,7 +1209,12 @@
       sub("quota", s => { window.setQuota(s.docs.map(d=>({id:d.id,...d.data()}))); });
       sub("social_queue", s => { if(window.setSocQueue) window.setSocQueue(s.docs.map(d=>({id:d.id,...d.data()}))); });
       sub("yt_queue", s => { if(window.setYtQueue) window.setYtQueue(s.docs.map(d=>({id:d.id,...d.data()}))); });
+      sub("tasks", s => { if(window.setTasks) window.setTasks(s.docs.map(d=>({id:d.id,...d.data()}))); });
     }
+    // Giao việc (Kanban)
+    window.__taskAdd = async (data) => { await addDoc(collection(db,"tasks"), {owner:window.__uid, created_at:new Date().toISOString(), created_by:(window.__uEmail||window.__uid), ...data}); };
+    window.__taskUpdate = async (id, data) => { await setDoc(doc(db,"tasks",id), {owner:window.__uid, ...data}, {merge:true}); };
+    window.__taskDel = async (id) => { await deleteDoc(doc(db,"tasks",id)); };
     // Ghi/xoá hàng đợi đăng FB/IG độc lập (client tự tạo item của mình)
     window.__socQueueAdd = async (data) => { await addDoc(collection(db,"social_queue"), {owner:window.__uid, status:"pending", attempts:0, created_at:new Date().toISOString(), ...data}); };
     window.__socQueueDel = async (id) => { await deleteDoc(doc(db,"social_queue",id)); };
@@ -1280,6 +1339,11 @@
         yt_post:"📺 YouTube", yq_title:"📺 Schedule to YouTube (Content Hub)", yq_channel:"Channel", yq_type:"Type", yq_note:"Cron downloads from Drive & uploads to YouTube · no local script · no duplicates.",
         ch_title:"Content Hub — schedule to YouTube from Drive", ch_browse:"📂 Browse Drive → pick videos", ch_hint:"Go to Storage → Browse files → click “📺 YouTube” on a video. Cron downloads from Drive and uploads to YouTube automatically (no local script). Below: everything you queued.",
         ch_all:"All", ch_pending:"Queued", ch_scheduled:"Scheduled", ch_posted:"Posted", ch_failed:"Failed", ch_cleanup:"🧹 Clear posted", ch_empty:"Nothing queued yet.",
+        nav_team:"Team", nav_tasks:"Tasks", tasks:"Tasks", sub_tasks:"Assign & track team work",
+        tk_board:"Task board — assign work to your team", tk_new:"New task", tk_hint:"Assign work (make video for a channel, post/edit content…) to team members. Move cards across columns. Realtime.",
+        tk_title:"Title", tk_desc:"Description", tk_assignee:"Assignee (name/email)", tk_type:"Type", tk_t_video:"🎬 Make video", tk_t_post:"📤 Post content", tk_t_edit:"✏️ Edit content", tk_t_other:"📌 Other",
+        tk_channel:"Channel / Page", tk_priority:"Priority", tk_p_low:"🟢 Low", tk_p_med:"🟡 Medium", tk_p_high:"🔴 High",
+        tk_status:"Status", tk_c_todo:"To do", tk_c_doing:"Doing", tk_c_review:"Review", tk_c_done:"Done", tk_due:"Due date",
         ch_ready:"No videos yet — ready to receive", ch_connect_first:"No channel yet — connect one in API Connections.",
         sub_branding:"Channel identity via API", sub_comments:"Read, reply & moderate",
         nav_channel:"Channel", br_pick:"Pick a connected channel", br_load:"Load current",
@@ -1361,6 +1425,11 @@
         yt_post:"📺 YouTube", yq_title:"📺 Lên lịch YouTube (Content Hub)", yq_channel:"Kênh", yq_type:"Loại", yq_note:"Cron tự tải video từ Drive & đăng YouTube · khỏi script local · chống trùng.",
         ch_title:"Content Hub — lên lịch YouTube từ Drive", ch_browse:"📂 Duyệt Drive → chọn video", ch_hint:"Vào Storage → Duyệt file → bấm “📺 YouTube” trên video. Cron tự tải từ Drive và đăng lên YouTube (khỏi chạy script). Dưới đây là mọi video anh đã xếp.",
         ch_all:"Tất cả", ch_pending:"Chờ đăng", ch_scheduled:"Đã lên lịch", ch_posted:"Đã đăng", ch_failed:"Lỗi", ch_cleanup:"🧹 Dọn bài đã đăng", ch_empty:"Chưa xếp bài nào.",
+        nav_team:"Đội nhóm", nav_tasks:"Giao việc", tasks:"Giao việc", sub_tasks:"Giao & theo dõi việc nhóm",
+        tk_board:"Bảng giao việc — xếp việc cho nhân viên", tk_new:"Việc mới", tk_hint:"Giao việc (làm video kênh nào, đăng/sửa bài…) cho nhân viên. Kéo thẻ qua các cột. Realtime — mọi người thấy cập nhật.",
+        tk_title:"Tiêu đề", tk_desc:"Mô tả", tk_assignee:"Người nhận (tên/email)", tk_type:"Loại việc", tk_t_video:"🎬 Làm video", tk_t_post:"📤 Đăng bài", tk_t_edit:"✏️ Sửa bài", tk_t_other:"📌 Khác",
+        tk_channel:"Kênh / Page", tk_priority:"Ưu tiên", tk_p_low:"🟢 Thấp", tk_p_med:"🟡 Trung bình", tk_p_high:"🔴 Cao",
+        tk_status:"Trạng thái", tk_c_todo:"Cần làm", tk_c_doing:"Đang làm", tk_c_review:"Chờ duyệt", tk_c_done:"Xong", tk_due:"Hạn chót",
         ch_ready:"Chưa có video — sẵn sàng nhận bài", ch_connect_first:"Chưa có kênh — kết nối ở tab Kết nối API.",
         sub_branding:"Nhận diện kênh qua API", sub_comments:"Đọc, trả lời & kiểm duyệt",
         nav_channel:"Kênh", br_pick:"Chọn kênh đã kết nối", br_load:"Tải hiện tại",
@@ -2077,6 +2146,41 @@
         toastMsg(`✔ Đã rải lịch ${count} bài (${ids.length} video × ${pages.length} Page)`); stClearSel(); stBulkClose();
       }catch(e){ $("stBulkMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ btn.disabled=false; }
     };
+    /* ===== GIAO VIỆC (Kanban) ===== */
+    window.__tasks=[];
+    const TK_COLS=[["todo","Cần làm"],["doing","Đang làm"],["review","Chờ duyệt"],["done","Xong"]];
+    const tkInit=s=>((s||"?").trim()[0]||"?").toUpperCase();
+    window.setTasks=(items)=>{ window.__tasks=items||[]; const nv=$("nvTasks"); if(nv)nv.textContent=window.__tasks.filter(x=>x.status!=="done").length;
+      const fil=$("tkFilterAssignee"); if(fil){ const keep=fil.value; const names=[...new Set(window.__tasks.map(t=>t.assignee).filter(Boolean))];
+        fil.innerHTML='<option value="">Mọi người nhận</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join(""); if(names.includes(keep))fil.value=keep; }
+      renderTasks(); };
+    function renderTasks(){ const box=$("kanban"); if(!box) return; const fa=($("tkFilterAssignee")||{}).value||"";
+      const items=window.__tasks.filter(t=>!fa||t.assignee===fa);
+      const chLabel=(v)=>{ if(!v) return ""; const p=(__FBP||[]).find(x=>x.name===v); return p?(p.page_name||v):chName(v); };
+      const rank={high:0,med:1,low:2};
+      box.innerHTML=TK_COLS.map(([st,label])=>{ const col=items.filter(t=>(t.status||"todo")===st).sort((a,b)=>(rank[a.priority]??1)-(rank[b.priority]??1));
+        return `<div class="kan-col"><div class="kan-head"><span>${esc(label)}</span><span class="kan-count">${col.length}</span></div>
+          ${col.map(t=>{ const ci=TK_COLS.findIndex(c=>c[0]===(t.status||"todo")); const ic={video:"🎬",post:"📤",edit:"✏️",other:"📌"}[t.type]||"📌";
+            return `<div class="kan-card" onclick="taskOpen('${t.id}')"><div class="tk-nm">${ic} ${esc(t.title||"(không tiêu đề)")}</div>
+              <div class="kan-meta">${t.assignee?`<span class="tk-ava" title="${esc(t.assignee)}">${tkInit(t.assignee)}</span>`:''}${t.priority?`<span class="tk-pill ${t.priority}">${({high:'Cao',med:'TB',low:'Thấp'})[t.priority]||''}</span>`:''}${t.channel?`<span class="tk-pill">${esc(chLabel(t.channel))}</span>`:''}${t.due_date?`<span class="tk-pill">📅 ${new Date(t.due_date).toLocaleDateString('vi-VN')}</span>`:''}</div>
+              <div class="tk-move" onclick="event.stopPropagation()">${ci>0?`<button onclick="taskMove('${t.id}','${TK_COLS[ci-1][0]}')" title="Lùi">◀</button>`:''}${ci<3?`<button onclick="taskMove('${t.id}','${TK_COLS[ci+1][0]}')" title="Tiến">▶</button>`:''}</div>
+            </div>`; }).join("")||`<div class="p-sub" style="padding:4px 2px">—</div>`}
+        </div>`; }).join("");
+    }
+    window.taskMove=async(id,st)=>{ try{ await window.__taskUpdate(id,{status:st}); }catch(e){ alert("❌ "+e.message); } };
+    function taskFillChannels(){ const sel=$("tkChannel"); if(!sel) return;
+      sel.innerHTML=`<option value="">— không gắn —</option>`+allChannels().map(k=>`<option value="${esc(k)}">📺 ${esc(chName(k))}</option>`).join("")+(__FBP||[]).map(p=>`<option value="${esc(p.name)}">📘 ${esc(p.page_name||p.name)}</option>`).join(""); }
+    window.taskOpen=(id)=>{ taskFillChannels(); const t=(typeof id==="string")?window.__tasks.find(x=>x.id===id):null; window.__taskEditId=t?id:null;
+      $("taskModalTitle").textContent=t?"Sửa việc":"Việc mới"; $("tkDelBtn").style.display=t?"":"none"; $("tkMsg").textContent="";
+      $("tkTitle").value=(t&&t.title)||""; $("tkDesc").value=(t&&t.description)||""; $("tkAssignee").value=(t&&t.assignee)||""; $("tkType").value=(t&&t.type)||"video"; $("tkChannel").value=(t&&t.channel)||""; $("tkPriority").value=(t&&t.priority)||"med"; $("tkStatus").value=(t&&t.status)||"todo"; $("tkDue").value=(t&&t.due_date)||"";
+      $("taskModal").classList.remove("hide"); };
+    window.taskClose=()=>{ $("taskModal").classList.add("hide"); window.__taskEditId=null; };
+    window.taskSubmit=async()=>{ const title=$("tkTitle").value.trim(); if(!title){ $("tkMsg").innerHTML='<span style="color:var(--bad)">Nhập tiêu đề.</span>'; return; }
+      const data={title, description:$("tkDesc").value, assignee:$("tkAssignee").value.trim(), type:$("tkType").value, channel:$("tkChannel").value, priority:$("tkPriority").value, status:$("tkStatus").value, due_date:$("tkDue").value};
+      const btn=$("tkSave"); btn.disabled=true;
+      try{ if(window.__taskEditId) await window.__taskUpdate(window.__taskEditId,data); else await window.__taskAdd(data); toastMsg("✔ Đã lưu việc"); taskClose(); }
+      catch(e){ $("tkMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ btn.disabled=false; } };
+    window.taskDelete=async()=>{ if(!window.__taskEditId) return; if(!confirm("Xoá việc này?")) return; try{ await window.__taskDel(window.__taskEditId); toastMsg("🗑️ Đã xoá"); taskClose(); }catch(e){ alert("❌ "+e.message); } };
     /* ===== Analytics + Schedule cho FB/IG (sub-tab) ===== */
     window.renderFbAnalytics=()=>{ const box=$("fbAnalytics"); if(!box) return; const pages=__FBP||[];
       if(!pages.length){ box.innerHTML=`<div class="panel"><div class="p-sub" style="padding:14px">Chưa kết nối Facebook Page. Vào tab <b>Kết nối FB/IG</b> để kết nối.</div></div>`; return; }
