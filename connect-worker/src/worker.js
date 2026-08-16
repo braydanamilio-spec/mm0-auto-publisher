@@ -31,6 +31,7 @@ export default {
       if (url.pathname === "/api/files") return corsResp(await apiFiles(request, url, env));
       if (url.pathname === "/api/file-action") return corsResp(await apiFileAction(request, url, env));
       if (url.pathname === "/api/analytics") return corsResp(await apiAnalytics(request, url, env));
+      if (url.pathname === "/api/channel-videos") return corsResp(await apiChannelVideos(request, url, env));
     } catch (e) {
       // API trả JSON lỗi; trang HTML trả trang lỗi
       if (url.pathname.startsWith("/api/")) return corsResp(json({ error: String(e && e.message || e) }, 400));
@@ -192,6 +193,42 @@ async function apiCommentAction(request, url, env) {
     default:
       throw new Error("action không hỗ trợ: " + action);
   }
+}
+
+// GET /api/channel-videos?channel=&t=&max=  -> TOÀN BỘ video đã đăng trên kênh (như YouTube Studio)
+async function apiChannelVideos(request, url, env) {
+  const ctx = await authCtx(request, url, env);
+  const max = Math.min(300, Math.max(1, Number(ctx.g("max") || 100) || 100));
+  const ci = await ytGet("channels?part=contentDetails&mine=true", ctx.yat);
+  const pl = ((((ci.items || [])[0] || {}).contentDetails || {}).relatedPlaylists || {}).uploads;
+  if (!pl) return json({ ok: true, items: [] });
+  let ids = [], pageToken = "";
+  while (ids.length < max) {
+    const pi = await ytGet(`playlistItems?part=contentDetails&playlistId=${pl}&maxResults=50${pageToken ? `&pageToken=${pageToken}` : ""}`, ctx.yat);
+    (pi.items || []).forEach((it) => ids.push(it.contentDetails.videoId));
+    pageToken = pi.nextPageToken;
+    if (!pageToken) break;
+  }
+  ids = ids.slice(0, max);
+  const out = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const vr = await ytGet(`videos?part=snippet,statistics,contentDetails,status&id=${ids.slice(i, i + 50).join(",")}`, ctx.yat);
+    (vr.items || []).forEach((v) => {
+      const d = v.contentDetails.duration || "";
+      const m = d.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+      const secs = m ? ((+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0)) : 0;
+      out.push({
+        id: v.id, title: v.snippet.title, publishedAt: v.snippet.publishedAt,
+        thumb: (v.snippet.thumbnails.medium || v.snippet.thumbnails.default || {}).url,
+        views: +(v.statistics.viewCount || 0), likes: +(v.statistics.likeCount || 0),
+        comments: +(v.statistics.commentCount || 0), duration: secs,
+        type: secs > 0 && secs <= 60 ? "short" : "long",
+        privacy: (v.status || {}).privacyStatus || "",
+      });
+    });
+  }
+  out.sort((a, b) => (b.publishedAt || "").localeCompare(a.publishedAt || ""));
+  return json({ ok: true, count: out.length, items: out });
 }
 
 // GET /api/analytics?channel=&t=&days=  -> PHÂN TÍCH TOÀN KÊNH theo kỳ (mọi video, kể cả không đăng bằng tool)

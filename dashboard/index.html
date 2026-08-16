@@ -539,7 +539,8 @@
       </section>
 
       <style>
-        .chub{border:1px solid var(--border);border-radius:16px;padding:18px;background:var(--surface);display:flex;flex-direction:column;gap:14px}
+        .hub-ghead{grid-column:1/-1;font-weight:700;font-size:14px;padding:10px 12px;margin-top:6px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;word-break:break-all}
+        .chub{border:1px solid var(--border);border-radius:16px;padding:18px;background:var(--surface);display:flex;flex-direction:column;gap:14px;min-width:0}
         .chub-top{display:flex;align-items:center;gap:12px}
         .chub-av{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:16px;flex:none}
         .chub-nm{font-weight:800;font-size:16px;line-height:1.2}
@@ -1411,6 +1412,13 @@
       return (__C[k]&&__C[k].email)||""; };
     const _normGmail=(g)=>{ g=(g||"").trim(); if(!g) return ""; return g.includes("@")?g:g+"@gmail.com"; };
     const _isBrandKey=(k)=>{ const e=(__C[k]&&__C[k].email)||""; return /@pages\.plusgoogle\.com$/i.test(e); };
+    // Gắn Gmail cho TỪNG kênh (để lọc + phân nhóm đúng, nhất là brand account Google giấu Gmail)
+    window.assignChannelGmail=(k)=>{
+      const cur=(__OVERRIDES.gmail_group||{})[k]||"";
+      const g=_normGmail(prompt(`Gmail chủ quản kênh "${(__C[k]&&__C[k].channel_title)||k}"\n(gõ tên, tự thêm @gmail.com):`, cur));
+      if(!g) return;
+      window.saveGmailGroup([k], g);
+    };
     window.assignGmail=(oldKey)=>{
       const keys=Object.keys(__C||{}).filter(k=>gmailKeyOf(k)===oldKey);
       if(!keys.length) return;
@@ -1547,7 +1555,7 @@
       const map=chanMap(); const ks=allChannels();
       if(!ks.length){ $("channelHub").innerHTML=emptyBox(t("ch_connect_first")); $("chHubBanner").innerHTML=""; return; }
       $("chHubBanner").innerHTML=`<div class="p-sub" style="margin-bottom:14px">${esc(t("sub_channels"))}</div>`;
-      $("channelHub").innerHTML=ks.map(k=>{
+      const hubCard=(k)=>{
         const c=C()[k]||{}, col=chColor(k), vids=map[k]||[];
         const posted=vids.filter(v=>eff(v)==="posted").length, queue=vids.length-posted;
         const linked=!!C()[k], em=c.email||"";
@@ -1565,10 +1573,10 @@
             <div class="chub-st"><b class="tnum">${c.total_views!=null?fmtN(c.total_views):'—'}</b><span>views</span></div>
           </div>
           ${vids.length?'':`<div class="p-sub">📭 ${esc(t("ch_ready"))}</div>`}
-          <div style="display:flex;align-items:center;gap:8px">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0">
             <span class="p-sub" style="white-space:nowrap">📅 ${esc(t("act_template"))}:</span>
-            <select style="flex:1;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-family:var(--sans);font-size:12.5px" onchange="saveOverride('${esc(k)}',this.value)">
-              ${TEMPLATE_CATALOG.map(tp=>`<option value="${tp.id}" ${tp.id===(((__OVERRIDES.channels||{})[k])||'balanced_1long_3short')?'selected':''}>${esc(tp.name)} — ${esc(tp.desc)}</option>`).join("")}
+            <select style="flex:1;min-width:0;width:100%;max-width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-family:var(--sans);font-size:12.5px;text-overflow:ellipsis" onchange="saveOverride('${esc(k)}',this.value)">
+              ${TEMPLATE_CATALOG.map(tp=>`<option value="${tp.id}" ${tp.id===(((__OVERRIDES.channels||{})[k])||'balanced_1long_3short')?'selected':''}>${esc(tp.name)}</option>`).join("")}
             </select>
           </div>
           <div class="chub-acts">
@@ -1578,6 +1586,17 @@
             <button onclick="connectChannel('${esc(k)}','youtube')">🔗 ${esc(t("act_reconnect"))}</button>
           </div>
         </div>`;
+      };
+      // GOM theo Gmail (Gmail đã gắn > email thật > brand riêng) cho gọn
+      const gmH=(__OVERRIDES.gmail_group)||{};
+      const gkey=(k)=> gmH[k] || ((C()[k]&&C()[k].email)||"—");
+      const gname=(g)=> g==="—"?"Chưa có email" : /@pages\.plusgoogle\.com$/i.test(g)?"🏷️ Tài khoản thương hiệu (chưa gắn Gmail)":("📧 "+g);
+      const groups={}; ks.forEach(k=>(groups[gkey(k)]=groups[gkey(k)]||[]).push(k));
+      const order=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length);
+      $("channelHub").innerHTML=order.map(g=>{
+        const subs=groups[g].reduce((a,k)=>a+((C()[k]&&C()[k].subscribers)||0),0);
+        return `<div class="hub-ghead">${esc(gname(g))} <span class="p-sub">· ${groups[g].length} kênh${subs?` · ${fmtN(subs)} subs`:''}</span></div>`
+          + groups[g].map(hubCard).join("");
       }).join("");
     }
     // ==== ĐĂNG BÀI: đăng ngay + rải lịch hàng loạt cho video trong kho ====
@@ -1860,6 +1879,7 @@
           <div class="nm">${esc((c.channel_title)||k)}${c.channel_title&&c.channel_title.toUpperCase()!==k?` <span class="p-sub">· nhãn ${esc(k)}</span>`:""}</div></div>
           ${svcRow('yt','#ff0033','YouTube', ytState, c.subscribers!=null?fmtN(c.subscribers)+' subs · kiểm tra '+ago(c.yt_checked_at):(c.yt_error||'chưa có dữ liệu'))}
           <div class="gauge"><div class="gl"><span>Quota YouTube hôm nay</span><span class="tnum" style="color:${gaugeColor};font-weight:700">${used}/${YT_CAP}</span></div><div class="dots">${dots}</div></div>
+          <button class="btn-reconn" style="width:100%;margin-bottom:8px;justify-content:flex-start" onclick="assignChannelGmail('${esc(k)}')">✉ Gmail nhóm: <b style="margin-left:4px">${gm[k]?esc(gm[k]):(isBrand(c.email)?'chưa gắn (bấm để gắn)':esc(c.email||'—'))}</b></button>
           <div style="display:flex;gap:8px">
             <button class="btn-reconn" style="flex:1" onclick="connectChannel('${esc(k)}','youtube')">🔗 ${ytState==='connected'?'Kết nối lại':'Kết nối'} YouTube</button>
             <button class="btn-reconn danger" title="${esc(t('disconnect'))}" onclick="disconnectChannel('${esc(k)}','youtube','${esc(c.channel_title||k)}')">🗑</button>
