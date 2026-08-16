@@ -666,14 +666,37 @@
           <div class="p-sub" style="margin:6px 0 12px;line-height:1.6">Đẩy <b>thẳng lên Google Drive kho</b> — <b>giữ nguyên chất lượng</b> (không nén), tốc độ tối ưu. Hệ <b>tự chia folder thông minh</b>: <code>_QUEUE/long</code> hoặc <code>_QUEUE/short</code> + gắn kênh (sidecar) để cron tự đăng.</div>
           <div class="pubbar">
             <label class="fld"><span>📂 Kho (Drive)</span><select id="upAccount"></select></label>
-            <label class="fld"><span>📺 Kênh đích</span><select id="upChannel"></select></label>
+            <label class="fld"><span>📺 Kênh đích <span class="p-sub">(chọn folder = tự nhận)</span></span><select id="upChannel"></select></label>
             <label class="fld"><span>🎬 Loại</span><select id="upType"><option value="auto">Tự nhận long/short</option><option value="long">Long-form</option><option value="short">Short/Reel</option></select></label>
-            <label class="fld"><span>🕒 Đăng lúc <span class="p-sub">(trống = xếp sau)</span></span><input id="upWhen" type="datetime-local"></label>
+            <label class="fld"><span>🕒 Lịch đăng</span><select id="upSchedMode" onchange="upSchedUI()">
+              <option value="none">Xếp sau (chưa lịch)</option>
+              <option value="now">Đăng ngay hết</option>
+              <option value="spread">📅 Rải nhiều ngày (theo gói)</option>
+            </select></label>
           </div>
-          <div id="upDrop" style="margin-top:12px;border:2px dashed var(--border);border-radius:12px;padding:24px;text-align:center;cursor:pointer;transition:.15s">
+          <div id="upSpreadCfg" style="display:none;margin-top:6px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">
+            <div class="p-sub" style="margin-bottom:6px">⚡ Gói giờ (tự set khung giờ + múi giờ):</div>
+            <div id="upTimePacks" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px"></div>
+            <div class="pubbar">
+              <label class="fld"><span>Bài / ngày</span><input id="upPerDay" type="number" min="1" max="20" value="3" oninput="upResched()"></label>
+              <label class="fld"><span>Ngày bắt đầu</span><input id="upStart" type="date" oninput="upResched()"></label>
+              <label class="fld"><span>🌐 Múi giờ</span><select id="upTz" onchange="upResched()">
+                <option value="America/New_York">🇺🇸 US Eastern</option><option value="America/Los_Angeles">🇺🇸 US Pacific</option>
+                <option value="Europe/Paris">🇪🇺 EU (CET)</option><option value="Europe/London">🇬🇧 UK</option>
+                <option value="Asia/Ho_Chi_Minh">🇻🇳 Việt Nam</option><option value="UTC">UTC</option>
+              </select></label>
+              <label class="fld" style="grid-column:span 2"><span>Khung giờ — cách nhau dấu phẩy</span><input id="upTimes" type="text" value="12:00, 15:00, 18:00, 21:00" oninput="upResched()"></label>
+            </div>
+            <div class="p-sub" id="upSpreadInfo" style="margin-top:8px"></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+            <label class="btn-mini" style="cursor:pointer">📁 Chọn cả folder kênh<input id="upFolder" type="file" webkitdirectory directory multiple style="display:none"></label>
+            <span class="p-sub" style="align-self:center">← chọn folder có tên trùng kênh (vd "bright-line") → tự nhận kênh + gom hết video bên trong</span>
+          </div>
+          <div id="upDrop" style="margin-top:10px;border:2px dashed var(--border);border-radius:12px;padding:24px;text-align:center;cursor:pointer;transition:.15s">
             <div style="font-size:30px">📤</div>
-            <div style="margin-top:6px">Kéo thả video vào đây, hoặc <b style="color:var(--accent);text-decoration:underline">bấm chọn file</b></div>
-            <div class="p-sub" style="margin-top:4px">Nhiều file cùng lúc · mp4/mov/mkv/webm · không giới hạn dung lượng</div>
+            <div style="margin-top:6px">Kéo thả video/folder vào đây, hoặc <b style="color:var(--accent);text-decoration:underline">bấm chọn file</b></div>
+            <div class="p-sub" style="margin-top:4px">Nhiều file/folder cùng lúc · mp4/mov/mkv/webm · không giới hạn dung lượng</div>
             <input id="upFiles" type="file" accept="video/*" multiple style="display:none">
           </div>
           <div id="upList" style="margin-top:12px"></div>
@@ -3647,21 +3670,45 @@
       const chSel=$("upChannel"); if(chSel){ const chans=connectedYT(); const keep=chSel.value;
         chSel.innerHTML=chans.length?chans.map(k=>`<option value="${esc(k)}">${esc(chName(k))}</option>`).join(""):`<option value="">— chưa có kênh —</option>`;
         if(chans.includes(keep)) chSel.value=keep; }
-      const drop=$("upDrop"), fi=$("upFiles");
+      const drop=$("upDrop"), fi=$("upFiles"), fo=$("upFolder");
+      if($("upStart")&&!$("upStart").value) $("upStart").value=new Date().toISOString().slice(0,10);
+      if(window.renderTimePacks&&$("upTimePacks")) renderTimePacks("upTimePacks","upTimes","upResched","upTz");
+      if(window.upSchedUI) upSchedUI();
       if(drop&&!drop.__wired){ drop.__wired=true;
         drop.onclick=()=>fi&&fi.click();
         drop.ondragover=e=>{e.preventDefault();drop.style.borderColor="var(--accent)";};
         drop.ondragleave=()=>{drop.style.borderColor="var(--border)";};
-        drop.ondrop=e=>{e.preventDefault();drop.style.borderColor="var(--border)"; upAdd([...e.dataTransfer.files]);};
+        drop.ondrop=async e=>{e.preventDefault();drop.style.borderColor="var(--border)";
+          const items=e.dataTransfer.items; if(items&&items.length&&items[0].webkitGetAsEntry){ const files=await upReadDrop(items); upAdd(files,true); }
+          else upAdd([...e.dataTransfer.files]); };
         if(fi) fi.onchange=()=>{ upAdd([...fi.files]); fi.value=""; }; }
+      if(fo&&!fo.__wired){ fo.__wired=true; fo.onchange=()=>{ upAdd([...fo.files],true); fo.value=""; }; }
     };
+    // đọc file từ drag-drop (kể cả folder, đệ quy)
+    async function upReadDrop(items){ const out=[]; const ents=[...items].map(it=>it.webkitGetAsEntry&&it.webkitGetAsEntry()).filter(Boolean);
+      async function walk(ent,path){ if(ent.isFile){ await new Promise(r=>ent.file(f=>{ try{Object.defineProperty(f,"webkitRelativePath",{value:path+f.name});}catch(_){} out.push(f); r(); }, ()=>r())); }
+        else if(ent.isDirectory){ const rd=ent.createReader(); await new Promise(r=>{ const readAll=()=>rd.readEntries(async es=>{ if(!es.length){r();return;} for(const e of es) await walk(e,path+ent.name+"/"); readAll(); }, ()=>r()); readAll(); }); } }
+      for(const e of ents) await walk(e,""); return out; }
     function upDetectType(file){ return new Promise(res=>{ try{ const v=document.createElement("video"); v.preload="metadata";
       v.onloadedmetadata=()=>{ const dur=v.duration||0, vert=v.videoHeight>=v.videoWidth; URL.revokeObjectURL(v.src); res((dur>0&&dur<=182&&vert)?"short":"long"); };
       v.onerror=()=>{ try{URL.revokeObjectURL(v.src);}catch(_){} res(/short|reel|vert/i.test(file.name)?"short":"long"); };
       v.src=URL.createObjectURL(file); }catch(_){ res("long"); } }); }
-    function upAdd(files){ files=(files||[]).filter(f=>/\.(mp4|mov|mkv|webm|m4v)$/i.test(f.name)||/^video\//.test(f.type||""));
-      if(!files.length){ toastMsg("Chọn file video (mp4/mov/mkv/webm)"); return; }
-      files.forEach(f=>window.__upQ.push({file:f,name:f.name,size:f.size,pct:0,status:"chờ",err:""})); upRender(); upPump(); }
+    const _norm=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+    function upGuessChannel(folderName){ const nf=_norm(folderName); if(!nf) return "";
+      for(const k of connectedYT()){ const nc=_norm(chName(k)), nk=_norm(k); if(nc&&(nf===nc||nf.includes(nc)||nc.includes(nf))) return k; if(nk&&(nf===nk||nf.includes(nk)||nk.includes(nf))) return k; } return ""; }
+    function upAdd(files,fromFolder){ files=(files||[]).filter(f=>/\.(mp4|mov|mkv|webm|m4v)$/i.test(f.name)||/^video\//.test(f.type||""));
+      if(!files.length){ toastMsg("Không thấy video (mp4/mov/mkv/webm) trong lựa chọn"); return; }
+      let guessMsg="";
+      files.forEach(f=>{ const rel=f.webkitRelativePath||""; const top=rel.split("/")[0]||"";
+        const it={file:f,name:f.name,size:f.size,pct:0,status:"chờ",err:"",rel};
+        // tự nhận kênh theo folder gốc; tự nhận short theo path chứa short/reel
+        if(fromFolder&&top){ const g=upGuessChannel(top); if(g){ it.channel=g; guessMsg=`📺 tự nhận kênh: ${chName(g)}`; } }
+        if(/(^|\/)(short|shorts|reel|reels)(\/|$)|[-_](short|reel)\b/i.test(rel||f.name)) it.pathShort=true;
+        window.__upQ.push(it); });
+      // nếu folder khớp 1 kênh -> set luôn ô Kênh đích
+      const firstCh=window.__upQ.find(x=>x.channel); if(firstCh){ const sel=$("upChannel"); if(sel&&[...sel.options].some(o=>o.value===firstCh.channel)) sel.value=firstCh.channel; }
+      if(guessMsg) toastMsg(guessMsg+` · ${files.length} video`);
+      upResched(); upRender(); upPump(); }
     function upRender(){ const box=$("upList"); if(!box) return; if(!window.__upQ.length){ box.innerHTML=""; return; }
       box.innerHTML=window.__upQ.map((it,i)=>`<div class="svc" style="align-items:center">
         <div style="flex:1;min-width:0"><div class="snm" style="min-width:0">${esc(it.name)} ${it.type?`<span class="tag2">${it.type}</span>`:''}</div>
@@ -3672,9 +3719,11 @@
     async function upPump(){ if(window.__upBusy) return; const it=window.__upQ.find(x=>x.status==="chờ"); if(!it) return;
       window.__upBusy=true; try{ await upOne(it); }catch(e){ it.status="lỗi"; it.err=(e&&e.message)||"lỗi"; upRender(); } window.__upBusy=false; upPump(); }
     async function upOne(it){
-      const acct=($("upAccount")||{}).value, channel=($("upChannel")||{}).value;
+      const acct=($("upAccount")||{}).value; const channel=it.channel||($("upChannel")||{}).value;
       if(!acct) throw new Error("chọn kho"); if(!channel) throw new Error("chọn kênh");
-      let type=($("upType")||{}).value||"auto"; if(type==="auto"){ it.status="phân tích…"; upRender(); type=await upDetectType(it.file); }
+      let type=($("upType")||{}).value||"auto";
+      if(it.pathShort) type="short";                 // path chứa short/reel -> short
+      else if(type==="auto"){ it.status="phân tích…"; upRender(); type=await upDetectType(it.file); }
       it.type=type; it.status="đang tải"; it.pct=0; upRender();
       const init=await workerApi("/api/upload-init",{method:"POST",body:{account:acct,type,name:it.name,mimeType:it.file.type||"video/mp4",size:it.size}});
       const sess=init.sessionUri, folderId=init.folderId; if(!sess) throw new Error("init lỗi");
@@ -3684,9 +3733,26 @@
         if(r.status===200||r.status===201){ off=it.size; break; }
         if(r.status!==308) throw new Error("tải lỗi "+r.status);
         off=end; it.pct=Math.round(off/it.size*100); upRender(); }
-      const when=($("upWhen")||{}).value; const sidecar={channel,type}; if(when) sidecar.publish_at=new Date(when).toISOString();
+      const mode=($("upSchedMode")||{}).value||"none"; const sidecar={channel,type};
+      if(mode==="now") sidecar.publish_at=new Date().toISOString();
+      else if(mode==="spread"&&it.publishAt) sidecar.publish_at=it.publishAt;
       await workerApi("/api/upload-done",{method:"POST",body:{account:acct,folderId,base:it.name.replace(/\.[^.]+$/,''),sidecar}});
       it.status="xong"; it.pct=100; upRender(); toastMsg("✅ Đã upload: "+it.name); }
+    // ===== Lịch rải nhiều ngày cho batch upload =====
+    window.upSchedUI=()=>{ const m=($("upSchedMode")||{}).value; const box=$("upSpreadCfg"); if(box) box.style.display=(m==="spread")?"":"none"; upResched(); };
+    window.upResched=()=>{ const info=$("upSpreadInfo");
+      if(($("upSchedMode")||{}).value!=="spread"){ if(info) info.textContent=""; return; }
+      const per=Math.max(1,+($("upPerDay")||{}).value||3);
+      const times=(($("upTimes")||{}).value||"").split(",").map(s=>s.trim()).filter(s=>/\d/.test(s));
+      const tz=($("upTz")||{}).value||"Asia/Ho_Chi_Minh";
+      const start=($("upStart")||{}).value||new Date().toISOString().slice(0,10);
+      const [Y,Mo,D]=start.split("-").map(Number);
+      // gán publish_at cho MỌI item CHƯA xong theo thứ tự (rải nhiều ngày)
+      const pend=window.__upQ.filter(x=>x.status!=="xong");
+      pend.forEach((it,i)=>{ const day=Math.floor(i/per), slot=i%per; const [hh,mm]=(times[slot%times.length]||"12:00").split(":").map(Number);
+        try{ it.publishAt=new Date(zonedTimeToUtc(Y,Mo,D+day,hh||12,mm||0,tz).getTime()+jitMs(15)).toISOString(); }catch(_){ it.publishAt=null; } });
+      const days=pend.length?Math.ceil(pend.length/per):0;
+      if(info) info.innerHTML=pend.length?`📊 ${pend.length} video · ${per}/ngày · ${times.length} khung giờ → <b>${days} ngày</b> (bắt đầu ${esc(start)})`:`Chưa có video trong hàng đợi.`; }
     function upPutChunk(sess,range,blob,onProg){ return new Promise((res,rej)=>{ const x=new XMLHttpRequest();
       x.open("POST",WORKER_URL+"/api/upload-chunk?s="+encodeURIComponent(sess));
       x.setRequestHeader("x-mm0-range",range);
