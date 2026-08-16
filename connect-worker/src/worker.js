@@ -408,20 +408,40 @@ async function apiSocialPosts(request, url, env) {
     }));
     return json({ ok: true, platform: "ig", account: ctx.ig_username || "", items });
   }
-  const r = await fbGet(`${ctx.page_id}/videos?fields=id,title,description,created_time,permalink_url,picture,length,likes.summary(true),comments.summary(true),views&limit=${max}`, ctx.page_token);
-  const items = (r.data || []).map((v) => {
-    const pu = v.permalink_url || "";
-    return {
-      id: v.id, title: v.title || ((v.description || "").split("\n")[0] || "").slice(0, 120) || "(không tiêu đề)",
-      description: v.description || "", type: v.length && v.length <= 60 ? "short" : "long",
-      thumb: v.picture || "", url: pu ? (pu.startsWith("http") ? pu : "https://www.facebook.com" + pu) : "",
-      publishedAt: v.created_time || "", views: +(v.views || 0),
-      likes: +((v.likes && v.likes.summary && v.likes.summary.total_count) || 0),
-      comments: +((v.comments && v.comments.summary && v.comments.summary.total_count) || 0),
-      canEdit: true, canDelete: true,
-    };
-  });
-  return json({ ok: true, platform: "fb", account: ctx.page_name || "", items });
+  // Lấy TẤT CẢ bài đăng (video + ảnh + text + reel) để "tổng bài" đúng; fallback /videos nếu thiếu quyền.
+  let data = [];
+  try {
+    const r = await fbGet(`${ctx.page_id}/published_posts?fields=id,message,story,created_time,full_picture,permalink_url,status_type,attachments{media_type,type,title,description},shares,likes.summary(true),comments.summary(true)&limit=${max}`, ctx.page_token);
+    data = (r.data || []).map((p) => {
+      const att = ((p.attachments && p.attachments.data) || [])[0] || {};
+      const mt = String(att.media_type || att.type || p.status_type || "").toLowerCase();
+      const title = ((p.message || att.title || p.story || "").split("\n")[0] || "").slice(0, 120) || "(bài viết)";
+      return {
+        id: p.id, title, description: p.message || "",
+        type: mt.includes("video") ? "video" : (mt.includes("photo") || mt.includes("image")) ? "photo" : (mt || "post"),
+        thumb: p.full_picture || "", url: p.permalink_url || "", publishedAt: p.created_time || "",
+        views: 0, likes: +((p.likes && p.likes.summary && p.likes.summary.total_count) || 0),
+        comments: +((p.comments && p.comments.summary && p.comments.summary.total_count) || 0),
+        shares: +((p.shares && p.shares.count) || 0), canEdit: true, canDelete: true,
+      };
+    });
+  } catch (e) {
+    // Fallback: chỉ video upload
+    const r = await fbGet(`${ctx.page_id}/videos?fields=id,title,description,created_time,permalink_url,picture,length,likes.summary(true),comments.summary(true),views&limit=${max}`, ctx.page_token);
+    data = (r.data || []).map((v) => {
+      const pu = v.permalink_url || "";
+      return {
+        id: v.id, title: v.title || ((v.description || "").split("\n")[0] || "").slice(0, 120) || "(video)",
+        description: v.description || "", type: "video",
+        thumb: v.picture || "", url: pu ? (pu.startsWith("http") ? pu : "https://www.facebook.com" + pu) : "",
+        publishedAt: v.created_time || "", views: +(v.views || 0),
+        likes: +((v.likes && v.likes.summary && v.likes.summary.total_count) || 0),
+        comments: +((v.comments && v.comments.summary && v.comments.summary.total_count) || 0),
+        canEdit: true, canDelete: true,
+      };
+    });
+  }
+  return json({ ok: true, platform: "fb", account: ctx.page_name || "", items: data });
 }
 // POST /api/social-update {channel,platform,id,title,description}  (chỉ FB)
 async function apiSocialUpdate(request, url, env) {

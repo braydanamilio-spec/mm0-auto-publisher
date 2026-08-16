@@ -262,6 +262,27 @@
       .conn-grid{grid-template-columns:1fr}
       input[type=search]{min-width:0;flex:1}
     }
+    /* ==== Mobile: các thành phần mới (Videos manager, Mạng xã hội, modal) ==== */
+    @media(max-width:640px){
+      .yt-mgr-head,.yt-tools{gap:8px}
+      #ytVidsCh,#socPage{min-width:0;flex:1 1 100%;width:100%}
+      .yt-tools input[type=search]{flex:1 1 100%}
+      .yt-tools select,.seg{flex:1 1 auto}
+      .seg{justify-content:center}
+      .yt-mgr-head .btn-conn,.yt-tools .btn-mini,.yt-tools .btn-conn{flex:1 1 auto;text-align:center}
+      table.yt-table{min-width:560px}
+      .yt-vtitle{max-width:200px}
+      .yt-bulk{gap:6px}
+      .modal-back{padding:0;align-items:flex-end}
+      .modal-card{width:100%;max-width:100%;max-height:92vh;border-radius:18px 18px 0 0}
+      .modal-body{padding:14px}
+      .cm-stats{gap:10px;font-size:12px}
+      .chub-acts{grid-template-columns:1fr 1fr}
+      .hub-ghead{font-size:13px}
+      .cm-reps{margin-left:12px}
+      .cm-acts .mini{flex:1 1 auto}
+    }
+    @media(max-width:380px){ .chub-acts{grid-template-columns:1fr} table.yt-table th,table.yt-table td{padding:7px 6px} }
   </style>
 </head>
 <body>
@@ -308,7 +329,7 @@
       <div class="nav" data-view="channels"><span class="ic" data-i="stack"></span> <span data-i18n="channels_hub">My Channels</span> <span class="badge" id="nvChans">0</span></div>
       <div class="nav" data-view="branding"><span class="ic" data-i="badge"></span> <span data-i18n="branding">Branding</span></div>
       <div class="nav" data-view="comments"><span class="ic" data-i="chat"></span> <span data-i18n="comments">Comments</span></div>
-      <div class="nav" data-view="facebook"><span class="ic" data-i="fb"></span> <span>Mạng xã hội</span> <span class="badge" id="nvFb">0</span></div>
+      <div class="nav" data-view="facebook"><span class="ic" data-i="fb"></span> <span data-i18n="nav_social">Social</span> <span class="badge" id="nvFb">0</span></div>
       <div class="side-foot">
         <button class="ghost" id="langBtn">🌐 Tiếng Việt</button>
         <button class="ghost" id="themeBtn"><span id="themeIc">🌙</span> <span id="themeTx" data-i18n="theme_dark">Dark theme</span></button>
@@ -1076,7 +1097,7 @@
         sub_connections:"YouTube · Facebook · quota status", sub_storage:"Pool usage & cleanup",
         sub_settings:"Templates & system config",
         channels:"My Channels", branding:"Branding", comments:"Comments", channels_hub:"My Channels", sub_channels:"Your connected channels — pick one to manage",
-        facebook:"Facebook", sub_facebook:"Facebook Pages — separate from YouTube", fb_manage:"Facebook Pages", fb_connect:"Connect Facebook", fb_note:"Facebook is separate from YouTube (not the same Gmail). One connect grabs all Pages you manage.",
+        facebook:"Facebook", nav_social:"Social", sub_facebook:"Facebook Pages — separate from YouTube", fb_manage:"Facebook Pages", fb_connect:"Connect Facebook", fb_note:"Facebook is separate from YouTube (not the same Gmail). One connect grabs all Pages you manage.",
         act_branding:"Branding", act_comments:"Comments", act_videos:"Videos", act_reconnect:"Reconnect", act_template:"Template",
         ch_ready:"No videos yet — ready to receive", ch_connect_first:"No channel yet — connect one in API Connections.",
         sub_branding:"Channel identity via API", sub_comments:"Read, reply & moderate",
@@ -1135,7 +1156,7 @@
         sub_connections:"Trạng thái YouTube · Facebook · quota", sub_storage:"Dung lượng pool & dọn dẹp",
         sub_settings:"Template & cấu hình hệ thống",
         channels:"Kênh của tôi", branding:"Thương hiệu", comments:"Bình luận", channels_hub:"Kênh của tôi", sub_channels:"Các kênh đã kết nối — chọn 1 kênh để quản lý",
-        facebook:"Facebook", sub_facebook:"Facebook Page — tách riêng YouTube", fb_manage:"Facebook Page", fb_connect:"Kết nối Facebook", fb_note:"Facebook tách riêng YouTube (không cùng Gmail). Kết nối 1 lần lấy hết Page bạn quản lý; đăng/lịch FB quản lý riêng tại đây.",
+        facebook:"Facebook", nav_social:"Mạng xã hội", sub_facebook:"Facebook Page — tách riêng YouTube", fb_manage:"Facebook Page", fb_connect:"Kết nối Facebook", fb_note:"Facebook tách riêng YouTube (không cùng Gmail). Kết nối 1 lần lấy hết Page bạn quản lý; đăng/lịch FB quản lý riêng tại đây.",
         act_branding:"Thương hiệu", act_comments:"Bình luận", act_videos:"Video", act_reconnect:"Kết nối lại", act_template:"Template",
         ch_ready:"Chưa có video — sẵn sàng nhận bài", ch_connect_first:"Chưa có kênh — kết nối ở tab Kết nối API.",
         sub_branding:"Nhận diện kênh qua API", sub_comments:"Đọc, trả lời & kiểm duyệt",
@@ -1470,8 +1491,8 @@
           <div class="nm">${esc(p.page_name||p.name)}<div class="p-sub">ID ${esc(p.page_id||'')}</div></div></div>
         ${svcRow('fb','#1877f2','Facebook Page','connected','token dài hạn (không tự hết hạn)')}
         ${p.ig_user_id
-          ? `<div class="svc"><div class="ava" style="width:34px;height:34px;background:linear-gradient(145deg,#E1306C,#C13584);overflow:hidden;flex:none">${p.ig_avatar?`<img src="${esc(p.ig_avatar)}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`:'IG'}</div><div style="flex:1;min-width:0"><div class="snm">Instagram</div><div class="sd">${p.ig_username?'@'+esc(p.ig_username):'đã liên kết'} · Reels tự động</div></div><span class="tag t-connected" style="margin-left:auto">Đã kết nối</span></div>`
-          : svcRow('fb','#999','Instagram', 'unknown', 'chưa liên kết IG — vào Page → Linked accounts để nối')}
+          ? `<div class="svc"><div class="ava" style="width:34px;height:34px;background:linear-gradient(135deg,#F9CE34,#EE2A7B 45%,#6228D7);overflow:hidden;flex:none;display:grid;place-items:center;position:relative"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="#fff" stroke-width="2">${svgIcon('ig')}</svg>${p.ig_avatar?`<img src="${esc(p.ig_avatar)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`:''}</div><div style="flex:1;min-width:0"><div class="snm">Instagram</div><div class="sd">${p.ig_username?'@'+esc(p.ig_username):'đã liên kết'} · Reels tự động</div></div><span class="tag t-connected" style="margin-left:auto">Đã kết nối</span></div>`
+          : svcRow('ig','#E1306C','Instagram', 'unknown', 'chưa liên kết IG — vào Page → Linked accounts để nối')}
         <div class="p-sub" style="margin-top:8px">📅 Kết nối: <b>${dt}</b>${p.connected_at?` · ${ago(p.connected_at)}`:''} <span id="fbtok-${esc(p.name)}"></span></div>
         <div style="display:flex;gap:8px;margin-top:10px">
           <button class="btn-mini" onclick="fbCheckToken('${esc(p.name)}')">🔍 Kiểm tra token</button>
@@ -1624,6 +1645,7 @@
       stack:'<path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>',
       send:'<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
       fb:'<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>',
+      ig:'<rect x="2" y="2" width="20" height="20" rx="5.5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1.1" fill="currentColor" stroke="none"/>',
     };
     window.paintIcons = () => document.querySelectorAll(".ic[data-i]").forEach(e=>{
       e.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[e.dataset.i]||""}</svg>`; });
@@ -2032,6 +2054,7 @@
       like:'<path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>',
       yt:'<path d="M22.5 6.5a3 3 0 0 0-2.1-2.1C18.5 4 12 4 12 4s-6.5 0-8.4.4A3 3 0 0 0 1.5 6.5 31 31 0 0 0 1 12a31 31 0 0 0 .5 5.5 3 3 0 0 0 2.1 2.1C5.5 20 12 20 12 20s6.5 0 8.4-.4a3 3 0 0 0 2.1-2.1A31 31 0 0 0 23 12a31 31 0 0 0-.5-5.5z"/><polygon points="10,8.5 16,12 10,15.5" fill="currentColor" stroke="none"/>',
       fb:'<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>',
+      ig:'<rect x="2" y="2" width="20" height="20" rx="5.5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1.1" fill="currentColor" stroke="none"/>',
       check:'<polyline points="20 6 9 17 4 12"/>', x:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
       disk:'<path d="M22 12A10 10 0 1 1 12 2"/><path d="M12 2v10l6.5 6.5"/><circle cx="12" cy="12" r="2.5"/>',
     }[p]||"";}
