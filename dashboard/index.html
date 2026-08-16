@@ -353,6 +353,7 @@
       </div>
 
       <section id="v-overview" class="content">
+        <div id="healthPanel" style="margin-bottom:14px"></div>
         <div id="runwayAlert" style="display:none"></div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
           <button class="btn-conn" id="ovSyncBtn">🔄 Đồng bộ số liệu thật từ YouTube</button>
@@ -1059,6 +1060,8 @@
     // Content Hub: hàng đợi đăng YouTube từ Drive
     window.__ytQueueAdd = async (data) => { await addDoc(collection(db,"yt_queue"), {owner:window.__uid, status:"pending", attempts:0, created_at:new Date().toISOString(), ...data}); };
     window.__ytQueueDel = async (id) => { await deleteDoc(doc(db,"yt_queue",id)); };
+    // Cập nhật item hàng đợi (retry: đặt lại pending) — coll = yt_queue | social_queue
+    window.__qUpdate = async (coll, id, patch) => { await setDoc(doc(db,coll,id), {owner:window.__uid, ...patch}, {merge:true}); };
     function setLive(ok){
       const el=document.getElementById("live"); el.classList.toggle("err",!ok);
       const T=window.t||(x=>x);
@@ -1327,6 +1330,37 @@
     let __QUOTA=[];
     window.setQuota = (q) => { __QUOTA=q||[]; renderQuota(); };
     // Cảnh báo kênh SẮP HẾT BÀI (hết video chờ đăng / lịch chỉ còn trong 24h)
+    // ===== P0 #2: Bảng sức khoẻ + cảnh báo lỗi đăng =====
+    let __healthNotified=0;
+    function renderHealth(){
+      const box=$("healthPanel"); if(!box) return;
+      const fails=[];
+      V().forEach(v=>{ if(eff(v)==="failed") fails.push({p:"Video",nm:v.title||v.drive_name||v.id,err:(v.error||(v.warnings&&v.warnings[0])||"lỗi đăng")}); });
+      (window.__ytQueue||[]).forEach(q=>{ if(q.status==="failed") fails.push({p:"YouTube",nm:q.drive_name||q.drive_file_id,err:q.error||"lỗi",id:q.id,coll:"yt_queue"}); });
+      (window.__socQueue||[]).forEach(q=>{ if(q.status==="failed") fails.push({p:"FB/IG",nm:q.drive_name||q.drive_file_id,err:q.error||"lỗi",id:q.id,coll:"social_queue"}); });
+      const notifOn=localStorage.mm0notif==="1";
+      const notifBtn=`<button class="btn-mini" onclick="toggleNotif()">${notifOn?'🔔 Cảnh báo: BẬT':'🔕 Bật cảnh báo lỗi'}</button>`;
+      if(!fails.length){
+        box.innerHTML=`<div class="panel" style="border-color:var(--good);display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px"><span style="color:var(--good);font-weight:800">✅ Hệ thống ổn</span><span class="p-sub">Không có lỗi đăng.</span><span style="flex:1"></span>${notifBtn}</div>`;
+        __healthNotified=0; return;
+      }
+      if(notifOn && fails.length>__healthNotified && "Notification" in window && Notification.permission==="granted"){
+        try{ new Notification("MM0 Publisher — có lỗi đăng",{body:`${fails.length} mục lỗi cần xử lý`}); }catch(_){}
+      }
+      __healthNotified=fails.length;
+      box.innerHTML=`<div class="panel" style="border-color:var(--bad)">
+        <div class="p-head"><div class="p-title" style="color:var(--bad)">⚠️ ${fails.length} mục đăng lỗi cần xử lý</div>${notifBtn}</div>
+        <div class="scroll-x" style="margin-top:8px"><table class="yt-table"><thead><tr><th>Nền tảng</th><th>Video</th><th>Lỗi</th><th></th></tr></thead><tbody>
+        ${fails.slice(0,20).map(f=>`<tr><td><span class="tag2">${esc(f.p)}</span></td><td><span class="nm" title="${esc(f.nm)}">${esc(f.nm)}</span></td><td class="p-sub" style="color:var(--bad);max-width:320px">${esc(f.err)}</td>
+          <td style="white-space:nowrap">${f.coll?`<button class="yt-rowbtn" title="Thử lại" onclick="healthRetry('${f.coll}','${f.id}')">↻</button><button class="yt-rowbtn" title="Bỏ" onclick="healthDismiss('${f.coll}','${f.id}')">🗑️</button>`:''}</td></tr>`).join("")}
+        </tbody></table></div>${fails.length>20?`<div class="p-sub" style="margin-top:6px">… và ${fails.length-20} mục khác</div>`:''}</div>`;
+    }
+    window.toggleNotif=async()=>{ if(localStorage.mm0notif==="1"){ localStorage.mm0notif="0"; toastMsg("🔕 Đã tắt cảnh báo"); renderHealth(); return; }
+      if(!("Notification" in window)){ toastMsg("Trình duyệt không hỗ trợ thông báo"); return; }
+      let p=Notification.permission; if(p!=="granted") p=await Notification.requestPermission();
+      if(p==="granted"){ localStorage.mm0notif="1"; toastMsg("🔔 Đã bật cảnh báo lỗi (khi mở dashboard)"); } else toastMsg("Trình duyệt chặn thông báo"); renderHealth(); };
+    window.healthRetry=async(coll,id)=>{ try{ await window.__qUpdate(coll,id,{status:"pending",error:"",attempts:0}); toastMsg("↻ Đã cho thử lại — cron sau xử lý"); }catch(e){ alert("❌ "+e.message); } };
+    window.healthDismiss=async(coll,id)=>{ if(!confirm("Bỏ mục lỗi này khỏi danh sách?")) return; try{ await (coll==="yt_queue"?window.__ytQueueDel:window.__socQueueDel)(id); toastMsg("🗑️ Đã bỏ"); }catch(e){ alert("❌ "+e.message); } };
     function renderRunway(){
       const box=$("runwayAlert"); if(!box) return;
       const chans=allChannels().filter(k=>C()[k]);   // kênh đã kết nối
@@ -2218,7 +2252,7 @@
     function renderAll(){
       buildChanFilter(); renderKPIs(); renderViewsChart(); renderDonut(); renderChannels();
       renderUpcoming(); renderAnalytics(); renderLongShort(); renderVideos(); renderSchedule(); renderConnections();
-      renderStorage(); renderSettings(); renderChannelHub(); renderPublish(); renderFacebook(); renderQuota(); renderRunway();
+      renderStorage(); renderSettings(); renderChannelHub(); renderPublish(); renderFacebook(); renderQuota(); renderRunway(); renderHealth();
       $("nvVideos").textContent=V().length; $("nvSched").textContent=V().filter(v=>eff(v)==="scheduled").length;
       $("nvChans").textContent=allChannels().length;
       $("nvPub").textContent=V().filter(v=>eff(v)!=="posted").length;
