@@ -545,6 +545,7 @@
               <label class="fld"><span>Ngày bắt đầu</span><input type="date" id="stBulkStart" oninput="stBulkPreview()"></label>
             </div>
             <label class="fld"><span>Khung giờ (giờ VN, cách nhau dấu phẩy)</span><input id="stBulkTimes" value="09:00, 12:00, 20:00" oninput="stBulkPreview()"></label>
+            <div id="stTimePacks" style="display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 2px"></div>
             <div id="stBulkPreview" class="p-sub" style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 11px"></div>
             <div id="stBulkMsg" class="p-sub" style="min-height:18px"></div>
           </div>
@@ -757,6 +758,7 @@
         </div>
         <div class="panel" style="margin-bottom:16px">
           <div class="p-head"><div class="p-title">🚀 <span data-i18n="pub_bulk">Bulk schedule / publish</span></div></div>
+          <div style="margin-bottom:12px"><div class="p-sub" style="margin-bottom:6px">⚡ Gói giờ đăng nhanh (bấm để điền khung giờ)</div><div id="ytTimePacks" style="display:flex;gap:7px;flex-wrap:wrap"></div></div>
           <div class="pubbar">
             <label class="fld"><span data-i18n="pub_channel">Channel</span><select id="pubChannel"></select></label>
             <label class="fld"><span data-i18n="pub_tz">Timezone</span><select id="pubTz">
@@ -792,7 +794,26 @@
           <div id="pubList"></div>
         </div>
         </div><!-- /pub-yt -->
-        <div id="pub-fb" class="subpane hide"></div>
+        <div id="pub-fb" class="subpane hide">
+          <div class="panel" style="margin-bottom:16px">
+            <div class="p-head"><div class="p-title">🚀 Rải lịch hàng loạt FB &amp; IG</div></div>
+            <div class="p-sub" style="margin-bottom:10px">Chọn <b>gói giờ vàng</b> rồi <b>rải lại lịch</b> cho hàng đợi FB/IG đang chờ — hoặc bấm chọn thêm video từ Drive.</div>
+            <div style="margin-bottom:12px"><div class="p-sub" style="margin-bottom:6px">⚡ Gói giờ đăng nhanh</div><div id="fbTimePacks" style="display:flex;gap:7px;flex-wrap:wrap"></div></div>
+            <div class="pubbar">
+              <label class="fld"><span>Page áp dụng</span><select id="fbBulkPage" onchange="fbBulkPreview()"></select></label>
+              <label class="fld"><span>Bài / ngày</span><input id="fbBulkPer" type="number" min="1" max="20" value="3" oninput="fbBulkPreview()"></label>
+              <label class="fld"><span>Ngày bắt đầu</span><input id="fbBulkStart" type="date" oninput="fbBulkPreview()"></label>
+              <label class="fld" style="grid-column:span 2"><span>Khung giờ (giờ VN) — cách nhau dấu phẩy</span><input id="fbBulkTimes" type="text" value="09:00, 12:00, 20:00" oninput="fbBulkPreview()"></label>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+              <button class="btn-conn" onclick="fbBulkSpread()">📅 Rải lại lịch hàng đợi</button>
+              <button class="mini" onclick="gotoView('storage')">📂 Chọn thêm video từ Drive</button>
+              <span class="p-sub" id="fbBulkMsg" style="align-self:center"></span>
+            </div>
+            <div id="fbBulkPreview" class="p-sub" style="margin-top:9px"></div>
+            <div class="p-sub" style="margin-top:4px">Chỉ đổi giờ bài <b>đang chờ</b> (pending) của Page đã chọn. Bài đã đăng không bị đụng. Cron tự đăng · chống trùng · tắt máy vẫn chạy.</div>
+          </div>
+        </div>
       </section>
 
       <style>
@@ -1276,6 +1297,7 @@
     // Ghi/xoá hàng đợi đăng FB/IG độc lập (client tự tạo item của mình)
     window.__socQueueAdd = async (data) => { await addDoc(collection(db,"social_queue"), {owner:(window.__ownerUid||window.__uid), status:"pending", attempts:0, created_at:new Date().toISOString(), ...data}); };
     window.__socQueueDel = async (id) => { await deleteDoc(doc(db,"social_queue",id)); };
+    window.__socQueueUpd = async (id, data) => { await setDoc(doc(db,"social_queue",id), {owner:(window.__ownerUid||window.__uid), ...data}, {merge:true}); };
     // Content Hub: hàng đợi đăng YouTube từ Drive
     window.__ytQueueAdd = async (data) => { await addDoc(collection(db,"yt_queue"), {owner:(window.__ownerUid||window.__uid), status:"pending", attempts:0, created_at:new Date().toISOString(), ...data}); };
     window.__ytQueueDel = async (id) => { await deleteDoc(doc(db,"yt_queue",id)); };
@@ -1555,7 +1577,7 @@
     window.setData = (v,c,k) => { if(v)__V=v; if(c)__C=c; if(k)__K=k; renderAll(); };
     window.setStorage = (s) => { __STORAGE=s; renderStorage(); };
     let __FBP=[];
-    window.setFbPages = (p) => { __FBP=p||[]; renderFacebook(); };
+    window.setFbPages = (p) => { __FBP=p||[]; renderFacebook(); if(window.fillFbBulkPage) fillFbBulkPage(); };
     let __QUOTA=[];
     window.setQuota = (q) => { __QUOTA=q||[]; renderQuota(); };
     // Cảnh báo kênh SẮP HẾT BÀI (hết video chờ đăng / lịch chỉ còn trong 24h)
@@ -2119,7 +2141,7 @@
           title:$("socQTitle").value.trim(), description:$("socQDesc").value, hashtags:tags, type:"short", publish_at });
         toastMsg("✔ Đã thêm vào hàng đợi"); socQClose();
       }catch(e){ $("socQMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ btn.disabled=false; } };
-    window.setSocQueue=(items)=>{ window.__socQueue=items||[]; renderSocQueue(); if(window.__view==="schedule"&&window.__plat==="fb"&&window.renderFbSchedule) renderFbSchedule(); if(window.__view==="overview"&&window.__plat==="fb"&&window.renderFbOverview) renderFbOverview(); };
+    window.setSocQueue=(items)=>{ window.__socQueue=items||[]; renderSocQueue(); if(window.fbBulkPreview) fbBulkPreview(); if(window.__view==="schedule"&&window.__plat==="fb"&&window.renderFbSchedule) renderFbSchedule(); if(window.__view==="overview"&&window.__plat==="fb"&&window.renderFbOverview) renderFbOverview(); };
     function renderSocQueue(){ const box=$("socQueueList"); if(!box) return;
       const items=(window.__socQueue||[]).slice().sort((a,b)=>String(b.created_at||"").localeCompare(String(a.created_at||"")));
       if(!items.length){ box.innerHTML=`<div style="padding:16px;text-align:center"><div style="font-size:32px">📭</div><div class="p-sub" style="margin:8px 0">${t("sq_empty")}</div><button class="btn-conn" onclick="gotoView('storage')">📂 Chọn video từ Drive để đăng FB/IG</button></div>`; return; }
@@ -2218,6 +2240,7 @@
     window.stBulkOpen=()=>{ if(!window.__stSel.size) return; const pages=__FBP||[]; if(!pages.length){ alert("Chưa có Facebook Page. Kết nối ở tab Kết nối FB/IG trước."); return; }
       $("stBulkCount").textContent=window.__stSel.size;
       $("stBulkPages").innerHTML=pages.map((p,i)=>`<label class="stbulk-pg"><input type="checkbox" value="${esc(p.name)}" ${i===0?'checked':''}> ${esc(p.page_name||p.name)}${p.ig_user_id?' <span class="p-sub">+IG</span>':''}</label>`).join("");
+      if(window.renderTimePacks) renderTimePacks("stTimePacks","stBulkTimes","stBulkPreview");
       $("stBulkStart").value=new Date().toISOString().slice(0,10); $("stBulkMsg").textContent=""; $("stBulkModal").classList.remove("hide"); stBulkPreview();
     };
     window.stBulkClose=()=>{ $("stBulkModal").classList.add("hide"); };
@@ -2244,6 +2267,44 @@
         toastMsg(`✔ Đã rải lịch ${count} bài (${ids.length} video × ${pages.length} Page)`); stClearSel(); stBulkClose();
       }catch(e){ $("stBulkMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ btn.disabled=false; }
     };
+    /* ===== GÓI GIỜ ĐĂNG (preset dùng chung YouTube + FB/IG) ===== */
+    window.MM0_TIMEPACKS=[
+      {label:"🇻🇳 Giờ vàng VN", times:"09:00, 12:00, 20:00"},
+      {label:"🇻🇳 VN dày (4)", times:"07:00, 12:00, 18:00, 21:00"},
+      {label:"🇺🇸 Giờ vàng US ET", times:"12:00, 15:00, 18:00, 21:00"},
+      {label:"🇺🇸 US Pacific", times:"09:00, 12:00, 17:00, 20:00"},
+      {label:"🌍 Rải đều 24h", times:"00:00, 06:00, 12:00, 18:00"},
+    ];
+    window.renderTimePacks=(containerId,inputId,previewFn)=>{ const c=$(containerId); if(!c) return;
+      c.innerHTML=MM0_TIMEPACKS.map((p,i)=>`<button type="button" class="btn-mini" style="border-radius:20px" onclick="applyTimePack('${inputId}',${i}${previewFn?",'"+previewFn+"'":""})">${p.label}</button>`).join(""); };
+    window.applyTimePack=(inputId,i,previewFn)=>{ const p=MM0_TIMEPACKS[i], el=$(inputId); if(p&&el){ el.value=p.times; if(previewFn&&window[previewFn]) window[previewFn](); toastMsg("⚡ Gói: "+p.label); } };
+
+    /* ===== RẢI LỊCH FB/IG trên tab Publish (rải lại hàng đợi đang chờ) ===== */
+    window.fillFbBulkPage=()=>{ const sel=$("fbBulkPage"); if(!sel) return; const keep=sel.value; const pages=__FBP||[];
+      sel.innerHTML=`<option value="">— Tất cả Page —</option>`+pages.map(p=>`<option value="${esc(p.name)}">${esc(p.page_name||p.name)}</option>`).join("");
+      if(pages.some(p=>p.name===keep)) sel.value=keep; };
+    window.fbBulkPreview=()=>{ const el=$("fbBulkPreview"); if(!el) return; const page=($("fbBulkPage")||{}).value;
+      let items=(window.__socQueue||[]).filter(q=>q.status==="pending"); if(page) items=items.filter(q=>q.page===page);
+      const per=Math.max(1,+($("fbBulkPer")||{}).value||3);
+      const times=(($("fbBulkTimes")||{}).value||"").split(",").map(s=>s.trim()).filter(Boolean);
+      const days=items.length?Math.ceil(items.length/per):0;
+      el.innerHTML=items.length?`📊 ${items.length} bài đang chờ · ${per}/ngày · ${times.length} khung giờ → <b>${days} ngày</b>`:`📭 Chưa có bài đang chờ trong hàng đợi — bấm "Chọn thêm video từ Drive".`; };
+    window.fbBulkSpread=async()=>{ const btn=event&&event.target, msg=$("fbBulkMsg"); const page=($("fbBulkPage")||{}).value;
+      const per=Math.max(1,+$("fbBulkPer").value||3);
+      const times=$("fbBulkTimes").value.split(",").map(s=>s.trim()).filter(s=>/\d/.test(s));
+      if(!times.length){ msg.innerHTML='<span style="color:var(--bad)">Nhập khung giờ.</span>'; return; }
+      const start=$("fbBulkStart").value; if(!start){ msg.innerHTML='<span style="color:var(--bad)">Chọn ngày bắt đầu.</span>'; return; }
+      let items=(window.__socQueue||[]).filter(q=>q.status==="pending"); if(page) items=items.filter(q=>q.page===page);
+      items.sort((a,b)=>String(a.publish_at||a.created_at||"").localeCompare(String(b.publish_at||b.created_at||"")));
+      if(!items.length){ msg.innerHTML='<span style="color:var(--warn)">Không có bài đang chờ để rải lại. Chọn video từ Drive ở Storage trước.</span>'; return; }
+      if(!confirm(`Rải lại giờ cho ${items.length} bài đang chờ${page?' của Page này':''}?`)) return;
+      const [Y,Mo,D]=start.split("-").map(Number); if(btn) btn.disabled=true; msg.textContent="Đang rải lại…"; let n=0;
+      try{ for(let i=0;i<items.length;i++){ const day=Math.floor(i/per), slot=i%per; const [hh,mm]=(times[slot%times.length]).split(":").map(Number);
+          const dt=zonedTimeToUtc(Y,Mo,D+day,hh||9,mm||0,"Asia/Ho_Chi_Minh");
+          await window.__socQueueUpd(items[i].id,{publish_at:dt.toISOString(), status:"pending"}); n++; }
+        toastMsg(`✔ Đã rải lại ${n} bài`); msg.textContent=`✅ Xong ${n} bài`; fbBulkPreview();
+      }catch(e){ msg.innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ if(btn) btn.disabled=false; } };
+
     /* ===== GIAO VIỆC (Kanban) ===== */
     window.__tasks=[];
     const TK_COLS=[["todo","Cần làm"],["doing","Đang làm"],["review","Chờ duyệt"],["done","Xong"]];
@@ -2505,6 +2566,9 @@
       if($("loadYtVids"))$("loadYtVids").onclick=window.loadYtVids;
       if($("ovSyncBtn"))$("ovSyncBtn").onclick=window.ovSyncReal;
       moveSocialPanels();
+      if(window.renderTimePacks){ renderTimePacks("ytTimePacks","pubTimes"); renderTimePacks("fbTimePacks","fbBulkTimes","fbBulkPreview"); }
+      if($("fbBulkStart")) $("fbBulkStart").value=new Date().toISOString().slice(0,10);
+      if(window.fillFbBulkPage) fillFbBulkPage();
       setPlat(window.__plat||'yt');
       if($("fbAccount"))$("fbAccount").onchange=()=>{ if($("fbSearch"))$("fbSearch").value=""; window.__fb.account=$("fbAccount").value; window.__fb.stack=[]; fbOpen(null,"My Drive"); };
       if($("fbSearch"))$("fbSearch").oninput=(e)=>window.fbSearchInput(e.target.value);
