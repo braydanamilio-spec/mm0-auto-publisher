@@ -1521,7 +1521,7 @@
         }).join("")}</div>
         <div class="p-sub" style="margin-top:10px">Mỗi project ~${cap} upload/ngày. Đầy thì bài dời sang mai. Thêm project (secret <code>YT_CLIENTS</code>) để tăng.</div>`;
     }
-    const fbPageAva=(p)=> p.page_id?`<img src="https://graph.facebook.com/${esc(p.page_id)}/picture?type=square&width=96" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`:'f';
+    const fbPageAva=(p)=>{ const src=p.page_avatar||(p.page_id?`https://graph.facebook.com/${esc(p.page_id)}/picture?type=square&width=96`:""); return src?`<img src="${esc(src)}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`:'f'; };
     function renderFacebook(){
       if(!$("fbPages")) return;
       if($("nvFb")) $("nvFb").textContent=__FBP.length;
@@ -1542,7 +1542,7 @@
         ${p.ig_user_id
           ? `<div class="svc"><div class="ava" id="igava-${esc(p.name)}" style="width:34px;height:34px;background:linear-gradient(135deg,#F9CE34,#EE2A7B 45%,#6228D7);overflow:hidden;flex:none;display:grid;place-items:center;position:relative"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="#fff" stroke-width="2">${svgIcon('ig')}</svg>${p.ig_avatar?`<img src="${esc(p.ig_avatar)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`:''}</div><div style="flex:1;min-width:0"><div class="snm" id="igname-${esc(p.name)}">${esc(p.ig_name||'Instagram')}</div><div class="sd" id="igsd-${esc(p.name)}">${p.ig_username?'@'+esc(p.ig_username):'đã liên kết'} · Reels tự động</div></div><span class="tag t-connected" style="margin-left:auto">Đã kết nối</span></div>`
           : svcRow('ig','#E1306C','Instagram', 'unknown', 'chưa liên kết IG — vào Page → Linked accounts để nối')}
-        <button class="btn-reconn" style="width:100%;margin-top:8px;justify-content:flex-start" onclick="assignFbGroup('${esc(p.name)}')">👥 Nhóm quản lý: <b style="margin-left:4px">${fbG[p.name]?esc(fbG[p.name]):(p.fb_owner_name?esc(p.fb_owner_name)+' (UID)':'chưa gán (bấm để gộp)')}</b></button>
+        <button class="btn-reconn" style="width:100%;margin-top:8px;justify-content:flex-start" onclick="assignFbGroup('${esc(p.name)}')">👥 Nhóm quản lý: <b style="margin-left:4px">${fbG[p.name]?esc(fbG[p.name]):(p.fb_owner_name?esc(p.fb_owner_name)+(/^\d+$/.test(String(p.fb_owner_id||''))?' · UID '+esc(String(p.fb_owner_id)):''):'chưa gán (bấm để gộp)')}</b></button>
         <div class="p-sub" style="margin-top:8px">📅 Kết nối: <b>${dt}</b>${p.connected_at?` · ${ago(p.connected_at)}`:''} <span id="fbtok-${esc(p.name)}"></span></div>
         <div style="display:flex;gap:8px;margin-top:10px">
           <button class="btn-mini" onclick="fbCheckToken('${esc(p.name)}')">🔍 Kiểm tra token</button>
@@ -1555,12 +1555,13 @@
       const order=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length);
       $("fbPages").innerHTML=order.map(g=>{
         const arr=groups[g], p0=arr[0];
-        const isManual=fbG[p0.name]===g;
+        const isManual=fbG[p0.name]===g; const isRealUid=/^\d+$/.test(String(g));
+        const gtag=isRealUid?`UID ${esc(String(g))}`:String(g).startsWith('biz_')?`Business ${esc(String(g).slice(4))}`:'nhóm kết nối';
         const head=g==="__none__"
           ? `👤 Chưa gán nhóm <span class="p-sub">· bấm "👥 Nhóm quản lý" ở thẻ để gộp · ${arr.length} Page</span>`
           : isManual
             ? `👥 ${esc(g)} <span class="p-sub">· ${arr.length} Page</span>`
-            : `👤 ${esc(p0.fb_owner_name||'Tài khoản Facebook')} <span class="p-sub">· UID …${esc(String(g).slice(-8))} · ${arr.length} Page</span>`;
+            : `👤 ${esc(p0.fb_owner_name||'Tài khoản Facebook')} <span class="p-sub">· ${gtag} · ${arr.length} Page</span>`;
         return `<div class="hub-ghead">${head}</div>`+arr.map(fbCard).join("");
       }).join("");
       socFillPages();

@@ -834,8 +834,8 @@ async function fbCallback(url, env, uid, code, redirect) {
       if (b && b.id) { fb_owner_id = "biz_" + b.id; fb_owner_name = b.name || "Facebook Business"; }
     }
   } catch (_) {}
-  // 3) danh sách Page + page token (page token không hết hạn khi user token dài hạn)
-  const pages = await (await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token&access_token=${userTok}`)).json();
+  // 3) danh sách Page + page token + AVATAR (lấy luôn trong 1 call, không tốn thêm request)
+  const pages = await (await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,picture.width(100).height(100){url}&access_token=${userTok}`)).json();
   const list = pages.data || [];
   // BẢO ĐẢM luôn có khoá nhóm: nếu /me + business đều rỗng -> dùng khoá-lô theo Page đầu (mọi Page connect chung 1 lần vẫn gom nhóm)
   if (!fb_owner_id && list.length) { fb_owner_id = "fbgrp_" + list[0].id; fb_owner_name = fb_owner_name || "Nhóm kết nối"; }
@@ -846,6 +846,7 @@ async function fbCallback(url, env, uid, code, redirect) {
   let igCount = 0;
   for (const pg of list) {
     const slug = slugLabel(pg.name) || ("PAGE_" + String(pg.id).slice(-6));
+    const page_avatar = (((pg.picture || {}).data) || {}).url || "";
     // Lấy Instagram Business account liên kết với Page (để đăng IG luôn) + avatar
     let ig_user_id = "", ig_username = "", ig_avatar = "", ig_name = "";
     try {
@@ -863,13 +864,13 @@ async function fbCallback(url, env, uid, code, redirect) {
       }
     } catch (_) {}
     await fsPatch(env, at, `connections/${uid}__${slug}__facebook`,
-      { channel: slug, kind: "facebook", owner: uid, page_id: pg.id, page_name: pg.name,
+      { channel: slug, kind: "facebook", owner: uid, page_id: pg.id, page_name: pg.name, page_avatar,
         page_token: pg.access_token, ig_user_id, ig_username, ig_name, ig_avatar,
         fb_owner_id, fb_owner_name, connected_at: new Date().toISOString() });
     await fsPatch(env, at, `fb_pages/${uid}__${slug}`,
-      { name: slug, owner: uid, page_id: pg.id, page_name: pg.name,
+      { name: slug, owner: uid, page_id: pg.id, page_name: pg.name, page_avatar,
         ig_user_id, ig_username, ig_name, ig_avatar, fb_owner_id, fb_owner_name, fb_ok: true, connected_at: new Date().toISOString() },
-      ["name", "owner", "page_id", "page_name", "ig_user_id", "ig_username", "ig_name", "ig_avatar", "fb_owner_id", "fb_owner_name", "fb_ok", "connected_at"]);
+      ["name", "owner", "page_id", "page_name", "page_avatar", "ig_user_id", "ig_username", "ig_name", "ig_avatar", "fb_owner_id", "fb_owner_name", "fb_ok", "connected_at"]);
   }
   return page("Kết nối Facebook thành công 🎉",
     `<p>✅ Đã kết nối <b>${list.length}</b> Page${igCount ? ` · <b>${igCount}</b> có Instagram` : ""}: ${list.map(p => escapeHtml(p.name)).join(", ")}.</p>

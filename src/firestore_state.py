@@ -118,6 +118,17 @@ class State:
         self.db.collection("social_queue").document(doc_id).set(
             {**patch, "updated_at": datetime.now(timezone.utc).isoformat()}, merge=True)
 
+    # ---------- HÀNG ĐỢI ĐĂNG YOUTUBE TỪ DRIVE (Content Hub, yt_queue) ----------
+    def list_yt_queue(self) -> list[dict]:
+        out = []
+        for d in self.db.collection("yt_queue").where("status", "==", "pending").stream():
+            row = d.to_dict(); row["id"] = d.id; out.append(row)
+        return out
+
+    def update_yt_queue(self, doc_id: str, patch: dict):
+        self.db.collection("yt_queue").document(doc_id).set(
+            {**patch, "updated_at": datetime.now(timezone.utc).isoformat()}, merge=True)
+
     # ---------- DOC tổng quát (settings/config, storage/pool ...) ----------
     def get_doc(self, collection: str, doc_id: str) -> dict | None:
         d = self.db.collection(collection).document(doc_id).get()
