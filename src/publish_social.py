@@ -176,10 +176,19 @@ def run_queue(state, now, dry_run=False):
                     drv.make_private(fid)
                 except Exception:
                     pass
-        posted = bool(results.get("facebook", {}).get("id") or results.get("instagram", {}).get("id"))
-        state.update_queue(it["id"], {"status": "posted" if posted else "failed", "results": results,
-                                      "error": " | ".join(errs), "attempts": it.get("attempts", 0) + 1,
-                                      "posted_at": now.isoformat() if posted else None})
+        # Đã xong TẤT CẢ nền tảng được yêu cầu?
+        fully_done = ((not want_fb) or results.get("facebook", {}).get("id")) and \
+                     ((not want_ig) or results.get("instagram", {}).get("id"))
+        attempts = it.get("attempts", 0) + 1
+        if fully_done:
+            status = "posted"
+        elif attempts >= 3:          # bỏ cuộc sau 3 lần (dead-letter)
+            status = "failed"
+        else:
+            status = "pending"       # lỗi TẠM -> giữ pending, cron sau retry (giữ kết quả 1 phần)
+        state.update_queue(it["id"], {"status": status, "results": results,
+                                      "error": " | ".join(errs), "attempts": attempts,
+                                      "posted_at": now.isoformat() if fully_done else None})
 
 
 def _post_one(it, pages, fb_map, do_fb, do_ig, state, now, dry_run):
