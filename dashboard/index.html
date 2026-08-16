@@ -3655,7 +3655,16 @@
         <div class="svc"><div class="snm">🔎 Duyệt trước khi đăng <span class="sd">(video mới chờ anh duyệt)</span></div>
           <label style="margin-left:auto;display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;color:${rv?'var(--good)':'var(--muted)'}">
             <input type="checkbox" ${rv?"checked":""} onchange="saveReviewMode(this.checked)" style="width:16px;height:16px;cursor:pointer"> ${rv?"BẬT":"Tắt"}</label></div>
-        <div class="svc"><div class="snm">Chế độ dọn dẹp</div><span class="tag t-unknown" style="margin-left:auto">${esc(cl.mode||'—')} · ${cl.keep_days||14} ngày · ${esc(cl.trigger||'auto')}</span></div>
+        <div class="svc"><div class="snm">🧹 Chế độ dọn dẹp</div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="setClMode" class="set-sel" onchange="setClModeChange()">
+              <option value="keep" ${(cl.mode||'keep')==='keep'?'selected':''}>🛡️ Giữ mãi</option>
+              <option value="delete" ${cl.mode==='delete'?'selected':''}>🧹 Tự xoá đã đăng sau N ngày</option>
+            </select>
+            <span id="setClDaysWrap" style="display:${cl.mode==='delete'?'inline-flex':'none'};align-items:center;gap:4px">
+              <input id="setClDays" type="number" min="1" value="${cl.keep_days||14}" class="set-sel" style="width:64px"> ngày</span>
+            <button class="btn-mini" onclick="setClSave()">💾 Lưu</button>
+          </div></div>
         <div class="svc"><div class="snm">Trần an toàn/ngày</div><span class="sd" style="margin-left:auto">YT ${sf.youtube_max_uploads_per_day} · FB ${sf.facebook_max_uploads_per_day} · giãn ${sf.min_minutes_between_uploads}'</span></div>
         <div class="p-sub" style="margin:14px 0 6px">📅 Gói đăng theo từng kênh <span class="sd">(chọn nhanh)</span>:</div>${rows}`;
       $("setTemplates").innerHTML=TEMPLATE_CATALOG.map(t=>{
@@ -3740,6 +3749,12 @@
       catch(e){ if(msg){msg.style.color="var(--bad)";msg.textContent="❌ "+e.message;} } };
     window.lkCopy=(code)=>{ const u=lkShort(code); navigator.clipboard.writeText(u).then(()=>toastMsg("📋 Đã copy: "+u)).catch(()=>prompt("Copy link:",u)); };
     window.lkDelete=async(code)=>{ if(!confirm(`Xoá link /go/${code}? (link đang dùng sẽ hỏng)`)) return; try{ await window.__linkDelete(code); toastMsg("🗑️ Đã xoá"); }catch(e){ alert("❌ "+e.message); } };
+
+    /* ===== Chế độ dọn dẹp — edit inline ngay ở Settings ===== */
+    window.setClModeChange=()=>{ const w=$("setClDaysWrap"); if(w) w.style.display=($("setClMode").value==='delete')?'inline-flex':'none'; };
+    window.setClSave=async()=>{ const m=($("setClMode")||{}).value||'keep'; const d=Math.max(1,Number(($("setClDays")||{}).value)||14);
+      if(m==='delete' && !confirm(`Bật TỰ XOÁ: video ĐÃ ĐĂNG cũ hơn ${d} ngày sẽ bị đưa khỏi kho Drive (YouTube vẫn giữ bản gốc). Video CHƯA đăng KHÔNG bị đụng. Đồng ý?`)) return;
+      try{ await window.saveCleanup(m, m==='delete'?d:0); }catch(e){ alert("❌ "+e.message); } };
 
     window.pickTemplate = (id)=>{
       const chans=allChannels();
