@@ -293,6 +293,27 @@ const DRIVE_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email",
 ].join(" ");
 
+// Nhiều OAuth client (mỗi project = 10.000 quota/ngày) -> scale hàng trăm channel.
+// Đặt secret YT_CLIENTS = JSON: [{"id":"...","secret":"..."},{...}]. Không có -> dùng client đơn.
+function ytClients(env) {
+  if (env.YT_CLIENTS) {
+    try {
+      const a = JSON.parse(env.YT_CLIENTS);
+      if (Array.isArray(a) && a.length)
+        return a.map((c) => ({ id: c.id || c.client_id, secret: c.secret || c.client_secret })).filter((c) => c.id && c.secret);
+    } catch (_) {}
+  }
+  return [{ id: env.YT_CLIENT_ID, secret: env.YT_CLIENT_SECRET }];
+}
+
+// Round-robin: gán channel mới vào client kế tiếp (chia đều tải quota giữa các project).
+async function nextClientIdx(env, at, count) {
+  let n = 0;
+  try { const d = await fsGet(env, at, "settings/yt_rr"); n = (d && d.n) || 0; } catch (_) {}
+  try { await fsPatch(env, at, "settings/yt_rr", { n: n + 1 }, ["n"]); } catch (_) {}
+  return n % count;
+}
+
 async function startAuth(url, env) {
   const channel = url.searchParams.get("channel") || "";  // để trống -> tự lấy tên kênh thật ở callback
   const kind = url.searchParams.get("kind") || "youtube";
@@ -321,15 +342,24 @@ async function startAuth(url, env) {
     return Response.redirect("https://www.facebook.com/v19.0/dialog/oauth?" + fp.toString(), 302);
   }
 
+  // Chọn OAuth client: YouTube xoay vòng nhiều project (chia quota); Drive dùng client đầu.
+  const clients = ytClients(env);
+  let ci = 0;
+  if (kind === "youtube" && clients.length > 1) {
+    const at = await saAccessToken(env);
+    ci = await nextClientIdx(env, at, clients.length);
+  }
+  const client = clients[ci] || clients[0];
+  const st2 = b64url(new TextEncoder().encode(JSON.stringify({ channel, kind, uid, ci })));
   const p = new URLSearchParams({
-    client_id: env.YT_CLIENT_ID,
+    client_id: client.id,
     redirect_uri: redirect,
     response_type: "code",
     scope: kind === "drive" ? DRIVE_SCOPES : YT_SCOPES,
     access_type: "offline",
     prompt: "consent",           // luôn xin refresh_token mới
     include_granted_scopes: "true",
-    state,
+    state: st2,
   });
   return Response.redirect("https://accounts.google.com/o/oauth2/v2/auth?" + p.toString(), 302);
 }
@@ -338,18 +368,22 @@ async function callback(url, env) {
   const code = url.searchParams.get("code");
   const stateRaw = url.searchParams.get("state");
   if (!code || !stateRaw) return page("Lỗi", "<p>Thiếu code/state.</p>");
-  const { channel, kind, uid } = JSON.parse(new TextDecoder().decode(ub64url(stateRaw)));
+  const { channel, kind, uid, ci } = JSON.parse(new TextDecoder().decode(ub64url(stateRaw)));
   if (!uid) return page("Lỗi", "<p>Thiếu uid — bấm Kết nối lại từ dashboard.</p>");
   const redirect = url.origin + "/auth/callback";
 
   if (kind === "facebook") return await fbCallback(url, env, uid, code, redirect);
+
+  // Dùng ĐÚNG OAuth client đã chọn lúc startAuth (để token gắn đúng project quota)
+  const clients = ytClients(env);
+  const client = clients[ci || 0] || clients[0];
 
   // 1) đổi code -> token
   const tok = await (await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      code, client_id: env.YT_CLIENT_ID, client_secret: env.YT_CLIENT_SECRET,
+      code, client_id: client.id, client_secret: client.secret,
       redirect_uri: redirect, grant_type: "authorization_code",
     }),
   })).json();
@@ -377,7 +411,7 @@ async function callback(url, env) {
   const at = await saAccessToken(env);
   const base = {
     kind, email, owner: uid,
-    client_id: env.YT_CLIENT_ID, client_secret: env.YT_CLIENT_SECRET,
+    client_id: client.id, client_secret: client.secret,
     refresh_token: tok.refresh_token, connected_at: new Date().toISOString(),
   };
 

@@ -85,6 +85,22 @@ class State:
             data["owner"] = owner
         self.db.collection("counters").document(cid).set(data, merge=True)
 
+    # ---------- QUOTA THEO OAuth CLIENT (mỗi project 10.000/ngày ~ 6 upload) ----------
+    def _client_qid(self, client_id: str, day: datetime) -> str:
+        safe = "".join(c if c.isalnum() else "_" for c in (client_id or "?"))[:40]
+        return f"{safe}_{day.strftime('%Y%m%d')}"
+
+    def client_uploads_today(self, client_id: str, day: datetime) -> int:
+        d = self.db.collection("quota").document(self._client_qid(client_id, day)).get()
+        return (d.to_dict() or {}).get("uploads", 0) if d.exists else 0
+
+    def bump_client_uploads(self, client_id: str, day: datetime, owner: str | None = None):
+        data = {"client": (client_id or "")[:60], "uploads": firestore.Increment(1),
+                "updated_at": datetime.now(timezone.utc).isoformat()}
+        if owner:
+            data["owner"] = owner
+        self.db.collection("quota").document(self._client_qid(client_id, day)).set(data, merge=True)
+
     def last_upload_at(self, channel: str, day: datetime, owner: str | None = None):
         c = self.get_counters(channel, day, owner)
         v = c.get("last_upload_at")

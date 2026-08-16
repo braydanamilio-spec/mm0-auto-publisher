@@ -209,6 +209,12 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now, owner=None):
     plats = meta["platforms"]
     need_yt = "youtube" in plats and resolved.get("yt_creds") and not results.get("youtube", {}).get("id")
     need_fb = "facebook" in plats and resolved.get("fb") and not results.get("facebook", {}).get("id")
+    # Trần theo PROJECT (OAuth client): nhiều channel chung 1 client sẽ chung 10.000/ngày (~6 upload)
+    _cid = resolved.get("client_id")
+    _proj_cap = int(os.environ.get("YT_UPLOADS_PER_PROJECT", "6"))
+    if need_yt and _cid and state.client_uploads_today(_cid, now) >= _proj_cap:
+        print(f"     ⏸ Project (client …{_cid[-10:]}) đã đủ {_proj_cap} upload hôm nay -> để mai (rollover).")
+        need_yt = False
     try:
         # Chỉ tải video khi thực sự cần đăng (tiết kiệm băng thông khi retry)
         if need_yt or need_fb:
@@ -252,6 +258,8 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now, owner=None):
                 yt_ok = True
                 state.upsert_video(it["drive_file_id"], {"results": results})   # LƯU NGAY
                 state.bump_counters(it["channel"], now, yt=1, owner=owner)       # ĐẾM NGAY -> cap không lệch
+                if _cid:
+                    state.bump_client_uploads(_cid, now, owner=owner)           # đếm quota theo project
                 print(f"     ✅ YouTube: {r['url']}")
             except YT.QuotaExceeded:
                 raise
@@ -519,7 +527,8 @@ def process_users(channels_cfg, templates, safety, tz, dry_run, state, now):
             todo = S.apply_limits(ready, safety, counters.get("yt", 0), counters.get("fb", 0), last, now)
             resolved = {"yt_creds": {"client_id": conn["client_id"],
                                      "client_secret": conn["client_secret"],
-                                     "refresh_token": conn["refresh_token"]}}
+                                     "refresh_token": conn["refresh_token"]},
+                        "client_id": conn["client_id"]}
             print(f"  [{uid[:8]}/{channel}] {len(ready)} đến giờ, đăng {len(todo)}")
             for it in todo:
                 try:
