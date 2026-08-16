@@ -3816,18 +3816,32 @@
     const _norm=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
     function upGuessChannel(folderName){ const nf=_norm(folderName); if(!nf) return "";
       for(const k of connectedYT()){ const nc=_norm(chName(k)), nk=_norm(k); if(nc&&(nf===nc||nf.includes(nc)||nc.includes(nf))) return k; if(nk&&(nf===nk||nf.includes(nk)||nk.includes(nf))) return k; } return ""; }
-    function upAdd(files,fromFolder){ files=(files||[]).filter(f=>/\.(mp4|mov|mkv|webm|m4v)$/i.test(f.name)||/^video\//.test(f.type||""));
-      if(!files.length){ toastMsg("Không thấy video (mp4/mov/mkv/webm) trong lựa chọn"); return; }
-      let guessMsg="";
-      files.forEach(f=>{ const rel=f.webkitRelativePath||""; const top=rel.split("/")[0]||"";
-        const it={file:f,name:f.name,size:f.size,pct:0,status:"chờ",err:"",rel};
-        // tự nhận kênh theo folder gốc; tự nhận short theo path chứa short/reel
+    // đọc file mô tả companion -> {title, description, hashtags, tags}
+    async function upReadMeta(file){ if(!file) return {}; let text=""; try{ text=await file.text(); }catch(_){ return {}; }
+      if(/\.json$/i.test(file.name)){ try{ const j=JSON.parse(text); return {title:j.title, description:j.description||j.desc, hashtags:j.hashtags||[], tags:j.tags||[]}; }catch(_){} }
+      // txt/md: dòng đầu = TITLE, phần còn lại = DESCRIPTION; #hashtag lấy tự động
+      const lines=text.split(/\r?\n/); const title=(lines[0]||"").replace(/^#+\s*/,"").trim();
+      return {title, description:lines.slice(1).join("\n").trim(), hashtags:(text.match(/#[\w]+/g)||[])}; }
+    function upAdd(files,fromFolder){ const all=(files||[]);
+      const vids=all.filter(f=>/\.(mp4|mov|mkv|webm|m4v)$/i.test(f.name)||/^video\//.test(f.type||""));
+      if(!vids.length){ toastMsg("Không thấy video (mp4/mov/mkv/webm) trong lựa chọn"); return; }
+      const dirOf=f=>{ const rel=f.webkitRelativePath||f.name; const i=rel.lastIndexOf("/"); return i>=0?rel.slice(0,i):""; };
+      const baseOf=f=>f.name.replace(/\.[^.]+$/,'');
+      let guessMsg="", nT=0, nM=0;
+      vids.forEach(f=>{ const rel=f.webkitRelativePath||""; const top=rel.split("/")[0]||"";
+        const dir=dirOf(f), base=baseOf(f);
+        // companion CÙNG TÊN, CÙNG THƯ MỤC: thumbnail (ảnh) + mô tả (.json/.txt/.md)
+        const sibs=all.filter(x=>x!==f && dirOf(x)===dir && baseOf(x)===base);
+        const thumbFile=sibs.find(x=>/\.(jpe?g|png|webp)$/i.test(x.name));
+        const metaFile=sibs.find(x=>/\.(json|txt|md)$/i.test(x.name));
+        const it={file:f,name:f.name,size:f.size,pct:0,status:"chờ",err:"",rel,thumbFile,metaFile};
+        if(thumbFile) nT++; if(metaFile) nM++;
         if(fromFolder&&top){ const g=upGuessChannel(top); if(g){ it.channel=g; guessMsg=`📺 tự nhận kênh: ${chName(g)}`; } }
         if(/(^|\/)(short|shorts|reel|reels)(\/|$)|[-_](short|reel)\b/i.test(rel||f.name)) it.pathShort=true;
         window.__upQ.push(it); });
-      // nếu folder khớp 1 kênh -> set luôn ô Kênh đích
       const firstCh=window.__upQ.find(x=>x.channel); if(firstCh){ const sel=$("upChannel"); if(sel&&[...sel.options].some(o=>o.value===firstCh.channel)) sel.value=firstCh.channel; }
-      if(guessMsg) toastMsg(guessMsg+` · ${files.length} video`);
+      let msg=`${vids.length} video`; if(nT)msg+=` · ${nT} thumbnail`; if(nM)msg+=` · ${nM} mô tả`;
+      toastMsg((guessMsg?guessMsg+" · ":"⬆️ ")+msg);
       upResched(); upRender(); upPump(); }
     function upRender(){ const box=$("upList"); if(!box) return; if(!window.__upQ.length){ box.innerHTML=""; return; }
       box.innerHTML=window.__upQ.map((it,i)=>`<div class="svc" style="align-items:center">
@@ -3853,14 +3867,17 @@
       if(toFolder){ initBody.folderId=it.folderId; if(it.overwrite) initBody.overwrite=true; } else initBody.type=type;
       const init=await workerApi("/api/upload-init",{method:"POST",body:initBody});
       const sess=init.sessionUri, folderId=init.folderId; if(!sess) throw new Error("init lỗi");
-      const CHUNK=16*1024*1024; let off=0;
-      while(off<it.size){ const end=Math.min(off+CHUNK,it.size); const blob=it.file.slice(off,end); const range=`bytes ${off}-${end-1}/${it.size}`;
-        const r=await upPutChunk(sess,range,blob,(loaded)=>{ it.pct=Math.min(100,Math.round((off+loaded)/it.size*100)); upRender(); });
-        if(r.status===200||r.status===201){ off=it.size; break; }
-        if(r.status!==308) throw new Error("tải lỗi "+r.status);
-        off=end; it.pct=Math.round(off/it.size*100); upRender(); }
+      await upStream(sess, it.file, (p)=>{ it.pct=p; upRender(); });
       if(!toFolder){ const mode=($("upSchedMode")||{}).value||"none"; const sidecar={type};
-        if(channel){ sidecar.channel=channel;   // CHƯA GÁN kênh -> không routing/lịch (gán sau qua nút 📺 YouTube)
+        // 1) MÔ TẢ có sẵn -> đưa title/description/hashtags/tags vào sidecar (bắt buộc nhận)
+        if(it.metaFile){ const m=await upReadMeta(it.metaFile);
+          if(m.title) sidecar.title=m.title; if(m.description) sidecar.description=m.description;
+          if(m.hashtags&&m.hashtags.length) sidecar.hashtags=m.hashtags; if(m.tags&&m.tags.length) sidecar.tags=m.tags; }
+        // 2) THUMBNAIL có sẵn -> upload vào CÙNG folder + trỏ sidecar.thumbnail (main.py tự đặt làm thumbnail YT)
+        if(it.thumbFile){ try{ it.status="tải thumbnail…"; upRender();
+            const ti=await workerApi("/api/upload-init",{method:"POST",body:{account:acct,folderId,name:it.thumbFile.name,mimeType:it.thumbFile.type||"image/jpeg",size:it.thumbFile.size,overwrite:true}});
+            if(ti.sessionUri){ await upStream(ti.sessionUri, it.thumbFile); sidecar.thumbnail=it.thumbFile.name; } }catch(_){} it.status="đang tải"; upRender(); }
+        if(channel){ sidecar.channel=channel;
           if(mode==="now") sidecar.publish_at=new Date().toISOString();
           else if(mode==="spread"&&it.publishAt) sidecar.publish_at=it.publishAt; }
         await workerApi("/api/upload-done",{method:"POST",body:{account:acct,folderId,base:upName.replace(/\.[^.]+$/,''),sidecar}}); }
@@ -3881,6 +3898,14 @@
         try{ it.publishAt=new Date(zonedTimeToUtc(Y,Mo,D+day,hh||12,mm||0,tz).getTime()+jitMs(15)).toISOString(); }catch(_){ it.publishAt=null; } });
       const days=pend.length?Math.ceil(pend.length/per):0;
       if(info) info.innerHTML=pend.length?`📊 ${pend.length} video · ${per}/ngày · ${times.length} khung giờ → <b>${days} ngày</b> (bắt đầu ${esc(start)})`:`Chưa có video trong hàng đợi.`; }
+    // Tải 1 File bất kỳ (video/thumbnail) qua session -> chunk 16MB relay
+    async function upStream(sess, file, onProg){ const CHUNK=16*1024*1024, total=file.size; let off=0;
+      while(off<total){ const end=Math.min(off+CHUNK,total); const blob=file.slice(off,end); const range=`bytes ${off}-${end-1}/${total}`;
+        const r=await upPutChunk(sess,range,blob,(loaded)=>{ if(onProg) onProg(Math.min(100,Math.round((off+loaded)/total*100))); });
+        if(r.status===200||r.status===201) return r;
+        if(r.status!==308) throw new Error("tải lỗi "+r.status);
+        off=end; if(onProg) onProg(Math.round(off/total*100)); }
+      return {status:200}; }
     function upPutChunk(sess,range,blob,onProg){ return new Promise((res,rej)=>{ const x=new XMLHttpRequest();
       x.open("POST",WORKER_URL+"/api/upload-chunk?s="+encodeURIComponent(sess));
       x.setRequestHeader("x-mm0-range",range);
