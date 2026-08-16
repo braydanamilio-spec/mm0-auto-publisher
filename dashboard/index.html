@@ -2934,8 +2934,19 @@
     const FOLDER_MIME="application/vnd.google-apps.folder";
     function fbRender(files){
       window.__fb.files=files;
+      const cur=(window.__fb.stack||[]).slice(-1)[0];
       $("fbBread").innerHTML=window.__fb.stack.map((s,i)=>`<span class="fb-crumb" onclick="fbCrumb(${i})">${esc(s.name)}</span>`).join('<span class="fb-sep">/</span>')
-        + `<button class="mini" style="margin-left:auto" onclick="fbRefresh()">↻</button>`;
+        + `<label class="mini" style="margin-left:auto;cursor:pointer" title="Tải video vào thư mục này">⬆️ Tải vào đây<input type="file" accept="video/*" multiple style="display:none" onchange="fbUploadHere(this.files);this.value=''"></label>`
+        + `<button class="mini" onclick="fbRefresh()">↻</button>`;
+      // Kéo-thả video vào danh sách file -> tải THẲNG vào thư mục hiện tại (check trùng)
+      const lst=$("fbList");
+      if(lst&&!lst.__dropWired){ lst.__dropWired=true;
+        lst.addEventListener("dragover",e=>{e.preventDefault();lst.style.outline="2px dashed var(--accent)";});
+        lst.addEventListener("dragleave",()=>{lst.style.outline="";});
+        lst.addEventListener("drop",async e=>{e.preventDefault();lst.style.outline="";
+          const items=e.dataTransfer.items; let files;
+          if(items&&items.length&&items[0].webkitGetAsEntry) files=await upReadDrop(items); else files=[...e.dataTransfer.files];
+          fbUploadHere(files); }); }
       const isFold=f=>f.mimeType===FOLDER_MIME;
       const rows=[...files].sort((a,b)=>(isFold(b)-isFold(a))||String(a.name).localeCompare(b.name)).map(f=>{
         const fold=isFold(f);
@@ -3672,6 +3683,40 @@
       if(s.has(em)) s.delete(em); else s.add(em); renderConnections(); };
     const fmtBytes=(n)=>{if(n==null)return"—";const u=["B","KB","MB","GB","TB"];let i=0,x=n;while(x>=1000&&i<u.length-1){x/=1000;i++;}return x.toFixed(x<10&&i>0?1:0)+" "+u[i];};
 
+    /* ===== Tải video THẲNG vào 1 thư mục đang duyệt (như kéo trên Drive) + check trùng ===== */
+    function upUniqueName(name,used){ const dot=name.lastIndexOf("."); const base=dot>0?name.slice(0,dot):name, ext=dot>0?name.slice(dot):"";
+      let i=1,cand; do{ cand=`${base} (${i})${ext}`; i++; }while(used.has(cand.toLowerCase())); return cand; }
+    function upAskDup(names){ return new Promise(resolve=>{ const back=document.createElement("div"); back.className="modal-back";
+      back.innerHTML=`<div class="modal-card"><div class="modal-head"><b>⚠️ ${names.length} file trùng tên trong thư mục</b></div>
+        <div class="modal-body"><div class="p-sub" style="margin-bottom:8px">Đã có sẵn trong thư mục này:</div>
+          <div class="p-sub" style="max-height:130px;overflow:auto;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;font-family:var(--mono,monospace)">${names.slice(0,25).map(n=>esc(n)).join("<br>")}${names.length>25?`<br>+${names.length-25}…`:''}</div></div>
+        <div class="modal-foot" style="gap:8px;flex-wrap:wrap">
+          <button class="btn-mini" data-a="skip">⏭ Bỏ qua file trùng</button>
+          <button class="btn-mini" data-a="keepboth">➕ Giữ cả 2 (thêm số)</button>
+          <button class="btn-conn" data-a="replace" style="background:var(--warn);border-color:var(--warn)">♻️ Thay thế (xoá cũ)</button>
+          <button class="btn-mini" data-a="cancel">Huỷ</button></div></div>`;
+      document.body.appendChild(back);
+      back.querySelectorAll("[data-a]").forEach(b=>b.onclick=()=>{ const a=b.dataset.a; back.remove(); resolve(a); }); }); }
+    window.fbUploadHere=async(files)=>{
+      const acct=window.__fb&&window.__fb.account; const st=window.__fb&&window.__fb.stack; const cur=st&&st[st.length-1];
+      if(!acct||!cur||!cur.id){ toastMsg("Mở 1 thư mục trong kho trước khi tải lên"); return; }
+      let vids=[...files].filter(f=>/\.(mp4|mov|mkv|webm|m4v)$/i.test(f.name)||/^video\//.test(f.type||""));
+      if(!vids.length){ toastMsg("Không thấy video trong lựa chọn"); return; }
+      const existing=new Map((window.__fb.files||[]).filter(f=>f.mimeType!==FOLDER_MIME).map(f=>[f.name.toLowerCase(),f]));
+      const dupNames=vids.filter(f=>existing.has(f.name.toLowerCase())).map(f=>f.name);
+      let action="keepboth";
+      if(dupNames.length){ action=await upAskDup(dupNames); if(action==="cancel") return; }
+      const used=new Set([...existing.keys()]); let n=0;
+      for(const f of vids){ const isDup=existing.has(f.name.toLowerCase());
+        if(isDup&&action==="skip") continue;
+        let uploadName=f.name, overwrite=false;
+        if(isDup&&action==="replace") overwrite=true;
+        if(isDup&&action==="keepboth"){ uploadName=upUniqueName(f.name,used); }
+        used.add(uploadName.toLowerCase());
+        window.__upQ.push({file:f,name:uploadName,uploadName,size:f.size,pct:0,status:"chờ",err:"",folderId:cur.id,account:acct,overwrite}); n++; }
+      if(!n){ toastMsg("Đã bỏ qua tất cả (trùng)"); return; }
+      toastMsg(`⬆️ Tải ${n} video vào "${cur.name}"`); upRender(); upPump(); };
+
     /* ===== Kiểm tra sức khoẻ token kho (chống gián đoạn đăng bài) ===== */
     window.checkDriveTokens=async()=>{ const box=$("stTokenHealth"); if(!box) return;
       const accs=((__STORAGE&&__STORAGE.accounts)||[]).map(a=>a.name);
@@ -3744,13 +3789,19 @@
     async function upPump(){ if(window.__upBusy) return; const it=window.__upQ.find(x=>x.status==="chờ"); if(!it) return;
       window.__upBusy=true; try{ await upOne(it); }catch(e){ it.status="lỗi"; it.err=(e&&e.message)||"lỗi"; upRender(); } window.__upBusy=false; upPump(); }
     async function upOne(it){
-      const acct=($("upAccount")||{}).value; const channel=it.channel||($("upChannel")||{}).value;
-      if(!acct) throw new Error("chọn kho"); if(!channel) throw new Error("chọn kênh");
-      let type=($("upType")||{}).value||"auto";
-      if(it.pathShort) type="short";                 // path chứa short/reel -> short
-      else if(type==="auto"){ it.status="phân tích…"; upRender(); type=await upDetectType(it.file); }
-      it.type=type; it.status="đang tải"; it.pct=0; upRender();
-      const init=await workerApi("/api/upload-init",{method:"POST",body:{account:acct,type,name:it.name,mimeType:it.file.type||"video/mp4",size:it.size}});
+      const toFolder=!!it.folderId;      // true = tải thẳng vào 1 thư mục đang duyệt (không sidecar)
+      const acct=it.account||($("upAccount")||{}).value;
+      if(!acct) throw new Error("chọn kho");
+      let channel="",type="";
+      if(!toFolder){ channel=it.channel||($("upChannel")||{}).value; if(!channel) throw new Error("chọn kênh");
+        type=($("upType")||{}).value||"auto";
+        if(it.pathShort) type="short"; else if(type==="auto"){ it.status="phân tích…"; upRender(); type=await upDetectType(it.file); }
+        it.type=type; }
+      it.status="đang tải"; it.pct=0; upRender();
+      const upName=it.uploadName||it.name;
+      const initBody={account:acct,name:upName,mimeType:it.file.type||"video/mp4",size:it.size};
+      if(toFolder){ initBody.folderId=it.folderId; if(it.overwrite) initBody.overwrite=true; } else initBody.type=type;
+      const init=await workerApi("/api/upload-init",{method:"POST",body:initBody});
       const sess=init.sessionUri, folderId=init.folderId; if(!sess) throw new Error("init lỗi");
       const CHUNK=16*1024*1024; let off=0;
       while(off<it.size){ const end=Math.min(off+CHUNK,it.size); const blob=it.file.slice(off,end); const range=`bytes ${off}-${end-1}/${it.size}`;
@@ -3758,11 +3809,12 @@
         if(r.status===200||r.status===201){ off=it.size; break; }
         if(r.status!==308) throw new Error("tải lỗi "+r.status);
         off=end; it.pct=Math.round(off/it.size*100); upRender(); }
-      const mode=($("upSchedMode")||{}).value||"none"; const sidecar={channel,type};
-      if(mode==="now") sidecar.publish_at=new Date().toISOString();
-      else if(mode==="spread"&&it.publishAt) sidecar.publish_at=it.publishAt;
-      await workerApi("/api/upload-done",{method:"POST",body:{account:acct,folderId,base:it.name.replace(/\.[^.]+$/,''),sidecar}});
-      it.status="xong"; it.pct=100; upRender(); toastMsg("✅ Đã upload: "+it.name); }
+      if(!toFolder){ const mode=($("upSchedMode")||{}).value||"none"; const sidecar={channel,type};
+        if(mode==="now") sidecar.publish_at=new Date().toISOString();
+        else if(mode==="spread"&&it.publishAt) sidecar.publish_at=it.publishAt;
+        await workerApi("/api/upload-done",{method:"POST",body:{account:acct,folderId,base:upName.replace(/\.[^.]+$/,''),sidecar}}); }
+      it.status="xong"; it.pct=100; upRender(); toastMsg("✅ Đã upload: "+upName);
+      if(toFolder&&window.__fb&&window.__fb.account===acct) setTimeout(()=>{ if(window.fbRefresh) fbRefresh(); },800); }
     // ===== Lịch rải nhiều ngày cho batch upload =====
     window.upSchedUI=()=>{ const m=($("upSchedMode")||{}).value; const box=$("upSpreadCfg"); if(box) box.style.display=(m==="spread")?"":"none"; upResched(); };
     window.upResched=()=>{ const info=$("upSpreadInfo");

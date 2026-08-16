@@ -742,15 +742,29 @@ async function driveChildFolder(dat, parent, name, create = true) {
 //      (KHÔNG qua Worker -> full tốc độ, KHÔNG giảm chất lượng, token KHÔNG lộ ra browser).
 async function apiUploadInit(request, url, env) {
   const b = request.method === "POST" ? await request.json().catch(() => ({})) : {};
-  const { t, account, type, name, mimeType, size } = b;
+  const { t, account, type, name, mimeType, size, folderId, overwrite } = b;
   const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
   if (!uid) throw new Error("Chưa đăng nhập.");
   if (!account || !name) throw new Error("Thiếu account/tên file.");
   const { conn, dat } = await driveCtx(env, uid, account);
-  const root = conn.root;
-  if (!root) throw new Error("Kho chưa có thư mục gốc (kết nối lại Drive).");
-  const queue = await driveChildFolder(dat, root, "_QUEUE");
-  const folder = await driveChildFolder(dat, queue, type === "short" ? "short" : "long");
+  let folder;
+  if (folderId) {
+    folder = folderId;   // TẢI THẲNG vào 1 thư mục đang duyệt (như kéo trên Drive)
+    if (overwrite) {     // thay thế: đưa file trùng tên trong folder này vào thùng rác trước
+      try {
+        const q = encodeURIComponent(`'${folder}' in parents and name='${String(name).replace(/'/g, "\\'")}' and trashed=false`);
+        const ex = await (await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)&pageSize=5`,
+          { headers: { Authorization: `Bearer ${dat}` } })).json();
+        for (const f of (ex.files || [])) await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`,
+          { method: "PATCH", headers: { Authorization: `Bearer ${dat}`, "content-type": "application/json" }, body: JSON.stringify({ trashed: true }) });
+      } catch (e) {}
+    }
+  } else {
+    const root = conn.root;
+    if (!root) throw new Error("Kho chưa có thư mục gốc (kết nối lại Drive).");
+    const queue = await driveChildFolder(dat, root, "_QUEUE");
+    folder = await driveChildFolder(dat, queue, type === "short" ? "short" : "long");
+  }
   const init = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name",
     { method: "POST",
       headers: { Authorization: `Bearer ${dat}`, "content-type": "application/json; charset=UTF-8",
