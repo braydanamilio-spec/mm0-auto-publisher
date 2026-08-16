@@ -827,10 +827,18 @@ async function fbCallback(url, env, uid, code, redirect) {
   try {
     const me = await (await fetch(`https://graph.facebook.com/v19.0/me?fields=id,name&access_token=${userTok}`)).json();
     if (me && me.id) { fb_owner_id = me.id; fb_owner_name = me.name || ""; }
+    // Login for Business đôi khi /me rỗng -> thử businesses
+    if (!fb_owner_id) {
+      const bz = await (await fetch(`https://graph.facebook.com/v19.0/me/businesses?fields=id,name&access_token=${userTok}`)).json();
+      const b = (bz.data || [])[0];
+      if (b && b.id) { fb_owner_id = "biz_" + b.id; fb_owner_name = b.name || "Facebook Business"; }
+    }
   } catch (_) {}
   // 3) danh sách Page + page token (page token không hết hạn khi user token dài hạn)
   const pages = await (await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token&access_token=${userTok}`)).json();
   const list = pages.data || [];
+  // BẢO ĐẢM luôn có khoá nhóm: nếu /me + business đều rỗng -> dùng khoá-lô theo Page đầu (mọi Page connect chung 1 lần vẫn gom nhóm)
+  if (!fb_owner_id && list.length) { fb_owner_id = "fbgrp_" + list[0].id; fb_owner_name = fb_owner_name || "Nhóm kết nối"; }
   if (!list.length) return page("Không tìm thấy Page",
     `<p>Tài khoản Facebook này chưa quản lý Page nào, hoặc chưa cấp quyền Page.</p>
      <p>${escapeHtml((pages.error && pages.error.message) || "")}</p>`, "facebook");
@@ -865,7 +873,8 @@ async function fbCallback(url, env, uid, code, redirect) {
   }
   return page("Kết nối Facebook thành công 🎉",
     `<p>✅ Đã kết nối <b>${list.length}</b> Page${igCount ? ` · <b>${igCount}</b> có Instagram` : ""}: ${list.map(p => escapeHtml(p.name)).join(", ")}.</p>
-     <p>Quản lý ở tab <b>Facebook</b> trên dashboard.</p>`, "facebook");
+     <p>👥 Nhóm quản lý (tự nhận): <b>${escapeHtml(fb_owner_name || "—")}</b>${fb_owner_id ? ` <code>UID ${escapeHtml(String(fb_owner_id))}</code>` : ""} — các Page trên đã tự gom về nhóm này.</p>
+     <p>Quản lý ở tab <b>Mạng xã hội</b> trên dashboard.</p>`, "facebook");
 }
 
 async function ensureDriveFolder(accessToken, name) {
