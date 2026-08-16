@@ -847,6 +847,7 @@
         .chpick-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 34px rgba(0,0,0,.28);padding:6px;min-width:230px;max-height:340px;overflow-y:auto}
         .chpick-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:500}
         .chpick-item:hover{background:var(--surface2)} .chpick-item.on{background:var(--accent-soft);color:var(--accent);font-weight:700}
+        .chpick-item.chpick-sub{padding-left:22px;position:relative} .chpick-link{color:var(--muted);margin-right:2px;font-size:13px}
         .cm-dot{margin-left:auto;background:var(--bad);color:#fff;font-size:10px;font-weight:800;min-width:18px;height:18px;padding:0 5px;border-radius:20px;display:inline-grid;place-items:center}
         .cm-stats{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;font-size:13px}
         .cm-stats b{color:var(--text);font-variant-numeric:tabular-nums}
@@ -1430,6 +1431,7 @@
         if(fb) fb.classList.toggle("hide",plat!=="fb");
       });
       document.querySelectorAll("#platSwitch .seg-btn").forEach(b=>b.classList.toggle("on",b.dataset.p===plat));
+      if(window.buildChanFilter) buildChanFilter();   // picker top đổi theo nền tảng
       if(plat==="fb"){ if(window.__view==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(window.__view==="schedule"&&window.renderFbSchedule) renderFbSchedule(); if(window.__view==="overview"&&window.renderFbOverview) renderFbOverview(); }
     };
     window.setSubTab=(page,plat)=>setPlat(plat);   // per-page sub-tab -> điều khiển toàn cục
@@ -2454,15 +2456,36 @@
       $("nvChans").textContent=allChannels().length;
       $("nvPub").textContent=V().filter(v=>eff(v)!=="posted").length;
     }
+    const fbAvaMini=(p)=>`<div class="chpick-ava" style="overflow:hidden;background:linear-gradient(145deg,#1877f2,#0a58ca)">${fbPageAva(p)}</div>`;
+    const igAvaMini=(p)=>`<div class="chpick-ava" style="overflow:hidden;position:relative;background:linear-gradient(135deg,#F9CE34,#EE2A7B 45%,#6228D7);display:grid;place-items:center"><svg viewBox="0 0 24 24" width="12" fill="none" stroke="#fff" stroke-width="2.2">${svgIcon('ig')}</svg>${p.ig_avatar?`<img src="${esc(p.ig_avatar)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`:''}</div>`;
     function buildChanFilter(){
       const btn=$("chPickBtn"), menu=$("chPickMenu"); if(!btn||!menu) return;
-      const cval=window.__chFilter||"";
+      const caret=`<span class="chpick-caret">▾</span>`;
+      if(window.__plat==="fb"){   // NỀN TẢNG FB/IG -> sổ ra Page + Instagram (thể hiện link)
+        const pages=__FBP||[]; const cval=window.__fbFilter||"";
+        const allLbl=`<span class="chpick-all">🌐 Tất cả Page/IG</span>`;
+        const sel=pages.find(p=>p.name===cval);
+        btn.innerHTML=(sel?`${fbAvaMini(sel)}<span class="chpick-nm">${esc(sel.page_name||sel.name)}</span>`:allLbl)+caret;
+        menu.innerHTML=`<div class="chpick-item ${!cval?'on':''}" onclick="pickFbPage('')">${allLbl}</div>`
+          +pages.map(p=>`<div class="chpick-item ${cval===p.name?'on':''}" onclick="pickFbPage('${esc(p.name)}')">${fbAvaMini(p)}<span class="chpick-nm">${esc(p.page_name||p.name)}</span>${p.ig_user_id?'<span class="p-sub" style="margin-left:auto">+IG</span>':''}</div>`
+            +(p.ig_user_id?`<div class="chpick-item chpick-sub" onclick="pickFbPage('${esc(p.name)}')"><span class="chpick-link">↳</span>${igAvaMini(p)}<span class="chpick-nm" style="font-size:13px">@${esc(p.ig_username||'instagram')}</span><span class="p-sub" style="margin-left:auto">🔗 liên kết</span></div>`:'')
+          ).join("")||`<div class="p-sub" style="padding:10px">Chưa kết nối Page nào.</div>`;
+        return;
+      }
+      const cval=window.__chFilter||"";   // NỀN TẢNG YouTube -> sổ ra kênh
       const allLbl=`<span class="chpick-all">🌐 ${esc(t("all_channels"))}</span>`;
-      btn.innerHTML=(cval?`${chAva(cval,'chpick-ava')}<span class="chpick-nm">${esc(chName(cval))}</span>`:allLbl)+`<span class="chpick-caret">▾</span>`;
+      btn.innerHTML=(cval?`${chAva(cval,'chpick-ava')}<span class="chpick-nm">${esc(chName(cval))}</span>`:allLbl)+caret;
       const ks=allChannels();
       menu.innerHTML=`<div class="chpick-item ${!cval?'on':''}" onclick="pickChannel('')">${allLbl}</div>`
         +ks.map(k=>`<div class="chpick-item ${cval===k?'on':''}" onclick="pickChannel('${esc(k)}')">${chAva(k,'chpick-ava')}<span class="chpick-nm">${esc(chName(k))}</span></div>`).join("");
     }
+    // Chọn Page ở picker top (nền tảng FB) -> đồng bộ các panel FB/IG + tải lại
+    window.pickFbPage=(name)=>{ window.__fbFilter=name; const m=$("chPickMenu"); if(m)m.classList.add("hide"); buildChanFilter();
+      ["faPage","socPage","socQPage"].forEach(id=>{ const s=$(id); if(s&&name&&[...s.options].some(o=>o.value===name)) s.value=name; });
+      const v=window.__view;
+      if(name){ if(v==="analytics"&&window.faLoad) faLoad(); else if(v==="videos"&&window.socLoad) socLoad(); }
+      else { if(v==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(v==="overview"&&window.renderFbOverview) renderFbOverview(); }
+    };
     window.pickChannel=(k)=>{ window.__chFilter=k; const m=$("chPickMenu"); if(m)m.classList.add("hide"); buildChanFilter(); renderAll(); };
 
     function svgIcon(p){return {
