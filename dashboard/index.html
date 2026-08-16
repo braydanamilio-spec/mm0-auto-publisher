@@ -332,6 +332,7 @@
       </div>
 
       <section id="v-overview" class="content">
+        <div id="runwayAlert" style="display:none"></div>
         <div class="kpis" id="kpis"></div>
         <div class="grid g-2">
           <div class="panel"><div class="p-head"><div class="p-title"><span data-i18n="views_by_channel">Views by channel</span> <span class="d">· <span data-i18n="cumulative">cumulative</span></span></div></div>
@@ -506,6 +507,7 @@
             <button class="btn-conn" id="pubSpread">📅 <span data-i18n="pub_spread">Spread schedule</span></button>
             <button class="btn-conn" id="pubApply" style="display:none;background:var(--good);border-color:var(--good)">✅ Xác nhận & lưu lịch</button>
             <button class="mini" id="pubAllNow">⚡ <span data-i18n="pub_all_now">Publish all now</span></button>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer;align-self:center"><input type="checkbox" id="pubReschedule" style="width:14px;height:14px"> Xếp lại cả video đã có lịch</label>
             <span class="p-sub" id="pubMsg" style="align-self:center"></span>
           </div>
           <div class="p-sub" style="margin-top:9px" id="pubHint"></div>
@@ -979,6 +981,23 @@
     window.setFbPages = (p) => { __FBP=p||[]; renderFacebook(); };
     let __QUOTA=[];
     window.setQuota = (q) => { __QUOTA=q||[]; renderQuota(); };
+    // Cảnh báo kênh SẮP HẾT BÀI (hết video chờ đăng / lịch chỉ còn trong 24h)
+    function renderRunway(){
+      const box=$("runwayAlert"); if(!box) return;
+      const chans=allChannels().filter(k=>C()[k]);   // kênh đã kết nối
+      const warns=[];
+      chans.forEach(k=>{
+        const vids=V().filter(v=>v.channel===k && eff(v)!=="posted");
+        if(!vids.length){ warns.push(`<b>${esc(chName(k))}</b>: hết bài — chưa có video chờ`); return; }
+        const sched=vids.filter(v=>v.publish_at).map(v=>new Date(v.publish_at)).sort((a,b)=>b-a);
+        if(sched.length){ const hrs=(sched[0]-Date.now())/3.6e6;
+          if(hrs<24) warns.push(`<b>${esc(chName(k))}</b>: sắp hết — lịch chỉ tới ${sched[0].toLocaleDateString('vi-VN')}`); }
+      });
+      if(!warns.length){ box.style.display="none"; return; }
+      box.style.display=""; box.className="pub-warn"; box.style.marginBottom="16px";
+      box.innerHTML=`⚠️ <b>Kênh sắp/đã hết bài đăng</b> — cần thêm video: `+warns.join(" · ")
+        +` <span class="sd">(dùng import_project.py để nạp thêm)</span>`;
+    }
     function renderQuota(){
       const box=$("quotaPanel"); if(!box) return;
       const suf=todayId();
@@ -1352,7 +1371,7 @@
     function renderAll(){
       buildChanFilter(); renderKPIs(); renderViewsChart(); renderDonut(); renderChannels();
       renderUpcoming(); renderAnalytics(); renderLongShort(); renderVideos(); renderSchedule(); renderConnections();
-      renderStorage(); renderSettings(); renderChannelHub(); renderPublish(); renderFacebook(); renderQuota();
+      renderStorage(); renderSettings(); renderChannelHub(); renderPublish(); renderFacebook(); renderQuota(); renderRunway();
       $("nvVideos").textContent=V().length; $("nvSched").textContent=V().filter(v=>eff(v)==="scheduled").length;
       $("nvChans").textContent=allChannels().length;
       $("nvPub").textContent=V().filter(v=>eff(v)!=="posted").length;
@@ -1593,10 +1612,18 @@
       const tz=$("pubTz").value||"America/New_York";
       const start=$("pubStart").value; if(!start) return alert("Chọn ngày bắt đầu.");
       let rows=V().filter(notPosted); if(ch) rows=rows.filter(v=>v.channel===ch);
+      // TỰ LOẠI video ĐÃ CÓ LỊCH (chống xếp trùng); tick "xếp lại" để đổi cả video đã có lịch
+      const reSched=$("pubReschedule")&&$("pubReschedule").checked;
+      const already=rows.filter(v=>v.publish_at);
+      if(!reSched) rows=rows.filter(v=>!v.publish_at);
       const bykey=(a,b)=>(a.drive_name||"").localeCompare(b.drive_name||"",undefined,{numeric:true});
       let longs=rows.filter(v=>v.type==="long").sort(bykey);
       let shorts=rows.filter(v=>v.type!=="long").sort(bykey);
-      if(!longs.length && !shorts.length) return alert(t("pub_empty"));
+      if(!longs.length && !shorts.length)
+        return alert(already.length&&!reSched
+          ? `Tất cả ${already.length} video đều ĐÃ CÓ LỊCH. Tick "Xếp lại cả video đã có lịch" nếu muốn đổi giờ.`
+          : t("pub_empty"));
+      window.__pubExisting = reSched?[]:already;   // hiện trong preview (giữ nguyên)
       const [Y,M,D]=start.split("-").map(Number);
       const plan=[]; let day=0;
       while((longs.length||shorts.length) && day<3650){
@@ -1612,20 +1639,26 @@
       // KHÔNG lưu ngay — hiện PREVIEW để anh kiểm tra trước, rồi bấm Xác nhận
       window.__pubPlan=plan;
       renderPubPreview(plan, day, tz);
-      $("pubMsg").textContent=`👀 Xem trước ${plan.length} video / ${day} ngày — kiểm tra rồi bấm “Xác nhận & lưu lịch”.`;
+      const exN=(window.__pubExisting||[]).length;
+      $("pubMsg").textContent=`👀 Xem trước: sẽ xếp ${plan.length} video / ${day} ngày`
+        + (exN?` · ⚠ ${exN} đã có lịch (GIỮ NGUYÊN, không xếp trùng)`:"")
+        + ` — bấm “Xác nhận & lưu lịch”.`;
     };
     function renderPubPreview(plan, days, tz){
       const box=$("pubPreview"); if(!box) return;
       if(!plan.length){ box.innerHTML=""; if($("pubApply"))$("pubApply").style.display="none"; return; }
-      // gom theo NGÀY (theo múi giờ đã chọn)
+      // gộp video ĐÃ CÓ LỊCH (giữ nguyên, chỉ hiển thị) + video SẼ XẾP
+      const existing=(window.__pubExisting||[]).filter(v=>v.publish_at).map(v=>({dt:new Date(v.publish_at),
+        title:(v.title||v.drive_name||v.id), type:v.type, channel:v.channel, existing:true}));
+      const all=plan.concat(existing);
       const dayFmt=new Intl.DateTimeFormat("vi-VN",{timeZone:tz,weekday:"short",day:"2-digit",month:"2-digit"});
       const timeFmt=new Intl.DateTimeFormat("vi-VN",{timeZone:tz,hour:"2-digit",minute:"2-digit",hour12:false});
       const groups={};
-      plan.forEach(p=>{ const dk=dayFmt.format(p.dt); (groups[dk]=groups[dk]||[]).push(p); });
-      const html=Object.keys(groups).map((dk,i)=>{
-        const rows=groups[dk].sort((a,b)=>a.dt-b.dt).map(p=>`<div class="prev-row">
+      all.forEach(p=>{ const dk=dayFmt.format(p.dt); (groups[dk]=groups[dk]||[]).push(p); });
+      const html=Object.keys(groups).sort((a,b)=>groups[a][0].dt-groups[b][0].dt).map((dk,i)=>{
+        const rows=groups[dk].sort((a,b)=>a.dt-b.dt).map(p=>`<div class="prev-row" style="${p.existing?'opacity:.6':''}">
           <span class="prev-time">${timeFmt.format(p.dt)}</span>
-          <span class="tag2 ${p.type==='long'?'':'warn'}">${esc(p.type||'—')}</span>
+          <span class="tag2 ${p.type==='long'?'':'warn'}">${esc(p.type||'—')}</span>${p.existing?' <span class="p-sub">đã có lịch</span>':''}
           <span class="prev-ch">${esc(chName(p.channel))}</span>
           <span class="prev-title">${esc(p.title)}</span></div>`).join("");
         return `<div class="prev-day"><div class="prev-dayhd">📅 Ngày ${i+1} — ${esc(dk)} <span class="p-sub">(${groups[dk].length} video)</span></div>${rows}</div>`;
