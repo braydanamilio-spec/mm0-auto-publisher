@@ -199,9 +199,17 @@ async function apiCommentAction(request, url, env) {
 async function apiChannelVideos(request, url, env) {
   const ctx = await authCtx(request, url, env);
   const max = Math.min(300, Math.max(1, Number(ctx.g("max") || 100) || 100));
-  const ci = await ytGet("channels?part=contentDetails&mine=true", ctx.yat);
-  const pl = ((((ci.items || [])[0] || {}).contentDetails || {}).relatedPlaylists || {}).uploads;
-  if (!pl) return json({ ok: true, items: [] });
+  const ci = await ytGet("channels?part=contentDetails,statistics,snippet&mine=true", ctx.yat);
+  const c0 = (ci.items || [])[0] || {};
+  const chStat = {
+    id: c0.id || "", title: (c0.snippet || {}).title || "",
+    thumb: (((c0.snippet || {}).thumbnails || {}).default || {}).url || "",
+    subscribers: +(((c0.statistics || {}).subscriberCount) || 0),
+    totalViews: +(((c0.statistics || {}).viewCount) || 0),
+    videoCount: +(((c0.statistics || {}).videoCount) || 0),
+  };
+  const pl = (((c0.contentDetails || {}).relatedPlaylists) || {}).uploads;
+  if (!pl) return json({ ok: true, channel: chStat, items: [] });
   let ids = [], pageToken = "";
   while (ids.length < max) {
     const pi = await ytGet(`playlistItems?part=contentDetails&playlistId=${pl}&maxResults=50${pageToken ? `&pageToken=${pageToken}` : ""}`, ctx.yat);
@@ -228,7 +236,7 @@ async function apiChannelVideos(request, url, env) {
     });
   }
   out.sort((a, b) => (b.publishedAt || "").localeCompare(a.publishedAt || ""));
-  return json({ ok: true, count: out.length, items: out });
+  return json({ ok: true, channel: chStat, count: out.length, items: out });
 }
 
 // GET /api/analytics?channel=&t=&days=  -> PHÂN TÍCH TOÀN KÊNH theo kỳ (mọi video, kể cả không đăng bằng tool)
