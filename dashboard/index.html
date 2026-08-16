@@ -545,6 +545,16 @@
         .prev-ch{color:var(--muted);white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis}
         .prev-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         @media(max-width:560px){.prev-ch{display:none}}
+        /* Editor video (mô phỏng upload YouTube) */
+        .pub-item{border-bottom:1px solid var(--border2)}
+        .pub-editor{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;margin:4px 0 12px;display:flex;flex-direction:column;gap:12px}
+        .pub-editor .fld{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:600;color:var(--muted)}
+        .pub-editor .fld.full{grid-column:1/-1}
+        .pub-editor input,.pub-editor textarea,.pub-editor select{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:9px 11px;font-family:var(--sans);font-size:14px;font-weight:500;max-width:100%}
+        .pub-editor textarea{resize:vertical;line-height:1.5}
+        .pub-editor .ec{float:right;color:var(--faint);font-weight:600}
+        .edgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        @media(max-width:560px){.edgrid{grid-template-columns:1fr}}
         .pub-when{font-family:var(--mono,monospace);font-size:12.5px;color:var(--muted);white-space:nowrap}
         .pub-now{background:var(--good);color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap}
         .pub-now:hover{filter:brightness(1.08)}
@@ -1454,15 +1464,59 @@
         const col=chColor(v.channel);
         const iss=vIssues(v);
         const warn=iss.length?`· <span class="tag2 warn" title="${esc(iss.join(' · '))}">⚠ ${iss.length}</span>`:"";
-        return `<div class="pub-row">
-          <div class="ava" style="width:30px;height:30px;font-size:12px;background:linear-gradient(145deg,${col},${col}aa)">${esc((chName(v.channel)||'?').slice(0,2).toUpperCase())}</div>
-          <div style="flex:1;min-width:0"><div class="nm" style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.title||v.drive_name||v.id)}</div>
-            <div class="p-sub">${esc(chName(v.channel))} · <span class="tag2">${esc(v.type||'—')}</span> · <span class="tag2">${esc(eff(v))}</span> ${warn}</div></div>
-          <div class="pub-when">${v.publish_at?fmtDt(v.publish_at):'—'}</div>
-          <button class="pub-now" onclick="publishNow('${esc(v.id)}')">⚡ ${esc(t("pub_now"))}</button>
+        return `<div class="pub-item">
+          <div class="pub-row">
+            <div class="ava" style="width:30px;height:30px;font-size:12px;background:linear-gradient(145deg,${col},${col}aa)">${esc((chName(v.channel)||'?').slice(0,2).toUpperCase())}</div>
+            <div style="flex:1;min-width:0;cursor:pointer" onclick="pubEdit('${esc(v.id)}')"><div class="nm" style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.title||v.drive_name||v.id)}</div>
+              <div class="p-sub">${esc(chName(v.channel))} · <span class="tag2">${esc(v.type||'—')}</span> · <span class="tag2">${esc(eff(v))}</span> ${warn}</div></div>
+            <div class="pub-when">${v.publish_at?fmtDt(v.publish_at):'—'}</div>
+            <button class="mini" title="Xem/Sửa" onclick="pubEdit('${esc(v.id)}')">✏️</button>
+            <button class="pub-now" onclick="publishNow('${esc(v.id)}')">⚡ ${esc(t("pub_now"))}</button>
+          </div>
+          ${window.__pubEditId===v.id?pubEditor(v):""}
         </div>`;
       }).join("");
     }
+    // Editor mô phỏng trang upload YouTube (sửa tay từng phần trước khi đăng)
+    const CATS=[["27","Giáo dục"],["24","Giải trí"],["22","People & Blogs"],["28","Khoa học & CN"],["25","Tin tức"],["26","Howto & Style"],["10","Âm nhạc"],["20","Gaming"],["23","Comedy"]];
+    const LANGS=[["en","English"],["vi","Tiếng Việt"],["es","Español"],["fr","Français"],["ja","日本語"],["ko","한국어"],["hi","हिन्दी"]];
+    function pubEditor(v){
+      const opt=(arr,sel)=>arr.map(([val,lab])=>`<option value="${val}" ${String(sel)===val?"selected":""}>${esc(lab)}</option>`).join("");
+      const priv=v.privacy||"public", kid=v.made_for_kids?"1":"0", lang=v.language||"en", cat=v.category||"27";
+      return `<div class="pub-editor">
+        <div class="fld full"><span>Tiêu đề <b id="ec-t-${v.id}" class="ec">${(v.title||"").length}/100</b></span>
+          <input id="e-title-${v.id}" maxlength="100" value="${esc(v.title||"")}" oninput="document.getElementById('ec-t-${v.id}').textContent=this.value.length+'/100'"></div>
+        <div class="fld full"><span>Mô tả <b id="ec-d-${v.id}" class="ec">${(v.description||"").length}/5000</b></span>
+          <textarea id="e-desc-${v.id}" rows="5" maxlength="5000" oninput="document.getElementById('ec-d-${v.id}').textContent=this.value.length+'/5000'">${esc(v.description||"")}</textarea></div>
+        <div class="fld full"><span>Tags (cách nhau dấu phẩy)</span><input id="e-tags-${v.id}" value="${esc((v.tags||[]).join(', '))}"></div>
+        <div class="fld full"><span>Hashtags (cách nhau khoảng trắng)</span><input id="e-hash-${v.id}" value="${esc((v.hashtags||[]).join(' '))}"></div>
+        <div class="edgrid">
+          <label class="fld"><span>Quyền riêng tư</span><select id="e-priv-${v.id}">${opt([["public","🌐 Công khai"],["unlisted","🔗 Không công khai"],["private","🔒 Riêng tư"]],priv)}</select></label>
+          <label class="fld"><span>Nội dung cho trẻ em</span><select id="e-kid-${v.id}">${opt([["0","Không dành cho trẻ em"],["1","Dành cho trẻ em"]],kid)}</select></label>
+          <label class="fld"><span>Ngôn ngữ</span><select id="e-lang-${v.id}">${opt(LANGS,lang)}</select></label>
+          <label class="fld"><span>Danh mục</span><select id="e-cat-${v.id}">${opt(CATS,cat)}</select></label>
+          <label class="fld full"><span>Địa điểm (tuỳ chọn)</span><input id="e-loc-${v.id}" value="${esc(v.location||"")}" placeholder="VD: United States"></label>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">
+          <button class="pub-now" onclick="pubSaveEdit('${esc(v.id)}')">💾 Lưu chỉnh sửa</button>
+          <button class="mini" onclick="pubEdit('${esc(v.id)}')">Đóng</button>
+          <span class="p-sub">Sửa tay sẽ <b>đè</b> metadata gốc khi đăng (đánh dấu đã sửa).</span>
+        </div>
+      </div>`;
+    }
+    window.pubEdit=(id)=>{ window.__pubEditId = window.__pubEditId===id?null:id; renderPublish(); };
+    window.pubSaveEdit=async(id)=>{
+      const g=(k)=>$( "e-"+k+"-"+id );
+      const data={
+        title:g("title").value.trim(), description:g("desc").value,
+        tags:g("tags").value.split(",").map(s=>s.trim()).filter(Boolean),
+        hashtags:g("hash").value.split(/\s+/).filter(Boolean),
+        privacy:g("priv").value, made_for_kids:g("kid").value==="1",
+        language:g("lang").value, category:g("cat").value,
+        location:g("loc").value.trim(), edited:true };
+      try{ await window.__updateVideo(id, data); toastMsg("✔ Đã lưu chỉnh sửa"); window.__pubEditId=null; renderPublish(); }
+      catch(e){ alert("❌ "+e.message); }
+    };
     // Danh sách thiếu sót của 1 video (chỉ khi cron đã quét -> có v.checks)
     function vIssues(v){
       const out=[]; const c=v.checks;

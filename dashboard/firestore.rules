@@ -16,7 +16,9 @@ service cloud.firestore {
       allow read: if owns(resource.data);
       allow update: if owns(resource.data)
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['status', 'publish_at', 'reviewed_at']);
+             .hasOnly(['status', 'publish_at', 'reviewed_at',
+                       'title', 'description', 'tags', 'hashtags', 'edited', 'updated_at',
+                       'privacy', 'made_for_kids', 'language', 'category', 'location']);
       allow create, delete: if false;
     }
 

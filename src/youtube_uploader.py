@@ -90,9 +90,13 @@ def upload(
         },
         "status": status,
     }
+    parts = "snippet,status"
+    if yt_conf.get("location"):
+        body["recordingDetails"] = {"locationDescription": str(yt_conf["location"])[:120]}
+        parts += ",recordingDetails"
 
     media = MediaFileUpload(file_path, chunksize=1024 * 1024 * 8, resumable=True)
-    request = svc.videos().insert(part="snippet,status", body=body, media_body=media)
+    request = svc.videos().insert(part=parts, body=body, media_body=media)
 
     response = None
     retries = 0

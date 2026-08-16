@@ -237,7 +237,15 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now, owner=None):
             print("     ↺ YouTube đã đăng trước đó — bỏ qua (chống trùng).")
         elif need_yt:
             try:
-                r = YT.upload(tmp, meta, ch["youtube"], resolved["yt_creds"],
+                # Ghép cấu hình YouTube của kênh + override SỬA TAY từng video (quyền riêng tư/kid/ngôn ngữ/danh mục/địa điểm)
+                ytc = dict(ch["youtube"])
+                ov = it.get("yt_over") or {}
+                if ov.get("privacy"): ytc["privacy"] = ov["privacy"]
+                if "made_for_kids" in ov: ytc["made_for_kids"] = bool(ov["made_for_kids"])
+                if ov.get("language"): ytc["default_language"] = ov["language"]
+                if ov.get("category"): ytc["category_id"] = ov["category"]
+                if ov.get("location"): ytc["location"] = ov["location"]
+                r = YT.upload(tmp, meta, ytc, resolved["yt_creds"],
                               it.get("publish_at"), thumbnail_path=thumb_tmp,
                               captions=caption_specs, playlist=it.get("playlist"))
                 results["youtube"] = r
@@ -463,6 +471,11 @@ def process_users(channels_cfg, templates, safety, tz, dry_run, state, now):
                        "type": sidecar.get("type") or f["type"],
                        **{k: sidecar[k] for k in ("title", "description", "hashtags", "tags",
                                                   "platforms", "publish_at") if k in sidecar}}
+                # Ưu tiên bản người dùng SỬA TAY trên dashboard (edited=True)
+                if doc.get("edited"):
+                    for k in ("title", "description", "tags", "hashtags"):
+                        if doc.get(k) not in (None, "", []):
+                            raw[k] = doc[k]
                 meta = M.build_metadata(raw, branding)
                 groups.setdefault(channel, []).append({
                     "drive_file_id": f["id"], "drive_name": f["name"], "parent_id": f["parents"][0],
@@ -473,6 +486,8 @@ def process_users(channels_cfg, templates, safety, tz, dry_run, state, now):
                     "thumbnail": sidecar.get("thumbnail"), "captions": sidecar.get("captions"),
                     "playlist": sidecar.get("playlist"), "results": doc.get("results") or {},
                     "checks": _checks(sidecar, meta),
+                    "yt_over": ({k: doc[k] for k in ("privacy", "made_for_kids", "language", "category", "location")
+                                 if doc.get(k) not in (None, "")} if doc.get("edited") else {}),
                     "_drive": drv, "_root": root,
                 })
 
@@ -493,6 +508,8 @@ def process_users(channels_cfg, templates, safety, tz, dry_run, state, now):
                 state.upsert_video(it["drive_file_id"], {
                     "owner": uid, "channel": channel, "drive_name": it["drive_name"],
                     "type": it["type"], "title": it["meta"]["title"],
+                    "description": it["meta"]["description"], "tags": it["meta"]["tags"],
+                    "hashtags": it["meta"]["hashtags"],
                     "publish_at": it.get("publish_at"), "status": it["status"],
                     "warnings": it["warnings"], "checks": it.get("checks"), "storage": "pool",
                 })
