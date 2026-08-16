@@ -1748,7 +1748,7 @@
     function renderSocQueue(){ const box=$("socQueueList"); if(!box) return;
       const items=(window.__socQueue||[]).slice().sort((a,b)=>String(b.created_at||"").localeCompare(String(a.created_at||"")));
       if(!items.length){ box.innerHTML=`<div class="p-sub" style="padding:6px">${t("sq_empty")}</div>`; return; }
-      const badge=(s)=>({pending:`<span class="tag t-scheduled">${t("sq_pending")}</span>`,posted:`<span class="tag t-connected">${t("sq_posted")}</span>`,failed:`<span class="tag t-error">${t("sq_failed")}</span>`}[s]||esc(s));
+      const badge=(s)=>({pending:`<span class="tag t-scheduled">${t("sq_pending")}</span>`,processing:`<span class="tag t-scheduled">⏳ ${t("sq_posted")}…</span>`,posted:`<span class="tag t-connected">${t("sq_posted")}</span>`,failed:`<span class="tag t-error">${t("sq_failed")}</span>`}[s]||esc(s));
       box.innerHTML=`<div class="scroll-x"><table class="yt-table"><thead><tr><th>${t("th_video")}</th><th>Page</th><th>${t("th_platform")}</th><th>${t("th_posttime")}</th><th>${t("th_status")}</th><th></th></tr></thead><tbody>${items.map(q=>`<tr>
         <td><span class="nm" title="${esc(q.drive_name||'')}">${esc(q.drive_name||q.drive_file_id)}</span></td>
         <td class="p-sub">${esc(socPageName(q.page))}</td>
@@ -1786,7 +1786,7 @@
     window.setYtQueue=(items)=>{ window.__ytQueue=items||[]; renderYtQueue(); };
     let __chFilterS="all";
     window.chFilter=(s)=>{ __chFilterS=s; document.querySelectorAll("#chFilterSeg .seg-btn").forEach(b=>b.classList.toggle("on",b.dataset.s===s)); renderYtQueue(); };
-    function ytqStatus(q){ if(q.status==="pending"){ return (q.publish_at&&new Date(q.publish_at).getTime()>Date.now())?"scheduled":"pending"; } return q.status; }
+    function ytqStatus(q){ if(q.status==="processing") return "pending"; if(q.status==="pending"){ return (q.publish_at&&new Date(q.publish_at).getTime()>Date.now())?"scheduled":"pending"; } return q.status; }
     function renderYtQueue(){ const box=$("ytQueueList"); if(!box) return;
       let items=(window.__ytQueue||[]).slice().sort((a,b)=>String(b.created_at||"").localeCompare(String(a.created_at||"")));
       if(__chFilterS!=="all") items=items.filter(q=>ytqStatus(q)===__chFilterS);

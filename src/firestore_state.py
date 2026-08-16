@@ -110,7 +110,7 @@ class State:
     def list_social_queue(self) -> list[dict]:
         """Item đang chờ đăng FB/IG độc lập (không gắn YouTube)."""
         out = []
-        for d in self.db.collection("social_queue").where("status", "==", "pending").stream():
+        for d in self.db.collection("social_queue").where("status", "in", ["pending", "processing"]).stream():
             row = d.to_dict(); row["id"] = d.id; out.append(row)
         return out
 
@@ -121,13 +121,40 @@ class State:
     # ---------- HÀNG ĐỢI ĐĂNG YOUTUBE TỪ DRIVE (Content Hub, yt_queue) ----------
     def list_yt_queue(self) -> list[dict]:
         out = []
-        for d in self.db.collection("yt_queue").where("status", "==", "pending").stream():
+        for d in self.db.collection("yt_queue").where("status", "in", ["pending", "processing"]).stream():
             row = d.to_dict(); row["id"] = d.id; out.append(row)
         return out
 
     def update_yt_queue(self, doc_id: str, patch: dict):
         self.db.collection("yt_queue").document(doc_id).set(
             {**patch, "updated_at": datetime.now(timezone.utc).isoformat()}, merge=True)
+
+    # ---------- KHOÁ CHỐNG ĐĂNG TRÙNG (claim atomic qua transaction) ----------
+    def claim_item(self, collection: str, doc_id: str, now: datetime, lease_min: int = 15) -> bool:
+        """Giành quyền xử lý 1 item. True nếu claim được (pending, hoặc processing đã treo quá lease).
+        Chống 2 lần cron chồng nhau cùng đăng 1 video."""
+        ref = self.db.collection(collection).document(doc_id)
+        tx = self.db.transaction()
+
+        @firestore.transactional
+        def _claim(transaction):
+            snap = ref.get(transaction=transaction)
+            d = snap.to_dict() or {}
+            st = d.get("status")
+            if st == "pending":
+                transaction.update(ref, {"status": "processing", "lease_at": now.isoformat()})
+                return True
+            if st == "processing":       # tiến trình trước có thể đã crash -> reclaim nếu lease cũ
+                la = d.get("lease_at")
+                try:
+                    stale = (not la) or (now - datetime.fromisoformat(str(la).replace("Z", "+00:00"))).total_seconds() > lease_min * 60
+                except Exception:
+                    stale = True
+                if stale:
+                    transaction.update(ref, {"status": "processing", "lease_at": now.isoformat()})
+                    return True
+            return False
+        return _claim(tx)
 
     # ---------- DOC tổng quát (settings/config, storage/pool ...) ----------
     def get_doc(self, collection: str, doc_id: str) -> dict | None:

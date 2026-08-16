@@ -149,6 +149,9 @@ def run_queue(state, now, dry_run=False):
                                 {"hashtags": it.get("hashtags") or []})
         if dry_run:
             print(f"  (dry) queue {fid} -> Page {slug} FB={want_fb} IG={want_ig}"); continue
+        # KHOÁ chống đăng trùng
+        if not state.claim_item("social_queue", it["id"], now):
+            print(f"  ⏭ bỏ qua (tiến trình khác đang xử lý): {fid}"); continue
         print(f"  🚀 Queue FB/IG: {it.get('drive_name') or fid} -> {conn.get('page_name')}")
         try:
             drv = ST.Drive.from_oauth({"client_id": dc["client_id"], "client_secret": dc["client_secret"],

@@ -79,6 +79,10 @@ def run(dry_run: bool = False):
         if dry_run:
             print(f"  (dry) yt_queue {fid} -> {slug} [{ytc['privacy']}]"); continue
 
+        # KHOÁ chống đăng trùng: chỉ 1 tiến trình được xử lý item này
+        if not state.claim_item("yt_queue", it["id"], now):
+            print(f"  ⏭ bỏ qua (đang được tiến trình khác xử lý): {fid}"); continue
+
         print(f"  🚀 YT-queue: {it.get('drive_name') or fid} -> {slug}")
         creds = {"client_id": conn["client_id"], "client_secret": conn["client_secret"],
                  "refresh_token": conn["refresh_token"]}
