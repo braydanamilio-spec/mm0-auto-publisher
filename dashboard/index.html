@@ -2703,7 +2703,7 @@
       }).join("")||emptyBox("Chưa có kênh nào — kết nối kênh ở tab Kết nối API.");
     }
     // Mở chi tiết 1 kênh -> tab Videos (trình quản lý Studio), tự chọn + tải
-    window.openChannelDetail=(k)=>{ gotoView('videos'); const s=$("ytVidsCh"); if(s){ fillYtVidsCh(); s.value=k; } if(window.loadYtVids) setTimeout(()=>window.loadYtVids(),40); };
+    window.openChannelDetail=(k)=>{ if(window.setPlat) setPlat('yt'); gotoView('videos'); const s=$("ytVidsCh"); if(s){ fillYtVidsCh(); s.value=k; } if(window.loadYtVids) setTimeout(()=>window.loadYtVids(),40); };
     // ==== HUB "Kênh của tôi": mỗi kênh 1 thẻ, có video hay chưa cũng hiện + thao tác ====
     function renderChannelHub(){
       const map=chanMap(); const ks=allChannels();
@@ -2952,7 +2952,7 @@
     };
     window.gotoView=(v)=>{ location.hash=v; if(window.__activateView) window.__activateView(v); };
     window.opChannel=(k, what)=>{
-      if(what==='videos'){ const f=$("chFilter"); if(f)f.value=k; gotoView('videos'); renderAll(); return; }
+      if(what==='videos'){ if(window.openChannelDetail){ openChannelDetail(k); } else { gotoView('videos'); } return; }
       if(what==='branding'){ gotoView('branding'); const s=$("brChannel"); if(s){s.value=k; if(s.value===k) loadBranding();} return; }
       if(what==='comments'){ gotoView('comments'); const s=$("cmChannel"); if(s){s.value=k; buildCmPicker(); if(s.value===k) loadComments();} return; }
     };
