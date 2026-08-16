@@ -2615,7 +2615,7 @@
     window.renderAllAvaPickers=()=>{ ["faPage","socPage","cmfbPage"].forEach(id=>{ if($(id)) mountAvaPicker(id, fbPageItems); }); if($("ytVidsCh")) mountAvaPicker("ytVidsCh", ytChItems); };
     // Mở CHI TIẾT 1 Page/IG -> tab Analytics FB/IG, tự chọn + tải
     window.openFbDetail=(name,plat)=>{ if(window.setPlat) setPlat("fb"); gotoView("analytics");
-      setTimeout(()=>{ if(window.renderFbAnalytics) renderFbAnalytics(); const s=$("faPage"); if(s&&name){ s.value=name; } if(plat&&window.faPlat) faPlat(plat); if(window.faLoad) faLoad(); }, 50);
+      setTimeout(()=>{ if(window.renderFbAnalytics) renderFbAnalytics(); const s=$("faPage"); if(s&&name){ s.value=name; if(window.renderAvaPicker) renderAvaPicker("faPage"); } if(plat&&window.faPlat) faPlat(plat); if(window.faLoad) faLoad(); }, 50);
     };
     // Chọn Page ở picker top (nền tảng FB) -> đồng bộ các panel FB/IG + tải lại
     window.pickFbPage=(name)=>{ window.__fbFilter=name; const m=$("chPickMenu"); if(m)m.classList.add("hide"); buildChanFilter();
