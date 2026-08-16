@@ -358,6 +358,12 @@
 
       <section id="v-overview" class="content">
         <div id="healthPanel" style="margin-bottom:14px"></div>
+        <div class="subtabs" id="ov-tabs">
+          <button class="subtab on" data-p="yt" onclick="setSubTab('ov','yt')">📺 YouTube</button>
+          <button class="subtab" data-p="fb" onclick="setSubTab('ov','fb')">📘📷 Facebook &amp; Instagram</button>
+        </div>
+        <div id="ov-fb" class="subpane hide"><div id="fbOverview"></div></div>
+        <div id="ov-yt" class="subpane">
         <div id="runwayAlert" style="display:none"></div>
         <div class="panel" id="monetPanel" style="margin-bottom:14px">
           <div class="p-head"><div class="p-title">💰 Điều kiện kiếm tiền YouTube <span class="p-sub">— 1.000 sub + 4.000 giờ xem / 12 tháng</span></div>
@@ -381,6 +387,7 @@
           <div class="panel"><div class="p-head"><div class="p-title">🏆 <span data-i18n="progress_by_channel">Progress by channel</span></div><div class="p-sub" data-i18n="posted_of_queue">posted / in queue</div></div><div id="chanList"></div></div>
           <div class="panel"><div class="p-head"><div class="p-title">⏰ <span data-i18n="upcoming">Going live soon</span></div><div class="p-sub" data-i18n="next8">next 8 videos</div></div><div class="list" id="upcoming"></div></div>
         </div>
+        </div><!-- /ov-yt -->
       </section>
 
       <section id="v-analytics" class="content hide">
@@ -1415,14 +1422,14 @@
     window.__plat = localStorage.mm0plat || "yt";
     // Thanh nền tảng TOÀN CỤC: đổi 1 phát -> đồng bộ sub-tab mọi trang
     window.setPlat=(plat)=>{ window.__plat=plat; try{localStorage.mm0plat=plat;}catch(_){}
-      ["vid","pub","ana","sch"].forEach(pg=>{
+      ["vid","pub","ana","sch","ov"].forEach(pg=>{
         document.querySelectorAll(`#${pg}-tabs .subtab`).forEach(b=>b.classList.toggle("on",b.dataset.p===plat));
         const yt=$(pg+"-yt"), fb=$(pg+"-fb");
         if(yt) yt.classList.toggle("hide",plat!=="yt");
         if(fb) fb.classList.toggle("hide",plat!=="fb");
       });
       document.querySelectorAll("#platSwitch .seg-btn").forEach(b=>b.classList.toggle("on",b.dataset.p===plat));
-      if(plat==="fb"){ if(window.__view==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(window.__view==="schedule"&&window.renderFbSchedule) renderFbSchedule(); }
+      if(plat==="fb"){ if(window.__view==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(window.__view==="schedule"&&window.renderFbSchedule) renderFbSchedule(); if(window.__view==="overview"&&window.renderFbOverview) renderFbOverview(); }
     };
     window.setSubTab=(page,plat)=>setPlat(plat);   // per-page sub-tab -> điều khiển toàn cục
     // ===== P0 #2: Bảng sức khoẻ + cảnh báo lỗi đăng =====
@@ -1954,12 +1961,63 @@
       if(!confirm(`Dọn ${posted.length} bài ĐÃ ĐĂNG khỏi danh sách? (KHÔNG xoá video trên YouTube)`)) return;
       let ok=0; for(const q of posted){ try{ await window.__ytQueueDel(q.id); ok++; }catch(_){} } toastMsg(`🧹 Đã dọn ${ok} bài`); };
     /* ===== Analytics + Schedule cho FB/IG (sub-tab) ===== */
-    window.renderFbAnalytics=async()=>{ const box=$("fbAnalytics"); if(!box) return; const pages=__FBP||[];
+    window.renderFbAnalytics=()=>{ const box=$("fbAnalytics"); if(!box) return; const pages=__FBP||[];
       if(!pages.length){ box.innerHTML=`<div class="panel"><div class="p-sub" style="padding:14px">Chưa kết nối Facebook Page. Vào tab <b>Kết nối FB/IG</b> để kết nối.</div></div>`; return; }
-      box.innerHTML=`<div class="conn-grid">${pages.map(p=>`<div class="conn"><div class="conn-head"><div class="ava" style="overflow:hidden;background:linear-gradient(145deg,#1877f2,#0a58ca)">${fbPageAva(p)}</div><div class="nm">${esc(p.page_name||p.name)}<div class="p-sub" id="fba-fb-${esc(p.name)}">Đang tải…</div></div></div>${p.ig_user_id?`<div class="svc" style="margin-top:10px"><div class="ava" style="width:34px;height:34px;overflow:hidden;background:linear-gradient(135deg,#F9CE34,#EE2A7B 45%,#6228D7);display:grid;place-items:center"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="#fff" stroke-width="2">${svgIcon('ig')}</svg>${p.ig_avatar?`<img src="${esc(p.ig_avatar)}" style="position:absolute;width:34px;height:34px;object-fit:cover">`:''}</div><div style="flex:1"><div class="snm">Instagram</div><div class="sd" id="fba-ig-${esc(p.name)}">Đang tải…</div></div></div>`:''}</div>`).join("")}</div>`;
+      // giữ lựa chọn cũ
+      const keep=($("faPage")||{}).value;
+      box.innerHTML=`<div class="panel">
+        <div class="p-head"><div class="p-title">📊 Phân tích chi tiết Facebook / Instagram</div></div>
+        <div class="yt-tools" style="margin-top:6px">
+          <select id="faPage">${pages.map(p=>`<option value="${esc(p.name)}">${esc(p.page_name||p.name)}${p.ig_user_id?" (có IG)":""}</option>`).join("")}</select>
+          <div class="seg" id="faPlat"><button type="button" class="seg-btn on" data-p="fb" onclick="faPlat('fb')">📘 Facebook</button><button type="button" class="seg-btn" data-p="ig" onclick="faPlat('ig')">📷 Instagram</button></div>
+          <button type="button" class="btn-conn" onclick="faLoad()">🔍 Xem chi tiết</button>
+          <a class="btn-mini" id="faOpen" href="#" target="_blank" style="display:none">↗ Mở trang thật</a>
+        </div>
+        <div id="faResult"><div class="p-sub" style="padding:6px">Chọn Page → 📘 Facebook / 📷 Instagram → <b>Xem chi tiết</b> (như vào trang thật: follower, top bài, tương tác).</div></div>
+      </div>`;
+      if(keep && pages.some(p=>p.name===keep)) $("faPage").value=keep;
+    };
+    window.__faPlat="fb";
+    window.faPlat=(p)=>{ window.__faPlat=p; document.querySelectorAll("#faPlat .seg-btn").forEach(b=>b.classList.toggle("on",b.dataset.p===p)); };
+    window.faLoad=async()=>{ const page=($("faPage")||{}).value, plat=window.__faPlat, box=$("faResult"); if(!page) return;
+      const p=(__FBP||[]).find(x=>x.name===page)||{};
+      if(plat==="ig" && !p.ig_user_id){ box.innerHTML=`<div class="p-sub" style="padding:6px;color:var(--warn)">Page này chưa liên kết Instagram.</div>`; return; }
+      box.innerHTML=`<div class="p-sub" style="padding:6px">${t("working")}…</div>`;
+      try{ const [ins,posts]=await Promise.all([
+          workerApi(`/api/social-insights?channel=${encodeURIComponent(page)}&platform=${plat}`).catch(()=>({})),
+          workerApi(`/api/social-posts?channel=${encodeURIComponent(page)}&platform=${plat}&max=50`) ]);
+        const items=posts.items||[], isIg=plat==="ig";
+        const sum=(f)=>items.reduce((a,v)=>a+(v[f]||0),0);
+        const openUrl=isIg?(p.ig_username?`https://instagram.com/${p.ig_username}`:""):(p.page_id?`https://facebook.com/${p.page_id}`:"");
+        const fo=$("faOpen"); if(fo){ if(openUrl){fo.href=openUrl;fo.style.display="inline-block";fo.textContent=isIg?"↗ Mở Instagram":"↗ Mở Fanpage";} else fo.style.display="none"; }
+        const kpis = kpi("sub","var(--accent-soft)","var(--accent)",fmtN(ins.followers||0),"Người theo dõi")
+          + kpi("cal","var(--good-soft)","var(--good)",fmtN(items.length),"Bài đã đăng")
+          + (isIg?"":kpi("view","var(--info-soft)","var(--info)",fmtN(sum('views')),"Tổng views"))
+          + kpi("like","var(--violet-soft)","var(--violet)",fmtN(sum('likes')),"Tổng like")
+          + kpi("cal","var(--warn-soft)","var(--warn)",fmtN(sum('comments')),"Tổng bình luận");
+        const top=items.slice().sort((a,b)=> isIg? b.likes-a.likes : b.views-a.views).slice(0,10);
+        box.innerHTML=`<div class="kpis" style="margin:12px 0">${kpis}</div>
+          <div class="p-sub" style="margin:6px 0">🏆 Top bài tương tác cao nhất</div>
+          <div class="scroll-x"><table class="yt-table"><thead><tr><th>#</th><th>Bài</th><th>Loại</th><th>Ngày</th>${isIg?"":'<th class="num">Views</th>'}<th class="num">Like</th><th class="num">B.luận</th><th></th></tr></thead><tbody>
+          ${top.map((v,i)=>`<tr><td class="p-sub tnum">${i+1}</td>
+            <td><div class="yt-vtitle"><img src="${esc(v.thumb||'')}" alt="" loading="lazy"><span class="nm" title="${esc(v.title)}">${esc(v.title)}</span></div></td>
+            <td><span class="tag2">${esc(v.type||'')}</span></td><td class="p-sub">${v.publishedAt?new Date(v.publishedAt).toLocaleDateString('vi-VN'):'—'}</td>
+            ${isIg?"":`<td class="num tnum">${fmtN(v.views)}</td>`}<td class="num tnum">${fmtN(v.likes)}</td><td class="num tnum">${fmtN(v.comments)}</td>
+            <td>${v.url?`<a class="yt-rowbtn" href="${esc(v.url)}" target="_blank">↗</a>`:''}</td></tr>`).join("")||`<tr><td colspan="8" class="p-sub" style="padding:10px">Chưa có bài.</td></tr>`}
+          </tbody></table></div>`;
+      }catch(e){ box.innerHTML=`<div class="panel" style="border-color:var(--bad)"><div class="p-sub" style="padding:12px;color:var(--bad)">❌ ${esc(e.message)}</div></div>`; }
+    };
+    window.renderFbOverview=async()=>{ const box=$("fbOverview"); if(!box) return; const pages=__FBP||[];
+      if(!pages.length){ box.innerHTML=`<div class="panel"><div class="p-sub" style="padding:14px">Chưa kết nối Facebook Page. Vào tab <b>Kết nối FB/IG</b>.</div></div>`; return; }
+      const igCount=pages.filter(p=>p.ig_user_id).length;
+      box.innerHTML=`<div class="kpis" id="fbovKpis"></div>
+        <div class="panel" style="margin-top:16px"><div class="p-head"><div class="p-title">📘📷 Trang & tài khoản</div><div class="p-sub">${pages.length} Page · ${igCount} Instagram</div></div>
+        <div class="conn-grid" style="margin-top:6px">${pages.map(p=>`<div class="conn"><div class="conn-head"><div class="ava" style="overflow:hidden;background:linear-gradient(145deg,#1877f2,#0a58ca)">${fbPageAva(p)}</div><div class="nm">${esc(p.page_name||p.name)}<div class="p-sub" id="fbov-fb-${esc(p.name)}">Đang tải…</div></div></div>${p.ig_user_id?`<div class="p-sub" id="fbov-ig-${esc(p.name)}" style="margin-top:8px">📷 IG: đang tải…</div>`:''}</div>`).join("")}</div></div>`;
+      let totFol=0, done=0;
       for(const p of pages){
-        try{ const d=await workerApi(`/api/social-insights?channel=${encodeURIComponent(p.name)}&platform=fb`); const el=$("fba-fb-"+p.name); if(el) el.innerHTML=`👥 <b>${fmtN(d.followers||0)}</b> người theo dõi`; }catch(_){ const el=$("fba-fb-"+p.name); if(el)el.textContent="— (cần Kết nối lại)"; }
-        if(p.ig_user_id){ try{ const d=await workerApi(`/api/social-insights?channel=${encodeURIComponent(p.name)}&platform=ig`); const el=$("fba-ig-"+p.name); if(el) el.innerHTML=`@${esc(d.username||p.ig_username||'')} · 👥 <b>${fmtN(d.followers||0)}</b> · 📸 ${fmtN(d.posts||0)} bài`; }catch(_){} }
+        try{ const d=await workerApi(`/api/social-insights?channel=${encodeURIComponent(p.name)}&platform=fb`); totFol+=d.followers||0; const el=$("fbov-fb-"+p.name); if(el)el.innerHTML=`👥 <b>${fmtN(d.followers||0)}</b> theo dõi`; }catch(_){ const el=$("fbov-fb-"+p.name); if(el)el.textContent="— (kết nối lại)"; }
+        if(p.ig_user_id){ try{ const d=await workerApi(`/api/social-insights?channel=${encodeURIComponent(p.name)}&platform=ig`); totFol+=d.followers||0; const el=$("fbov-ig-"+p.name); if(el)el.innerHTML=`📷 @${esc(d.username||'')} · 👥 <b>${fmtN(d.followers||0)}</b> · ${fmtN(d.posts||0)} bài`; }catch(_){} }
+        done++; const kp=$("fbovKpis"); if(kp) kp.innerHTML=kpi("sub","var(--accent-soft)","var(--accent)",fmtN(totFol),"Tổng follower (FB+IG)")+kpi("cal","var(--info-soft)","var(--info)",fmtN(pages.length),"Facebook Page")+kpi("cal","var(--violet-soft)","var(--violet)",fmtN(igCount),"Instagram")+kpi("up","var(--good-soft)","var(--good)",fmtN(done)+"/"+fmtN(pages.length),"Đã tải");
       }
     };
     window.renderFbSchedule=()=>{ const box=$("fbScheduleList"); if(!box) return;
@@ -2035,8 +2093,8 @@
     function wireNav(){
       const VIEWS=["overview","analytics","videos","schedule","publish","connections","storage","settings","channels","branding","comments","facebook"];
       const setTitle=(v)=>{ window.__view=v; $("vTitle").textContent=t(v); $("vSub").textContent=t("sub_"+v);
-        const ps=$("platSwitch"); if(ps) ps.style.display=["videos","publish","analytics","schedule"].includes(v)?"inline-flex":"none";
-        if(window.__plat==="fb"){ if(v==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(v==="schedule"&&window.renderFbSchedule) renderFbSchedule(); } };
+        const ps=$("platSwitch"); if(ps) ps.style.display=["overview","videos","publish","analytics","schedule"].includes(v)?"inline-flex":"none";
+        if(window.__plat==="fb"){ if(v==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(v==="schedule"&&window.renderFbSchedule) renderFbSchedule(); if(v==="overview"&&window.renderFbOverview) renderFbOverview(); } };
       window.__setTitle=setTitle;
       // ROUTING theo URL hash: mỗi mục 1 đường dẫn (#publish, #channels…) -> F5 giữ nguyên trang
       function activateView(v){
