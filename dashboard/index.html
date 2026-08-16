@@ -359,6 +359,11 @@
       <section id="v-overview" class="content">
         <div id="healthPanel" style="margin-bottom:14px"></div>
         <div id="runwayAlert" style="display:none"></div>
+        <div class="panel" id="monetPanel" style="margin-bottom:14px">
+          <div class="p-head"><div class="p-title">💰 Điều kiện kiếm tiền YouTube <span class="p-sub">— 1.000 sub + 4.000 giờ xem / 12 tháng</span></div>
+            <button class="btn-conn" id="monetBtn" onclick="checkMonet()">🔍 Kiểm tra tất cả kênh</button></div>
+          <div id="monetList"><div class="p-sub" style="padding:6px">Bấm <b>Kiểm tra</b> để xem kênh nào sắp/đủ điều kiện. Tool <b>KHÔNG tự bật kiếm tiền</b> — chỉ đo &amp; nhắc + dẫn tới Studio để anh tự nộp (an toàn, đúng chính sách Google).</div></div>
+        </div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
           <button class="btn-conn" id="ovSyncBtn">🔄 Đồng bộ số liệu thật từ YouTube</button>
           <span class="p-sub" id="ovSyncStat">Bấm để lấy subs / tổng view / số video thật của mọi kênh (như Studio).</span>
@@ -1374,6 +1379,33 @@
     let __QUOTA=[];
     window.setQuota = (q) => { __QUOTA=q||[]; renderQuota(); };
     // Cảnh báo kênh SẮP HẾT BÀI (hết video chờ đăng / lịch chỉ còn trong 24h)
+    // ===== Điều kiện kiếm tiền YouTube (ĐO + NHẮC, KHÔNG tự bật — đúng chính sách) =====
+    window.checkMonet=async()=>{ const box=$("monetList"), btn=$("monetBtn"); const chans=connectedYT();
+      if(!chans.length){ box.innerHTML=`<div class="p-sub" style="padding:6px">Chưa có kênh YouTube kết nối.</div>`; return; }
+      btn.disabled=true; btn.textContent="⏳ Đang kiểm tra…"; const rows=[]; const eligibleNew=[];
+      for(const k of chans){ box.innerHTML=`<div class="p-sub" style="padding:6px">⏳ ${esc(chName(k))}…</div>`;
+        try{ const d=await workerApi(`/api/monetization?channel=${encodeURIComponent(k)}`); rows.push({k,d}); if(d.eligible) eligibleNew.push(k); }
+        catch(e){ rows.push({k,d:{err:e.message}}); } }
+      btn.disabled=false; btn.textContent="🔄 Kiểm tra lại"; renderMonet(rows);
+      if(eligibleNew.length && localStorage.mm0notif==="1" && "Notification" in window && Notification.permission==="granted"){
+        try{ new Notification("🎉 Kênh đủ điều kiện kiếm tiền!",{body:eligibleNew.map(chName).join(", ")+" — nộp đơn YPP ở Studio"}); }catch(_){}
+      }
+    };
+    function renderMonet(rows){ const box=$("monetList"); if(!box) return;
+      const bar=(cur,goal)=>`<div style="height:6px;background:var(--surface2);border-radius:20px;overflow:hidden;margin-top:4px"><i style="display:block;height:100%;width:${Math.min(100,Math.round((cur/goal)*100))}%;background:${cur>=goal?'var(--good)':'var(--accent)'}"></i></div>`;
+      const nEli=rows.filter(r=>r.d.eligible).length;
+      box.innerHTML=`${nEli?`<div class="p-sub" style="margin-bottom:10px;color:var(--good);font-weight:700">🎉 ${nEli} kênh ĐỦ ĐIỀU KIỆN — nộp đơn ở Studio!</div>`:''}<div class="conn-grid">${rows.map(({k,d})=>{
+        if(d.err==="need_analytics") return `<div class="conn"><div class="conn-head">${chAva(k,'ava')}<div class="nm">${esc(chName(k))}<div class="p-sub">⚠ Cần "Kết nối lại" để đo giờ xem</div></div></div><button class="btn-mini" onclick="connectChannel('${esc(k)}','youtube')" style="margin-top:8px">🔗 Kết nối lại YouTube</button></div>`;
+        if(d.err) return `<div class="conn"><div class="conn-head">${chAva(k,'ava')}<div class="nm">${esc(chName(k))}<div class="p-sub" style="color:var(--bad)">❌ ${esc(d.err)}</div></div></div></div>`;
+        const badge=d.eligible?`<span class="tag t-connected">✅ Đủ điều kiện</span>`:`<span class="tag t-scheduled">⏳ Đang tích luỹ</span>`;
+        return `<div class="conn" style="${d.eligible?'border-color:var(--good)':''}"><div class="conn-head">${chAva(k,'ava')}<div class="nm">${esc(chName(k))} ${badge}</div></div>
+          <div style="margin-top:10px"><div class="p-sub">👥 Subscribers <b>${fmtN(d.subscribers)}</b> / 1.000 ${d.subOk?'✅':`· còn ${fmtN(d.subNeed)}`}</div>${bar(d.subscribers,1000)}</div>
+          <div style="margin-top:10px"><div class="p-sub">⏱ Giờ xem 12 tháng <b>${d.watchHours!=null?fmtN(d.watchHours):'—'}</b> / 4.000h ${d.hoursOk?'✅':(d.hoursNeed!=null?`· còn ${fmtN(d.hoursNeed)}h`:'')}</div>${bar(d.watchHours||0,4000)}</div>
+          ${d.eligible?`<a class="btn-conn" href="https://studio.youtube.com/channel/${esc(d.channelId||'')}/monetization" target="_blank" style="margin-top:12px;display:block;text-align:center;text-decoration:none">🎉 Nộp đơn ở Studio →</a>`:`<a class="btn-mini" href="https://www.youtube.com/creators/how-things-work/video-monetization/" target="_blank" style="margin-top:10px;display:inline-block">📖 Điều kiện YPP</a>`}
+        </div>`;
+      }).join("")}</div>
+      <div class="p-sub" style="margin-top:10px;line-height:1.6">ℹ️ YPP còn cần: bật <b>2FA</b>, <b>không vi phạm</b> chính sách, ở <b>quốc gia hỗ trợ</b>, có <b>AdSense</b> liên kết. Việc bật kiếm tiền <b>anh tự làm ở Studio</b> — Google không cho API tự bật (tool tự bật = vi phạm). Ta chỉ ĐO + NHẮC minh bạch.</div>`;
+    }
     // ===== Sub-tab nền tảng (YouTube / FB & IG) trên Videos + Publish =====
     function moveSocialPanels(){
       const vf=$("vid-fb"), pf=$("pub-fb"), smp=$("socMgrPanel"), sqp=$("socQueuePanel");

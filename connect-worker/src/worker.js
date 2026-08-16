@@ -32,6 +32,7 @@ export default {
       if (url.pathname === "/api/file-action") return corsResp(await apiFileAction(request, url, env));
       if (url.pathname === "/api/analytics") return corsResp(await apiAnalytics(request, url, env));
       if (url.pathname === "/api/channel-videos") return corsResp(await apiChannelVideos(request, url, env));
+      if (url.pathname === "/api/monetization") return corsResp(await apiMonetization(request, url, env));
       if (url.pathname === "/api/video-update") return corsResp(await apiVideoUpdate(request, url, env));
       if (url.pathname === "/api/video-thumbnail") return corsResp(await apiVideoThumbnail(request, url, env));
       if (url.pathname === "/api/video-captions") return corsResp(await apiVideoCaptions(request, url, env));
@@ -285,6 +286,35 @@ async function apiVideoUpdate(request, url, env) {
     throw e;
   }
   return json({ ok: true });
+}
+
+// GET /api/monetization?channel=  -> ĐO điều kiện YPP (1K sub + 4K giờ xem/12 tháng). KHÔNG bật kiếm tiền (Google không cho API).
+async function apiMonetization(request, url, env) {
+  const ctx = await authCtx(request, url, env);
+  const ci = await ytGet("channels?part=statistics,snippet&mine=true", ctx.yat);
+  const c0 = (ci.items || [])[0] || {};
+  const subs = +(((c0.statistics || {}).subscriberCount) || 0);
+  const title = (c0.snippet || {}).title || "";
+  let watchHours = null, err = null, shortsViews90 = null;
+  const now = new Date();
+  const end = now.toISOString().slice(0, 10);
+  const start = new Date(now.getTime() - 365 * 86400000).toISOString().slice(0, 10);
+  try {
+    const r = await fetch(`https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&startDate=${start}&endDate=${end}&metrics=estimatedMinutesWatched`,
+      { headers: { Authorization: `Bearer ${ctx.yat}` } });
+    const j = await r.json();
+    if (r.ok) { const m = j.rows && j.rows[0] && j.rows[0][0]; watchHours = Math.round((+m || 0) / 60); }
+    else if (r.status === 403) err = "need_analytics";
+    else err = (j.error && j.error.message) || ("Analytics " + r.status);
+  } catch (e) { err = String(e && e.message || e); }
+  const subOk = subs >= 1000;
+  const hoursOk = watchHours != null && watchHours >= 4000;
+  return json({
+    ok: true, title, channelId: c0.id || "", subscribers: subs, watchHours, subOk, hoursOk,
+    eligible: subOk && hoursOk,
+    subNeed: Math.max(0, 1000 - subs), hoursNeed: watchHours != null ? Math.max(0, 4000 - watchHours) : null,
+    err,
+  });
 }
 
 // POST /api/video-thumbnail {channel,id,image=dataURL} -> đặt thumbnail tùy chỉnh
