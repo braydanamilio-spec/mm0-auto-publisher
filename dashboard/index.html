@@ -3737,7 +3737,7 @@
         accSel.innerHTML=accs.length?accs.map(a=>{const gb=Math.round((a.used||0)/1e8)/10; return `<option value="${esc(a.name)}">${esc(a.name)}${a.email?` · ${esc(a.email)}`:''}${gb?` (${gb}GB)`:''}</option>`;}).join(""):`<option value="">— chưa có kho, kết nối Drive trước —</option>`;
         if(accs.some(a=>a.name===keep)) accSel.value=keep; }
       const chSel=$("upChannel"); if(chSel){ const chans=connectedYT(); const keep=chSel.value;
-        chSel.innerHTML=chans.length?chans.map(k=>`<option value="${esc(k)}">${esc(chName(k))}</option>`).join(""):`<option value="">— chưa có kênh —</option>`;
+        chSel.innerHTML=`<option value="">— Chưa gán kênh (chọn sau) —</option>`+chans.map(k=>`<option value="${esc(k)}">${esc(chName(k))}</option>`).join("");
         if(chans.includes(keep)) chSel.value=keep; }
       const drop=$("upDrop"), fi=$("upFiles"), fo=$("upFolder");
       if($("upStart")&&!$("upStart").value) $("upStart").value=new Date().toISOString().slice(0,10);
@@ -3791,7 +3791,7 @@
       const acct=it.account||($("upAccount")||{}).value;
       if(!acct) throw new Error("chọn kho");
       let channel="",type="";
-      if(!toFolder){ channel=it.channel||($("upChannel")||{}).value; if(!channel) throw new Error("chọn kênh");
+      if(!toFolder){ channel=it.channel||($("upChannel")||{}).value;   // rỗng = CHƯA GÁN kênh (chọn sau)
         type=($("upType")||{}).value||"auto";
         if(it.pathShort) type="short"; else if(type==="auto"){ it.status="phân tích…"; upRender(); type=await upDetectType(it.file); }
         it.type=type; }
@@ -3807,9 +3807,10 @@
         if(r.status===200||r.status===201){ off=it.size; break; }
         if(r.status!==308) throw new Error("tải lỗi "+r.status);
         off=end; it.pct=Math.round(off/it.size*100); upRender(); }
-      if(!toFolder){ const mode=($("upSchedMode")||{}).value||"none"; const sidecar={channel,type};
-        if(mode==="now") sidecar.publish_at=new Date().toISOString();
-        else if(mode==="spread"&&it.publishAt) sidecar.publish_at=it.publishAt;
+      if(!toFolder){ const mode=($("upSchedMode")||{}).value||"none"; const sidecar={type};
+        if(channel){ sidecar.channel=channel;   // CHƯA GÁN kênh -> không routing/lịch (gán sau qua nút 📺 YouTube)
+          if(mode==="now") sidecar.publish_at=new Date().toISOString();
+          else if(mode==="spread"&&it.publishAt) sidecar.publish_at=it.publishAt; }
         await workerApi("/api/upload-done",{method:"POST",body:{account:acct,folderId,base:upName.replace(/\.[^.]+$/,''),sidecar}}); }
       it.status="xong"; it.pct=100; upRender(); toastMsg("✅ Đã upload: "+upName);
       if(toFolder&&window.__fb&&window.__fb.account===acct) setTimeout(()=>{ if(window.fbRefresh) fbRefresh(); },800); }
