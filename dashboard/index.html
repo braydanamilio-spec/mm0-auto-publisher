@@ -1055,7 +1055,8 @@
       $("anStatus").textContent=t("working"); $("anKpis").innerHTML=""; $("anTop").innerHTML="";
       try{ const d=await workerApi(`/api/analytics?channel=${encodeURIComponent(ch)}&days=${__anDays}`);
         renderAn(d); $("anStatus").textContent=`✔ ${d.start} → ${d.end} · ${__anDays} ngày`;
-      }catch(e){ $("anStatus").innerHTML="❌ "+esc(e.message); }
+      }catch(e){ $("anStatus").textContent="";
+        $("anKpis").innerHTML=`<div class="panel" style="grid-column:1/-1;border-color:var(--bad)"><div style="padding:14px"><b style="color:var(--bad)">❌ Chưa xem được phân tích</b><div class="p-sub" style="margin-top:6px">${esc(e.message)}</div><div style="margin-top:10px"><button class="btn-mini" onclick="connectChannel('${esc(ch)}','youtube')">🔗 Kết nối lại YouTube kênh này</button></div></div></div>`; }
     };
     function renderAn(d){
       const h=d.headers||[], tv=d.totals||[]; const val=(n)=>{const i=h.indexOf(n);return i>=0?(+tv[i]||0):0;};
