@@ -39,7 +39,7 @@ IMG_EXT = (".png", ".jpg", ".jpeg", ".webp")
 SUB_EXT = (".srt", ".vtt", ".ass")
 SKIP_DIRS = {"brand", "branding", "đã đăng", "da dang", "_posted", "_sent", "_dup",
              "assets", "raw", "temp", "tmp", "cache", "node_modules"}
-_SECTION_HDR = re.compile(r"(?im)^[\s━=–—*_\-]*(LONG|SHORTS?)\s*(\d*)[\s━=–—*_\-]*$")
+_SECTION_HDR = re.compile(r"(?im)^[\s━=–—*_#>\-]*(LONG|SHORTS?)\s*(\d*)\b.*$")
 
 
 def _natkey(s: str):
@@ -76,8 +76,9 @@ def _parse_block(body: str) -> dict:
         low = s.lower()
         if low.startswith("title:"):
             flush(); mode, buf = "title", ([s[6:].strip()] if s[6:].strip() else [])
-        elif low.startswith("description:"):
-            flush(); mode, buf = "desc", ([s[12:].strip()] if s[12:].strip() else [])
+        elif low.startswith("description:") or low.startswith("desc:"):
+            n = 12 if low.startswith("description:") else 5
+            flush(); mode, buf = "desc", ([s[n:].strip()] if s[n:].strip() else [])
         elif low.startswith("tags"):
             flush(); mode = None
             after = s.split(":", 1)[1] if ":" in s else ""
@@ -110,7 +111,10 @@ def _parse_sections(text: str) -> list[dict]:
     for i, h in enumerate(hdrs):
         start = h.end()
         end = hdrs[i + 1].start() if i + 1 < len(hdrs) else len(text)
-        secs.append(_parse_block(text[start:end]))
+        blk = _parse_block(text[start:end])
+        blk["_label"] = "short" if h.group(1).lower().startswith("short") else "long"
+        blk["_num"] = int(h.group(2)) if h.group(2) else None
+        secs.append(blk)
     return secs
 
 
@@ -175,27 +179,35 @@ def read_meta(folder: str, video: str, project: str) -> tuple[dict, dict]:
             except Exception:
                 pass
 
-    # 2) FORMAT C — *-UPLOAD.txt chia mục, map theo FILES: video=
+    # 2) FORMAT C — *-UPLOAD.txt chia mục. Map theo FILES: video= HOẶC theo QUY ƯỚC (LONG / SHORT N).
     up = _find_upload_txt(folder, project)
     if up and up.lower().endswith(".txt"):
         text = open(up, encoding="utf-8", errors="ignore").read()
-        for sec in _parse_sections(text):
-            sv = sec.get("video")
-            if sv and os.path.basename(sv).lower() == vb:
-                meta, extra = {}, {}
-                for k in ("title", "description", "hashtags", "tags", "type"):
-                    if sec.get(k):
-                        meta[k] = sec[k]
-                updir = os.path.dirname(up)
-                if sec.get("thumb"):
-                    tp = os.path.join(updir, sec["thumb"])
-                    if os.path.exists(tp):
-                        extra["thumb"] = tp
-                if sec.get("captions"):
-                    cp = os.path.join(updir, sec["captions"])
-                    if os.path.exists(cp):
-                        extra["sub"] = cp
-                return meta, extra
+        secs = _parse_sections(text)
+        sm = re.search(r"short[-_ ]?(\d+)", vb)
+        vnum = int(sm.group(1)) if sm else None
+        v_is_long = ("long" in vb) or (vnum is None and "short" not in vb and "/shorts/" not in video.replace("\\", "/").lower())
+        chosen = None
+        for sec in secs:                                  # a) khớp chính xác qua FILES: video=
+            if sec.get("video") and os.path.basename(sec["video"]).lower() == vb:
+                chosen = sec; break
+        if not chosen:                                    # b) khớp theo nhãn LONG / SHORT N
+            for sec in secs:
+                if vnum is not None and sec.get("_label") == "short" and sec.get("_num") == vnum:
+                    chosen = sec; break
+                if vnum is None and v_is_long and sec.get("_label") == "long":
+                    chosen = sec; break
+        if chosen:
+            meta, extra = {}, {}
+            for k in ("title", "description", "hashtags", "tags", "type"):
+                if chosen.get(k):
+                    meta[k] = chosen[k]
+            updir = os.path.dirname(up)
+            if chosen.get("thumb") and os.path.exists(os.path.join(updir, chosen["thumb"])):
+                extra["thumb"] = os.path.join(updir, chosen["thumb"])
+            if chosen.get("captions") and os.path.exists(os.path.join(updir, chosen["captions"])):
+                extra["sub"] = os.path.join(updir, chosen["captions"])
+            return meta, extra
 
     # 3) FORMAT A — UPLOAD.md dạng ## Title (khi 1 video/thư mục)
     if up and up.lower().endswith(".md"):
