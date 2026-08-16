@@ -345,6 +345,10 @@
         <button class="hamb" id="hamb" aria-label="Menu">☰</button>
         <div><h2 id="vTitle">Overview</h2><div class="sub" id="vSub">All channels</div></div>
         <div class="grow"></div>
+        <div class="seg" id="platSwitch" style="display:none;margin-right:10px">
+          <button type="button" class="seg-btn on" data-p="yt" onclick="setPlat('yt')">📺 YouTube</button>
+          <button type="button" class="seg-btn" data-p="fb" onclick="setPlat('fb')">📘📷 FB &amp; IG</button>
+        </div>
         <div class="live" id="live"><span class="dot"></span> <span id="liveTx" data-i18n="connecting">Connecting…</span></div>
         <div class="chpick" id="chPick">
           <button class="chpick-btn" id="chPickBtn" type="button"></button>
@@ -375,6 +379,12 @@
       </section>
 
       <section id="v-analytics" class="content hide">
+        <div class="subtabs" id="ana-tabs">
+          <button class="subtab on" data-p="yt" onclick="setSubTab('ana','yt')">📺 YouTube</button>
+          <button class="subtab" data-p="fb" onclick="setSubTab('ana','fb')">📘📷 Facebook &amp; Instagram</button>
+        </div>
+        <div id="ana-fb" class="subpane hide"><div id="fbAnalytics"></div></div>
+        <div id="ana-yt" class="subpane">
         <div class="panel" style="margin-bottom:16px">
           <div class="p-head"><div class="p-title">📈 Phân tích TOÀN KÊNH <span class="sd">(mọi video, kể cả không đăng bằng tool)</span></div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -396,6 +406,7 @@
           <div class="p-head"><div class="p-title">📊 Long vs Short theo kênh</div><div class="p-sub">view minh bạch từng loại</div></div>
           <div class="scroll-x"><table id="lsTable" style="min-width:0"></table></div>
         </div>
+        </div><!-- /ana-yt -->
       </section>
 
       <section id="v-videos" class="content hide">
@@ -551,7 +562,16 @@
       </div>
 
       <section id="v-schedule" class="content hide">
-        <div class="panel"><div class="p-head"><div class="p-title">🗓️ Toàn bộ lịch đăng</div><div class="p-sub">theo thời gian</div></div><div id="scheduleList"></div></div>
+        <div class="subtabs" id="sch-tabs">
+          <button class="subtab on" data-p="yt" onclick="setSubTab('sch','yt')">📺 YouTube</button>
+          <button class="subtab" data-p="fb" onclick="setSubTab('sch','fb')">📘📷 Facebook &amp; Instagram</button>
+        </div>
+        <div id="sch-yt" class="subpane">
+          <div class="panel"><div class="p-head"><div class="p-title">🗓️ Lịch đăng YouTube</div><div class="p-sub">theo thời gian</div></div><div id="scheduleList"></div></div>
+        </div>
+        <div id="sch-fb" class="subpane hide">
+          <div class="panel"><div class="p-head"><div class="p-title">🗓️ Lịch đăng Facebook / Instagram</div><div class="p-sub">từ hàng đợi độc lập</div></div><div id="fbScheduleList"></div></div>
+        </div>
       </section>
 
       <section id="v-connections" class="content hide">
@@ -1360,13 +1380,19 @@
       if(vf&&smp&&smp.parentNode!==vf) vf.appendChild(smp);
       if(pf&&sqp&&sqp.parentNode!==pf) pf.appendChild(sqp);
     }
-    window.setSubTab=(page,plat)=>{
-      document.querySelectorAll(`#${page}-tabs .subtab`).forEach(b=>b.classList.toggle("on",b.dataset.p===plat));
-      const yt=$(page+"-yt"), fb=$(page+"-fb");
-      if(yt) yt.classList.toggle("hide",plat!=="yt");
-      if(fb) fb.classList.toggle("hide",plat!=="fb");
-      try{ localStorage["subtab_"+page]=plat; }catch(_){}
+    window.__plat = localStorage.mm0plat || "yt";
+    // Thanh nền tảng TOÀN CỤC: đổi 1 phát -> đồng bộ sub-tab mọi trang
+    window.setPlat=(plat)=>{ window.__plat=plat; try{localStorage.mm0plat=plat;}catch(_){}
+      ["vid","pub","ana","sch"].forEach(pg=>{
+        document.querySelectorAll(`#${pg}-tabs .subtab`).forEach(b=>b.classList.toggle("on",b.dataset.p===plat));
+        const yt=$(pg+"-yt"), fb=$(pg+"-fb");
+        if(yt) yt.classList.toggle("hide",plat!=="yt");
+        if(fb) fb.classList.toggle("hide",plat!=="fb");
+      });
+      document.querySelectorAll("#platSwitch .seg-btn").forEach(b=>b.classList.toggle("on",b.dataset.p===plat));
+      if(plat==="fb"){ if(window.__view==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(window.__view==="schedule"&&window.renderFbSchedule) renderFbSchedule(); }
     };
+    window.setSubTab=(page,plat)=>setPlat(plat);   // per-page sub-tab -> điều khiển toàn cục
     // ===== P0 #2: Bảng sức khoẻ + cảnh báo lỗi đăng =====
     let __healthNotified=0;
     function renderHealth(){
@@ -1835,7 +1861,7 @@
           title:$("socQTitle").value.trim(), description:$("socQDesc").value, hashtags:tags, type:"short", publish_at });
         toastMsg("✔ Đã thêm vào hàng đợi"); socQClose();
       }catch(e){ $("socQMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ btn.disabled=false; } };
-    window.setSocQueue=(items)=>{ window.__socQueue=items||[]; renderSocQueue(); };
+    window.setSocQueue=(items)=>{ window.__socQueue=items||[]; renderSocQueue(); if(window.__view==="schedule"&&window.__plat==="fb"&&window.renderFbSchedule) renderFbSchedule(); };
     function renderSocQueue(){ const box=$("socQueueList"); if(!box) return;
       const items=(window.__socQueue||[]).slice().sort((a,b)=>String(b.created_at||"").localeCompare(String(a.created_at||"")));
       if(!items.length){ box.innerHTML=`<div class="p-sub" style="padding:6px">${t("sq_empty")}</div>`; return; }
@@ -1895,6 +1921,25 @@
     window.ytQueueCleanup=async()=>{ const posted=(window.__ytQueue||[]).filter(q=>q.status==="posted"); if(!posted.length){ toastMsg("Không có bài đã đăng để dọn"); return; }
       if(!confirm(`Dọn ${posted.length} bài ĐÃ ĐĂNG khỏi danh sách? (KHÔNG xoá video trên YouTube)`)) return;
       let ok=0; for(const q of posted){ try{ await window.__ytQueueDel(q.id); ok++; }catch(_){} } toastMsg(`🧹 Đã dọn ${ok} bài`); };
+    /* ===== Analytics + Schedule cho FB/IG (sub-tab) ===== */
+    window.renderFbAnalytics=async()=>{ const box=$("fbAnalytics"); if(!box) return; const pages=__FBP||[];
+      if(!pages.length){ box.innerHTML=`<div class="panel"><div class="p-sub" style="padding:14px">Chưa kết nối Facebook Page. Vào tab <b>Kết nối FB/IG</b> để kết nối.</div></div>`; return; }
+      box.innerHTML=`<div class="conn-grid">${pages.map(p=>`<div class="conn"><div class="conn-head"><div class="ava" style="overflow:hidden;background:linear-gradient(145deg,#1877f2,#0a58ca)">${fbPageAva(p)}</div><div class="nm">${esc(p.page_name||p.name)}<div class="p-sub" id="fba-fb-${esc(p.name)}">Đang tải…</div></div></div>${p.ig_user_id?`<div class="svc" style="margin-top:10px"><div class="ava" style="width:34px;height:34px;overflow:hidden;background:linear-gradient(135deg,#F9CE34,#EE2A7B 45%,#6228D7);display:grid;place-items:center"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="#fff" stroke-width="2">${svgIcon('ig')}</svg>${p.ig_avatar?`<img src="${esc(p.ig_avatar)}" style="position:absolute;width:34px;height:34px;object-fit:cover">`:''}</div><div style="flex:1"><div class="snm">Instagram</div><div class="sd" id="fba-ig-${esc(p.name)}">Đang tải…</div></div></div>`:''}</div>`).join("")}</div>`;
+      for(const p of pages){
+        try{ const d=await workerApi(`/api/social-insights?channel=${encodeURIComponent(p.name)}&platform=fb`); const el=$("fba-fb-"+p.name); if(el) el.innerHTML=`👥 <b>${fmtN(d.followers||0)}</b> người theo dõi`; }catch(_){ const el=$("fba-fb-"+p.name); if(el)el.textContent="— (cần Kết nối lại)"; }
+        if(p.ig_user_id){ try{ const d=await workerApi(`/api/social-insights?channel=${encodeURIComponent(p.name)}&platform=ig`); const el=$("fba-ig-"+p.name); if(el) el.innerHTML=`@${esc(d.username||p.ig_username||'')} · 👥 <b>${fmtN(d.followers||0)}</b> · 📸 ${fmtN(d.posts||0)} bài`; }catch(_){} }
+      }
+    };
+    window.renderFbSchedule=()=>{ const box=$("fbScheduleList"); if(!box) return;
+      const items=(window.__socQueue||[]).filter(q=>q.status==="pending"||q.status==="processing").slice().sort((a,b)=>String(a.publish_at||"").localeCompare(String(b.publish_at||"")));
+      if(!items.length){ box.innerHTML=`<div class="p-sub" style="padding:6px">Chưa có bài FB/IG nào trong lịch. Thêm ở <b>Storage → 📤 Đăng FB/IG</b>.</div>`; return; }
+      let html="",last="";
+      items.forEach(q=>{ const day=q.publish_at?new Date(q.publish_at).toLocaleDateString('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit'}):"—";
+        if(day!==last){ html+=`<div class="p-sub" style="margin:14px 0 6px;font-weight:600;color:var(--text2)">${day}</div>`; last=day; }
+        html+=`<div class="li"><div class="tm">${q.publish_at?new Date(q.publish_at).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}):'—'}</div><div class="tx">${esc(q.drive_name||q.drive_file_id)}</div><span class="tag2">${esc(q.platform||'')}</span> <span class="p-sub">${esc(socPageName(q.page))}</span></div>`;
+      });
+      box.innerHTML=html;
+    };
     window.setSettings = (s) => { __SETTINGS=s; renderSettings(); };
     window.setOverrides = (o) => { __OVERRIDES=o||{}; renderSettings(); renderAll(); };
     // Catalog template (khớp config/posting_templates.yaml) — hiển thị ở trang Cài đặt
@@ -1957,7 +2002,9 @@
 
     function wireNav(){
       const VIEWS=["overview","analytics","videos","schedule","publish","connections","storage","settings","channels","branding","comments","facebook"];
-      const setTitle=(v)=>{ window.__view=v; $("vTitle").textContent=t(v); $("vSub").textContent=t("sub_"+v); };
+      const setTitle=(v)=>{ window.__view=v; $("vTitle").textContent=t(v); $("vSub").textContent=t("sub_"+v);
+        const ps=$("platSwitch"); if(ps) ps.style.display=["videos","publish","analytics","schedule"].includes(v)?"inline-flex":"none";
+        if(window.__plat==="fb"){ if(v==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(v==="schedule"&&window.renderFbSchedule) renderFbSchedule(); } };
       window.__setTitle=setTitle;
       // ROUTING theo URL hash: mỗi mục 1 đường dẫn (#publish, #channels…) -> F5 giữ nguyên trang
       function activateView(v){
@@ -2002,7 +2049,7 @@
       if($("loadYtVids"))$("loadYtVids").onclick=window.loadYtVids;
       if($("ovSyncBtn"))$("ovSyncBtn").onclick=window.ovSyncReal;
       moveSocialPanels();
-      setSubTab('vid', localStorage.subtab_vid||'yt'); setSubTab('pub', localStorage.subtab_pub||'yt');
+      setPlat(window.__plat||'yt');
       if($("fbAccount"))$("fbAccount").onchange=()=>{ if($("fbSearch"))$("fbSearch").value=""; window.__fb.account=$("fbAccount").value; window.__fb.stack=[]; fbOpen(null,"My Drive"); };
       if($("fbSearch"))$("fbSearch").oninput=(e)=>window.fbSearchInput(e.target.value);
       if($("stSort"))$("stSort").onchange=renderStorage;
