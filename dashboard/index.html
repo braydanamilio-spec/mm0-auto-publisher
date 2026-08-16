@@ -1495,6 +1495,8 @@
       let ok=0; for(const it of list){ try{ await setDoc(doc(db,"videos",it.id), it.data, {merge:true}); ok++; }catch(e){} }
       return ok;
     };
+    window.__deleteVideo = async (id) => { await deleteDoc(doc(db,"videos",id)); };
+    window.__deleteVideos = async (ids) => { let ok=0; for(const id of ids){ try{ await deleteDoc(doc(db,"videos",id)); ok++; }catch(e){} } return ok; };
     window.initTheme(); window.wireNav(); window.paintIcons(); window.paintBrand();
   </script>
 
@@ -3397,7 +3399,7 @@
       const onlyIssues=$("pubOnlyIssues")&&$("pubOnlyIssues").checked;
       if(onlyIssues) rows=rows.filter(v=>vIssues(v).length>0);
       const nIssue=V().filter(notPosted).filter(v=>vIssues(v).length>0).length;
-      $("pubCount").innerHTML=rows.length+" video"+(nIssue?` · <span style="color:var(--warn);font-weight:700">⚠ ${nIssue} cần bổ sung</span>`:"");
+      $("pubCount").innerHTML=rows.length+" video"+(nIssue?` · <span style="color:var(--warn);font-weight:700">⚠ ${nIssue} cần bổ sung</span>`:"")+(rows.length?` · <button class="mini bad" onclick="pubDeleteAll()">🗑️ Xóa hết hàng đợi</button>`:"");
       // Gợi ý: múi giờ đang chọn + số long/short trong hàng đợi (theo kênh đang lọc)
       const chSel=sel?sel.value:"", tzSel=($("pubTz")&&$("pubTz").value)||"America/New_York";
       const scope=chSel?rows.filter(v=>v.channel===chSel):rows;
@@ -3422,6 +3424,7 @@
             <div class="pub-when">${v.publish_at?fmtDt(v.publish_at):'—'}</div>
             <button class="mini" title="Xem/Sửa" onclick="pubEdit('${esc(v.id)}')">✏️</button>
             <button class="pub-now" onclick="publishNow('${esc(v.id)}')">⚡ ${esc(t("pub_now"))}</button>
+            <button class="mini bad" title="Xóa khỏi hàng đợi" onclick="pubDelete('${esc(v.id)}')">🗑️</button>
           </div>
           ${window.__pubEditId===v.id?pubEditor(v):""}
         </div>`;
@@ -3483,6 +3486,13 @@
         toastMsg("⚡ "+t("pub_now")+" — cron sẽ đăng trong ~30'"); }
       catch(e){ alert("❌ "+e.message); }
     };
+    window.pubDelete=async(id)=>{ const v=V().find(x=>x.id===id); const nm=v?(v.title||v.drive_name||id):id;
+      if(!confirm(`Xóa "${nm}" khỏi hàng đợi?\n\n(Chỉ gỡ khỏi danh sách — KHÔNG đụng YouTube. Nếu file còn trên Drive _QUEUE, cron có thể tạo lại; muốn xóa hẳn thì xóa cả file trên Drive.)`)) return;
+      try{ await window.__deleteVideo(id); toastMsg("🗑️ Đã xóa khỏi hàng đợi"); }catch(e){ alert("❌ "+e.message); } };
+    window.pubDeleteAll=async()=>{ const ids=V().filter(notPosted).map(v=>v.id);
+      if(!ids.length) return;
+      if(!confirm(`Xóa TẤT CẢ ${ids.length} video khỏi hàng đợi?\n\n(Chỉ gỡ khỏi danh sách, không đụng YouTube. File trên Drive còn thì cron có thể tạo lại — nên xóa file Drive trước nếu muốn dứt điểm.)`)) return;
+      const ok=await window.__deleteVideos(ids); toastMsg(`🗑️ Đã xóa ${ok} video khỏi hàng đợi`); };
     // Đổi giờ "treo tường" ở 1 múi giờ (IANA) -> instant UTC chuẩn (tự xử lý DST)
     function tzOffsetMs(date, tz){
       const dtf=new Intl.DateTimeFormat('en-US',{timeZone:tz,hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});

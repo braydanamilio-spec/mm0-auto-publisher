@@ -30,7 +30,8 @@ service cloud.firestore {
              .hasOnly(['status', 'publish_at', 'reviewed_at',
                        'title', 'description', 'tags', 'hashtags', 'edited', 'updated_at',
                        'privacy', 'made_for_kids', 'language', 'category', 'location']);
-      allow create, delete: if false;
+      allow create: if false;
+      allow delete: if canEdit(resource.data.owner);   // chủ/editor xóa bản ghi video khỏi hàng đợi
     }
 
     // Chỉ đọc (server ghi) — chủ + mọi thành viên đọc được.
