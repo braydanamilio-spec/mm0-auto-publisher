@@ -891,6 +891,19 @@
         .tk-move button:hover{border-color:var(--accent);color:var(--accent)}
         .tk-ava{width:20px;height:20px;border-radius:50%;background:linear-gradient(145deg,var(--accent),var(--violet));display:inline-grid;place-items:center;color:#fff;font-size:9px;font-weight:800}
         .fbc-chk{position:absolute;top:12px;right:12px;width:17px;height:17px;cursor:pointer;accent-color:var(--accent);z-index:2}
+        /* RBAC gating: ẩn tab cấu hình/kết nối theo vai trò */
+        body[data-role="editor"] .nav[data-view="connections"],
+        body[data-role="editor"] .nav[data-view="settings"],
+        body[data-role="editor"] .nav[data-view="facebook"],
+        body[data-role="viewer"] .nav[data-view="connections"],
+        body[data-role="viewer"] .nav[data-view="settings"],
+        body[data-role="viewer"] .nav[data-view="facebook"],
+        body[data-role="viewer"] .nav[data-view="publish"],
+        body[data-role="viewer"] .nav[data-view="storage"]{display:none!important}
+        /* Viewer: ẩn nút thêm/ghi rõ ràng */
+        body[data-role="viewer"] #platSwitch,
+        body[data-role="viewer"] .kan-card .tk-move,
+        body[data-role="viewer"] [onclick*="Open()"][class*="btn-conn"]{opacity:.4;pointer-events:none}
         .cm-dot{margin-left:auto;background:var(--bad);color:#fff;font-size:10px;font-weight:800;min-width:18px;height:18px;padding:0 5px;border-radius:20px;display:inline-grid;place-items:center}
         .cm-stats{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;font-size:13px}
         .cm-stats b{color:var(--text);font-variant-numeric:tabular-nums}
@@ -1128,7 +1141,7 @@
             <label class="fld"><span data-i18n="tk_title">Title</span><input id="tkTitle" maxlength="140"></label>
             <label class="fld"><span data-i18n="tk_desc">Description</span><textarea id="tkDesc" rows="3"></textarea></label>
             <div class="fld2">
-              <label class="fld"><span data-i18n="tk_assignee">Assignee (name/email)</span><input id="tkAssignee" placeholder="nhân viên A"></label>
+              <label class="fld"><span data-i18n="tk_assignee">Assignee (name/email)</span><input id="tkAssignee" list="tkAssigneeDL" placeholder="chọn/nhập nhân viên"><datalist id="tkAssigneeDL"></datalist></label>
               <label class="fld"><span data-i18n="tk_type">Type</span><select id="tkType"><option value="video" data-i18n="tk_t_video">🎬 Make video</option><option value="post" data-i18n="tk_t_post">📤 Post content</option><option value="edit" data-i18n="tk_t_edit">✏️ Edit content</option><option value="other" data-i18n="tk_t_other">📌 Other</option></select></label>
             </div>
             <div class="fld2">
@@ -1251,6 +1264,7 @@
       if(inv.owner===window.__uid) throw new Error("Đây là workspace của chính bạn");
       await setDoc(doc(db,"team_members", inv.owner+"__"+window.__uid), { owner:inv.owner, member_uid:window.__uid, member_email:window.__uEmail||"", role:inv.role, invite_id:invId, joined_at:new Date().toISOString() }); return inv; };
     window.__teamLeave = async (ownerUid) => { await deleteDoc(doc(db,"team_members", ownerUid+"__"+window.__uid)); };
+    window.__wsMembers = async () => { const s=await getDocs(query(collection(db,"team_members"), where("owner","==",(window.__ownerUid||window.__uid)))); return s.docs.map(d=>d.data()); };
     window.__switchWorkspace = (ownerUid) => { try{ localStorage.mm0ws=ownerUid||""; }catch(_){} location.reload(); };
     // Ghi/xoá hàng đợi đăng FB/IG độc lập (client tự tạo item của mình)
     window.__socQueueAdd = async (data) => { await addDoc(collection(db,"social_queue"), {owner:(window.__ownerUid||window.__uid), status:"pending", attempts:0, created_at:new Date().toISOString(), ...data}); };
@@ -2209,7 +2223,9 @@
     window.taskMove=async(id,st)=>{ try{ await window.__taskUpdate(id,{status:st}); }catch(e){ alert("❌ "+e.message); } };
     function taskFillChannels(){ const sel=$("tkChannel"); if(!sel) return;
       sel.innerHTML=`<option value="">— không gắn —</option>`+allChannels().map(k=>`<option value="${esc(k)}">📺 ${esc(chName(k))}</option>`).join("")+(__FBP||[]).map(p=>`<option value="${esc(p.name)}">📘 ${esc(p.page_name||p.name)}</option>`).join(""); }
-    window.taskOpen=(id)=>{ taskFillChannels(); const t=(typeof id==="string")?window.__tasks.find(x=>x.id===id):null; window.__taskEditId=t?id:null;
+    window.taskOpen=(id)=>{ taskFillChannels();
+      (async()=>{ try{ const mem=await window.__wsMembers(); const names=[...new Set([window.__uEmail, ...mem.map(m=>m.member_email)].filter(Boolean))]; const dl=$("tkAssigneeDL"); if(dl) dl.innerHTML=names.map(n=>`<option value="${esc(n)}">`).join(""); }catch(_){} })();
+      const t=(typeof id==="string")?window.__tasks.find(x=>x.id===id):null; window.__taskEditId=t?id:null;
       $("taskModalTitle").textContent=t?"Sửa việc":"Việc mới"; $("tkDelBtn").style.display=t?"":"none"; $("tkMsg").textContent="";
       $("tkTitle").value=(t&&t.title)||""; $("tkDesc").value=(t&&t.description)||""; $("tkAssignee").value=(t&&t.assignee)||""; $("tkType").value=(t&&t.type)||"video"; $("tkChannel").value=(t&&t.channel)||""; $("tkPriority").value=(t&&t.priority)||"med"; $("tkStatus").value=(t&&t.status)||"todo"; $("tkDue").value=(t&&t.due_date)||"";
       $("taskModal").classList.remove("hide"); };

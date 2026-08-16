@@ -82,7 +82,7 @@ service cloud.firestore {
     }
     // Thành viên — chủ quản lý; thành viên tự THAM GIA qua lời mời hợp lệ.
     match /team_members/{doc} {
-      allow read:   if owns(resource.data) || (signedIn() && resource.data.member_uid == uid());
+      allow read:   if owns(resource.data) || (signedIn() && resource.data.member_uid == uid()) || isMember(resource.data.owner);
       allow create: if signedIn()
         && request.resource.data.member_uid == uid()
         && doc == (request.resource.data.owner + '__' + uid())
