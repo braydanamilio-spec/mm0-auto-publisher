@@ -32,6 +32,8 @@ export default {
       if (url.pathname === "/api/file-action") return corsResp(await apiFileAction(request, url, env));
       if (url.pathname === "/api/analytics") return corsResp(await apiAnalytics(request, url, env));
       if (url.pathname === "/api/channel-videos") return corsResp(await apiChannelVideos(request, url, env));
+      if (url.pathname === "/api/video-update") return corsResp(await apiVideoUpdate(request, url, env));
+      if (url.pathname === "/api/video-delete") return corsResp(await apiVideoDelete(request, url, env));
     } catch (e) {
       // API trả JSON lỗi; trang HTML trả trang lỗi
       if (url.pathname.startsWith("/api/")) return corsResp(json({ error: String(e && e.message || e) }, 400));
@@ -227,6 +229,7 @@ async function apiChannelVideos(request, url, env) {
       const secs = m ? ((+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0)) : 0;
       out.push({
         id: v.id, title: v.snippet.title, publishedAt: v.snippet.publishedAt,
+        description: v.snippet.description || "", tags: v.snippet.tags || [],
         thumb: (v.snippet.thumbnails.medium || v.snippet.thumbnails.default || {}).url,
         views: +(v.statistics.viewCount || 0), likes: +(v.statistics.likeCount || 0),
         comments: +(v.statistics.commentCount || 0), duration: secs,
@@ -237,6 +240,47 @@ async function apiChannelVideos(request, url, env) {
   }
   out.sort((a, b) => (b.publishedAt || "").localeCompare(a.publishedAt || ""));
   return json({ ok: true, channel: chStat, count: out.length, items: out });
+}
+
+// POST /api/video-update {channel,id,title,description,tags[],privacy} -> sửa metadata video thật (như Studio)
+async function apiVideoUpdate(request, url, env) {
+  const ctx = await authCtx(request, url, env);
+  const id = ctx.g("id"); if (!id) throw new Error("Thiếu id video.");
+  const b = ctx.body || {};
+  // Lấy snippet hiện tại (API bắt buộc gửi kèm categoryId + title khi update)
+  const cur = await ytGet(`videos?part=snippet,status&id=${id}`, ctx.yat);
+  const v = (cur.items || [])[0]; if (!v) throw new Error("Không tìm thấy video trên kênh.");
+  const sn = v.snippet || {}, stt = v.status || {};
+  const snippet = {
+    categoryId: sn.categoryId || "22",
+    title: (b.title != null ? String(b.title) : (sn.title || "")).slice(0, 100),
+    description: b.description != null ? String(b.description).slice(0, 5000) : (sn.description || ""),
+    tags: Array.isArray(b.tags) ? b.tags.slice(0, 60) : (sn.tags || []),
+    defaultLanguage: sn.defaultLanguage,
+  };
+  const status = { privacyStatus: b.privacy || stt.privacyStatus || "public" };
+  try {
+    await ytSend("PUT", "videos?part=snippet,status", ctx.yat, { id, snippet, status });
+  } catch (e) {
+    if (/insufficient|forbidden|scope|403/i.test(String(e.message)))
+      throw new Error("Cần KẾT NỐI LẠI kênh để cấp quyền sửa/xoá video. Vào My Channels → 🔗 Kết nối lại.");
+    throw e;
+  }
+  return json({ ok: true });
+}
+
+// POST /api/video-delete {channel,id} -> XOÁ video thật khỏi YouTube (không thể hoàn tác)
+async function apiVideoDelete(request, url, env) {
+  const ctx = await authCtx(request, url, env);
+  const id = ctx.g("id"); if (!id) throw new Error("Thiếu id video.");
+  const r = await fetch(`https://www.googleapis.com/youtube/v3/videos?id=${encodeURIComponent(id)}`,
+    { method: "DELETE", headers: { Authorization: `Bearer ${ctx.yat}` } });
+  if (r.status !== 204) {
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 403) throw new Error("Cần KẾT NỐI LẠI kênh để cấp quyền xoá video. Vào My Channels → 🔗 Kết nối lại.");
+    throw new Error((j.error && j.error.message) || ("Xoá lỗi " + r.status));
+  }
+  return json({ ok: true });
 }
 
 // GET /api/analytics?channel=&t=&days=  -> PHÂN TÍCH TOÀN KÊNH theo kỳ (mọi video, kể cả không đăng bằng tool)

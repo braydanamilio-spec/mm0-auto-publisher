@@ -377,26 +377,55 @@
       </section>
 
       <section id="v-videos" class="content hide">
-        <div class="toolbar">
-          <input type="search" id="search" data-i18n-ph="search_title" placeholder="Search title…" />
-          <select id="stFilter"><option value="">Mọi trạng thái</option><option value="needs_review">Chờ duyệt</option><option value="posted">Đã đăng</option><option value="scheduled">Đã lên lịch</option><option value="pending">Chờ</option><option value="uploading">Đang upload</option><option value="failed">Lỗi</option></select>
-          <select id="tyFilter"><option value="">Long &amp; Short</option><option value="long">Long</option><option value="short">Short</option></select>
-          <select id="sortBy"><option value="publish_at">Sắp theo giờ đăng</option><option value="views">Sắp theo lượt xem</option></select>
-        </div>
-        <div class="panel" style="margin-bottom:14px">
-          <div class="p-head"><div class="p-title">📺 Xem toàn bộ video đã đăng trên kênh <span class="p-sub">— như YouTube Studio</span></div></div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px">
-            <select id="ytVidsCh" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:9px 12px;font-family:var(--sans);font-size:13.5px;min-width:220px;max-width:100%"></select>
-            <button class="btn-conn" id="loadYtVids">📥 Tải video kênh</button>
-            <span id="ytVidsActs" style="display:none;gap:8px;flex-wrap:wrap"></span>
+        <div class="panel">
+          <div class="yt-mgr-head">
+            <select id="ytVidsCh"></select>
+            <button class="btn-conn" id="loadYtVids">🔄 Tải video kênh</button>
+            <span class="p-sub" id="ytVidsHint">Chọn kênh → Tải. Quản lý mọi video như YouTube Studio: sửa tiêu đề/mô tả/hashtag, đổi quyền, xoá.</span>
           </div>
-          <div id="ytVidsPanel" style="margin-top:12px"></div>
+          <div id="ytMgr" style="display:none">
+            <div class="yt-tools">
+              <input type="search" id="ytVidSearch" placeholder="🔍 Tìm tiêu đề…">
+              <select id="ytVidType"><option value="">Long &amp; Short</option><option value="long">Chỉ Long</option><option value="short">Chỉ Short</option></select>
+              <select id="ytVidPriv"><option value="">Mọi quyền</option><option value="public">Công khai</option><option value="unlisted">Không liệt kê</option><option value="private">Riêng tư</option></select>
+              <select id="ytVidSort"><option value="date">Mới nhất</option><option value="views">View nhiều nhất</option><option value="likes">Like nhiều nhất</option><option value="comments">B.luận nhiều nhất</option></select>
+              <span style="flex:1;min-width:8px"></span>
+              <button class="btn-mini" onclick="ytVidsCopy()">📋 Copy link</button>
+              <button class="btn-mini" onclick="ytVidsExport('csv')">⬇ CSV</button>
+              <button class="btn-mini" onclick="ytVidsExport('txt')">⬇ TXT</button>
+            </div>
+            <div id="ytBulk" class="yt-bulk" style="display:none"></div>
+            <div id="ytVidsHdr" class="p-sub" style="margin:2px 0 8px"></div>
+            <div class="scroll-x"><table class="yt-table"><thead><tr>
+              <th style="width:34px"><input type="checkbox" id="ytSelAll" onclick="ytSelAll(this.checked)"></th>
+              <th>Video</th><th>Loại</th><th>Ngày</th><th class="num">Views</th><th class="num">Likes</th><th class="num">B.luận</th><th>Quyền</th><th style="width:150px">Thao tác</th>
+            </tr></thead><tbody id="ytVidRows"></tbody></table></div>
+          </div>
+          <div id="ytVidsPanel" style="margin-top:10px"></div>
         </div>
-        <div class="p-sub" style="margin-bottom:10px">Bảng dưới đây chỉ là video <b>trong hệ quản lý</b> (đăng qua tool).</div>
-        <div class="tbl-card"><div class="scroll-x"><table>
-          <thead><tr><th data-i18n="th_channel">Channel</th><th data-i18n="th_title">Title</th><th data-i18n="th_type">Type</th><th data-i18n="th_status">Status</th><th data-i18n="th_time">Publish time</th><th class="num">Views</th><th class="num">Likes</th><th data-i18n="th_link">Link</th></tr></thead>
-          <tbody id="rows"></tbody></table></div></div>
       </section>
+      <div id="ytEditModal" class="modal-back hide">
+        <div class="modal-card">
+          <div class="modal-head"><b id="ytEditTitle">Sửa video</b><button class="modal-x" onclick="ytEditClose()">✕</button></div>
+          <div class="modal-body">
+            <label class="fld"><span>Tiêu đề <em id="ytEChTitle" class="p-sub"></em></span>
+              <input id="ytETitle" maxlength="100" oninput="ytECount()"></label>
+            <label class="fld"><span>Mô tả <em id="ytEChDesc" class="p-sub"></em></span>
+              <textarea id="ytEDesc" rows="6" maxlength="5000" oninput="ytECount()"></textarea></label>
+            <label class="fld"><span>Hashtag / thẻ <em class="p-sub">(cách nhau bằng dấu phẩy hoặc khoảng trắng)</em></span>
+              <input id="ytETags" placeholder="#tiente, #datarace, tài chính"></label>
+            <label class="fld"><span>Quyền riêng tư</span>
+              <select id="ytEPriv"><option value="public">🌐 Công khai</option><option value="unlisted">🔗 Không liệt kê</option><option value="private">🔒 Riêng tư</option></select></label>
+            <div id="ytEMsg" class="p-sub" style="min-height:18px"></div>
+          </div>
+          <div class="modal-foot">
+            <a id="ytEOpen" href="#" target="_blank" class="btn-mini">↗ Mở trên YouTube</a>
+            <span style="flex:1"></span>
+            <button class="btn-mini" onclick="ytEditClose()">Huỷ</button>
+            <button class="btn-conn" id="ytESave" onclick="ytEditSave()">💾 Lưu thay đổi</button>
+          </div>
+        </div>
+      </div>
 
       <section id="v-schedule" class="content hide">
         <div class="panel"><div class="p-head"><div class="p-title">🗓️ Toàn bộ lịch đăng</div><div class="p-sub">theo thời gian</div></div><div id="scheduleList"></div></div>
@@ -679,9 +708,41 @@
         .conn-tools input[type=search]{flex:1;min-width:220px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 13px;font-family:var(--sans);font-size:14px}
         .conn-num{position:absolute;top:10px;right:12px;font-size:11px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums}
         .conn{position:relative}
-        .btn-mini{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 11px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+        .btn-mini{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 11px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--sans);text-decoration:none;display:inline-block}
         .btn-mini:hover{border-color:var(--accent);color:var(--accent)}
+        .btn-mini.danger{color:var(--bad);border-color:var(--bad)} .btn-mini.danger:hover{background:var(--bad);color:#fff}
         #ytVidsActs{display:inline-flex;gap:8px}
+        /* ===== Videos manager (YouTube Studio-like) ===== */
+        .yt-mgr-head{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+        #ytVidsCh{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:9px 12px;font-family:var(--sans);font-size:13.5px;min-width:220px;max-width:100%}
+        .yt-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:14px 0 8px}
+        .yt-tools input[type=search],.yt-tools select{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:8px 11px;font-family:var(--sans);font-size:13px}
+        .yt-tools input[type=search]{flex:1;min-width:150px;background:var(--surface)}
+        .yt-bulk{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--accent-soft);border:1px solid var(--accent);border-radius:11px;padding:9px 12px;margin-bottom:10px}
+        .yt-bulk b{color:var(--accent)}
+        table.yt-table{width:100%;border-collapse:collapse;min-width:720px}
+        table.yt-table th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--border);font-weight:700}
+        table.yt-table th.num{text-align:right}
+        table.yt-table td{padding:9px 10px;border-bottom:1px solid var(--border2);vertical-align:middle}
+        table.yt-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+        table.yt-table tr:hover td{background:var(--surface2)}
+        .yt-vtitle{display:flex;align-items:center;gap:10px;max-width:380px}
+        .yt-vtitle img{width:60px;height:34px;border-radius:5px;object-fit:cover;flex:none;background:var(--surface2)}
+        .yt-vtitle .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+        .yt-priv{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap}
+        .yt-priv.public{background:var(--good-soft);color:var(--good)} .yt-priv.unlisted{background:var(--info-soft);color:var(--info)} .yt-priv.private{background:var(--warn-soft);color:var(--warn)}
+        .yt-rowbtn{background:none;border:none;cursor:pointer;font-size:14px;padding:4px 5px;border-radius:6px;color:var(--muted)}
+        .yt-rowbtn:hover{background:var(--surface);color:var(--accent)}
+        .modal-back{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);z-index:200;display:flex;align-items:center;justify-content:center;padding:18px}
+        .modal-back.hide{display:none}
+        .modal-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;width:min(560px,100%);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(0,0,0,.4)}
+        .modal-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border)}
+        .modal-x{background:none;border:none;color:var(--muted);font-size:17px;cursor:pointer}
+        .modal-body{padding:16px 18px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+        .modal-foot{display:flex;align-items:center;gap:10px;padding:14px 18px;border-top:1px solid var(--border)}
+        .fld{display:flex;flex-direction:column;gap:5px} .fld>span{font-size:12.5px;font-weight:700;color:var(--text2)}
+        .fld input,.fld textarea,.fld select{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-family:var(--sans);font-size:14px;width:100%}
+        .fld textarea{resize:vertical;line-height:1.5}
         .btn-reconn.danger{flex:none;width:auto;padding-left:12px;padding-right:12px;color:var(--bad);border-color:var(--bad)}
         .btn-reconn.danger:hover{background:var(--bad);color:#fff}
       </style>
@@ -1089,8 +1150,7 @@
           <span class="tag2 ${v.type==='short'?'warn':''}">${v.type}</span><b class="tnum" style="margin-left:8px">${fmtN(v.views)}</b></div>`).join("")||`<div class="p-sub">Chưa có video.</div>`);
     }
     window.anInit=anInit;
-    // Tải TOÀN BỘ video đã đăng trên kênh (như YouTube Studio) qua Worker
-    let __ytVidsFilter="", __ytVidsType="", __ytVidsSort="date";
+    // ===== Trình quản lý video kênh (YouTube Studio-like) qua Worker =====
     function fillYtVidsCh(){
       const sel=$("ytVidsCh"); if(!sel) return; const keep=sel.value||cur();
       const chans=connectedYT();
@@ -1099,60 +1159,109 @@
       if(chans.includes(keep)) sel.value=keep;
     }
     window.fillYtVidsCh=fillYtVidsCh;
+    let __ytSel=new Set();
     window.loadYtVids=async()=>{
-      const sel=$("ytVidsCh"); const ch=(sel&&sel.value)||cur(); const box=$("ytVidsPanel");
-      const acts=$("ytVidsActs"); if(acts){acts.style.display="none";acts.innerHTML="";}
+      const sel=$("ytVidsCh"); const ch=(sel&&sel.value)||cur(); const box=$("ytVidsPanel"), mgr=$("ytMgr"), hint=$("ytVidsHint");
       if(!box) return;
-      if(!ch){ box.innerHTML=`<div class="p-sub" style="padding:8px">⚠️ Chưa chọn được kênh. Hãy kết nối YouTube ở tab <b>API Connections</b> trước.</div>`; return; }
-      box.innerHTML=`<div class="p-sub" style="padding:8px">${t("working")} — đang tải toàn bộ video của <b>${esc(chName(ch))}</b>… (có thể mất vài giây nếu kênh nhiều video)</div>`;
+      if(!ch){ box.innerHTML=`<div class="p-sub" style="padding:8px">⚠️ Chưa chọn được kênh. Kết nối YouTube ở tab <b>API Connections</b> trước.</div>`; if(mgr)mgr.style.display="none"; return; }
+      if(hint)hint.style.display="none"; if(mgr)mgr.style.display="none";
+      box.innerHTML=`<div class="p-sub" style="padding:8px">${t("working")} — đang tải video của <b>${esc(chName(ch))}</b>…</div>`;
       try{ const d=await workerApi(`/api/channel-videos?channel=${encodeURIComponent(ch)}&max=300`);
-        window.__ytVids=d.items||[]; window.__ytVidsStat=d.channel||null; window.__ytVidsCh=ch; __ytVidsFilter=""; renderYtVids();
-      }catch(e){ box.innerHTML=`<div class="panel" style="border-color:var(--bad)"><div style="padding:12px"><b style="color:var(--bad)">❌ Không tải được video</b><div class="p-sub" style="margin-top:6px">${esc(e.message)}</div><div class="p-sub" style="margin-top:8px">Thường do kênh cần <b>Kết nối lại YouTube</b> (token cũ/hết hạn). Vào <b>My Channels → kênh này → 🔗 Kết nối lại</b> rồi thử lại.</div></div></div>`; }
+        window.__ytVids=d.items||[]; window.__ytVidsStat=d.channel||null; window.__ytVidsCh=ch; __ytSel=new Set();
+        box.innerHTML="";
+        if(!window.__ytVids.length){ box.innerHTML=`<div class="p-sub" style="padding:8px">📭 Kênh <b>${esc(chName(ch))}</b> chưa có video công khai nào.</div>`; return; }
+        if(mgr)mgr.style.display="";
+        const s=$("ytVidSearch"); if(s){ s.value=""; s.oninput=()=>renderYtRows(); }
+        ["ytVidType","ytVidPriv","ytVidSort"].forEach(id=>{ const el=$(id); if(el){ el.value=el.querySelector("option").value; el.onchange=()=>renderYtRows(); } });
+        renderYtVids();
+      }catch(e){ if(mgr)mgr.style.display="none"; box.innerHTML=`<div class="panel" style="border-color:var(--bad)"><div style="padding:12px"><b style="color:var(--bad)">❌ Không tải được video</b><div class="p-sub" style="margin-top:6px">${esc(e.message)}</div><div class="p-sub" style="margin-top:8px">Thường do kênh cần <b>Kết nối lại YouTube</b>. Vào <b>My Channels → ${esc(chName(ch))} → 🔗 Kết nối lại</b>.</div></div></div>`; }
     };
-    function ytVidUrl(v){ return "https://www.youtube.com/watch?v="+v.id; }
+    function ytVidUrl(v){ return "https://www.youtube.com/watch?v="+(v.id||v); }
+    const privLabel=(p)=>({public:"Công khai",unlisted:"Không liệt kê",private:"Riêng tư"}[p]||p||"—");
     function renderYtVids(){
-      const box=$("ytVidsPanel"); if(!box) return; const all=window.__ytVids||[];
-      const tv=all.reduce((a,v)=>a+v.views,0), longs=all.filter(v=>v.type==='long').length, shorts=all.length-longs;
-      const acts=$("ytVidsActs");
-      if(acts){ acts.style.display="inline-flex"; acts.innerHTML=all.length?`
-        <button class="btn-mini" onclick="ytVidsCopy()">📋 Copy toàn bộ link</button>
-        <button class="btn-mini" onclick="ytVidsExport('txt')">⬇ Xuất .txt</button>
-        <button class="btn-mini" onclick="ytVidsExport('csv')">⬇ Xuất .csv</button>`:""; }
-      if(!all.length){ box.innerHTML=`<div class="p-sub" style="padding:8px">📭 Kênh <b>${esc(chName(window.__ytVidsCh))}</b> chưa có video công khai nào.</div>`; return; }
-      const selStyle="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-family:var(--sans);font-size:13px";
-      box.innerHTML=`<div class="p-head" style="margin-bottom:8px"><div class="p-title" style="font-size:15px">📺 ${esc(chName(window.__ytVidsCh))} <span class="p-sub">· ${all.length} video (${longs} long · ${shorts} short) · ${fmtN(tv)} views tổng</span></div></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-          <input type="search" id="ytVidSearch" placeholder="🔍 Tìm tiêu đề…" value="${esc(__ytVidsFilter)}" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:8px 11px;font-family:var(--sans);font-size:13px;flex:1;min-width:160px">
-          <select id="ytVidType" style="${selStyle}">
-            <option value="">Long &amp; Short</option><option value="long" ${__ytVidsType==='long'?'selected':''}>Chỉ Long</option><option value="short" ${__ytVidsType==='short'?'selected':''}>Chỉ Short</option></select>
-          <select id="ytVidSort" style="${selStyle}">
-            <option value="date" ${__ytVidsSort==='date'?'selected':''}>Mới nhất</option>
-            <option value="views" ${__ytVidsSort==='views'?'selected':''}>Nhiều view nhất</option>
-            <option value="likes" ${__ytVidsSort==='likes'?'selected':''}>Nhiều like nhất</option>
-            <option value="comments" ${__ytVidsSort==='comments'?'selected':''}>Nhiều bình luận</option></select>
-        </div>
-        <div class="scroll-x"><table style="min-width:680px"><thead><tr>
-          <th>#</th><th>Video</th><th>Loại</th><th>Đăng</th><th class="num">Views</th><th class="num">Likes</th><th class="num">B.luận</th><th>Riêng tư</th><th>Link</th></tr></thead>
-          <tbody id="ytVidRows"></tbody></table></div>`;
-      const s=$("ytVidSearch"); if(s) s.oninput=()=>{ __ytVidsFilter=s.value; renderYtRows(); };
-      const ty=$("ytVidType"); if(ty) ty.onchange=()=>{ __ytVidsType=ty.value; renderYtRows(); };
-      const so=$("ytVidSort"); if(so) so.onchange=()=>{ __ytVidsSort=so.value; renderYtRows(); };
+      const all=window.__ytVids||[], hdr=$("ytVidsHdr");
+      const tv=all.reduce((a,v)=>a+v.views,0), longs=all.filter(v=>v.type==='long').length;
+      if(hdr) hdr.innerHTML=`📺 <b>${esc(chName(window.__ytVidsCh))}</b> · ${all.length} video (${longs} long · ${all.length-longs} short) · ${fmtN(tv)} views${window.__ytVidsStat?` · ${fmtN(window.__ytVidsStat.subscribers)} subs`:''}`;
       renderYtRows();
     }
-    function renderYtRows(){
-      const tb=$("ytVidRows"); if(!tb) return; const q=__ytVidsFilter.toLowerCase();
-      let rows=(window.__ytVids||[]).filter(v=>(!q||v.title.toLowerCase().includes(q))&&(!__ytVidsType||v.type===__ytVidsType));
-      const sk=__ytVidsSort; if(sk==='views'||sk==='likes'||sk==='comments') rows=rows.slice().sort((a,b)=>b[sk]-a[sk]);
+    function filteredYt(){
+      const q=(($("ytVidSearch")||{}).value||"").toLowerCase();
+      const ty=(($("ytVidType")||{}).value)||"", pv=(($("ytVidPriv")||{}).value)||"", sk=(($("ytVidSort")||{}).value)||"date";
+      let rows=(window.__ytVids||[]).filter(v=>(!q||v.title.toLowerCase().includes(q))&&(!ty||v.type===ty)&&(!pv||v.privacy===pv));
+      if(sk==='views'||sk==='likes'||sk==='comments') rows=rows.slice().sort((a,b)=>b[sk]-a[sk]);
       else rows=rows.slice().sort((a,b)=>(b.publishedAt||"").localeCompare(a.publishedAt||""));
-      tb.innerHTML=rows.map((v,i)=>`<tr>
-        <td class="p-sub tnum">${i+1}</td>
-        <td style="max-width:360px"><a href="${ytVidUrl(v)}" target="_blank" title="${esc(v.title)}" style="display:flex;align-items:center;gap:8px;color:var(--text)">${v.thumb?`<img src="${esc(v.thumb)}" style="width:52px;height:30px;border-radius:4px;object-fit:cover;flex:none">`:""}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.title)}</span></a></td>
-        <td><span class="tag2 ${v.type==='short'?'warn':''}">${v.type}</span></td>
-        <td class="p-sub">${new Date(v.publishedAt).toLocaleDateString('vi-VN')}</td>
-        <td class="num tnum">${fmtN(v.views)}</td><td class="num tnum">${fmtN(v.likes)}</td><td class="num tnum">${fmtN(v.comments)}</td>
-        <td><span class="p-sub">${esc(v.privacy||'')}</span></td>
-        <td style="white-space:nowrap"><a href="${ytVidUrl(v)}" target="_blank">mở ↗</a> · <a href="#" onclick="ytCopyOne('${v.id}');return false;">copy</a></td></tr>`).join("")||`<tr><td colspan="9" class="p-sub" style="padding:12px">Không có video khớp.</td></tr>`;
+      return rows;
     }
+    function renderYtRows(){
+      const tb=$("ytVidRows"); if(!tb) return; const rows=filteredYt();
+      tb.innerHTML=rows.map(v=>{ const pv=v.privacy||'public';
+        return `<tr>
+          <td><input type="checkbox" ${__ytSel.has(v.id)?'checked':''} onclick="ytToggle('${v.id}')"></td>
+          <td><div class="yt-vtitle"><img src="${esc(v.thumb||'')}" alt="" loading="lazy"><span class="nm" title="${esc(v.title)}">${esc(v.title)}</span></div></td>
+          <td><span class="tag2 ${v.type==='short'?'warn':''}">${v.type}</span></td>
+          <td class="p-sub" style="white-space:nowrap">${new Date(v.publishedAt).toLocaleDateString('vi-VN')}</td>
+          <td class="num tnum">${fmtN(v.views)}</td><td class="num tnum">${fmtN(v.likes)}</td><td class="num tnum">${fmtN(v.comments)}</td>
+          <td><span class="yt-priv ${pv}">${privLabel(pv)}</span></td>
+          <td style="white-space:nowrap">
+            <button class="yt-rowbtn" title="Sửa" onclick="ytEdit('${v.id}')">✏️</button>
+            <a class="yt-rowbtn" title="Mở YouTube" href="${ytVidUrl(v)}" target="_blank">↗</a>
+            <button class="yt-rowbtn" title="Copy link" onclick="ytCopyOne('${v.id}')">📋</button>
+            <button class="yt-rowbtn" title="Xoá khỏi YouTube" onclick="ytDelOne('${v.id}')">🗑️</button>
+          </td></tr>`;
+      }).join("")||`<tr><td colspan="9" class="p-sub" style="padding:14px">Không có video khớp bộ lọc.</td></tr>`;
+      const sa=$("ytSelAll"); if(sa){ const ids=rows.map(v=>v.id); sa.checked=ids.length>0&&ids.every(id=>__ytSel.has(id)); }
+      renderYtBulk();
+    }
+    function renderYtBulk(){
+      const b=$("ytBulk"); if(!b) return; const n=__ytSel.size;
+      if(!n){ b.style.display="none"; b.innerHTML=""; return; }
+      b.style.display="flex";
+      b.innerHTML=`<b>Đã chọn ${n}</b><span class="p-sub">Đổi quyền:</span>
+        <button class="btn-mini" onclick="ytBulkPriv('public')">🌐 Công khai</button>
+        <button class="btn-mini" onclick="ytBulkPriv('unlisted')">🔗 Không liệt kê</button>
+        <button class="btn-mini" onclick="ytBulkPriv('private')">🔒 Riêng tư</button>
+        <span style="flex:1;min-width:6px"></span>
+        <button class="btn-mini danger" onclick="ytBulkDelete()">🗑️ Xoá ${n} video</button>
+        <button class="btn-mini" onclick="ytClearSel()">Bỏ chọn</button>`;
+    }
+    window.ytToggle=(id)=>{ __ytSel.has(id)?__ytSel.delete(id):__ytSel.add(id); renderYtBulk();
+      const sa=$("ytSelAll"); if(sa){ const ids=filteredYt().map(v=>v.id); sa.checked=ids.length>0&&ids.every(i=>__ytSel.has(i)); } };
+    window.ytSelAll=(on)=>{ const ids=filteredYt().map(v=>v.id); ids.forEach(i=>on?__ytSel.add(i):__ytSel.delete(i)); renderYtRows(); };
+    window.ytClearSel=()=>{ __ytSel=new Set(); renderYtRows(); };
+    // ---- Sửa video (modal như Studio) ----
+    window.ytECount=()=>{ const t1=$("ytETitle"),t2=$("ytEDesc"); if($("ytEChTitle"))$("ytEChTitle").textContent=`${(t1?t1.value.length:0)}/100`; if($("ytEChDesc"))$("ytEChDesc").textContent=`${(t2?t2.value.length:0)}/5000`; };
+    window.ytEdit=(id)=>{ const v=(window.__ytVids||[]).find(x=>x.id===id); if(!v) return; window.__ytEditId=id;
+      $("ytEditTitle").textContent="Sửa video"; $("ytETitle").value=v.title||""; $("ytEDesc").value=v.description||"";
+      $("ytETags").value=(v.tags||[]).join(", "); $("ytEPriv").value=v.privacy||"public"; $("ytEOpen").href=ytVidUrl(v);
+      $("ytEMsg").textContent=""; ytECount(); $("ytEditModal").classList.remove("hide"); };
+    window.ytEditClose=()=>{ $("ytEditModal").classList.add("hide"); window.__ytEditId=null; };
+    window.ytEditSave=async()=>{
+      const id=window.__ytEditId; if(!id) return; const ch=window.__ytVidsCh;
+      const tags=$("ytETags").value.split(/[,\n]+/).map(s=>s.trim().replace(/^#+/,"")).filter(Boolean);
+      const body={channel:ch,id,title:$("ytETitle").value.trim(),description:$("ytEDesc").value,tags,privacy:$("ytEPriv").value};
+      if(!body.title){ $("ytEMsg").innerHTML='<span style="color:var(--bad)">Tiêu đề không được để trống.</span>'; return; }
+      const btn=$("ytESave"); btn.disabled=true; $("ytEMsg").textContent="Đang lưu lên YouTube…";
+      try{ await workerApi("/api/video-update",{method:"POST",body});
+        const v=(window.__ytVids||[]).find(x=>x.id===id); if(v){ v.title=body.title; v.description=body.description; v.tags=tags; v.privacy=body.privacy; }
+        toastMsg("✔ Đã lưu lên YouTube"); ytEditClose(); renderYtRows();
+      }catch(e){ $("ytEMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; }
+      finally{ btn.disabled=false; }
+    };
+    window.ytDelOne=async(id)=>{ const v=(window.__ytVids||[]).find(x=>x.id===id); if(!v) return;
+      if(!confirm(`XOÁ VĨNH VIỄN video khỏi YouTube?\n\n"${v.title}"\n\nKhông thể hoàn tác.`)) return;
+      try{ await workerApi("/api/video-delete",{method:"POST",body:{channel:window.__ytVidsCh,id}});
+        window.__ytVids=(window.__ytVids||[]).filter(x=>x.id!==id); __ytSel.delete(id); toastMsg("🗑️ Đã xoá video"); renderYtVids();
+      }catch(e){ alert("❌ "+e.message); } };
+    window.ytBulkPriv=async(p)=>{ const ids=[...__ytSel]; if(!ids.length) return;
+      if(!confirm(`Đổi quyền ${ids.length} video sang "${privLabel(p)}"?`)) return;
+      let ok=0,fail=0; for(const id of ids){ try{ await workerApi("/api/video-update",{method:"POST",body:{channel:window.__ytVidsCh,id,privacy:p}});
+        const v=(window.__ytVids||[]).find(x=>x.id===id); if(v)v.privacy=p; ok++; }catch(e){ fail++; } }
+      toastMsg(`✔ Đổi quyền ${ok} video${fail?` · ${fail} lỗi`:''}`); renderYtRows(); };
+    window.ytBulkDelete=async()=>{ const ids=[...__ytSel]; if(!ids.length) return;
+      if(!confirm(`XOÁ VĨNH VIỄN ${ids.length} video khỏi YouTube? Không thể hoàn tác.`)) return;
+      const okIds=[]; let fail=0; for(const id of ids){ try{ await workerApi("/api/video-delete",{method:"POST",body:{channel:window.__ytVidsCh,id}}); okIds.push(id); }catch(e){ fail++; } }
+      window.__ytVids=(window.__ytVids||[]).filter(x=>!okIds.includes(x.id)); okIds.forEach(i=>__ytSel.delete(i));
+      toastMsg(`🗑️ Đã xoá ${okIds.length}${fail?` · ${fail} lỗi (cần Kết nối lại)`:''}`); renderYtVids(); };
     async function _clip(txt){ try{ await navigator.clipboard.writeText(txt); return true; }catch(e){ const ta=document.createElement("textarea");ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand("copy");}catch(_){}ta.remove(); return true; } }
     window.ytCopyOne=async(id)=>{ await _clip("https://www.youtube.com/watch?v="+id); toastMsg("✔ Đã copy link video"); };
     window.ytVidsCopy=async()=>{ const all=window.__ytVids||[]; await _clip(all.map(ytVidUrl).join("\n")); toastMsg(`✔ Đã copy ${all.length} link`); };
@@ -1963,22 +2072,7 @@
           ||`<tr><td colspan="7" class="empty">Chưa có dữ liệu.</td></tr>`}</tbody>`;
     }
 
-    function renderVideos(){
-      fillYtVidsCh();
-      const term=($("search").value||"").toLowerCase(),st=$("stFilter").value,ty=$("tyFilter").value,sort=$("sortBy").value;
-      let rows=scoped().filter(v=>{const s=eff(v);return(!st||s===st)&&(!ty||v.type===ty)&&(!term||(v.title||v.drive_name||"").toLowerCase().includes(term));});
-      rows.sort((a,b)=>sort==="views"?(b.stats?.views||0)-(a.stats?.views||0):String(b.publish_at||"").localeCompare(String(a.publish_at||"")));
-      $("rows").innerHTML=rows.map(v=>{const s=eff(v);const L=[];
-        if(v.results?.youtube?.url)L.push(`<a class="lk" href="${v.results.youtube.url}" target="_blank">▶ YT</a>`);
-        if(v.results?.facebook?.url)L.push(`<a class="lk" href="${v.results.facebook.url}" target="_blank">f FB</a>`);
-        const warn=v.warnings?.length?`<div class="vwarn">${wrap('warn')} ${v.warnings.length} cảnh báo</div>`:"";
-        const approve=s==="needs_review"?`<button class="btn-approve" onclick="approveVideo('${v.id}')">✓ Duyệt</button>`:"";
-        return `<tr><td><b>${esc(v.channel||"")}</b></td><td><div class="vtitle">${esc(v.title||v.drive_name||"")}</div>${warn}</td>
-          <td><span class="type">${esc((v.type||"").toUpperCase())}</span></td><td><span class="tag t-${s}">${LABEL[s]||s}</span></td>
-          <td style="color:var(--muted);white-space:nowrap">${fmtDt(v.publish_at)}</td>
-          <td class="num tnum">${v.stats?.views!=null?fmtN(v.stats.views):"—"}</td><td class="num tnum">${v.stats?.likes!=null?fmtN(v.stats.likes):"—"}</td>
-          <td style="white-space:nowrap">${approve}${L.join("")||(approve?"":"—")}</td></tr>`;}).join("")||`<tr><td colspan="8">${emptyBox("Không có video khớp bộ lọc.")}</td></tr>`;
-    }
+    function renderVideos(){ fillYtVidsCh(); }  // tab Videos giờ là trình quản lý kênh (Studio-like)
     function renderSchedule(){
       const list=scoped().filter(v=>v.publish_at).sort((a,b)=>a.publish_at.localeCompare(b.publish_at));let html="",last="";
       list.forEach(v=>{const day=new Date(v.publish_at).toLocaleDateString("vi-VN",{weekday:"long",day:"2-digit",month:"2-digit"});
