@@ -67,7 +67,8 @@ service cloud.firestore {
     //   Worker đọc + tăng click qua service account (bỏ qua rules). Mã (doc id) TOÀN CỤC duy nhất:
     //   nếu mã đã thuộc owner khác -> setDoc thành 'update' -> owns() chặn -> không cướp được mã.
     match /links/{code} {
-      allow read:   if canRead(resource.data.owner);
+      // resource == null: doc CHƯA tồn tại -> cho đọc (trả null) để client kiểm tra trùng mã trước khi tạo.
+      allow read:   if resource == null || canRead(resource.data.owner);
       allow create: if canEdit(request.resource.data.owner);
       allow update: if owns(resource.data) && canEdit(request.resource.data.owner);
       allow delete: if owns(resource.data);
