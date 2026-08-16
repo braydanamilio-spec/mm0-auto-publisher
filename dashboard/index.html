@@ -721,6 +721,7 @@
 
       <section id="v-channels" class="content hide">
         <div id="chHubBanner"></div>
+        <div id="chHubBulk" class="yt-bulk" style="display:none;margin-bottom:12px"></div>
         <div class="conn-grid" id="channelHub"></div>
       </section>
 
@@ -2930,7 +2931,8 @@
         const c=C()[k]||{}, col=chColor(k), vids=map[k]||[];
         const posted=vids.filter(v=>eff(v)==="posted").length, queue=vids.length-posted;
         const linked=!!C()[k], em=c.email||"";
-        return `<div class="chub">
+        return `<div class="chub" style="position:relative">
+          <input type="checkbox" class="fbc-chk" ${(window.__chHubSel||new Set()).has(k)?'checked':''} onclick="event.stopPropagation();chHubToggle('${esc(k)}',this)" title="Chọn để thao tác hàng loạt">
           <div class="chub-top">
             ${chAva(k,'chub-av')}
             <div style="flex:1;min-width:0"><div class="chub-nm"><span class="chub-idx">#${num}</span>${esc(chName(k))}</div>
@@ -2974,7 +2976,27 @@
         return `<div class="hub-ghead">${esc(gname(g))} <span class="p-sub">· ${groups[g].length} kênh${subs?` · ${fmtN(subs)} subs`:''}</span></div>`
           + groups[g].map(k=>hubCard(k,++num)).join("");
       }).join("");
+      renderChHubBulk();
     }
+    /* ===== My Channels: chọn nhiều kênh + thao tác hàng loạt ===== */
+    window.__chHubSel=new Set();
+    window.chHubToggle=(k,el)=>{ if(el.checked) window.__chHubSel.add(k); else window.__chHubSel.delete(k); renderChHubBulk(); };
+    window.chHubClearSel=()=>{ window.__chHubSel=new Set(); renderChannelHub(); };
+    window.renderChHubBulk=()=>{ const bar=$("chHubBulk"); if(!bar) return; const n=window.__chHubSel.size;
+      if(!n){ bar.style.display="none"; bar.innerHTML=""; return; }
+      bar.style.display="flex"; bar.innerHTML=`<b>Đã chọn ${n} kênh</b><span style="flex:1;min-width:6px"></span>
+        <button class="btn-mini" onclick="chHubBulkGmail()">✉ Gán Gmail nhóm</button>
+        <button class="btn-mini" onclick="chHubBulkTemplate()">📅 Đổi gói lịch</button>
+        <button class="btn-mini danger" onclick="chHubBulkDisconnect()">🗑️ Gỡ ${n} kênh</button>
+        <button class="btn-mini" onclick="chHubClearSel()">Bỏ chọn</button>`; };
+    window.chHubBulkGmail=()=>{ const ks=[...window.__chHubSel]; if(!ks.length) return; const raw=prompt(`Gán Gmail nhóm cho ${ks.length} kênh (gõ tên, tự thêm @gmail.com — bỏ trống = bỏ nhóm):`,""); if(raw===null) return; window.saveGmailGroup(ks, _normGmail(raw)); window.__chHubSel=new Set(); };
+    window.chHubBulkTemplate=async()=>{ const ks=[...window.__chHubSel]; if(!ks.length) return;
+      const opts=TEMPLATE_CATALOG.map((t,i)=>`${i+1}. ${t.name}`).join("\n");
+      const n=prompt(`Đổi gói lịch cho ${ks.length} kênh — nhập số:\n`+opts,"1"); if(n===null) return;
+      const tp=TEMPLATE_CATALOG[parseInt(n,10)-1]; if(!tp){ alert("Số không hợp lệ"); return; }
+      for(const k of ks){ try{ await window.saveOverride(k, tp.id); }catch(_){} } toastMsg(`✔ Đã đổi gói "${tp.name}" cho ${ks.length} kênh`); window.__chHubSel=new Set(); };
+    window.chHubBulkDisconnect=async()=>{ const ks=[...window.__chHubSel]; if(!ks.length) return; if(!confirm(`GỠ ${ks.length} kênh YouTube khỏi hệ thống? (không xoá kênh trên YouTube)`)) return;
+      let ok=0; for(const k of ks){ try{ await workerApi("/api/disconnect",{method:"POST",body:{channel:k,kind:"youtube"}}); ok++; }catch(_){} } window.__chHubSel=new Set(); toastMsg(`🗑️ Đã gỡ ${ok} kênh`); };
     // ==== ĐĂNG BÀI: đăng ngay + rải lịch hàng loạt cho video trong kho ====
     const notPosted=v=>eff(v)!=="posted";
     function renderPublish(){
