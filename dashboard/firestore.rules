@@ -63,6 +63,16 @@ service cloud.firestore {
       allow delete: if canEdit(resource.data.owner);
     }
 
+    // Link rút gọn thương hiệu — chủ+thành viên đọc; editor/admin tạo/sửa/xoá của mình.
+    //   Worker đọc + tăng click qua service account (bỏ qua rules). Mã (doc id) TOÀN CỤC duy nhất:
+    //   nếu mã đã thuộc owner khác -> setDoc thành 'update' -> owns() chặn -> không cướp được mã.
+    match /links/{code} {
+      allow read:   if canRead(resource.data.owner);
+      allow create: if canEdit(request.resource.data.owner);
+      allow update: if owns(resource.data) && canEdit(request.resource.data.owner);
+      allow delete: if owns(resource.data);
+    }
+
     // TOKEN kết nối — không client nào đọc/ghi (chỉ server/Worker qua Admin).
     match /connections/{doc}      { allow read, write: if false; }
 

@@ -16,10 +16,12 @@
  */
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     // Preflight CORS cho các API (dashboard gọi cross-origin)
     if (request.method === "OPTIONS") return corsResp(new Response(null, { status: 204 }));
+    // LINK RÚT GỌN THƯƠNG HIỆU: /go/<code> -> 302 tới link đích (giữ UTM), đếm click.
+    if (url.pathname.startsWith("/go/")) return await handleGo(url, env, ctx);
     try {
       if (url.pathname === "/auth/start") return await startAuth(url, env);
       if (url.pathname === "/auth/callback") return await callback(url, env);
@@ -296,7 +298,7 @@ async function apiMonetization(request, url, env) {
   const c0 = (ci.items || [])[0] || {};
   const subs = +(((c0.statistics || {}).subscriberCount) || 0);
   const title = (c0.snippet || {}).title || "";
-  let watchHours = null, err = null, shortsViews90 = null;
+  let watchHours = null, err = null, errDetail = null, errReason = null, shortsViews90 = null;
   const now = new Date();
   const end = now.toISOString().slice(0, 10);
   const start = new Date(now.getTime() - 365 * 86400000).toISOString().slice(0, 10);
@@ -305,16 +307,25 @@ async function apiMonetization(request, url, env) {
       { headers: { Authorization: `Bearer ${ctx.yat}` } });
     const j = await r.json();
     if (r.ok) { const m = j.rows && j.rows[0] && j.rows[0][0]; watchHours = Math.round((+m || 0) / 60); }
-    else if (r.status === 403) err = "need_analytics";
-    else err = (j.error && j.error.message) || ("Analytics " + r.status);
-  } catch (e) { err = String(e && e.message || e); }
+    else {
+      errDetail = (j.error && j.error.message) || ("Analytics " + r.status);
+      errReason = (j.error && j.error.errors && j.error.errors[0] && j.error.errors[0].reason) || (j.error && j.error.status) || "";
+      const blob = (errDetail + " " + errReason).toLowerCase();
+      // Phân biệt: API CHƯA BẬT trong Google Cloud (reconnect vô ích) vs thiếu quyền (reconnect fix được)
+      if (r.status === 403 && (blob.includes("accessnotconfigured") || blob.includes("service_disabled")
+          || blob.includes("has not been used") || blob.includes("disabled")))
+        err = "api_disabled";
+      else if (r.status === 403) err = "need_analytics";
+      else err = "analytics_error";
+    }
+  } catch (e) { err = "analytics_error"; errDetail = String(e && e.message || e); }
   const subOk = subs >= 1000;
   const hoursOk = watchHours != null && watchHours >= 4000;
   return json({
     ok: true, title, channelId: c0.id || "", subscribers: subs, watchHours, subOk, hoursOk,
     eligible: subOk && hoursOk,
     subNeed: Math.max(0, 1000 - subs), hoursNeed: watchHours != null ? Math.max(0, 4000 - watchHours) : null,
-    err,
+    err, errDetail, errReason,
   });
 }
 
@@ -1016,6 +1027,34 @@ async function fsGet(env, accessToken, path) {
       : v.doubleValue != null ? v.doubleValue : null;
   }
   return out;
+}
+
+// ---- LINK RÚT GỌN THƯƠNG HIỆU (redirect + đếm click) ----
+// /go/<code> -> đọc links/<code> -> 302 tới url đích (nối UTM/query đang có) -> đếm click nền (không chặn).
+async function handleGo(url, env, ctx) {
+  const code = decodeURIComponent(url.pathname.slice(4)).trim().replace(/\/+$/, "");
+  const notFound = () => new Response(
+    "<!doctype html><meta charset=utf-8><title>Link</title><body style='font-family:system-ui;background:#0b0f1a;color:#e5e7eb;display:grid;place-items:center;height:100vh;margin:0'><div style='text-align:center'><h2>🔗 Link không tồn tại</h2><p style='color:#9ca3af'>Mã liên kết không đúng hoặc đã bị gỡ.</p></div>",
+    { status: 404, headers: { "content-type": "text/html; charset=utf-8" } });
+  if (!code) return notFound();
+  let doc = null;
+  try {
+    const at = await saAccessToken(env);
+    doc = await fsGet(env, at, `links/${encodeURIComponent(code)}`);
+    if (doc && doc.url) {
+      // đếm click nền (không để chậm redirect)
+      const inc = fsPatch(env, at, `links/${encodeURIComponent(code)}`,
+        { clicks: Number(doc.clicks || 0) + 1, last_click: new Date().toISOString() },
+        ["clicks", "last_click"]).catch(() => {});
+      if (ctx && ctx.waitUntil) ctx.waitUntil(inc);
+    }
+  } catch (e) { /* lỗi Firestore -> coi như không tìm thấy */ }
+  if (!doc || !doc.url) return notFound();
+  // Nối query đang có (VD utm bổ sung) vào link đích
+  let target = String(doc.url);
+  const extra = url.search ? url.search.slice(1) : "";
+  if (extra) target += (target.includes("?") ? "&" : "?") + extra;
+  return new Response(null, { status: 302, headers: { Location: target, "cache-control": "no-store" } });
 }
 
 async function fsDelete(env, accessToken, path) {

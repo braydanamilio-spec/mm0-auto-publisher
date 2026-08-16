@@ -739,7 +739,18 @@
             <button class="btn-conn" onclick="affSave()">💾 Lưu cấu hình affiliate</button>
             <span class="p-sub" id="affMsg"></span>
           </div>
-          <div class="p-sub" style="margin-top:10px;line-height:1.6">⚠️ <b>Instagram không thể chèn link click qua API</b> (giới hạn Meta) — chỉ ghi "link ở bio", anh tự đặt link-in-bio. <b>Gắn sản phẩm/tag</b> trên Reels cần Facebook Shop + quyền Commerce (không tự động được). Nên dùng <b>link rút gọn có thương hiệu</b> (không bit.ly trần) để không bị giảm reach.</div>
+          <div class="p-sub" style="margin-top:10px;line-height:1.6">⚠️ <b>Instagram không thể chèn link click qua API</b> (giới hạn Meta) — chỉ ghi "link ở bio", anh tự đặt link-in-bio. <b>Gắn sản phẩm/tag</b> trên Reels cần Facebook Shop + quyền Commerce (không tự động được). Nên dùng <b>link rút gọn thương hiệu</b> ở dưới (không bit.ly trần) để không bị giảm reach.</div>
+        </div>
+        <div class="panel" style="margin-top:16px" id="linkPanel">
+          <div class="p-head"><div class="p-title">🔗 Link rút gọn thương hiệu <span class="p-sub">— redirect riêng, đếm click, 100% free</span></div></div>
+          <div class="p-sub" style="margin:6px 0 12px;line-height:1.6">Tạo link ngắn qua <b>domain của chính anh</b> (Cloudflare Worker) → 302 tới link affiliate + <b>đếm click</b>. Đây là cách <b>các ông lớn</b> làm (không dùng bit.ly trần dễ bị giảm reach). Dán link ngắn này vào ô "Link" ở trên. UTM vẫn được nối tự động khi đăng.</div>
+          <div class="pubbar">
+            <label class="fld"><span>Mã ngắn (chữ/số/gạch)</span><input id="lkCode" type="text" placeholder="aura hoặc deal1"></label>
+            <label class="fld" style="grid-column:span 2"><span>Link đích (affiliate thật)</span><input id="lkUrl" type="url" placeholder="https://shopee.vn/... hoặc https://amzn.to/..."></label>
+            <div class="fld" style="justify-content:flex-end"><button class="btn-conn" onclick="lkCreate()" style="margin-top:auto">➕ Tạo link</button></div>
+          </div>
+          <div id="lkMsg" class="p-sub" style="margin-top:6px"></div>
+          <div id="linksList" style="margin-top:12px"></div>
         </div>
         <div class="panel" style="margin-top:16px">
           <div class="p-head"><div class="p-title">💾 Sao lưu & khôi phục cấu hình</div></div>
@@ -1304,6 +1315,7 @@
       sub("social_queue", s => { if(window.setSocQueue) window.setSocQueue(s.docs.map(d=>({id:d.id,...d.data()}))); });
       sub("yt_queue", s => { if(window.setYtQueue) window.setYtQueue(s.docs.map(d=>({id:d.id,...d.data()}))); });
       sub("tasks", s => { if(window.setTasks) window.setTasks(s.docs.map(d=>({id:d.id,...d.data()}))); });
+      sub("links", s => { if(window.setLinks) window.setLinks(s.docs.map(d=>({id:d.id,...d.data()}))); });
     }
     // Giao việc (Kanban)
     window.__taskAdd = async (data) => { await addDoc(collection(db,"tasks"), {owner:(window.__ownerUid||window.__uid), created_at:new Date().toISOString(), created_by:(window.__uEmail||window.__uid), ...data}); };
@@ -1365,6 +1377,16 @@
       catch(e){ alert("Lỗi: "+e.message); }
     };
     window.__setOverridesDoc = async (data) => { await setDoc(ovDoc(), {owner:(window.__ownerUid||window.__uid), ...data}, {merge:true}); };
+    // LINK RÚT GỌN THƯƠNG HIỆU (Firestore `links`, Worker /go/<code> redirect + đếm click)
+    window.__linkCreate = async (code, url) => {
+      code=(code||"").trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
+      if(!code) throw new Error("Mã chỉ gồm chữ thường/số/gạch (vd: aura, deal1).");
+      if(!/^https?:\/\//i.test((url||"").trim())) throw new Error("Link đích phải bắt đầu http:// hoặc https://");
+      const ref=doc(db,"links",code); const cur=await getDoc(ref);
+      if(cur.exists() && cur.data().owner!==(window.__ownerUid||window.__uid)) throw new Error(`Mã "${code}" đã có người dùng — chọn mã khác.`);
+      await setDoc(ref,{owner:(window.__ownerUid||window.__uid),code,url:url.trim(),
+        clicks:cur.exists()?(cur.data().clicks||0):0,created_at:new Date().toISOString()},{merge:true}); };
+    window.__linkDelete = async (code) => { await deleteDoc(doc(db,"links",code)); };
     // Gộp brand channel vào 1 Gmail thật (Google giấu Gmail của tài khoản thương hiệu)
     window.saveGmailGroup = async (channels, gmail, extra) => {
       const map={}; (channels||[]).forEach(c=>map[c]=gmail);
@@ -1630,6 +1652,13 @@
       const bar=(cur,goal)=>`<div style="height:6px;background:var(--surface2);border-radius:20px;overflow:hidden;margin-top:4px"><i style="display:block;height:100%;width:${Math.min(100,Math.round((cur/goal)*100))}%;background:${cur>=goal?'var(--good)':'var(--accent)'}"></i></div>`;
       const nEli=rows.filter(r=>r.d.eligible).length;
       box.innerHTML=`${nEli?`<div class="p-sub" style="margin-bottom:10px;color:var(--good);font-weight:700">🎉 ${nEli} kênh ĐỦ ĐIỀU KIỆN — nộp đơn ở Studio!</div>`:''}<div class="conn-grid">${rows.map(({k,d})=>{
+        if(d.err==="api_disabled"){ const sn=d.subNeed!=null?d.subNeed:Math.max(0,1000-(d.subscribers||0));
+          const proj=((d.errDetail||"").match(/project (\d+)/)||[])[1]||"";
+          return `<div class="conn" style="border-color:var(--warn)"><div class="conn-head">${chAva(k,'ava')}<div class="nm">${esc(chName(k))} <span class="tag t-scheduled">⏳ Đang tích luỹ</span></div></div>
+          <div style="margin-top:10px"><div class="p-sub">👥 Subscribers <b>${fmtN(d.subscribers||0)}</b> / 1.000 ${d.subOk?'✅':`· còn ${fmtN(sn)}`}</div>${bar(d.subscribers||0,1000)}</div>
+          <div style="margin-top:10px"><div class="p-sub">⏱ Giờ xem 12 tháng <b>—</b> <span style="color:var(--warn)">API chưa bật</span></div>${bar(0,4000)}</div>
+          <div class="p-sub" style="margin-top:8px;line-height:1.5">⚠️ <b>KHÔNG phải lỗi token</b> — cần <b>bật YouTube Analytics API</b> 1 lần trong Google Cloud${proj?` (project ${esc(proj)})`:''}. Kết nối lại vô ích.</div>
+          <a class="btn-conn" href="https://console.developers.google.com/apis/api/youtubeanalytics.googleapis.com/overview${proj?`?project=${esc(proj)}`:''}" target="_blank" style="margin-top:10px;display:block;text-align:center;text-decoration:none">🔧 Bật Analytics API →</a></div>`; }
         if(d.err==="need_analytics"){ const sn=d.subNeed!=null?d.subNeed:Math.max(0,1000-(d.subscribers||0));
           return `<div class="conn"><div class="conn-head">${chAva(k,'ava')}<div class="nm">${esc(chName(k))} <span class="tag t-scheduled">⏳ Đang tích luỹ</span></div></div>
           <div style="margin-top:10px"><div class="p-sub">👥 Subscribers <b>${fmtN(d.subscribers||0)}</b> / 1.000 ${d.subOk?'✅':`· còn ${fmtN(sn)}`}</div>${bar(d.subscribers||0,1000)}</div>
@@ -3594,6 +3623,7 @@
           <div class="tpl-pick">Chọn gói này →</div></div>`;
       }).join("");
       if(window.affLoad) affLoad();
+      if(window.renderLinks) renderLinks();
     }
 
     /* ===== TIẾP THỊ LIÊN KẾT (affiliate) ===== */
@@ -3624,6 +3654,23 @@
       if(cfg.enabled && !cfg.default_url && !Object.keys(links).length){ if(msg){msg.style.color="var(--bad)";msg.textContent="Nhập link mặc định hoặc link riêng ít nhất 1 kênh.";} return; }
       try{ await window.__setOverridesDoc({affiliate:cfg}); if(msg){msg.style.color="var(--good)";msg.textContent="✔ Đã lưu — áp dụng lần đăng tới.";} toastMsg("✔ Đã lưu cấu hình affiliate"); }
       catch(e){ if(msg){msg.style.color="var(--bad)";msg.textContent="❌ "+e.message;} } };
+
+    /* ===== LINK RÚT GỌN THƯƠNG HIỆU ===== */
+    window.__links=[];
+    window.setLinks=(items)=>{ window.__links=items||[]; if(window.renderLinks) renderLinks(); };
+    window.lkShort=(code)=>`${WORKER_URL}/go/${code}`;
+    window.renderLinks=()=>{ const box=$("linksList"); if(!box) return; const items=(window.__links||[]).slice().sort((a,b)=>(b.clicks||0)-(a.clicks||0));
+      if(!items.length){ box.innerHTML=`<div class="p-sub" style="padding:6px">Chưa có link ngắn nào. Tạo ở trên.</div>`; return; }
+      box.innerHTML=`<div class="scroll-x"><table class="yt-table"><thead><tr><th>Link ngắn</th><th>Đích</th><th class="num">Click</th><th></th></tr></thead><tbody>${items.map(l=>`<tr>
+        <td><span class="nm" style="font-family:var(--mono,monospace)">/go/${esc(l.code||l.id)}</span></td>
+        <td class="p-sub" style="max-width:280px;overflow:hidden;text-overflow:ellipsis"><a href="${esc(l.url||'')}" target="_blank" style="color:var(--accent)">${esc(l.url||'')}</a></td>
+        <td class="num tnum">${fmtN(l.clicks||0)}</td>
+        <td style="white-space:nowrap"><button class="yt-rowbtn" title="Copy link ngắn" onclick="lkCopy('${esc(l.code||l.id)}')">📋</button><button class="yt-rowbtn" title="Xoá" onclick="lkDelete('${esc(l.code||l.id)}')">🗑️</button></td></tr>`).join("")}</tbody></table></div>`; };
+    window.lkCreate=async()=>{ const msg=$("lkMsg"); const code=($("lkCode")||{}).value, url=($("lkUrl")||{}).value;
+      try{ await window.__linkCreate(code,url); if(msg){msg.style.color="var(--good)";msg.textContent=`✔ Đã tạo: ${lkShort(code.trim().toLowerCase().replace(/[^a-z0-9_-]/g,""))}`;} $("lkCode").value="";$("lkUrl").value=""; toastMsg("✔ Đã tạo link ngắn"); }
+      catch(e){ if(msg){msg.style.color="var(--bad)";msg.textContent="❌ "+e.message;} } };
+    window.lkCopy=(code)=>{ const u=lkShort(code); navigator.clipboard.writeText(u).then(()=>toastMsg("📋 Đã copy: "+u)).catch(()=>prompt("Copy link:",u)); };
+    window.lkDelete=async(code)=>{ if(!confirm(`Xoá link /go/${code}? (link đang dùng sẽ hỏng)`)) return; try{ await window.__linkDelete(code); toastMsg("🗑️ Đã xoá"); }catch(e){ alert("❌ "+e.message); } };
 
     window.pickTemplate = (id)=>{
       const chans=allChannels();

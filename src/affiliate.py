@@ -19,7 +19,39 @@ cfg = settings/overrides__<uid>.affiliate:
     platforms:{youtube,facebook,instagram}, links:{<slug>: url} }
 """
 from __future__ import annotations
+import random
 from urllib.parse import quote
+
+# Giới hạn độ dài caption/description mỗi nền tảng (để chèn link KHÔNG vỡ + link luôn còn).
+LIMITS = {
+    ("youtube", "long"): 5000, ("youtube", "short"): 5000,
+    ("facebook", "long"): 8000, ("facebook", "short"): 2200,   # Reels caption ~2200
+    ("instagram", "short"): 2200, ("instagram", "long"): 2200,
+}
+
+# THƯ VIỆN CTA chuẩn thị trường USA — random mỗi bài để KHÔNG giống hệt (chống spam, tự nhiên hơn).
+CTA_TEMPLATES = [
+    "🛒 Shop it here 👉", "🔥 Grab yours now 👉", "✅ Get it here 👉",
+    "💯 Best price here 👉", "⚡ Limited stock — shop now 👉", "🎁 Check the deal 👉",
+    "🛍️ Buy now 👉", "👇 Tap the link 👇", "🤑 Save on this 👉",
+    "💥 Don't miss out 👉", "⭐ Fan favorite 👉", "🚀 Grab the deal 👉",
+]
+# CTA cho chỗ "link ở bình luận / bio" (không kèm URL ngay dòng đó)
+CTA_ELSEWHERE = {
+    "comment": ["👇 Link in the comments", "🔗 Link pinned in comments 👇", "👇 Tap comments for the link"],
+    "bio": ["🔗 Link in bio 👆", "👆 Grab it — link in bio", "🛒 Shop via link in bio 👆"],
+}
+
+
+def pick_cta(cfg: dict, content_id: str, where: str = "url") -> str:
+    """CTA cố định (nếu user đặt) HOẶC random từ thư viện — seed theo content_id để ổn định khi retry."""
+    custom = str((cfg or {}).get("cta_text") or "").strip()
+    if custom and where == "url":
+        return custom
+    rnd = random.Random(str(content_id))
+    if where == "url":
+        return rnd.choice(CTA_TEMPLATES)
+    return rnd.choice(CTA_ELSEWHERE.get(where, CTA_TEMPLATES))
 
 
 def _clip_utm(s: str) -> str:
@@ -51,9 +83,8 @@ def enabled_for(cfg: dict, platform: str) -> bool:
     return bool(plats.get(platform, True))   # mặc định bật nếu không cấu hình riêng
 
 
-def _block(cfg: dict, url: str) -> str:
+def _block(cfg: dict, url: str, cta: str) -> str:
     """Khối văn bản: CTA + link + disclosure."""
-    cta = str((cfg or {}).get("cta_text") or "🛒 Link:").strip()
     disc = str((cfg or {}).get("disclosure") or "").strip()
     out = f"{cta} {url}".strip()
     if disc:
@@ -61,39 +92,60 @@ def _block(cfg: dict, url: str) -> str:
     return out
 
 
+def _fit(desc: str, block: str, limit: int) -> str:
+    """Ghép desc + block sao cho TỔNG <= limit, ƯU TIÊN GIỮ block (link).
+    Nếu tràn -> cắt bớt DESC GỐC (không cắt link) ở ranh giới từ."""
+    desc = (desc or "").strip()
+    block = (block or "").strip()
+    sep = "\n\n"
+    room = limit - len(block) - len(sep)
+    if room < 0:                     # block dài hơn cả limit (hiếm) -> chỉ giữ block cắt gọn
+        return block[:limit].rstrip()
+    if len(desc) > room:
+        cut = desc[:room].rstrip()
+        sp = cut.rfind(" ")
+        if sp >= int(room * 0.6):
+            cut = cut[:sp].rstrip()
+        desc = cut + "…"
+    return (desc + sep + block).strip() if desc else block
+
+
 def apply(meta: dict, cfg: dict, platform: str, slug: str, content_id: str) -> str | None:
-    """Chèn link ĐÚNG CHỖ cho `platform`, mutate meta['description'].
-    Trả về TEXT bình luận cần đăng sau (hoặc None nếu không cần comment).
-    `meta` nên là BẢN SAO riêng cho từng nền tảng (FB/IG khác nhau)."""
+    """Chèn link ĐÚNG CHỖ cho `platform`, mutate meta['description'] (quản lý độ dài, link luôn còn).
+    Trả về TEXT bình luận cần đăng sau (hoặc None). `meta` nên là BẢN SAO riêng từng nền tảng."""
     if not enabled_for(cfg, platform):
         return None
     url0 = link_for(cfg, slug)
     if not url0:
         return None
     vtype = meta.get("type", "long")
+    limit = LIMITS.get((platform, vtype), 2200)
     url = add_utm(url0, platform, slug, content_id, bool(cfg.get("utm", True)))
     disc = str(cfg.get("disclosure") or "").strip()
     desc = str(meta.get("description") or "")
 
     if platform == "instagram":
-        # Caption/comment IG KHÔNG bấm link được -> chỉ CTA bio (không nhét link thật -> tránh phí + spam).
-        add = "👉 Link ở phần Bio"
-        if disc:
-            add += "\n" + disc
-        meta["description"] = (desc + "\n\n" + add).strip()[:2200]
+        # Caption/comment IG KHÔNG bấm link -> chỉ CTA bio (không nhét link thật).
+        cta = pick_cta(cfg, content_id, "bio")
+        add = cta + ("\n" + disc if disc else "")
+        meta["description"] = _fit(desc, add, limit)
         return None
 
     if platform == "facebook":
+        cta = pick_cta(cfg, content_id, "url")
+        block = _block(cfg, url, cta)
         if vtype == "short":
-            # Reels: caption không click -> để link ở BÌNH LUẬN.
-            meta["description"] = (desc + "\n\n👇 Link ở bình luận ghim").strip()[:2200]
-            return _block(cfg, url)
-        # Video thường: mô tả bấm được.
-        meta["description"] = (desc + "\n\n" + _block(cfg, url)).strip()
-        return _block(cfg, url) if cfg.get("auto_comment") else None
+            # Reels: caption không click -> link ở BÌNH LUẬN. Caption chỉ CTA "link ở comment".
+            note = pick_cta(cfg, content_id, "comment")
+            meta["description"] = _fit(desc, note, limit)
+            return block
+        meta["description"] = _fit(desc, block, limit)
+        return block if cfg.get("auto_comment") else None
 
     if platform == "youtube":
-        meta["description"] = (desc + "\n\n" + _block(cfg, url)).strip()[:5000]
-        return _block(cfg, url) if cfg.get("auto_comment") else None
+        cta = pick_cta(cfg, content_id, "url")
+        block = _block(cfg, url, cta)
+        meta["description"] = _fit(desc, block, limit)
+        return block if cfg.get("auto_comment") else None
 
     return None
