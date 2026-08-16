@@ -106,6 +106,18 @@ class State:
         v = c.get("last_upload_at")
         return datetime.fromisoformat(v) if v else None
 
+    # ---------- HÀNG ĐỢI ĐĂNG FB/IG ĐỘC LẬP (social_queue) ----------
+    def list_social_queue(self) -> list[dict]:
+        """Item đang chờ đăng FB/IG độc lập (không gắn YouTube)."""
+        out = []
+        for d in self.db.collection("social_queue").where("status", "==", "pending").stream():
+            row = d.to_dict(); row["id"] = d.id; out.append(row)
+        return out
+
+    def update_queue(self, doc_id: str, patch: dict):
+        self.db.collection("social_queue").document(doc_id).set(
+            {**patch, "updated_at": datetime.now(timezone.utc).isoformat()}, merge=True)
+
     # ---------- DOC tổng quát (settings/config, storage/pool ...) ----------
     def get_doc(self, collection: str, doc_id: str) -> dict | None:
         d = self.db.collection(collection).document(doc_id).get()

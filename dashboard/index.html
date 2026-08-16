@@ -423,6 +423,28 @@
           <div class="modal-foot"><span class="p-sub" id="socCmNote"></span><span style="flex:1"></span><button class="btn-mini" onclick="socCmClose()">Đóng</button></div>
         </div>
       </div>
+      <div id="socQModal" class="modal-back hide">
+        <div class="modal-card">
+          <div class="modal-head"><b>📤 Đăng FB/IG (hàng đợi tự động)</b><button class="modal-x" onclick="socQClose()">✕</button></div>
+          <div class="modal-body">
+            <div class="p-sub">🎬 File: <b id="socQFile"></b></div>
+            <div class="fld2">
+              <label class="fld"><span>Đăng lên Page</span><select id="socQPage"></select></label>
+              <label class="fld"><span>Nền tảng</span><select id="socQPlat"><option value="fb">📘 Facebook</option><option value="ig">📷 Instagram (Reels)</option><option value="both">📘+📷 Cả hai</option></select></label>
+            </div>
+            <label class="fld"><span>Tiêu đề</span><input id="socQTitle" maxlength="255"></label>
+            <label class="fld"><span>Nội dung / caption</span><textarea id="socQDesc" rows="4"></textarea></label>
+            <label class="fld"><span>Hashtag <em class="p-sub">(cách nhau bằng dấu phẩy)</em></span><input id="socQTags" placeholder="#datarace, #tiente"></label>
+            <div class="fld2">
+              <label class="fld"><span>Thời điểm</span><select id="socQWhen" onchange="socQWhenChange()"><option value="now">Đăng ngay (cron gần nhất ~30')</option><option value="at">Hẹn giờ…</option></select></label>
+              <label class="fld" id="socQAtWrap" style="display:none"><span>Chọn giờ (giờ VN)</span><input type="datetime-local" id="socQAt"></label>
+            </div>
+            <div id="socQMsg" class="p-sub" style="min-height:18px"></div>
+          </div>
+          <div class="modal-foot"><span class="p-sub">Cron tự đăng dù tắt máy · chống trùng.</span><span style="flex:1"></span>
+            <button class="btn-mini" onclick="socQClose()">Huỷ</button><button class="btn-conn" id="socQSave" onclick="socQSubmit()">➕ Thêm vào hàng đợi</button></div>
+        </div>
+      </div>
       <div id="ytEditModal" class="modal-back hide">
         <div class="modal-card">
           <div class="modal-head"><b id="ytEditTitle">Sửa video</b><button class="modal-x" onclick="ytEditClose()">✕</button></div>
@@ -880,6 +902,12 @@
           <div id="socPanel"><div class="p-sub" style="padding:6px">Chọn Page → Facebook/Instagram → <b>Tải bài</b>.</div></div>
         </div>
 
+        <div class="panel" id="socQueuePanel" style="margin-top:16px">
+          <div class="p-head"><div class="p-title">📤 Hàng đợi đăng độc lập <span class="p-sub">— không cần kênh YouTube · cron tự đăng</span></div></div>
+          <div class="p-sub" style="margin:4px 0 8px">Vào <b>Storage → Duyệt file</b> → bấm <b>“📤 Đăng FB/IG”</b> trên video để thêm vào đây. Video sẽ tự đăng đúng giờ (kể cả tắt máy), chống trùng.</div>
+          <div id="socQueueList"></div>
+        </div>
+
         <div class="panel" id="fbMapPanel" style="margin-top:16px;display:none">
           <div class="p-head"><div class="p-title">🔗 Gắn kênh YouTube → Facebook Page</div></div>
           <div id="fbMap" style="margin-top:6px"></div>
@@ -896,7 +924,7 @@
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
       signInWithEmailAndPassword, createUserWithEmailAndPassword }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query, where, doc, setDoc }
+    import { getFirestore, collection, onSnapshot, query, where, doc, setDoc, addDoc, deleteDoc }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -958,7 +986,11 @@
       });
       sub("fb_pages", s => { window.setFbPages(s.docs.map(d=>({id:d.id,...d.data()}))); });
       sub("quota", s => { window.setQuota(s.docs.map(d=>({id:d.id,...d.data()}))); });
+      sub("social_queue", s => { if(window.setSocQueue) window.setSocQueue(s.docs.map(d=>({id:d.id,...d.data()}))); });
     }
+    // Ghi/xoá hàng đợi đăng FB/IG độc lập (client tự tạo item của mình)
+    window.__socQueueAdd = async (data) => { await addDoc(collection(db,"social_queue"), {owner:window.__uid, status:"pending", attempts:0, created_at:new Date().toISOString(), ...data}); };
+    window.__socQueueDel = async (id) => { await deleteDoc(doc(db,"social_queue",id)); };
     function setLive(ok){
       const el=document.getElementById("live"); el.classList.toggle("err",!ok);
       const T=window.t||(x=>x);
@@ -1528,6 +1560,40 @@
         else { toastMsg("✔ Đã trả lời"); card.querySelector(".cm-reply-in").value=""; btn.textContent=old; btn.disabled=false; }
       }catch(e){ alert("❌ "+e.message); btn.textContent=old; btn.disabled=false; } };
     window.socCmClose=()=>{ $("socCmModal").classList.add("hide"); window.__socCmId=null; };
+    /* ===== Hàng đợi đăng FB/IG độc lập (không cần YouTube) ===== */
+    const socPageName=(slug)=>{ const p=(__FBP||[]).find(x=>x.name===slug); return p?(p.page_name||slug):slug; };
+    window.socQueueFrom=(fileId,btn)=>{ const nm=btn?btn.dataset.nm:""; window.__socQFile={id:fileId,name:nm,account:(window.__fb&&window.__fb.account)||""};
+      if(!(__FBP||[]).length){ alert("Chưa có Facebook Page nào. Kết nối ở tab Mạng xã hội trước."); return; }
+      $("socQFile").textContent=nm||fileId;
+      $("socQPage").innerHTML=(__FBP||[]).map(p=>`<option value="${esc(p.name)}">${esc(p.page_name||p.name)}${p.ig_user_id?" (có IG)":""}</option>`).join("");
+      $("socQTitle").value=nm.replace(/\.(mp4|mov|mkv|webm)$/i,"")||""; $("socQDesc").value=""; $("socQTags").value="";
+      $("socQWhen").value="now"; socQWhenChange(); $("socQMsg").textContent=""; $("socQModal").classList.remove("hide"); };
+    window.socQWhenChange=()=>{ $("socQAtWrap").style.display=$("socQWhen").value==="at"?"":"none"; };
+    window.socQClose=()=>{ $("socQModal").classList.add("hide"); };
+    window.socQSubmit=async()=>{ const f=window.__socQFile; if(!f) return; const page=$("socQPage").value;
+      if(!page){ $("socQMsg").innerHTML='<span style="color:var(--bad)">Chọn Page.</span>'; return; }
+      let publish_at=new Date().toISOString();
+      if($("socQWhen").value==="at"){ const v=$("socQAt").value; if(!v){ $("socQMsg").innerHTML='<span style="color:var(--bad)">Chọn giờ.</span>'; return; } publish_at=new Date(v).toISOString(); }
+      const tags=$("socQTags").value.split(/[,\n]+/).map(s=>s.trim().replace(/^#+/,"")).filter(Boolean);
+      const btn=$("socQSave"); btn.disabled=true; $("socQMsg").textContent="Đang thêm…";
+      try{ await window.__socQueueAdd({ page, platform:$("socQPlat").value, drive_file_id:f.id, drive_name:f.name, drive_account:f.account||"",
+          title:$("socQTitle").value.trim(), description:$("socQDesc").value, hashtags:tags, type:"short", publish_at });
+        toastMsg("✔ Đã thêm vào hàng đợi"); socQClose();
+      }catch(e){ $("socQMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ btn.disabled=false; } };
+    window.setSocQueue=(items)=>{ window.__socQueue=items||[]; renderSocQueue(); };
+    function renderSocQueue(){ const box=$("socQueueList"); if(!box) return;
+      const items=(window.__socQueue||[]).slice().sort((a,b)=>String(b.created_at||"").localeCompare(String(a.created_at||"")));
+      if(!items.length){ box.innerHTML='<div class="p-sub" style="padding:6px">Chưa có bài nào trong hàng đợi.</div>'; return; }
+      const badge=(s)=>({pending:'<span class="tag t-scheduled">Chờ đăng</span>',posted:'<span class="tag t-connected">Đã đăng</span>',failed:'<span class="tag t-error">Lỗi</span>'}[s]||esc(s));
+      box.innerHTML=`<div class="scroll-x"><table class="yt-table"><thead><tr><th>Video</th><th>Page</th><th>Nền tảng</th><th>Giờ đăng</th><th>Trạng thái</th><th></th></tr></thead><tbody>${items.map(q=>`<tr>
+        <td><span class="nm" title="${esc(q.drive_name||'')}">${esc(q.drive_name||q.drive_file_id)}</span></td>
+        <td class="p-sub">${esc(socPageName(q.page))}</td>
+        <td><span class="tag2">${esc(q.platform||'')}</span></td>
+        <td class="p-sub">${q.publish_at?new Date(q.publish_at).toLocaleString('vi-VN'):'—'}</td>
+        <td>${badge(q.status)}${q.error?`<div class="p-sub" style="color:var(--bad);max-width:200px">${esc(q.error)}</div>`:''}</td>
+        <td>${q.status!=='posted'?`<button class="yt-rowbtn" title="Xoá khỏi hàng đợi" onclick="socQCancel('${q.id}')">🗑️</button>`:''}</td></tr>`).join("")}</tbody></table></div>`;
+    }
+    window.socQCancel=async(id)=>{ if(!confirm("Xoá bài này khỏi hàng đợi?")) return; try{ await window.__socQueueDel(id); toastMsg("🗑️ Đã xoá"); }catch(e){ alert("❌ "+e.message); } };
     window.setSettings = (s) => { __SETTINGS=s; renderSettings(); };
     window.setOverrides = (o) => { __OVERRIDES=o||{}; renderSettings(); renderAll(); };
     // Catalog template (khớp config/posting_templates.yaml) — hiển thị ở trang Cài đặt
@@ -1817,10 +1883,12 @@
         const icon=fold?"📁":(/\.(mp4|mov|mkv|webm)$/i.test(f.name)?"🎬":/\.(jpe?g|png|webp)$/i.test(f.name)?"🖼️":/\.(srt|vtt)$/i.test(f.name)?"💬":/\.json$/i.test(f.name)?"🧾":"📄");
         const name=fold?`<a class="fb-name fb-fold" onclick="fbEnter('${f.id}')">${esc(f.name)}</a>`:`<span class="fb-name">${esc(f.name)}</span>`;
         const view=f.webViewLink?`<a href="${esc(f.webViewLink)}" target="_blank" class="mini">Xem</a>`:"";
+        const isVid=/\.(mp4|mov|mkv|webm)$/i.test(f.name);
+        const pub=isVid?`<button class="mini" style="color:var(--accent);border-color:var(--accent)" onclick="socQueueFrom('${f.id}',this)" data-nm="${esc(f.name)}">📤 Đăng FB/IG</button>`:"";
         return `<div class="fb-row">
           <span class="fb-ic">${icon}</span>
           <div style="flex:1;min-width:0">${name}<div class="fb-meta">${esc(size)}${size&&f.modifiedTime?" · ":""}${f.modifiedTime?ago(f.modifiedTime):""}</div></div>
-          <span class="fb-acts">${view}
+          <span class="fb-acts">${view}${pub}
             <button class="mini" onclick="fbRename('${f.id}')">Đổi tên</button>
             <button class="mini bad" onclick="fbTrash('${f.id}')">Xoá</button></span>
         </div>`;

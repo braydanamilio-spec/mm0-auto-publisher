@@ -98,7 +98,88 @@ def run(dry_run: bool = False):
             for it in due_items(items, now):
                 _post_one(it, u["pages"], fb_map, do_fb, do_ig, state, now, dry_run)
 
+    # HÀNG ĐỢI ĐỘC LẬP (đăng FB/IG không cần kênh YouTube) — chạy chung 1 cron
+    run_queue(state, now, dry_run)
     print("✔ Đăng FB/IG xong.")
+
+
+def run_queue(state, now, dry_run=False):
+    """Đăng FB/IG cho các item trong social_queue đã tới giờ (độc lập YouTube)."""
+    try:
+        items = state.list_social_queue()
+    except Exception as e:
+        print(f"  ⚠️ social_queue: {e}")
+        return
+    if not items:
+        return
+    drive_conns = state.list_connections("drive")
+    for it in items:
+        pa = it.get("publish_at")
+        if pa:
+            try:
+                dt = datetime.fromisoformat(str(pa).replace("Z", "+00:00"))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                if dt > now:
+                    continue   # chưa tới giờ -> để lần cron sau (catch-up)
+            except Exception:
+                pass
+        owner, slug, plat = it.get("owner"), it.get("page"), it.get("platform", "fb")
+        fid, acct = it.get("drive_file_id"), it.get("drive_account")
+        if not (owner and slug and fid):
+            state.update_queue(it["id"], {"status": "failed", "error": "thiếu dữ liệu"}); continue
+        conn = state.get_doc("connections", f"{owner}__{slug}__facebook")
+        if not conn or not conn.get("page_token"):
+            state.update_queue(it["id"], {"status": "failed", "error": "Page chưa kết nối"}); continue
+        owner_drives = [c for c in drive_conns if c.get("owner") == owner]
+        dc = next((c for c in owner_drives if acct and (c.get("name") == acct or c.get("email") == acct)), None)
+        if not dc and owner_drives:      # không khớp tên -> dùng Drive đầu tiên của owner (thường chỉ 1)
+            dc = owner_drives[0]
+        if not dc:
+            state.update_queue(it["id"], {"status": "failed", "error": "không thấy Drive account"}); continue
+        results = dict(it.get("results") or {})
+        want_fb = plat in ("fb", "both") and not results.get("facebook", {}).get("id")
+        want_ig = plat in ("ig", "both") and bool(conn.get("ig_user_id")) and not results.get("instagram", {}).get("id")
+        if not (want_fb or want_ig):
+            state.update_queue(it["id"], {"status": "posted", "results": results}); continue
+        meta = M.build_metadata({"topic": it.get("title") or it.get("drive_name") or "post",
+                                 "type": it.get("type") or "short",
+                                 "title": it.get("title") or "", "description": it.get("description") or "",
+                                 "hashtags": it.get("hashtags") or []},
+                                {"hashtags": it.get("hashtags") or []})
+        if dry_run:
+            print(f"  (dry) queue {fid} -> Page {slug} FB={want_fb} IG={want_ig}"); continue
+        print(f"  🚀 Queue FB/IG: {it.get('drive_name') or fid} -> {conn.get('page_name')}")
+        try:
+            drv = ST.Drive.from_oauth({"client_id": dc["client_id"], "client_secret": dc["client_secret"],
+                                       "refresh_token": dc["refresh_token"]})
+        except Exception as e:
+            state.update_queue(it["id"], {"status": "failed", "error": f"drive: {e}"}); continue
+        public_url, errs = None, []
+        try:
+            public_url = drv.make_public(fid)
+            if want_fb:
+                try:
+                    r = FB.upload_video(None, meta, conn["page_id"], conn["page_token"], video_url=public_url)
+                    results["facebook"] = r; print(f"     ✅ Facebook: {r.get('url')}")
+                except Exception as e:
+                    errs.append(f"FB: {e}"); print(f"     ❌ Facebook: {e}")
+            if want_ig:
+                try:
+                    r = IG.upload(public_url, meta, conn["ig_user_id"], conn["page_token"])
+                    results["instagram"] = r; print(f"     ✅ Instagram: {r.get('url')}")
+                except Exception as e:
+                    errs.append(f"IG: {e}"); print(f"     ❌ Instagram: {e}")
+        finally:
+            if public_url:
+                try:
+                    drv.make_private(fid)
+                except Exception:
+                    pass
+        posted = bool(results.get("facebook", {}).get("id") or results.get("instagram", {}).get("id"))
+        state.update_queue(it["id"], {"status": "posted" if posted else "failed", "results": results,
+                                      "error": " | ".join(errs), "attempts": it.get("attempts", 0) + 1,
+                                      "posted_at": now.isoformat() if posted else None})
 
 
 def _post_one(it, pages, fb_map, do_fb, do_ig, state, now, dry_run):

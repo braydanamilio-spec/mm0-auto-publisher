@@ -27,6 +27,13 @@ service cloud.firestore {
     match /storage/{doc}          { allow read: if owns(resource.data); allow write: if false; }
     match /storage_accounts/{doc} { allow read: if owns(resource.data); allow write: if false; }
     match /fb_pages/{doc}         { allow read: if owns(resource.data); allow write: if false; }
+
+    // Hàng đợi đăng FB/IG độc lập — chủ tự tạo/sửa/xoá item của mình (KHÔNG chứa token).
+    match /social_queue/{doc} {
+      allow read, delete: if owns(resource.data);
+      allow create: if willOwn();
+      allow update: if owns(resource.data) && willOwn();
+    }
     match /quota/{doc}            { allow read: if owns(resource.data); allow write: if false; }
 
     // TOKEN kết nối — không client nào đọc/ghi (chỉ server/Worker qua Admin).
