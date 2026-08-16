@@ -30,6 +30,7 @@ export default {
       if (url.pathname === "/api/disconnect") return corsResp(await apiDisconnect(request, url, env));
       if (url.pathname === "/api/files") return corsResp(await apiFiles(request, url, env));
       if (url.pathname === "/api/file-action") return corsResp(await apiFileAction(request, url, env));
+      if (url.pathname === "/api/analytics") return corsResp(await apiAnalytics(request, url, env));
     } catch (e) {
       // API trả JSON lỗi; trang HTML trả trang lỗi
       if (url.pathname.startsWith("/api/")) return corsResp(json({ error: String(e && e.message || e) }, 400));
@@ -193,6 +194,42 @@ async function apiCommentAction(request, url, env) {
   }
 }
 
+// GET /api/analytics?channel=&t=&days=  -> PHÂN TÍCH TOÀN KÊNH theo kỳ (mọi video, kể cả không đăng bằng tool)
+async function apiAnalytics(request, url, env) {
+  const ctx = await authCtx(request, url, env);   // verify token + mint yt access token của kênh
+  const days = Math.min(365, Math.max(1, Number(ctx.g("days") || 30) || 30));
+  const now = new Date();
+  const end = now.toISOString().slice(0, 10);
+  const start = new Date(now.getTime() - days * 86400000).toISOString().slice(0, 10);
+  const metrics = "views,estimatedMinutesWatched,likes,comments,subscribersGained,subscribersLost";
+  async function q(extra) {
+    const u = `https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&startDate=${start}&endDate=${end}&metrics=${metrics}${extra}`;
+    const r = await fetch(u, { headers: { Authorization: `Bearer ${ctx.yat}` } });
+    const j = await r.json();
+    if (!r.ok) {
+      if (r.status === 403) throw new Error("Cần KẾT NỐI LẠI kênh để cấp quyền phân tích (Analytics). Bấm 'Kết nối lại YouTube'.");
+      throw new Error((j.error && j.error.message) || ("Analytics " + r.status));
+    }
+    return j;
+  }
+  const daily = await q("&dimensions=day&sort=day");
+  const totals = await q("");
+  const top = await q("&dimensions=video&sort=-views&maxResults=15");
+  // resolve tên + thumbnail cho top video
+  const ids = (top.rows || []).map((r) => r[0]).filter(Boolean);
+  const titles = {};
+  if (ids.length) {
+    try {
+      const vr = await ytGet(`videos?part=snippet&id=${ids.join(",")}`, ctx.yat);
+      (vr.items || []).forEach((v) => { titles[v.id] = { title: v.snippet.title, thumb: (v.snippet.thumbnails.medium || v.snippet.thumbnails.default || {}).url }; });
+    } catch (_) {}
+  }
+  return json({ ok: true, days, start, end,
+    daily: daily.rows || [], totals: (totals.rows || [[]])[0] || [],
+    headers: (daily.columnHeaders || []).map((h) => h.name),
+    top: (top.rows || []).map((r) => ({ id: r[0], views: r[1], title: (titles[r[0]] || {}).title || r[0], thumb: (titles[r[0]] || {}).thumb })) });
+}
+
 // POST /api/disconnect {t, channel, kind}  -> GỠ kênh/kho khỏi tài khoản quản lý
 //   Xoá doc connections + channels/storage_accounts, và thu hồi (revoke) token Google.
 async function apiDisconnect(request, url, env) {
@@ -286,6 +323,7 @@ const YT_SCOPES = [
   "https://www.googleapis.com/auth/youtube.upload",
   "https://www.googleapis.com/auth/youtube",
   "https://www.googleapis.com/auth/youtube.force-ssl",
+  "https://www.googleapis.com/auth/yt-analytics.readonly",   // phân tích toàn kênh theo kỳ
   "https://www.googleapis.com/auth/userinfo.email",
 ].join(" ");
 const DRIVE_SCOPES = [

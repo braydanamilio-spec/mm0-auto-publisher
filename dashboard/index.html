@@ -349,6 +349,18 @@
       </section>
 
       <section id="v-analytics" class="content hide">
+        <div class="panel" style="margin-bottom:16px">
+          <div class="p-head"><div class="p-title">📈 Phân tích TOÀN KÊNH <span class="sd">(mọi video, kể cả không đăng bằng tool)</span></div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <select id="anChannel" class="set-sel" style="max-width:200px"></select>
+              <div id="anDays" style="display:flex;gap:4px"></div>
+              <button class="btn-conn" id="anLoad">Xem</button>
+            </div></div>
+          <div class="p-sub" style="margin-top:6px" id="anStatus"></div>
+          <div id="anKpis" class="kpis" style="margin-top:12px"></div>
+          <canvas id="anChart" height="200" style="width:100%;margin-top:10px"></canvas>
+          <div id="anTop" style="margin-top:12px"></div>
+        </div>
         <div class="kpis" id="aKpis"></div>
         <div class="grid g-2">
           <div class="panel"><div class="p-head"><div class="p-title">🥇 Video xem nhiều nhất</div><div class="p-sub">top 10</div></div><div id="topVideos"></div></div>
@@ -633,6 +645,7 @@
           padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--sans)}
         .mini:hover{border-color:var(--accent)} .mini:disabled{opacity:.5;cursor:default}
         .mini.warn{color:var(--warn)} .mini.bad{color:var(--bad)}
+        .mini.on{background:var(--accent);color:#fff;border-color:var(--accent)}
         .gmail-group{margin-bottom:22px}
         .gmail-head{display:flex;align-items:center;gap:12px;padding:11px 14px;margin-bottom:12px;
           background:var(--surface2);border:1px solid var(--border);border-radius:12px}
@@ -1012,6 +1025,46 @@
       box.innerHTML=`⚠️ <b>Kênh sắp/đã hết bài đăng</b> — cần thêm video: `+warns.join(" · ")
         +` <span class="sd">(dùng import_project.py để nạp thêm)</span>`;
     }
+    // ===== Phân tích TOÀN KÊNH theo kỳ (YouTube Analytics API qua Worker) =====
+    let __anDays=30;
+    function anInit(){
+      const sel=$("anChannel"); if(sel){ const keep=sel.value;
+        const ks=Object.keys(__C||{}).filter(k=>__C[k]&&__C[k].yt_ok);
+        sel.innerHTML=ks.map(k=>`<option value="${esc(k)}">${esc(chName(k))}</option>`).join("");
+        if([...sel.options].some(o=>o.value===keep)) sel.value=keep; }
+      const dd=$("anDays"); if(dd) dd.innerHTML=[7,30,60,90,180].map(d=>`<button class="mini ${d===__anDays?'on':''}" onclick="anSetDays(${d})">${d}d</button>`).join("");
+    }
+    window.anSetDays=(d)=>{ __anDays=d; anInit(); if($("anChannel")&&$("anChannel").value) window.anLoad(); };
+    window.anLoad=async()=>{
+      const ch=$("anChannel")&&$("anChannel").value; if(!ch) return;
+      $("anStatus").textContent=t("working"); $("anKpis").innerHTML=""; $("anTop").innerHTML="";
+      try{ const d=await workerApi(`/api/analytics?channel=${encodeURIComponent(ch)}&days=${__anDays}`);
+        renderAn(d); $("anStatus").textContent=`✔ ${d.start} → ${d.end} · ${__anDays} ngày`;
+      }catch(e){ $("anStatus").innerHTML="❌ "+esc(e.message); }
+    };
+    function renderAn(d){
+      const h=d.headers||[], tv=d.totals||[]; const val=(n)=>{const i=h.indexOf(n);return i>=0?(+tv[i]||0):0;};
+      const views=val("views"),mins=val("estimatedMinutesWatched"),likes=val("likes"),coms=val("comments"),sg=val("subscribersGained"),sl=val("subscribersLost");
+      $("anKpis").innerHTML=kpi("view","var(--info-soft)","var(--info)",fmtN(views),`Lượt xem (${d.days}d)`)
+        +kpi("up","var(--good-soft)","var(--good)",fmtN(Math.round(mins/60))+"h","Giờ xem")
+        +kpi("sub","var(--accent-soft)","var(--accent)",(sg-sl>=0?"+":"")+fmtN(sg-sl),"Sub thay đổi")
+        +kpi("like","var(--violet-soft)","var(--violet)",fmtN(likes),"Lượt thích")
+        +kpi("cal","var(--warn-soft)","var(--warn)",fmtN(coms),"Bình luận");
+      // biểu đồ views theo ngày
+      const cv=$("anChart"); if(cv){ const di=h.indexOf("day"),vi=h.indexOf("views");
+        const rows=(d.daily||[]).map(r=>+r[vi]||0); const {x,w}=prep(cv,200); x.clearRect(0,0,w,200);
+        if(rows.length){ const max=Math.max(...rows,1),pad=6,baseY=180,top=10,step=(w-2*pad)/(rows.length-1||1);
+          x.beginPath(); rows.forEach((v,i)=>{const px=pad+i*step,py=baseY-(baseY-top)*(v/max); i?x.lineTo(px,py):x.moveTo(px,py);});
+          x.strokeStyle=cssVar("--accent");x.lineWidth=2;x.stroke();
+          x.lineTo(pad+(rows.length-1)*step,baseY);x.lineTo(pad,baseY);x.closePath();x.fillStyle=cssVar("--accent")+"22";x.fill();
+        } else { x.fillStyle=cssVar("--faint");x.font="13px "+cssVar("--sans");x.fillText("Chưa có dữ liệu ngày.",10,30); } }
+      $("anTop").innerHTML=`<div class="p-sub" style="margin:6px 0">🏆 Top video (${d.days}d)</div>`+((d.top||[]).map((v,i)=>`
+        <div class="pub-row"><span style="width:22px;color:var(--muted)">${i+1}</span>
+          ${v.thumb?`<img src="${esc(v.thumb)}" style="width:44px;height:26px;border-radius:5px;object-fit:cover">`:""}
+          <a href="https://youtu.be/${esc(v.id)}" target="_blank" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)">${esc(v.title)}</a>
+          <b class="tnum">${fmtN(v.views)}</b></div>`).join("")||`<div class="p-sub">Chưa có video trong kỳ.</div>`);
+    }
+    window.anInit=anInit;
     function renderQuota(){
       const box=$("quotaPanel"); if(!box) return;
       const suf=todayId();
@@ -1127,6 +1180,7 @@
         VIEWS.forEach(x=>$("v-"+x).classList.toggle("hide",x!==v));
         setTitle(v);
         if(["branding","comments","publish","channels"].includes(v)) fillChannelPickers();
+        if(v==="analytics" && typeof anInit==="function") anInit();
       }
       window.__activateView=activateView;
       document.querySelectorAll(".nav").forEach(n=>n.onclick=()=>{ location.hash=n.dataset.view; });
@@ -1157,6 +1211,8 @@
         new Set(Object.values(C()).map(c=>c.email||"__none")).forEach(e=>s.add(e)); renderConnections(); };
       if($("connExpand"))$("connExpand").onclick=()=>{ if(window.__collapsedGmail)window.__collapsedGmail.clear(); renderConnections(); };
       if($("connAssignBrand"))$("connAssignBrand").onclick=window.assignAllBrand;
+      if($("anLoad"))$("anLoad").onclick=window.anLoad;
+      if($("anChannel"))$("anChannel").onchange=window.anLoad;
       if($("fbAccount"))$("fbAccount").onchange=()=>{ if($("fbSearch"))$("fbSearch").value=""; window.__fb.account=$("fbAccount").value; window.__fb.stack=[]; fbOpen(null,"My Drive"); };
       if($("fbSearch"))$("fbSearch").oninput=(e)=>window.fbSearchInput(e.target.value);
       if($("stSort"))$("stSort").onchange=renderStorage;
@@ -1351,7 +1407,8 @@
         toastMsg("✔ "+t("dc_done")+" "+(name||channel));
       }catch(e){ alert("❌ "+e.message); }
     };
-    const gmailKeyOf=(k)=> ((__OVERRIDES.gmail_group||{})[k]) || ((__C[k]&&__C[k].email)||"");
+    const gmailKeyOf=(k)=>{ const g=(__OVERRIDES.gmail_group||{})[k]; if(g) return g;
+      const e=(__C[k]&&__C[k].email)||""; return /@pages\.plusgoogle\.com$/i.test(e)?"__brand__":e; };
     window.assignGmail=(oldKey)=>{
       const keys=Object.keys(__C||{}).filter(k=>gmailKeyOf(k)===oldKey);
       if(!keys.length) return;
@@ -1815,8 +1872,9 @@
       // GOM NHÓM theo Gmail: mỗi email -> các kênh dưới nó (minh bạch: 1 mail có mấy kênh)
       // Khoá nhóm = Gmail anh tự gộp (nếu có) > email thật. Brand account -> email @pages.plusgoogle.com (giả).
       const gm=(__OVERRIDES.gmail_group)||{};
-      const keyOf=(k)=> gm[k] || ((C()[k]&&C()[k].email)||"");
       const isBrand=(e)=> /@pages\.plusgoogle\.com$/i.test(e||"");
+      // Brand chưa gắn Gmail -> gom CHUNG 1 nhóm "__brand__" (mỗi brand có email giả khác nhau)
+      const keyOf=(k)=>{ const g=gm[k]; if(g) return g; const e=(C()[k]&&C()[k].email)||""; return isBrand(e)?"__brand__":e; };
       const groups={};
       shown.forEach(k=>{ const g=keyOf(k); (groups[g]=groups[g]||[]).push(k); });
       const emails=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length);
@@ -1827,11 +1885,12 @@
         const keys=groups[em].sort();
         const cardsHtml=keys.map(k=>{ stt++; return cardHtml(k, stt); }).join("");
         const subs=keys.reduce((a,k)=>a+((C()[k]&&C()[k].subscribers)||0),0);
-        const known=!!em, brand=isBrand(em);
+        const known=!!em, brand=(em==="__brand__"||isBrand(em));
         const isCol=collapsed.has(em||"__none");
         const label = !known ? '⚠ Chưa có email — Kết nối lại hoặc 🗑'
-          : brand ? `🏷️ ${esc(chName(keys[0]))} <span class="p-sub">· tài khoản thương hiệu (Google giấu Gmail)</span>`
-          : esc(em);
+          : em==="__brand__" ? `🏷️ Tài khoản thương hiệu <span class="p-sub">· ${keys.length} kênh (Google giấu Gmail thật — bấm “Gộp vào Gmail” để đặt tên)</span>`
+          : brand ? `🏷️ ${esc(chName(keys[0]))} <span class="p-sub">· tài khoản thương hiệu</span>`
+          : `📧 ${esc(em)}`;
         return `<div class="gmail-group">
           <div class="gmail-head" onclick="toggleGmail('${esc(em||'__none')}')" style="cursor:pointer">
             <span class="gmail-caret">${isCol?'▸':'▾'}</span>
