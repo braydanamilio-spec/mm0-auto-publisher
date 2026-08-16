@@ -1491,7 +1491,7 @@
           <div class="nm">${esc(p.page_name||p.name)}<div class="p-sub">ID ${esc(p.page_id||'')}</div></div></div>
         ${svcRow('fb','#1877f2','Facebook Page','connected','token dài hạn (không tự hết hạn)')}
         ${p.ig_user_id
-          ? `<div class="svc"><div class="ava" style="width:34px;height:34px;background:linear-gradient(135deg,#F9CE34,#EE2A7B 45%,#6228D7);overflow:hidden;flex:none;display:grid;place-items:center;position:relative"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="#fff" stroke-width="2">${svgIcon('ig')}</svg>${p.ig_avatar?`<img src="${esc(p.ig_avatar)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`:''}</div><div style="flex:1;min-width:0"><div class="snm">Instagram</div><div class="sd">${p.ig_username?'@'+esc(p.ig_username):'đã liên kết'} · Reels tự động</div></div><span class="tag t-connected" style="margin-left:auto">Đã kết nối</span></div>`
+          ? `<div class="svc"><div class="ava" id="igava-${esc(p.name)}" style="width:34px;height:34px;background:linear-gradient(135deg,#F9CE34,#EE2A7B 45%,#6228D7);overflow:hidden;flex:none;display:grid;place-items:center;position:relative"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="#fff" stroke-width="2">${svgIcon('ig')}</svg>${p.ig_avatar?`<img src="${esc(p.ig_avatar)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`:''}</div><div style="flex:1;min-width:0"><div class="snm" id="igname-${esc(p.name)}">${esc(p.ig_name||'Instagram')}</div><div class="sd" id="igsd-${esc(p.name)}">${p.ig_username?'@'+esc(p.ig_username):'đã liên kết'} · Reels tự động</div></div><span class="tag t-connected" style="margin-left:auto">Đã kết nối</span></div>`
           : svcRow('ig','#E1306C','Instagram', 'unknown', 'chưa liên kết IG — vào Page → Linked accounts để nối')}
         <div class="p-sub" style="margin-top:8px">📅 Kết nối: <b>${dt}</b>${p.connected_at?` · ${ago(p.connected_at)}`:''} <span id="fbtok-${esc(p.name)}"></span></div>
         <div style="display:flex;gap:8px;margin-top:10px">
@@ -1507,6 +1507,27 @@
         return `<div class="hub-ghead">${head}</div>`+arr.map(fbCard).join("");
       }).join("");
       socFillPages();
+      socLoadIgProfiles();
+    }
+    // Lazy-load tên + avatar Instagram THẬT (không cần connect lại) — cache để khỏi gọi lại
+    window.__igProf = window.__igProf || {};
+    async function socLoadIgProfiles(){
+      for(const p of (__FBP||[])){
+        if(!p.ig_user_id) continue;
+        const have = p.ig_avatar && p.ig_name;
+        const cached = window.__igProf[p.name];
+        const prof = cached || (have ? {name:p.ig_name, username:p.ig_username, avatar:p.ig_avatar} : null);
+        if(prof){ applyIgProfile(p.name, prof); continue; }
+        try{ const d=await workerApi(`/api/social-insights?channel=${encodeURIComponent(p.name)}&platform=ig`);
+          const pr={name:d.name||"", username:d.username||p.ig_username||"", avatar:d.avatar||"", followers:d.followers||0};
+          window.__igProf[p.name]=pr; applyIgProfile(p.name, pr);
+        }catch(_){}
+      }
+    }
+    function applyIgProfile(slug, pr){
+      const nm=$("igname-"+slug); if(nm && pr.name) nm.textContent=pr.name;
+      const sd=$("igsd-"+slug); if(sd) sd.textContent=(pr.username?'@'+pr.username:'đã liên kết')+(pr.followers?` · ${fmtN(pr.followers)} follower`:'')+' · Reels tự động';
+      const av=$("igava-"+slug); if(av && pr.avatar && !av.querySelector('img')){ const img=document.createElement('img'); img.src=pr.avatar; img.style.cssText="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"; img.onerror=function(){this.style.display='none';}; av.appendChild(img); }
     }
     // Kiểm tra token còn sống không (ping insight thật; hỏng -> nhắc kết nối lại)
     window.fbCheckToken=async(name)=>{ const el=$("fbtok-"+name); if(el)el.innerHTML=`· <span class="p-sub">⏳ đang kiểm tra…</span>`;

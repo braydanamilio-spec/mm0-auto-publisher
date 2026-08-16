@@ -464,8 +464,9 @@ async function apiSocialDelete(request, url, env) {
 async function apiSocialInsights(request, url, env) {
   const ctx = await fbAuthCtx(request, url, env);
   if (ctx.platform === "ig") {
-    const r = await fbGet(`${ctx.ig_user_id}?fields=username,followers_count,media_count`, ctx.page_token);
-    return json({ ok: true, platform: "ig", name: r.username || "", followers: +(r.followers_count || 0), posts: +(r.media_count || 0) });
+    const r = await fbGet(`${ctx.ig_user_id}?fields=username,name,followers_count,media_count,profile_picture_url`, ctx.page_token);
+    return json({ ok: true, platform: "ig", username: r.username || "", name: r.name || "",
+      avatar: r.profile_picture_url || "", followers: +(r.followers_count || 0), posts: +(r.media_count || 0) });
   }
   const r = await fbGet(`${ctx.page_id}?fields=name,fan_count,followers_count`, ctx.page_token);
   return json({ ok: true, platform: "fb", name: r.name || "", followers: +(r.followers_count || r.fan_count || 0), fans: +(r.fan_count || 0) });
@@ -838,21 +839,29 @@ async function fbCallback(url, env, uid, code, redirect) {
   for (const pg of list) {
     const slug = slugLabel(pg.name) || ("PAGE_" + String(pg.id).slice(-6));
     // Lấy Instagram Business account liên kết với Page (để đăng IG luôn) + avatar
-    let ig_user_id = "", ig_username = "", ig_avatar = "";
+    let ig_user_id = "", ig_username = "", ig_avatar = "", ig_name = "";
     try {
       const igr = await (await fetch(
-        `https://graph.facebook.com/v19.0/${pg.id}?fields=instagram_business_account{id,username,profile_picture_url}&access_token=${pg.access_token}`)).json();
+        `https://graph.facebook.com/v19.0/${pg.id}?fields=instagram_business_account&access_token=${pg.access_token}`)).json();
       const ig = igr.instagram_business_account;
-      if (ig && ig.id) { ig_user_id = ig.id; ig_username = ig.username || ""; ig_avatar = ig.profile_picture_url || ""; igCount++; }
+      if (ig && ig.id) {
+        ig_user_id = ig.id; igCount++;
+        // Gọi TRỰC TIẾP node IG để lấy chắc chắn tên + ảnh profile
+        try {
+          const prof = await (await fetch(
+            `https://graph.facebook.com/v19.0/${ig.id}?fields=username,name,profile_picture_url&access_token=${pg.access_token}`)).json();
+          ig_username = prof.username || ""; ig_name = prof.name || ""; ig_avatar = prof.profile_picture_url || "";
+        } catch (_) {}
+      }
     } catch (_) {}
     await fsPatch(env, at, `connections/${uid}__${slug}__facebook`,
       { channel: slug, kind: "facebook", owner: uid, page_id: pg.id, page_name: pg.name,
-        page_token: pg.access_token, ig_user_id, ig_username, ig_avatar,
+        page_token: pg.access_token, ig_user_id, ig_username, ig_name, ig_avatar,
         fb_owner_id, fb_owner_name, connected_at: new Date().toISOString() });
     await fsPatch(env, at, `fb_pages/${uid}__${slug}`,
       { name: slug, owner: uid, page_id: pg.id, page_name: pg.name,
-        ig_user_id, ig_username, ig_avatar, fb_owner_id, fb_owner_name, fb_ok: true, connected_at: new Date().toISOString() },
-      ["name", "owner", "page_id", "page_name", "ig_user_id", "ig_username", "ig_avatar", "fb_owner_id", "fb_owner_name", "fb_ok", "connected_at"]);
+        ig_user_id, ig_username, ig_name, ig_avatar, fb_owner_id, fb_owner_name, fb_ok: true, connected_at: new Date().toISOString() },
+      ["name", "owner", "page_id", "page_name", "ig_user_id", "ig_username", "ig_name", "ig_avatar", "fb_owner_id", "fb_owner_name", "fb_ok", "connected_at"]);
   }
   return page("Kết nối Facebook thành công 🎉",
     `<p>✅ Đã kết nối <b>${list.length}</b> Page${igCount ? ` · <b>${igCount}</b> có Instagram` : ""}: ${list.map(p => escapeHtml(p.name)).join(", ")}.</p>
