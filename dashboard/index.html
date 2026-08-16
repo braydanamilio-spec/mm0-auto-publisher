@@ -1008,6 +1008,22 @@
       </section>
 
       <section id="v-comments" class="content hide">
+        <div class="subtabs" id="cm-tabs">
+          <button class="subtab on" data-p="yt" onclick="setSubTab('cm','yt')">📺 YouTube</button>
+          <button class="subtab" data-p="fb" onclick="setSubTab('cm','fb')">📘📷 Facebook &amp; Instagram</button>
+        </div>
+        <div id="cm-fb" class="subpane hide">
+          <div class="panel" style="margin-bottom:16px">
+            <div class="p-head"><div class="p-title">💬 Bình luận Facebook / Instagram</div></div>
+            <div class="yt-tools" style="margin-top:6px">
+              <select id="cmfbPage"></select>
+              <div class="seg" id="cmfbPlat"><button type="button" class="seg-btn on" data-p="fb" onclick="cmfbPlat('fb')">📘 Facebook</button><button type="button" class="seg-btn" data-p="ig" onclick="cmfbPlat('ig')">📷 Instagram</button></div>
+              <button type="button" class="btn-conn" onclick="cmfbLoad()">🔄 Tải bài + bình luận</button>
+            </div>
+            <div id="cmfbList"><div class="p-sub" style="padding:6px">Chọn Page → 📘/📷 → <b>Tải bài</b> → bấm 💬 ở bài để xem & trả lời bình luận thật.</div></div>
+          </div>
+        </div>
+        <div id="cm-yt" class="subpane">
         <div class="panel" style="margin-bottom:16px">
           <div class="p-head"><div class="p-title">💬 <span data-i18n="comments">Comments</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -1024,6 +1040,7 @@
         <div id="cmList"></div>
         <div class="panel help"><div class="p-title">💬 Lưu ý</div>
           <p class="p-sub" data-i18n="cm_note">Reads newest comments across your channel. All actions manual.</p></div>
+        </div><!-- /cm-yt -->
       </section>
 
       <section id="v-facebook" class="content hide">
@@ -1451,7 +1468,7 @@
     window.__plat = localStorage.mm0plat || "yt";
     // Thanh nền tảng TOÀN CỤC: đổi 1 phát -> đồng bộ sub-tab mọi trang
     window.setPlat=(plat)=>{ window.__plat=plat; try{localStorage.mm0plat=plat;}catch(_){}
-      ["vid","pub","ana","sch","ov"].forEach(pg=>{
+      ["vid","pub","ana","sch","ov","cm"].forEach(pg=>{
         document.querySelectorAll(`#${pg}-tabs .subtab`).forEach(b=>b.classList.toggle("on",b.dataset.p===plat));
         const yt=$(pg+"-yt"), fb=$(pg+"-fb");
         if(yt) yt.classList.toggle("hide",plat!=="yt");
@@ -1459,7 +1476,7 @@
       });
       document.querySelectorAll("#platSwitch .seg-btn").forEach(b=>b.classList.toggle("on",b.dataset.p===plat));
       if(window.buildChanFilter) buildChanFilter();   // picker top đổi theo nền tảng
-      if(plat==="fb"){ if(window.__view==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(window.__view==="schedule"&&window.renderFbSchedule) renderFbSchedule(); if(window.__view==="overview"&&window.renderFbOverview) renderFbOverview(); }
+      if(plat==="fb"){ const v=window.__view; if(v==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(v==="schedule"&&window.renderFbSchedule) renderFbSchedule(); if(v==="overview"&&window.renderFbOverview) renderFbOverview(); if(v==="comments"&&window.renderCmFb) renderCmFb(); }
     };
     window.setSubTab=(page,plat)=>setPlat(plat);   // per-page sub-tab -> điều khiển toàn cục
     // ===== P0 #2: Bảng sức khoẻ + cảnh báo lỗi đăng =====
@@ -1805,6 +1822,8 @@
       }).join("");
       socFillPages();
       socLoadIgProfiles();
+      if(window.renderCmFb) renderCmFb();
+      if(window.__view==="analytics"&&window.__plat==="fb"&&window.renderFbAnalytics) renderFbAnalytics();
     }
     // Lazy-load tên + avatar Instagram THẬT (không cần connect lại) — cache để khỏi gọi lại
     window.__igProf = window.__igProf || {};
@@ -1990,6 +2009,33 @@
     window.ytQueueCleanup=async()=>{ const posted=(window.__ytQueue||[]).filter(q=>q.status==="posted"); if(!posted.length){ toastMsg("Không có bài đã đăng để dọn"); return; }
       if(!confirm(`Dọn ${posted.length} bài ĐÃ ĐĂNG khỏi danh sách? (KHÔNG xoá video trên YouTube)`)) return;
       let ok=0; for(const q of posted){ try{ await window.__ytQueueDel(q.id); ok++; }catch(_){} } toastMsg(`🧹 Đã dọn ${ok} bài`); };
+    /* ===== Bình luận FB/IG (Comments sub-tab) — API thật, reuse modal socComments ===== */
+    window.renderCmFb=()=>{ const sel=$("cmfbPage"); if(!sel) return; const pages=__FBP||[]; const keep=sel.value;
+      sel.innerHTML=pages.length?pages.map(p=>`<option value="${esc(p.name)}">${esc(p.page_name||p.name)}${p.ig_user_id?" (có IG)":""}</option>`).join(""):`<option value="">— chưa có Page —</option>`;
+      if(pages.some(p=>p.name===keep)) sel.value=keep;
+    };
+    window.__cmfbPlat="fb";
+    window.cmfbPlat=(p)=>{ window.__cmfbPlat=p; document.querySelectorAll("#cmfbPlat .seg-btn").forEach(b=>b.classList.toggle("on",b.dataset.p===p)); };
+    window.cmfbLoad=async()=>{ const page=($("cmfbPage")||{}).value, plat=window.__cmfbPlat, box=$("cmfbList"); if(!page){ box.innerHTML=`<div class="p-sub" style="padding:6px">Chưa có Page.</div>`; return; }
+      const p=(__FBP||[]).find(x=>x.name===page)||{};
+      if(plat==="ig"&&!p.ig_user_id){ box.innerHTML=`<div class="p-sub" style="padding:6px;color:var(--warn)">Page này chưa liên kết Instagram.</div>`; return; }
+      box.innerHTML=`<div class="p-sub" style="padding:6px">${t("working")}…</div>`; window.__cmfbCtx={page,plat};
+      try{ const d=await workerApi(`/api/social-posts?channel=${encodeURIComponent(page)}&platform=${plat}&max=50`); const items=d.items||[];
+        if(!items.length){ box.innerHTML=`<div class="p-sub" style="padding:6px">Chưa có bài nào.</div>`; return; }
+        box.innerHTML=`<div class="scroll-x"><table class="yt-table"><thead><tr><th>Bài</th><th>Ngày</th><th class="num">B.luận</th><th></th></tr></thead><tbody>
+          ${items.map(v=>`<tr><td><div class="yt-vtitle"><img src="${esc(v.thumb||'')}" alt="" loading="lazy"><span class="nm" title="${esc(v.title)}">${esc(v.title)}</span></div></td>
+            <td class="p-sub">${v.publishedAt?new Date(v.publishedAt).toLocaleDateString('vi-VN'):'—'}</td>
+            <td class="num tnum">${fmtN(v.comments)}</td>
+            <td style="white-space:nowrap"><button class="yt-rowbtn" title="Xem bình luận" onclick="cmfbOpen('${esc(v.id)}','${esc((v.title||'').replace(/'/g,''))}')">💬 ${fmtN(v.comments)}</button>${v.url?`<a class="yt-rowbtn" href="${esc(v.url)}" target="_blank">↗</a>`:''}</td></tr>`).join("")}
+        </tbody></table></div>`;
+      }catch(e){ box.innerHTML=`<div class="panel" style="border-color:var(--bad)"><div class="p-sub" style="padding:12px;color:var(--bad)">❌ ${esc(e.message)}</div></div>`; }
+    };
+    // Mở bình luận 1 bài (reuse modal socComments — dùng __cmfbCtx làm page/plat)
+    window.cmfbOpen=(mediaId,title)=>{ const c=window.__cmfbCtx||{}; window.__soc={page:c.page,plat:c.plat}; window.__socCmId=mediaId;
+      $("socCmTitle").textContent=t("comments")+" · "+(title||""); $("socCmBody").innerHTML='<div class="p-sub">Đang tải…</div>'; $("socCmModal").classList.remove("hide");
+      workerApi(`/api/social-comments?channel=${encodeURIComponent(c.page)}&platform=${c.plat}&mediaId=${encodeURIComponent(mediaId)}&max=40`)
+        .then(d=>socCmRender(d.items||[])).catch(e=>{ $("socCmBody").innerHTML=`<div class="p-sub" style="color:var(--bad)">❌ ${esc(e.message)}</div>`; });
+    };
     /* ===== RẢI LỊCH HÀNG LOẠT FB/IG (tick nhiều video trong Storage) ===== */
     window.__stSel=new Set(); window.__stSelNm={};
     window.stToggle=(id,el)=>{ if(el.checked){ window.__stSel.add(id); window.__stSelNm[id]=el.dataset.nm; } else window.__stSel.delete(id); renderStBulk(); };
@@ -2160,8 +2206,8 @@
     function wireNav(){
       const VIEWS=["overview","analytics","videos","schedule","publish","connections","storage","settings","channels","branding","comments","facebook"];
       const setTitle=(v)=>{ window.__view=v; $("vTitle").textContent=t(v); $("vSub").textContent=t("sub_"+v);
-        const ps=$("platSwitch"); if(ps) ps.style.display=["overview","videos","publish","analytics","schedule"].includes(v)?"inline-flex":"none";
-        if(window.__plat==="fb"){ if(v==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(v==="schedule"&&window.renderFbSchedule) renderFbSchedule(); if(v==="overview"&&window.renderFbOverview) renderFbOverview(); } };
+        const ps=$("platSwitch"); if(ps) ps.style.display=["overview","videos","publish","analytics","schedule","comments"].includes(v)?"inline-flex":"none";
+        if(window.__plat==="fb"){ if(v==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(v==="schedule"&&window.renderFbSchedule) renderFbSchedule(); if(v==="overview"&&window.renderFbOverview) renderFbOverview(); if(v==="comments"&&window.renderCmFb) renderCmFb(); } };
       window.__setTitle=setTitle;
       // ROUTING theo URL hash: mỗi mục 1 đường dẫn (#publish, #channels…) -> F5 giữ nguyên trang
       function activateView(v){
