@@ -1599,6 +1599,7 @@
       sel.innerHTML=chans.length?chans.map(k=>`<option value="${esc(k)}">${esc(chName(k))}</option>`).join("")
         :`<option value="">— Chưa có kênh YouTube kết nối —</option>`;
       if(chans.includes(keep)) sel.value=keep;
+      mountAvaPicker("ytVidsCh", ytChItems);
     }
     window.fillYtVidsCh=fillYtVidsCh;
     let __ytSel=new Set();
@@ -1830,11 +1831,13 @@
     window.__fbAva = window.__fbAva || {};
     async function socLoadIgProfiles(){
       for(const p of (__FBP||[])){
-        // Backfill avatar Page FB nếu thiếu (không cần connect lại)
-        if(!p.page_avatar){ const cav=window.__fbAva[p.name];
-          if(cav){ applyFbAvatar(p.name, cav); }
-          else { try{ const d=await workerApi(`/api/social-insights?channel=${encodeURIComponent(p.name)}&platform=fb`);
-            if(d.avatar){ window.__fbAva[p.name]=d.avatar; applyFbAvatar(p.name, d.avatar); } }catch(_){} } }
+        // Backfill avatar Page FB + follower (cache cho dropdown avatar) — không cần connect lại
+        if(!p.page_avatar || window.__folCache["fb_"+p.name]==null){
+          try{ const d=await workerApi(`/api/social-insights?channel=${encodeURIComponent(p.name)}&platform=fb`);
+            if(d.avatar){ window.__fbAva[p.name]=d.avatar; applyFbAvatar(p.name, d.avatar); }
+            window.__folCache["fb_"+p.name]=d.followers||0;
+            ["socPage","faPage","cmfbPage"].forEach(id=>{ if($(id+"-ava")) renderAvaPicker(id); });
+          }catch(_){ } }
         if(!p.ig_user_id) continue;
         const have = p.ig_avatar && p.ig_name;
         const cached = window.__igProf[p.name];
@@ -1865,7 +1868,7 @@
     window.__soc={plat:"fb",page:"",items:[]};
     function socFillPages(){ const sel=$("socPage"); if(!sel) return; const keep=sel.value;
       sel.innerHTML=(__FBP||[]).map(p=>`<option value="${esc(p.name)}">${esc(p.page_name||p.name)}${p.ig_user_id?" (có IG)":""}</option>`).join("")||`<option value="">— chưa có Page —</option>`;
-      if((__FBP||[]).some(p=>p.name===keep)) sel.value=keep; }
+      if((__FBP||[]).some(p=>p.name===keep)) sel.value=keep; mountAvaPicker("socPage", fbPageItems); }
     window.socPlat=(p)=>{ window.__soc.plat=p; document.querySelectorAll("#socPlat .seg-btn").forEach(b=>b.classList.toggle("on",b.dataset.p===p)); };
     const socPlatName=()=>window.__soc.plat==="ig"?"Instagram":"Facebook";
     window.socLoad=async()=>{ const page=($("socPage")||{}).value, plat=window.__soc.plat, box=$("socPanel"), hdr=$("socHdr");
@@ -2013,6 +2016,7 @@
     window.renderCmFb=()=>{ const sel=$("cmfbPage"); if(!sel) return; const pages=__FBP||[]; const keep=sel.value;
       sel.innerHTML=pages.length?pages.map(p=>`<option value="${esc(p.name)}">${esc(p.page_name||p.name)}${p.ig_user_id?" (có IG)":""}</option>`).join(""):`<option value="">— chưa có Page —</option>`;
       if(pages.some(p=>p.name===keep)) sel.value=keep;
+      mountAvaPicker("cmfbPage", fbPageItems);
     };
     window.__cmfbPlat="fb";
     window.cmfbPlat=(p)=>{ window.__cmfbPlat=p; document.querySelectorAll("#cmfbPlat .seg-btn").forEach(b=>b.classList.toggle("on",b.dataset.p===p)); };
@@ -2089,6 +2093,7 @@
         <div id="faResult"><div class="p-sub" style="padding:6px">Chọn Page → 📘 Facebook / 📷 Instagram → <b>Xem chi tiết</b> (như vào trang thật: follower, top bài, tương tác).</div></div>
       </div>`;
       if(keep && pages.some(p=>p.name===keep)) $("faPage").value=keep;
+      mountAvaPicker("faPage", fbPageItems);
     };
     window.__faPlat="fb";
     window.faPlat=(p)=>{ window.__faPlat=p; document.querySelectorAll("#faPlat .seg-btn").forEach(b=>b.classList.toggle("on",b.dataset.p===p)); };
@@ -2591,6 +2596,23 @@
       menu.innerHTML=`<div class="chpick-item ${!cval?'on':''}" onclick="pickChannel('')">${allLbl}</div>`
         +ks.map(k=>`<div class="chpick-item ${cval===k?'on':''}" onclick="pickChannel('${esc(k)}')">${chAva(k,'chpick-ava')}<span class="chpick-nm">${esc(chName(k))}</span></div>`).join("");
     }
+    // ===== Dropdown AVATAR tái sử dụng (thay <select> trơn, hiện ảnh + follower/sub) =====
+    window.__avaPk={}; window.__folCache=window.__folCache||{};
+    window.mountAvaPicker=(selId,getItems,onPick)=>{ const sel=$(selId); if(!sel) return; if(!sel.dataset.ava){ sel.dataset.ava="1"; sel.style.display="none";
+        const w=document.createElement("div"); w.className="chpick"; w.id=selId+"-ava"; w.style.minWidth="0"; sel.parentNode.insertBefore(w,sel); }
+      window.__avaPk[selId]={getItems,onPick}; renderAvaPicker(selId); };
+    function renderAvaPicker(selId){ const cfg=window.__avaPk[selId], w=$(selId+"-ava"), sel=$(selId); if(!cfg||!w||!sel) return;
+      const items=cfg.getItems()||[]; let cur=sel.value; if(!items.some(i=>i.value===cur)) cur=items[0]&&items[0].value||"";
+      if(sel.value!==cur) sel.value=cur; const s=items.find(i=>i.value===cur);
+      w.innerHTML=`<button type="button" class="chpick-btn" style="min-width:190px;max-width:260px" onclick="event.stopPropagation();const m=$('${selId}-menu');if(m)m.classList.toggle('hide')">${s?s.ava+`<span class="chpick-nm">${esc(s.label)}</span>`:'<span class="chpick-all">Chọn…</span>'}<span class="chpick-caret">▾</span></button>
+        <div class="chpick-menu hide" id="${selId}-menu">${items.length?items.map(i=>`<div class="chpick-item ${i.value===cur?'on':''}" onclick="avaPick('${selId}',this.dataset.v)" data-v="${esc(i.value)}">${i.ava}<span class="chpick-nm">${esc(i.label)}</span>${i.meta?`<span class="p-sub" style="margin-left:auto">${i.meta}</span>`:''}</div>`).join(""):'<div class="p-sub" style="padding:10px">Chưa có.</div>'}</div>`;
+    }
+    window.avaPick=(selId,val)=>{ const sel=$(selId); if(sel) sel.value=val; const m=$(selId+"-menu"); if(m)m.classList.add("hide"); renderAvaPicker(selId); const cfg=window.__avaPk[selId]; if(cfg&&cfg.onPick) cfg.onPick(val); };
+    document.addEventListener("click",()=>document.querySelectorAll('[id$="-menu"].chpick-menu:not(.hide)').forEach(m=>{ if(m.id.match(/(faPage|socPage|cmfbPage|ytVidsCh)-menu/)) m.classList.add("hide"); }));
+    // Items cho FB pages (avatar + follower) và YT (avatar + subs)
+    const fbPageItems=()=> (__FBP||[]).map(p=>({value:p.name, ava:fbAvaMini(p), label:(p.page_name||p.name)+(p.ig_user_id?" ·IG":""), meta:(window.__folCache["fb_"+p.name]!=null?"👥 "+fmtN(window.__folCache["fb_"+p.name]):"")}));
+    const ytChItems=()=> connectedYT().map(k=>{ const rs=(window.__realStats||{})[k]; const subs=rs?rs.subscribers:(C()[k]&&C()[k].subscribers); return {value:k, ava:chAva(k,'chpick-ava'), label:chName(k), meta:(subs!=null?"👥 "+fmtN(subs):"")}; });
+    window.renderAllAvaPickers=()=>{ ["faPage","socPage","cmfbPage"].forEach(id=>{ if($(id)) mountAvaPicker(id, fbPageItems); }); if($("ytVidsCh")) mountAvaPicker("ytVidsCh", ytChItems); };
     // Mở CHI TIẾT 1 Page/IG -> tab Analytics FB/IG, tự chọn + tải
     window.openFbDetail=(name,plat)=>{ if(window.setPlat) setPlat("fb"); gotoView("analytics");
       setTimeout(()=>{ if(window.renderFbAnalytics) renderFbAnalytics(); const s=$("faPage"); if(s&&name){ s.value=name; } if(plat&&window.faPlat) faPlat(plat); if(window.faLoad) faLoad(); }, 50);
