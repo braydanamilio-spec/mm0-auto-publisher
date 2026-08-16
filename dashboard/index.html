@@ -391,6 +391,7 @@
           <input type="search" id="connSearch" placeholder="🔍 Tìm theo tên kênh / nhãn / email…">
           <button class="mini" id="connCollapse">⊟ Thu gọn tất cả</button>
           <button class="mini" id="connExpand">⊞ Mở tất cả</button>
+          <button class="mini" id="connAssignBrand">✉ Gắn Gmail cho brand chưa nhóm</button>
         </div>
         <div id="connGrid"></div>
         <div class="panel help">
@@ -640,6 +641,11 @@
         .gmail-em{font-weight:700;font-size:14.5px;word-break:break-all}
         .gmail-caret{font-size:12px;color:var(--muted);width:14px;flex:none}
         .gmail-idx{display:inline-block;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;margin-right:6px}
+        .gmail-avastack{display:flex;align-items:center;flex:none}
+        .gmail-mini{width:26px;height:26px;border-radius:50%;margin-left:-7px;border:2px solid var(--surface);display:grid;place-items:center;color:#fff;font-size:9px;font-weight:800;background-size:cover;background-position:center;flex:none}
+        .gmail-mini:first-child{margin-left:0}
+        .gmail-more{margin-left:4px;font-size:11px;color:var(--muted);font-weight:700}
+        @media(max-width:640px){.gmail-avastack{display:none}}
         .conn-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
         .conn-tools input[type=search]{flex:1;min-width:220px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 13px;font-family:var(--sans);font-size:14px}
         .conn-num{position:absolute;top:10px;right:12px;font-size:11px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums}
@@ -1150,6 +1156,7 @@
       if($("connCollapse"))$("connCollapse").onclick=()=>{ const s=window.__collapsedGmail=window.__collapsedGmail||new Set();
         new Set(Object.values(C()).map(c=>c.email||"__none")).forEach(e=>s.add(e)); renderConnections(); };
       if($("connExpand"))$("connExpand").onclick=()=>{ if(window.__collapsedGmail)window.__collapsedGmail.clear(); renderConnections(); };
+      if($("connAssignBrand"))$("connAssignBrand").onclick=window.assignAllBrand;
       if($("fbAccount"))$("fbAccount").onchange=()=>{ if($("fbSearch"))$("fbSearch").value=""; window.__fb.account=$("fbAccount").value; window.__fb.stack=[]; fbOpen(null,"My Drive"); };
       if($("fbSearch"))$("fbSearch").oninput=(e)=>window.fbSearchInput(e.target.value);
       if($("stSort"))$("stSort").onchange=renderStorage;
@@ -1351,6 +1358,13 @@
       const gmail=prompt("Nhập Gmail thật quản lý các kênh này (để gộp nhóm cho dễ quản lý):", "");
       if(!gmail||!gmail.includes("@")) return;
       window.saveGmailGroup(keys, gmail.trim());
+    };
+    window.assignAllBrand=()=>{
+      const brands=Object.keys(__C||{}).filter(k=>/@pages\.plusgoogle\.com$/i.test(gmailKeyOf(k)));
+      if(!brands.length) return alert("Không có brand channel nào chưa gộp. (Các brand đã gộp rồi.)");
+      const gmail=prompt(`Nhập Gmail thật quản lý ${brands.length} brand channel chưa nhóm (gộp tất cả về 1 Gmail):`, "");
+      if(!gmail||!gmail.includes("@")) return;
+      window.saveGmailGroup(brands, gmail.trim());
     };
     window.removeGmailGroup = async (email)=>{
       const keys=Object.keys(__C||{}).filter(k=>gmailKeyOf(k)===email);
@@ -1822,6 +1836,7 @@
           <div class="gmail-head" onclick="toggleGmail('${esc(em||'__none')}')" style="cursor:pointer">
             <span class="gmail-caret">${isCol?'▸':'▾'}</span>
             <div class="gmail-ic">${brand?'🏷️':(known?'✉':'?')}</div>
+            <div class="gmail-avastack">${keys.slice(0,5).map(k=>chAva(k,'gmail-mini')).join("")}${keys.length>5?`<span class="gmail-more">+${keys.length-5}</span>`:''}</div>
             <div style="flex:1;min-width:0"><div class="gmail-em"><span class="gmail-idx">${brand?'Brand':'Gmail'} ${gi}</span> ${label}</div>
               <div class="p-sub">${keys.length} kênh${subs?` · ${fmtN(subs)} subs tổng`:''}</div></div>
             ${brand?`<button class="mini" onclick="event.stopPropagation();assignGmail('${esc(em)}')">✉ Gộp vào Gmail</button>`:''}
