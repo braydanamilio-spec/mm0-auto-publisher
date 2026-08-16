@@ -2916,6 +2916,7 @@
       $("fbList").innerHTML=`<div class="p-sub" style="padding:12px">${t("working")}</div>`;
       try{
         const d=await workerApi(`/api/files?account=${encodeURIComponent(acc)}${folderId?`&folder=${encodeURIComponent(folderId)}`:""}`);
+        if(d.root) window.__fb.root=d.root;   // id thư mục MM0-STORE (để nút tắt tới _QUEUE)
         if(!folderId) window.__fb.stack=[{id:d.parent, name:folderName||"MM0-STORE"}];
         fbRender(d.files||[]);
       }catch(e){
@@ -2930,12 +2931,25 @@
       }
     }
     function fbRefresh(){ const st=window.__fb.stack, i=st.length-1, top=st[i]; if(top) fbOpen(i===0?null:top.id, top.name); }
+    // Nhảy thẳng tới MM0-STORE/_QUEUE (nơi video upload qua panel nằm) -> khỏi bấm nhiều tầng
+    window.fbGotoQueue=async()=>{ const acct=window.__fb&&window.__fb.account; if(!acct){ toastMsg("Chọn kho trước"); return; }
+      try{ let rid=window.__fb.root;
+        if(!rid){ const r0=await workerApi(`/api/files?account=${encodeURIComponent(acct)}`); rid=r0.root; window.__fb.root=rid; }
+        if(!rid){ toastMsg("Kho chưa có thư mục MM0-STORE"); return; }
+        const r1=await workerApi(`/api/files?account=${encodeURIComponent(acct)}&folder=${encodeURIComponent(rid)}`);
+        const q=(r1.files||[]).find(f=>f.name==="_QUEUE"&&f.mimeType==="application/vnd.google-apps.folder");
+        if(!q){ toastMsg("Chưa có _QUEUE — chưa upload video nào qua panel."); return; }
+        const r2=await workerApi(`/api/files?account=${encodeURIComponent(acct)}&folder=${encodeURIComponent(q.id)}`);
+        window.__fb.stack=[{id:null,name:"My Drive"},{id:rid,name:"MM0-STORE"},{id:q.id,name:"_QUEUE"}];
+        fbRender(r2.files||[]); toastMsg("📂 Đang xem _QUEUE — bấm long/short để thấy video, mỗi video có nút Xoá");
+      }catch(e){ toastMsg("❌ "+((e&&e.message)||e)); } };
     const FOLDER_MIME="application/vnd.google-apps.folder";
     function fbRender(files){
       window.__fb.files=files;
       const cur=(window.__fb.stack||[]).slice(-1)[0];
       $("fbBread").innerHTML=window.__fb.stack.map((s,i)=>`<span class="fb-crumb" onclick="fbCrumb(${i})">${esc(s.name)}</span>`).join('<span class="fb-sep">/</span>')
-        + `<label class="mini" style="margin-left:auto;cursor:pointer" title="Tải video vào thư mục này">⬆️ Tải vào đây<input type="file" accept="video/*" multiple style="display:none" onchange="fbUploadHere(this.files);this.value=''"></label>`
+        + `<button class="mini" style="margin-left:auto" onclick="fbGotoQueue()" title="Nhảy tới _QUEUE — nơi chứa video anh upload qua panel">📂 Video đã upload</button>`
+        + `<label class="mini" style="cursor:pointer" title="Tải video vào thư mục này">⬆️ Tải vào đây<input type="file" accept="video/*" multiple style="display:none" onchange="fbUploadHere(this.files);this.value=''"></label>`
         + `<button class="mini" onclick="fbRefresh()">↻</button>`;
       // Kéo-thả video vào danh sách file -> tải THẲNG vào thư mục hiện tại (check trùng)
       const lst=$("fbList");
