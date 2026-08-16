@@ -3399,7 +3399,14 @@
       const onlyIssues=$("pubOnlyIssues")&&$("pubOnlyIssues").checked;
       if(onlyIssues) rows=rows.filter(v=>vIssues(v).length>0);
       const nIssue=V().filter(notPosted).filter(v=>vIssues(v).length>0).length;
-      $("pubCount").innerHTML=rows.length+" video"+(nIssue?` · <span style="color:var(--warn);font-weight:700">⚠ ${nIssue} cần bổ sung</span>`:"")+(rows.length?` · <button class="mini bad" onclick="pubDeleteAll()">🗑️ Xóa hết hàng đợi</button>`:"");
+      window.__pubRows=rows.map(v=>v.id);   // thứ tự hiển thị -> cho shift bôi chọn khoảng
+      const psel=window.__pubSel||new Set(); const selN=rows.filter(v=>psel.has(v.id)).length;
+      const allChk=rows.length>0 && rows.every(v=>psel.has(v.id));
+      const chFiltered=!!(sel&&sel.value);
+      $("pubCount").innerHTML=`<label style="cursor:pointer;white-space:nowrap"><input type="checkbox" ${allChk?'checked':''} onclick="pubSelAll(this.checked)" style="vertical-align:-2px"> Chọn tất cả</label>`
+        +` · ${rows.length} video${nIssue?` · <span style="color:var(--warn);font-weight:700">⚠ ${nIssue}</span>`:""}`
+        +(selN?` · <b style="color:var(--accent)">chọn ${selN}</b> <button class="mini bad" onclick="pubDeleteSelected()">🗑️ Xóa ${selN}</button> <button class="mini" onclick="pubSelClear()">Bỏ chọn</button>`:"")
+        +(rows.length?` · <button class="mini bad" onclick="pubDeleteAll()">🗑️ Xóa hết ${chFiltered?'(kênh này)':'hàng đợi'}</button>`:"");
       // Gợi ý: múi giờ đang chọn + số long/short trong hàng đợi (theo kênh đang lọc)
       const chSel=sel?sel.value:"", tzSel=($("pubTz")&&$("pubTz").value)||"America/New_York";
       const scope=chSel?rows.filter(v=>v.channel===chSel):rows;
@@ -3412,12 +3419,13 @@
       const banner=(miss.thumb||miss.desc||miss.hash)?`<div class="pub-warn">⚠️ Kiểm tra trước khi đăng —
         ${miss.thumb?`<b>${miss.thumb}</b> thiếu thumbnail · `:""}${miss.desc?`<b>${miss.desc}</b> thiếu mô tả riêng · `:""}${miss.hash?`<b>${miss.hash}</b> thiếu hashtag`:""}
         <span class="sd">(vẫn đăng được với mặc định — di chuột vào ⚠ ở mỗi video để xem chi tiết)</span></div>`:"";
-      $("pubList").innerHTML=banner+rows.map(v=>{
+      $("pubList").innerHTML=banner+rows.map((v,idx)=>{
         const col=chColor(v.channel);
         const iss=vIssues(v);
         const warn=iss.length?`· <span class="tag2 warn" title="${esc(iss.join(' · '))}">⚠ ${esc(iss.map(x=>x.replace('thiếu ','')).join(', '))}</span>`:"";
         return `<div class="pub-item${iss.length?' has-issue':''}">
           <div class="pub-row">
+            <input type="checkbox" class="fb-chk" ${psel.has(v.id)?'checked':''} onclick="pubSelClick(event,'${esc(v.id)}',${idx})" title="Chọn (Shift+bấm để bôi khoảng)">`
             <div class="ava" style="width:30px;height:30px;font-size:12px;background:linear-gradient(145deg,${col},${col}aa)">${esc((chName(v.channel)||'?').slice(0,2).toUpperCase())}</div>
             <div style="flex:1;min-width:0;cursor:pointer" onclick="pubEdit('${esc(v.id)}')"><div class="nm" style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.title||v.drive_name||v.id)}</div>
               <div class="p-sub">${esc(chName(v.channel))} · <span class="tag2">${esc(v.type||'—')}</span> · <span class="tag2">${esc(eff(v))}</span> ${warn}</div></div>
@@ -3488,11 +3496,24 @@
     };
     window.pubDelete=async(id)=>{ const v=V().find(x=>x.id===id); const nm=v?(v.title||v.drive_name||id):id;
       if(!confirm(`Xóa "${nm}" khỏi hàng đợi?\n\n(Chỉ gỡ khỏi danh sách — KHÔNG đụng YouTube. Nếu file còn trên Drive _QUEUE, cron có thể tạo lại; muốn xóa hẳn thì xóa cả file trên Drive.)`)) return;
-      try{ await window.__deleteVideo(id); toastMsg("🗑️ Đã xóa khỏi hàng đợi"); }catch(e){ alert("❌ "+e.message); } };
-    window.pubDeleteAll=async()=>{ const ids=V().filter(notPosted).map(v=>v.id);
+      try{ await window.__deleteVideo(id); (window.__pubSel||new Set()).delete(id); toastMsg("🗑️ Đã xóa khỏi hàng đợi"); }catch(e){ alert("❌ "+e.message); } };
+    // ===== Chọn nhiều: tick, chọn tất cả, Shift bôi khoảng =====
+    window.__pubSel=new Set(); window.__pubLastIdx=null;
+    window.pubSelClick=(e,id,idx)=>{ window.__pubSel=window.__pubSel||new Set();
+      if(e.shiftKey && window.__pubLastIdx!=null){ const a=Math.min(window.__pubLastIdx,idx), b=Math.max(window.__pubLastIdx,idx);
+        const ids=window.__pubRows||[]; const on=e.target.checked;
+        for(let i=a;i<=b;i++){ if(ids[i]){ if(on) window.__pubSel.add(ids[i]); else window.__pubSel.delete(ids[i]); } } }
+      else { if(e.target.checked) window.__pubSel.add(id); else window.__pubSel.delete(id); }
+      window.__pubLastIdx=idx; renderPublish(); };
+    window.pubSelAll=(checked)=>{ window.__pubSel=window.__pubSel||new Set(); (window.__pubRows||[]).forEach(id=>{ if(checked) window.__pubSel.add(id); else window.__pubSel.delete(id); }); renderPublish(); };
+    window.pubSelClear=()=>{ window.__pubSel=new Set(); window.__pubLastIdx=null; renderPublish(); };
+    window.pubDeleteSelected=async()=>{ const ids=[...(window.__pubSel||new Set())].filter(id=>V().some(v=>v.id===id));
+      if(!ids.length) return; if(!confirm(`Xóa ${ids.length} video đã chọn khỏi hàng đợi?\n(Không đụng YouTube. File Drive còn thì cron tạo lại — xóa file Drive trước nếu muốn dứt điểm.)`)) return;
+      const ok=await window.__deleteVideos(ids); window.__pubSel=new Set(); window.__pubLastIdx=null; toastMsg(`🗑️ Đã xóa ${ok} video`); };
+    window.pubDeleteAll=async()=>{ const ids=(window.__pubRows||[]).slice();   // theo DANH SÁCH ĐANG HIỆN (tôn trọng lọc kênh)
       if(!ids.length) return;
-      if(!confirm(`Xóa TẤT CẢ ${ids.length} video khỏi hàng đợi?\n\n(Chỉ gỡ khỏi danh sách, không đụng YouTube. File trên Drive còn thì cron có thể tạo lại — nên xóa file Drive trước nếu muốn dứt điểm.)`)) return;
-      const ok=await window.__deleteVideos(ids); toastMsg(`🗑️ Đã xóa ${ok} video khỏi hàng đợi`); };
+      if(!confirm(`Xóa TẤT CẢ ${ids.length} video ĐANG HIỆN khỏi hàng đợi?\n(Nếu đang lọc theo kênh -> chỉ xóa kênh đó. Không đụng YouTube. File Drive còn thì cron tạo lại — xóa file Drive trước nếu muốn dứt điểm.)`)) return;
+      const ok=await window.__deleteVideos(ids); window.__pubSel=new Set(); toastMsg(`🗑️ Đã xóa ${ok} video khỏi hàng đợi`); };
     // Đổi giờ "treo tường" ở 1 múi giờ (IANA) -> instant UTC chuẩn (tự xử lý DST)
     function tzOffsetMs(date, tz){
       const dtf=new Intl.DateTimeFormat('en-US',{timeZone:tz,hour12:false,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
