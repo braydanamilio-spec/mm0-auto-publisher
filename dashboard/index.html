@@ -661,6 +661,23 @@
           </div>
           <div class="p-sub" style="margin-top:9px" data-i18n="st_hint">Click → sign in Drive account → grant → auto-creates store folder + saves token. Combine many = 150GB/1TB.</div>
         </div>
+        <div class="panel" style="margin-bottom:16px" id="uploadPanel">
+          <div class="p-title">⬆️ Upload video từ máy tính</div>
+          <div class="p-sub" style="margin:6px 0 12px;line-height:1.6">Đẩy <b>thẳng lên Google Drive kho</b> — <b>giữ nguyên chất lượng</b> (không nén), tốc độ tối ưu. Hệ <b>tự chia folder thông minh</b>: <code>_QUEUE/long</code> hoặc <code>_QUEUE/short</code> + gắn kênh (sidecar) để cron tự đăng.</div>
+          <div class="pubbar">
+            <label class="fld"><span>📂 Kho (Drive)</span><select id="upAccount"></select></label>
+            <label class="fld"><span>📺 Kênh đích</span><select id="upChannel"></select></label>
+            <label class="fld"><span>🎬 Loại</span><select id="upType"><option value="auto">Tự nhận long/short</option><option value="long">Long-form</option><option value="short">Short/Reel</option></select></label>
+            <label class="fld"><span>🕒 Đăng lúc <span class="p-sub">(trống = xếp sau)</span></span><input id="upWhen" type="datetime-local"></label>
+          </div>
+          <div id="upDrop" style="margin-top:12px;border:2px dashed var(--border);border-radius:12px;padding:24px;text-align:center;cursor:pointer;transition:.15s">
+            <div style="font-size:30px">📤</div>
+            <div style="margin-top:6px">Kéo thả video vào đây, hoặc <b style="color:var(--accent);text-decoration:underline">bấm chọn file</b></div>
+            <div class="p-sub" style="margin-top:4px">Nhiều file cùng lúc · mp4/mov/mkv/webm · không giới hạn dung lượng</div>
+            <input id="upFiles" type="file" accept="video/*" multiple style="display:none">
+          </div>
+          <div id="upList" style="margin-top:12px"></div>
+        </div>
         <div class="panel" style="margin-bottom:16px">
           <div class="p-title">🧹 <span data-i18n="cleanup_cfg">Cleanup settings</span></div>
           <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:12px">
@@ -3621,8 +3638,65 @@
       if(s.has(em)) s.delete(em); else s.add(em); renderConnections(); };
     const fmtBytes=(n)=>{if(n==null)return"—";const u=["B","KB","MB","GB","TB"];let i=0,x=n;while(x>=1000&&i<u.length-1){x/=1000;i++;}return x.toFixed(x<10&&i>0?1:0)+" "+u[i];};
 
+    /* ===== UPLOAD video từ máy tính -> Drive kho (relay chunk qua Worker, giữ nguyên chất lượng) ===== */
+    window.__upQ=[]; window.__upBusy=false;
+    window.upInit=()=>{
+      const accSel=$("upAccount"); if(accSel){ const accs=((__STORAGE&&__STORAGE.accounts)||[]); const keep=accSel.value;
+        accSel.innerHTML=accs.length?accs.map(a=>{const gb=Math.round((a.used||0)/1e8)/10; return `<option value="${esc(a.name)}">${esc(a.name)}${a.email?` · ${esc(a.email)}`:''}${gb?` (${gb}GB)`:''}</option>`;}).join(""):`<option value="">— chưa có kho, kết nối Drive trước —</option>`;
+        if(accs.some(a=>a.name===keep)) accSel.value=keep; }
+      const chSel=$("upChannel"); if(chSel){ const chans=connectedYT(); const keep=chSel.value;
+        chSel.innerHTML=chans.length?chans.map(k=>`<option value="${esc(k)}">${esc(chName(k))}</option>`).join(""):`<option value="">— chưa có kênh —</option>`;
+        if(chans.includes(keep)) chSel.value=keep; }
+      const drop=$("upDrop"), fi=$("upFiles");
+      if(drop&&!drop.__wired){ drop.__wired=true;
+        drop.onclick=()=>fi&&fi.click();
+        drop.ondragover=e=>{e.preventDefault();drop.style.borderColor="var(--accent)";};
+        drop.ondragleave=()=>{drop.style.borderColor="var(--border)";};
+        drop.ondrop=e=>{e.preventDefault();drop.style.borderColor="var(--border)"; upAdd([...e.dataTransfer.files]);};
+        if(fi) fi.onchange=()=>{ upAdd([...fi.files]); fi.value=""; }; }
+    };
+    function upDetectType(file){ return new Promise(res=>{ try{ const v=document.createElement("video"); v.preload="metadata";
+      v.onloadedmetadata=()=>{ const dur=v.duration||0, vert=v.videoHeight>=v.videoWidth; URL.revokeObjectURL(v.src); res((dur>0&&dur<=182&&vert)?"short":"long"); };
+      v.onerror=()=>{ try{URL.revokeObjectURL(v.src);}catch(_){} res(/short|reel|vert/i.test(file.name)?"short":"long"); };
+      v.src=URL.createObjectURL(file); }catch(_){ res("long"); } }); }
+    function upAdd(files){ files=(files||[]).filter(f=>/\.(mp4|mov|mkv|webm|m4v)$/i.test(f.name)||/^video\//.test(f.type||""));
+      if(!files.length){ toastMsg("Chọn file video (mp4/mov/mkv/webm)"); return; }
+      files.forEach(f=>window.__upQ.push({file:f,name:f.name,size:f.size,pct:0,status:"chờ",err:""})); upRender(); upPump(); }
+    function upRender(){ const box=$("upList"); if(!box) return; if(!window.__upQ.length){ box.innerHTML=""; return; }
+      box.innerHTML=window.__upQ.map((it,i)=>`<div class="svc" style="align-items:center">
+        <div style="flex:1;min-width:0"><div class="snm" style="min-width:0">${esc(it.name)} ${it.type?`<span class="tag2">${it.type}</span>`:''}</div>
+          <div style="height:6px;background:var(--surface2);border-radius:20px;overflow:hidden;margin-top:5px"><i style="display:block;height:100%;width:${it.pct}%;background:${it.status==='lỗi'?'var(--bad)':it.status==='xong'?'var(--good)':'var(--accent)'};transition:.2s"></i></div></div>
+        <span class="sd" style="margin-left:10px;white-space:nowrap;min-width:70px;text-align:right">${it.status==='đang tải'?it.pct+'%':esc(it.status)}${it.err?` · ${esc(it.err)}`:''}</span>
+        ${(it.status==='xong'||it.status==='lỗi')?`<button class="yt-rowbtn" title="Bỏ" onclick="upRemove(${i})">✕</button>`:''}</div>`).join(""); }
+    window.upRemove=(i)=>{ window.__upQ.splice(i,1); upRender(); };
+    async function upPump(){ if(window.__upBusy) return; const it=window.__upQ.find(x=>x.status==="chờ"); if(!it) return;
+      window.__upBusy=true; try{ await upOne(it); }catch(e){ it.status="lỗi"; it.err=(e&&e.message)||"lỗi"; upRender(); } window.__upBusy=false; upPump(); }
+    async function upOne(it){
+      const acct=($("upAccount")||{}).value, channel=($("upChannel")||{}).value;
+      if(!acct) throw new Error("chọn kho"); if(!channel) throw new Error("chọn kênh");
+      let type=($("upType")||{}).value||"auto"; if(type==="auto"){ it.status="phân tích…"; upRender(); type=await upDetectType(it.file); }
+      it.type=type; it.status="đang tải"; it.pct=0; upRender();
+      const init=await workerApi("/api/upload-init",{method:"POST",body:{account:acct,type,name:it.name,mimeType:it.file.type||"video/mp4",size:it.size}});
+      const sess=init.sessionUri, folderId=init.folderId; if(!sess) throw new Error("init lỗi");
+      const CHUNK=16*1024*1024; let off=0;
+      while(off<it.size){ const end=Math.min(off+CHUNK,it.size); const blob=it.file.slice(off,end); const range=`bytes ${off}-${end-1}/${it.size}`;
+        const r=await upPutChunk(sess,range,blob,(loaded)=>{ it.pct=Math.min(100,Math.round((off+loaded)/it.size*100)); upRender(); });
+        if(r.status===200||r.status===201){ off=it.size; break; }
+        if(r.status!==308) throw new Error("tải lỗi "+r.status);
+        off=end; it.pct=Math.round(off/it.size*100); upRender(); }
+      const when=($("upWhen")||{}).value; const sidecar={channel,type}; if(when) sidecar.publish_at=new Date(when).toISOString();
+      await workerApi("/api/upload-done",{method:"POST",body:{account:acct,folderId,base:it.name.replace(/\.[^.]+$/,''),sidecar}});
+      it.status="xong"; it.pct=100; upRender(); toastMsg("✅ Đã upload: "+it.name); }
+    function upPutChunk(sess,range,blob,onProg){ return new Promise((res,rej)=>{ const x=new XMLHttpRequest();
+      x.open("POST",WORKER_URL+"/api/upload-chunk?s="+encodeURIComponent(sess));
+      x.setRequestHeader("x-mm0-range",range);
+      x.upload.onprogress=e=>{ if(e.lengthComputable&&onProg) onProg(e.loaded); };
+      x.onload=()=>{ try{ res(JSON.parse(x.responseText)); }catch(_){ res({status:x.status}); } };
+      x.onerror=()=>rej(new Error("mạng lỗi")); x.send(blob); }); }
+
     function renderStorage(){
       const s=__STORAGE;
+      if(window.upInit) upInit();
       if(typeof fbSyncAccounts==="function") fbSyncAccounts();   // đồng bộ ô chọn tài khoản của trình duyệt file
       // nạp cấu hình dọn dẹp vào form (không đè khi đang gõ)
       const clcfg=(__OVERRIDES&&__OVERRIDES.cleanup)||(s&&{mode:s.cleanup_mode,keep_days:s.keep_days})||(__SETTINGS&&__SETTINGS.cleanup)||{};

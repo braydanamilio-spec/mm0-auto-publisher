@@ -32,6 +32,9 @@ export default {
       if (url.pathname === "/api/disconnect") return corsResp(await apiDisconnect(request, url, env));
       if (url.pathname === "/api/files") return corsResp(await apiFiles(request, url, env));
       if (url.pathname === "/api/file-action") return corsResp(await apiFileAction(request, url, env));
+      if (url.pathname === "/api/upload-init") return corsResp(await apiUploadInit(request, url, env));
+      if (url.pathname === "/api/upload-chunk") return corsResp(await apiUploadChunk(request, url, env));
+      if (url.pathname === "/api/upload-done") return corsResp(await apiUploadDone(request, url, env));
       if (url.pathname === "/api/analytics") return corsResp(await apiAnalytics(request, url, env));
       if (url.pathname === "/api/channel-videos") return corsResp(await apiChannelVideos(request, url, env));
       if (url.pathname === "/api/monetization") return corsResp(await apiMonetization(request, url, env));
@@ -700,6 +703,84 @@ async function apiFiles(request, url, env) {
   return json({ ok: true, root: conn.root, parent, files: j.files || [] });
 }
 
+// Tìm/tạo thư mục con theo tên (dùng OAuth token của kho).
+async function driveChildFolder(dat, parent, name, create = true) {
+  const q = encodeURIComponent(`'${parent}' in parents and name='${String(name).replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)&pageSize=1`,
+    { headers: { Authorization: `Bearer ${dat}` } });
+  const j = await r.json();
+  if (j.files && j.files[0]) return j.files[0].id;
+  if (!create) return null;
+  const c = await fetch("https://www.googleapis.com/drive/v3/files?fields=id",
+    { method: "POST", headers: { Authorization: `Bearer ${dat}`, "content-type": "application/json" },
+      body: JSON.stringify({ name, parents: [parent], mimeType: "application/vnd.google-apps.folder" }) });
+  const cj = await c.json();
+  if (!c.ok) throw new Error("Tạo folder lỗi: " + ((cj.error && cj.error.message) || c.status));
+  return cj.id;
+}
+
+// POST /api/upload-init {t,account,type(long|short),name,mimeType,size}
+//   -> Tạo PHIÊN UPLOAD resumable trực tiếp trên Drive của kho, trả sessionUri để BROWSER tự PUT bytes
+//      (KHÔNG qua Worker -> full tốc độ, KHÔNG giảm chất lượng, token KHÔNG lộ ra browser).
+async function apiUploadInit(request, url, env) {
+  const b = request.method === "POST" ? await request.json().catch(() => ({})) : {};
+  const { t, account, type, name, mimeType, size } = b;
+  const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
+  if (!uid) throw new Error("Chưa đăng nhập.");
+  if (!account || !name) throw new Error("Thiếu account/tên file.");
+  const { conn, dat } = await driveCtx(env, uid, account);
+  const root = conn.root;
+  if (!root) throw new Error("Kho chưa có thư mục gốc (kết nối lại Drive).");
+  const queue = await driveChildFolder(dat, root, "_QUEUE");
+  const folder = await driveChildFolder(dat, queue, type === "short" ? "short" : "long");
+  const init = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name",
+    { method: "POST",
+      headers: { Authorization: `Bearer ${dat}`, "content-type": "application/json; charset=UTF-8",
+        "X-Upload-Content-Type": mimeType || "video/mp4",
+        ...(size ? { "X-Upload-Content-Length": String(size) } : {}) },
+      body: JSON.stringify({ name, parents: [folder] }) });
+  if (!init.ok) throw new Error("Init upload lỗi: " + init.status + " " + (await init.text()).slice(0, 200));
+  const sessionUri = init.headers.get("location") || init.headers.get("Location");
+  if (!sessionUri) throw new Error("Không lấy được session upload.");
+  return json({ ok: true, sessionUri, folderId: folder });
+}
+
+// POST /api/upload-chunk?s=<sessionUri>  header X-Mm0-Range: <Content-Range>  body=raw bytes 1 chunk
+//   -> RELAY chunk lên Drive session (browser không PUT thẳng được vì CORS). Trả 308 (còn tiếp) / 200-201 (xong).
+async function apiUploadChunk(request, url, env) {
+  const sess = url.searchParams.get("s");
+  const range = request.headers.get("x-mm0-range") || "";
+  if (!sess) throw new Error("Thiếu session.");
+  let host = "";
+  try { host = new URL(sess).hostname; } catch (e) { throw new Error("Session không hợp lệ."); }
+  if (!/(^|\.)googleapis\.com$/.test(host)) throw new Error("Session không phải Google.");
+  const buf = await request.arrayBuffer();   // buffer 1 chunk (<=16MB) -> có Content-Length chuẩn
+  const put = await fetch(sess, { method: "PUT", headers: range ? { "Content-Range": range } : {}, body: buf });
+  const status = put.status;
+  let id = "";
+  if (status === 200 || status === 201) { try { id = (await put.json()).id || ""; } catch (_) {} }
+  return json({ ok: status === 200 || status === 201 || status === 308, status, id });
+}
+
+// POST /api/upload-done {t,account,folderId,base,sidecar} -> tạo sidecar .json cạnh video (định tuyến kênh).
+async function apiUploadDone(request, url, env) {
+  const b = request.method === "POST" ? await request.json().catch(() => ({})) : {};
+  const { t, account, folderId, base, sidecar } = b;
+  const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
+  if (!uid) throw new Error("Chưa đăng nhập.");
+  if (!account || !folderId || !base) throw new Error("Thiếu tham số.");
+  const { dat } = await driveCtx(env, uid, account);
+  const boundary = "mm0" + Math.abs((Date.now() ^ (base.length * 2654435761)) >>> 0).toString(36);
+  const meta = { name: `${base}.json`, parents: [folderId] };
+  const body = `--${boundary}\r\ncontent-type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n` +
+    `--${boundary}\r\ncontent-type: application/json\r\n\r\n${JSON.stringify(sidecar || {})}\r\n--${boundary}--`;
+  const r = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id",
+    { method: "POST", headers: { Authorization: `Bearer ${dat}`, "content-type": `multipart/related; boundary=${boundary}` }, body });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error("Ghi sidecar lỗi: " + ((j.error && j.error.message) || r.status));
+  return json({ ok: true, id: j.id });
+}
+
 // POST /api/file-action {t,account,action,fileId,newName}
 //   action: rename | trash | untrash   (xoá = đưa vào THÙNG RÁC Drive, khôi phục được)
 async function apiFileAction(request, url, env) {
@@ -1106,7 +1187,7 @@ function corsResp(res) {
   const h = new Headers(res.headers);
   h.set("Access-Control-Allow-Origin", "*");
   h.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  h.set("Access-Control-Allow-Headers", "content-type");
+  h.set("Access-Control-Allow-Headers", "content-type,x-mm0-range");
   h.set("Access-Control-Max-Age", "86400");
   return new Response(res.body, { status: res.status, headers: h });
 }
