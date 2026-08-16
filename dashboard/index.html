@@ -719,12 +719,14 @@
           <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive)</div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
+              <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm tra token</button>
               <select id="stSort" class="set-sel" style="max-width:190px">
                 <option value="free">🟢 Còn trống nhiều nhất</option>
                 <option value="full">🔴 Đầy nhất</option>
                 <option value="cap">💾 Dung lượng lớn nhất</option>
                 <option value="name">🔤 Tên A→Z</option>
               </select></div></div>
+          <div id="stTokenHealth" style="margin-bottom:10px"></div>
           <div id="stAccounts"></div>
         </div>
         <div class="panel" style="margin-bottom:16px">
@@ -2917,7 +2919,16 @@
         const d=await workerApi(`/api/files?account=${encodeURIComponent(acc)}${folderId?`&folder=${encodeURIComponent(folderId)}`:""}`);
         if(!folderId) window.__fb.stack=[{id:d.parent, name:folderName||"MM0-STORE"}];
         fbRender(d.files||[]);
-      }catch(e){ $("fbList").innerHTML=`<div class="p-sub" style="padding:12px">❌ ${esc(e.message)}</div>`; }
+      }catch(e){
+        const invalid=/TOKEN_INVALID|invalid_grant|expired or revoked/i.test(e.message);
+        $("fbList").innerHTML=invalid
+          ? `<div class="panel" style="border-color:var(--warn);padding:14px">
+              <b style="color:var(--warn)">⚠️ Kho "${esc(acc)}" — token đã hết hạn/bị thu hồi</b>
+              <div class="p-sub" style="margin-top:6px;line-height:1.6">Cần <b>kết nối lại 1 lần</b>. Để KHÔNG bị lặp lại, hãy <b>publish OAuth consent screen sang "Production"</b> (Testing chỉ giữ token 7 ngày).</div>
+              <button class="btn-conn" style="margin-top:10px" onclick="connectChannel('${esc(acc)}','drive')">🔗 Kết nối lại kho này</button>
+              <a class="btn-mini" href="https://console.cloud.google.com/apis/credentials/consent?project=377166959818" target="_blank" style="margin-left:8px;display:inline-block">🔧 Publish consent screen →</a></div>`
+          : `<div class="p-sub" style="padding:12px">❌ ${esc(e.message)}</div>`;
+      }
     }
     function fbRefresh(){ const st=window.__fb.stack, i=st.length-1, top=st[i]; if(top) fbOpen(i===0?null:top.id, top.name); }
     const FOLDER_MIME="application/vnd.google-apps.folder";
@@ -3660,6 +3671,20 @@
     window.toggleGmail=(em)=>{ const s=window.__collapsedGmail=window.__collapsedGmail||new Set();
       if(s.has(em)) s.delete(em); else s.add(em); renderConnections(); };
     const fmtBytes=(n)=>{if(n==null)return"—";const u=["B","KB","MB","GB","TB"];let i=0,x=n;while(x>=1000&&i<u.length-1){x/=1000;i++;}return x.toFixed(x<10&&i>0?1:0)+" "+u[i];};
+
+    /* ===== Kiểm tra sức khoẻ token kho (chống gián đoạn đăng bài) ===== */
+    window.checkDriveTokens=async()=>{ const box=$("stTokenHealth"); if(!box) return;
+      const accs=((__STORAGE&&__STORAGE.accounts)||[]).map(a=>a.name);
+      if(!accs.length){ box.innerHTML=`<div class="p-sub">Chưa có kho nào.</div>`; return; }
+      box.innerHTML=`<div class="p-sub">🩺 Đang kiểm tra ${accs.length} kho…</div>`;
+      const rows=[];
+      for(const a of accs){ try{ const d=await workerApi(`/api/token-check?account=${encodeURIComponent(a)}`); rows.push({a,healthy:d.healthy,invalid:d.invalid}); }
+        catch(e){ rows.push({a,healthy:false,invalid:/invalid_grant|TOKEN_INVALID/i.test(e.message)}); } }
+      const bad=rows.filter(r=>!r.healthy);
+      box.innerHTML=`<div class="panel" style="border-color:${bad.length?'var(--warn)':'var(--good)'};padding:12px">
+        <b style="color:${bad.length?'var(--warn)':'var(--good)'}">${bad.length?`⚠️ ${bad.length}/${rows.length} kho token HỎNG`:`✅ Tất cả ${rows.length} kho token còn sống`}</b>
+        <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px">${rows.map(r=>`<span class="rw-chip ${r.healthy?'':'bad'}">${r.healthy?'✅':'⚠️'} ${esc(r.a)}${!r.healthy?` <button class="btn-mini" style="margin-left:4px" onclick="connectChannel('${esc(r.a)}','drive')">Kết nối lại</button>`:''}</span>`).join("")}</div>
+        ${bad.length?`<div class="p-sub" style="margin-top:8px;line-height:1.6">💡 Để token <b>không hết hạn lặp lại</b> (Testing = 7 ngày): <a href="https://console.cloud.google.com/apis/credentials/consent?project=377166959818" target="_blank" style="color:var(--accent)">publish OAuth consent screen sang Production →</a></div>`:''}</div>`; };
 
     /* ===== UPLOAD video từ máy tính -> Drive kho (relay chunk qua Worker, giữ nguyên chất lượng) ===== */
     window.__upQ=[]; window.__upBusy=false;

@@ -32,6 +32,7 @@ export default {
       if (url.pathname === "/api/disconnect") return corsResp(await apiDisconnect(request, url, env));
       if (url.pathname === "/api/files") return corsResp(await apiFiles(request, url, env));
       if (url.pathname === "/api/file-action") return corsResp(await apiFileAction(request, url, env));
+      if (url.pathname === "/api/token-check") return corsResp(await apiTokenCheck(request, url, env));
       if (url.pathname === "/api/upload-init") return corsResp(await apiUploadInit(request, url, env));
       if (url.pathname === "/api/upload-chunk") return corsResp(await apiUploadChunk(request, url, env));
       if (url.pathname === "/api/upload-done") return corsResp(await apiUploadDone(request, url, env));
@@ -703,6 +704,23 @@ async function apiFiles(request, url, env) {
   return json({ ok: true, root: conn.root, parent, files: j.files || [] });
 }
 
+// GET /api/token-check?account=<drive> HOẶC ?channel=<yt> -> kiểm tra token còn sống không (nhẹ).
+async function apiTokenCheck(request, url, env) {
+  const t = url.searchParams.get("t"); const account = url.searchParams.get("account"); const channel = url.searchParams.get("channel");
+  const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
+  if (!uid) throw new Error("Chưa đăng nhập.");
+  const at = await saAccessToken(env);
+  const path = account ? `connections/${uid}__${account}__drive` : `connections/${uid}__${channel}__youtube`;
+  const conn = await fsGet(env, at, path);
+  if (!conn || !conn.refresh_token) return json({ ok: false, healthy: false, reason: "not_connected" });
+  try {
+    await ytAccessToken(conn.client_id, conn.client_secret, conn.refresh_token);
+    return json({ ok: true, healthy: true });
+  } catch (e) {
+    return json({ ok: true, healthy: false, invalid: !!e.tokenInvalid, reason: String(e && e.message || e) });
+  }
+}
+
 // Tìm/tạo thư mục con theo tên (dùng OAuth token của kho).
 async function driveChildFolder(dat, parent, name, create = true) {
   const q = encodeURIComponent(`'${parent}' in parents and name='${String(name).replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
@@ -803,14 +821,28 @@ async function apiFileAction(request, url, env) {
   return json({ ok: true, ...j });
 }
 
-/* ---------- YouTube access token từ refresh_token ---------- */
+/* ---------- YouTube access token từ refresh_token (retry lỗi TẠM, lộ lỗi THẬT) ---------- */
 async function ytAccessToken(client_id, client_secret, refresh_token) {
-  const r = await (await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ client_id, client_secret, refresh_token, grant_type: "refresh_token" }),
-  })).json();
-  if (!r.access_token) throw new Error("Không lấy được access token (refresh hỏng?).");
-  return r.access_token;
+  let last = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let res, r;
+    try {
+      res = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ client_id, client_secret, refresh_token, grant_type: "refresh_token" }),
+      });
+      r = await res.json();
+    } catch (e) { last = "network:" + (e && e.message || e); await new Promise((s) => setTimeout(s, 800 * (attempt + 1))); continue; }
+    if (r && r.access_token) return r.access_token;
+    // invalid_grant / invalid_client = HỎNG THẬT (reconnect); còn lại có thể tạm -> thử lại
+    const err = (r && r.error) || ("http_" + res.status);
+    last = err + (r && r.error_description ? (": " + r.error_description) : "");
+    if (err === "invalid_grant" || err === "invalid_client" || err === "unauthorized_client") {
+      const e = new Error("TOKEN_INVALID: " + last); e.tokenInvalid = true; throw e;
+    }
+    await new Promise((s) => setTimeout(s, 800 * (attempt + 1)));   // lỗi tạm -> backoff rồi thử lại
+  }
+  throw new Error("Không lấy được access token (thử 3 lần): " + last);
 }
 
 const YT_SCOPES = [
