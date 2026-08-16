@@ -801,6 +801,12 @@ async function fbCallback(url, env, uid, code, redirect) {
   // 2) đổi lấy token DÀI HẠN (~60 ngày)
   const ll = await (await fetch(`https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${env.FB_APP_ID}&client_secret=${env.FB_APP_SECRET}&fb_exchange_token=${tok.access_token}`)).json();
   const userTok = ll.access_token || tok.access_token;
+  // 2b) CHỦ TÀI KHOẢN FB (uid nick fb) — để nhóm Page/IG cùng 1 người tạo (như nhóm YouTube theo Gmail)
+  let fb_owner_id = "", fb_owner_name = "";
+  try {
+    const me = await (await fetch(`https://graph.facebook.com/v19.0/me?fields=id,name&access_token=${userTok}`)).json();
+    if (me && me.id) { fb_owner_id = me.id; fb_owner_name = me.name || ""; }
+  } catch (_) {}
   // 3) danh sách Page + page token (page token không hết hạn khi user token dài hạn)
   const pages = await (await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token&access_token=${userTok}`)).json();
   const list = pages.data || [];
@@ -811,21 +817,22 @@ async function fbCallback(url, env, uid, code, redirect) {
   let igCount = 0;
   for (const pg of list) {
     const slug = slugLabel(pg.name) || ("PAGE_" + String(pg.id).slice(-6));
-    // Lấy Instagram Business account liên kết với Page (để đăng IG luôn)
-    let ig_user_id = "", ig_username = "";
+    // Lấy Instagram Business account liên kết với Page (để đăng IG luôn) + avatar
+    let ig_user_id = "", ig_username = "", ig_avatar = "";
     try {
       const igr = await (await fetch(
-        `https://graph.facebook.com/v19.0/${pg.id}?fields=instagram_business_account{id,username}&access_token=${pg.access_token}`)).json();
+        `https://graph.facebook.com/v19.0/${pg.id}?fields=instagram_business_account{id,username,profile_picture_url}&access_token=${pg.access_token}`)).json();
       const ig = igr.instagram_business_account;
-      if (ig && ig.id) { ig_user_id = ig.id; ig_username = ig.username || ""; igCount++; }
+      if (ig && ig.id) { ig_user_id = ig.id; ig_username = ig.username || ""; ig_avatar = ig.profile_picture_url || ""; igCount++; }
     } catch (_) {}
     await fsPatch(env, at, `connections/${uid}__${slug}__facebook`,
       { channel: slug, kind: "facebook", owner: uid, page_id: pg.id, page_name: pg.name,
-        page_token: pg.access_token, ig_user_id, ig_username, connected_at: new Date().toISOString() });
+        page_token: pg.access_token, ig_user_id, ig_username, ig_avatar,
+        fb_owner_id, fb_owner_name, connected_at: new Date().toISOString() });
     await fsPatch(env, at, `fb_pages/${uid}__${slug}`,
       { name: slug, owner: uid, page_id: pg.id, page_name: pg.name,
-        ig_user_id, ig_username, fb_ok: true, connected_at: new Date().toISOString() },
-      ["name", "owner", "page_id", "page_name", "ig_user_id", "ig_username", "fb_ok", "connected_at"]);
+        ig_user_id, ig_username, ig_avatar, fb_owner_id, fb_owner_name, fb_ok: true, connected_at: new Date().toISOString() },
+      ["name", "owner", "page_id", "page_name", "ig_user_id", "ig_username", "ig_avatar", "fb_owner_id", "fb_owner_name", "fb_ok", "connected_at"]);
   }
   return page("Kết nối Facebook thành công 🎉",
     `<p>✅ Đã kết nối <b>${list.length}</b> Page${igCount ? ` · <b>${igCount}</b> có Instagram` : ""}: ${list.map(p => escapeHtml(p.name)).join(", ")}.</p>

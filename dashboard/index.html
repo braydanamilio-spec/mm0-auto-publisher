@@ -1419,6 +1419,7 @@
         }).join("")}</div>
         <div class="p-sub" style="margin-top:10px">Mỗi project ~${cap} upload/ngày. Đầy thì bài dời sang mai. Thêm project (secret <code>YT_CLIENTS</code>) để tăng.</div>`;
     }
+    const fbPageAva=(p)=> p.page_id?`<img src="https://graph.facebook.com/${esc(p.page_id)}/picture?type=square&width=96" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`:'f';
     function renderFacebook(){
       if(!$("fbPages")) return;
       if($("nvFb")) $("nvFb").textContent=__FBP.length;
@@ -1428,21 +1429,37 @@
       if($("fbMapPanel"))$("fbMapPanel").style.display=chans.length?"":"none";
       if($("fbMap"))$("fbMap").innerHTML=chans.map(k=>{
         const opts=`<option value="">— không đăng FB/IG —</option>`+__FBP.map(p=>`<option value="${esc(p.name)}" ${mp[k]===p.name?"selected":""}>${esc(p.page_name||p.name)}${p.ig_user_id?" + IG":""}</option>`).join("");
-        return `<div class="svc"><div class="snm">${esc(chName(k))}</div><select class="set-sel" onchange="saveFbMap('${esc(k)}',this.value)">${opts}</select></div>`;
+        return `<div class="svc"><div class="snm" style="display:flex;align-items:center;gap:9px;min-width:0">${chAva(k,'chpick-ava')}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(chName(k))}</span></div><select class="set-sel" onchange="saveFbMap('${esc(k)}',this.value)">${opts}</select></div>`;
       }).join("")||`<div class="p-sub">Chưa có kênh YouTube — kết nối ở tab Kết nối API.</div>`;
-      $("fbPages").innerHTML=__FBP.map(p=>`<div class="conn">
-        <div class="conn-head"><div class="ava" style="background:linear-gradient(145deg,#1877f2,#0a58ca)">f</div>
-          <div class="nm">${esc(p.page_name||p.name)}<div class="p-sub">ID ${esc(p.page_id||'')}${p.connected_at?" · "+ago(p.connected_at):""}</div></div></div>
-        ${svcRow('fb','#1877f2','Facebook Page','connected','token dài hạn đã lưu')}
+      // GOM Page theo UID Facebook chủ (như YouTube gom theo Gmail)
+      const fbCard=(p)=>{ const dt=p.connected_at?new Date(p.connected_at).toLocaleDateString('vi-VN'):"—";
+        return `<div class="conn" id="fbcard-${esc(p.name)}">
+        <div class="conn-head"><div class="ava" style="background:linear-gradient(145deg,#1877f2,#0a58ca);overflow:hidden">${fbPageAva(p)}</div>
+          <div class="nm">${esc(p.page_name||p.name)}<div class="p-sub">ID ${esc(p.page_id||'')}</div></div></div>
+        ${svcRow('fb','#1877f2','Facebook Page','connected','token dài hạn (không tự hết hạn)')}
         ${p.ig_user_id
-          ? svcRow('fb','#E1306C','Instagram', 'connected', (p.ig_username?'@'+esc(p.ig_username):'đã liên kết')+' · đăng Reels tự động')
+          ? `<div class="svc"><div class="ava" style="width:34px;height:34px;background:linear-gradient(145deg,#E1306C,#C13584);overflow:hidden;flex:none">${p.ig_avatar?`<img src="${esc(p.ig_avatar)}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`:'IG'}</div><div style="flex:1;min-width:0"><div class="snm">Instagram</div><div class="sd">${p.ig_username?'@'+esc(p.ig_username):'đã liên kết'} · Reels tự động</div></div><span class="tag t-connected" style="margin-left:auto">Đã kết nối</span></div>`
           : svcRow('fb','#999','Instagram', 'unknown', 'chưa liên kết IG — vào Page → Linked accounts để nối')}
+        <div class="p-sub" style="margin-top:8px">📅 Kết nối: <b>${dt}</b>${p.connected_at?` · ${ago(p.connected_at)}`:''} <span id="fbtok-${esc(p.name)}"></span></div>
         <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn-mini" onclick="fbCheckToken('${esc(p.name)}')">🔍 Kiểm tra token</button>
           <button class="btn-reconn" style="flex:1" onclick="connectChannel('','facebook')">🔗 Kết nối lại</button>
           <button class="btn-reconn danger" onclick="disconnectChannel('${esc(p.name)}','facebook','${esc(p.page_name||p.name)}')">🗑</button>
-        </div></div>`).join("");
+        </div></div>`; };
+      const groups={}; __FBP.forEach(p=>{ const g=p.fb_owner_id||"__none__"; (groups[g]=groups[g]||[]).push(p); });
+      const order=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length);
+      $("fbPages").innerHTML=order.map(g=>{
+        const arr=groups[g], p0=arr[0];
+        const head=g==="__none__"?"👤 Chưa rõ tài khoản FB (kết nối lại để nhóm)":`👤 ${esc(p0.fb_owner_name||'Tài khoản Facebook')} <span class="p-sub">· UID …${esc(String(g).slice(-8))} · ${arr.length} Page</span>`;
+        return `<div class="hub-ghead">${head}</div>`+arr.map(fbCard).join("");
+      }).join("");
       socFillPages();
     }
+    // Kiểm tra token còn sống không (ping insight thật; hỏng -> nhắc kết nối lại)
+    window.fbCheckToken=async(name)=>{ const el=$("fbtok-"+name); if(el)el.innerHTML=`· <span class="p-sub">⏳ đang kiểm tra…</span>`;
+      try{ await workerApi(`/api/social-insights?channel=${encodeURIComponent(name)}&platform=fb`);
+        if(el)el.innerHTML=`· <span style="color:var(--good)">✔ token còn hiệu lực</span>`;
+      }catch(e){ if(el)el.innerHTML=`· <span style="color:var(--bad)">❌ token hỏng — bấm “Kết nối lại”</span>`; } };
     /* ===== Trình quản lý bài Facebook + Instagram (tách hẳn YouTube) ===== */
     window.__soc={plat:"fb",page:"",items:[]};
     function socFillPages(){ const sel=$("socPage"); if(!sel) return; const keep=sel.value;
