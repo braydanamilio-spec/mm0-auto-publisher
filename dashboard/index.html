@@ -823,9 +823,9 @@
     };
     window.__setOverridesDoc = async (data) => { await setDoc(ovDoc(), {owner:window.__uid, ...data}, {merge:true}); };
     // Gộp brand channel vào 1 Gmail thật (Google giấu Gmail của tài khoản thương hiệu)
-    window.saveGmailGroup = async (channels, gmail) => {
+    window.saveGmailGroup = async (channels, gmail, extra) => {
       const map={}; (channels||[]).forEach(c=>map[c]=gmail);
-      try { await setDoc(ovDoc(), {owner:window.__uid, gmail_group:map}, {merge:true});
+      try { await setDoc(ovDoc(), {owner:window.__uid, gmail_group:map, ...(extra||{})}, {merge:true});
         toastMsg(`✔ Đã gộp ${channels.length} kênh vào ${gmail}`); }
       catch(e){ alert("Lỗi: "+e.message); }
     };
@@ -1408,21 +1408,24 @@
       }catch(e){ alert("❌ "+e.message); }
     };
     const gmailKeyOf=(k)=>{ const g=(__OVERRIDES.gmail_group||{})[k]; if(g) return g;
-      const e=(__C[k]&&__C[k].email)||""; return /@pages\.plusgoogle\.com$/i.test(e)?"__brand__":e; };
+      const e=(__C[k]&&__C[k].email)||"";
+      return /@pages\.plusgoogle\.com$/i.test(e)?((__OVERRIDES.default_brand_gmail)||"__brand__"):e; };
     const _normGmail=(g)=>{ g=(g||"").trim(); if(!g) return ""; return g.includes("@")?g:g+"@gmail.com"; };
+    const _isBrandKey=(k)=>{ const e=(__C[k]&&__C[k].email)||""; return /@pages\.plusgoogle\.com$/i.test(e); };
     window.assignGmail=(oldKey)=>{
       const keys=Object.keys(__C||{}).filter(k=>gmailKeyOf(k)===oldKey);
       if(!keys.length) return;
       const gmail=_normGmail(prompt(`Nhập Gmail thật quản lý ${keys.length} kênh này (chỉ cần gõ tên, tự thêm @gmail.com):`, ""));
       if(!gmail) return alert("Chưa nhập Gmail.");
-      window.saveGmailGroup(keys, gmail);
+      const extra = keys.some(_isBrandKey) ? {default_brand_gmail:gmail} : {};   // nhớ để áp cho brand sau này
+      window.saveGmailGroup(keys, gmail, extra);
     };
     window.assignAllBrand=()=>{
-      const brands=Object.keys(__C||{}).filter(k=>/@pages\.plusgoogle\.com$/i.test(gmailKeyOf(k)));
-      if(!brands.length) return alert("Không có brand channel nào chưa gộp. (Các brand đã gộp rồi.)");
+      const brands=Object.keys(__C||{}).filter(_isBrandKey);
+      if(!brands.length) return alert("Không có brand channel nào. (Tài khoản thường tự gộp theo Gmail rồi.)");
       const gmail=_normGmail(prompt(`Nhập Gmail thật quản lý ${brands.length} brand channel (chỉ cần gõ tên, tự thêm @gmail.com):`, ""));
       if(!gmail) return alert("Chưa nhập Gmail.");
-      window.saveGmailGroup(brands, gmail);
+      window.saveGmailGroup(brands, gmail, {default_brand_gmail:gmail});   // áp cho mọi brand + kênh brand sau này
     };
     window.removeGmailGroup = async (email)=>{
       const keys=Object.keys(__C||{}).filter(k=>gmailKeyOf(k)===email);
@@ -1873,9 +1876,11 @@
       // GOM NHÓM theo Gmail: mỗi email -> các kênh dưới nó (minh bạch: 1 mail có mấy kênh)
       // Khoá nhóm = Gmail anh tự gộp (nếu có) > email thật. Brand account -> email @pages.plusgoogle.com (giả).
       const gm=(__OVERRIDES.gmail_group)||{};
+      const defBrandGmail=__OVERRIDES.default_brand_gmail||"";
       const isBrand=(e)=> /@pages\.plusgoogle\.com$/i.test(e||"");
-      // Brand chưa gắn Gmail -> gom CHUNG 1 nhóm "__brand__" (mỗi brand có email giả khác nhau)
-      const keyOf=(k)=>{ const g=gm[k]; if(g) return g; const e=(C()[k]&&C()[k].email)||""; return isBrand(e)?"__brand__":e; };
+      // Brand: gm riêng > Gmail mặc định đã đặt (áp cho MỌI brand, cả sau này) > gom chung "__brand__"
+      const keyOf=(k)=>{ const g=gm[k]; if(g) return g; const e=(C()[k]&&C()[k].email)||"";
+        return isBrand(e)?(defBrandGmail||"__brand__"):e; };
       const groups={};
       shown.forEach(k=>{ const g=keyOf(k); (groups[g]=groups[g]||[]).push(k); });
       const emails=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length);
