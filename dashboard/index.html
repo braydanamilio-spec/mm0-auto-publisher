@@ -664,6 +664,12 @@
         .chpick-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 34px rgba(0,0,0,.28);padding:6px;min-width:230px;max-height:340px;overflow-y:auto}
         .chpick-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:500}
         .chpick-item:hover{background:var(--surface2)} .chpick-item.on{background:var(--accent-soft);color:var(--accent);font-weight:700}
+        .cm-dot{margin-left:auto;background:var(--bad);color:#fff;font-size:10px;font-weight:800;min-width:18px;height:18px;padding:0 5px;border-radius:20px;display:inline-grid;place-items:center}
+        .cm-stats{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;font-size:13px}
+        .cm-stats b{color:var(--text);font-variant-numeric:tabular-nums}
+        .cm-newpill{background:var(--bad);color:#fff;font-weight:700;font-size:12px;padding:3px 10px;border-radius:20px}
+        .cm-newtag{background:var(--bad);color:#fff;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:20px;margin-right:5px;letter-spacing:.03em}
+        .cm-card.cm-isnew{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad) inset}
         /* Chống tràn khi NHIỀU tài khoản / nhiều file: cuộn gọn trong khung */
         #stAccounts{max-height:340px;overflow-y:auto}
         #fbList{max-height:440px;overflow-y:auto}
@@ -776,9 +782,14 @@
         <div class="panel" style="margin-bottom:16px">
           <div class="p-head"><div class="p-title">💬 <span data-i18n="comments">Comments</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-              <select id="cmChannel"><option value="" data-i18n="cm_pick">Pick a connected channel</option></select>
+              <div class="chpick" id="cmPick">
+                <button class="chpick-btn" id="cmPickBtn" onclick="cmPickToggle()"><span class="chpick-all" id="cmPickLbl">Chọn kênh…</span><span class="chpick-caret">▾</span></button>
+                <div class="chpick-menu hide" id="cmPickMenu"></div>
+              </div>
+              <select id="cmChannel" style="display:none"><option value=""></option></select>
               <button class="btn-conn" id="cmLoad" data-i18n="cm_load">Load latest comments</button>
             </div></div>
+          <div id="cmStats" class="cm-stats" style="display:none"></div>
           <div class="p-sub" style="margin-top:6px" id="cmStatus"></div>
         </div>
         <div id="cmList"></div>
@@ -1467,7 +1478,21 @@
         if(chans.includes(keep)) sel.value=keep;
       });
       if(!chans.length){ $("brStatus").textContent="⚠ "+t("no_conn"); $("cmStatus").textContent="⚠ "+t("no_conn"); }
+      buildCmPicker();
     }
+    // Dropdown chọn kênh có AVATAR cho Comments (đồng bộ với hidden select #cmChannel)
+    function buildCmPicker(){
+      const menu=$("cmPickMenu"), lbl=$("cmPickLbl"); if(!menu||!lbl) return;
+      const chans=connectedYT(); const sel=($("cmChannel")||{}).value||"";
+      menu.innerHTML=chans.length?chans.map(k=>`<div class="chpick-item ${sel===k?'on':''}" onclick="cmPick('${esc(k)}')">${chAva(k,'chpick-ava')}<span class="chpick-nm">${esc(chName(k))}</span>${cmNewDot(k)}</div>`).join("")
+        :`<div class="p-sub" style="padding:10px">Chưa có kênh YouTube kết nối.</div>`;
+      if(sel){ lbl.outerHTML=`${chAva(sel,'chpick-ava')}<span class="chpick-nm" id="cmPickLbl">${esc(chName(sel))}</span>`; }
+      else { lbl.textContent="Chọn kênh…"; }
+    }
+    const cmNewDot=(k)=>{ const n=(window.__cmNew||{})[k]||0; return n?`<span class="cm-dot" title="${n} bình luận mới">${n>9?'9+':n}</span>`:""; };
+    window.cmPickToggle=()=>{ const m=$("cmPickMenu"); if(m) m.classList.toggle("hide"); };
+    window.cmPick=(k)=>{ const s=$("cmChannel"); if(s) s.value=k; const m=$("cmPickMenu"); if(m) m.classList.add("hide"); buildCmPicker(); loadComments(); };
+    document.addEventListener("click",(e)=>{ const p=$("cmPick"); if(p&&!p.contains(e.target)){ const m=$("cmPickMenu"); if(m)m.classList.add("hide"); } });
     async function loadBranding(){
       const ch=$("brChannel").value; if(!ch) return alert(t("br_pick"));
       $("brStatus").textContent=t("working");
@@ -1490,18 +1515,37 @@
     async function loadComments(){
       const ch=$("cmChannel").value; if(!ch) return alert(t("cm_pick"));
       $("cmStatus").textContent=t("working"); $("cmList").innerHTML="";
-      try{ const d=await workerApi(`/api/comments?channel=${encodeURIComponent(ch)}&max=25`);
-        renderComments(d.items||[]); $("cmStatus").textContent=t("loaded_ok")+" · "+(d.items||[]).length;
+      const statsBox=$("cmStats"); if(statsBox) statsBox.style.display="none";
+      try{ const d=await workerApi(`/api/comments?channel=${encodeURIComponent(ch)}&max=50`);
+        const items=d.items||[];
+        const lastSeen=+(localStorage.getItem("cm_seen_"+ch)||0);
+        const newCount=items.filter(it=>new Date(it.publishedAt).getTime()>lastSeen).length;
+        renderComments(items, lastSeen);
+        $("cmStatus").textContent=t("loaded_ok")+" · "+items.length;
+        // Tổng bình luận toàn kênh (từ channel-videos) — thông báo mới như YouTube
+        let totalC=null,vidC=null;
+        try{ const cv=await workerApi(`/api/channel-videos?channel=${encodeURIComponent(ch)}&max=300`);
+          const vids=cv.items||[]; totalC=vids.reduce((a,v)=>a+(v.comments||0),0); vidC=vids.filter(v=>v.comments>0).length; }catch(_){}
+        if(statsBox){ statsBox.style.display="flex";
+          statsBox.innerHTML=`<span>💬 <b>${totalC!=null?fmtN(totalC):'—'}</b> bình luận toàn kênh</span>
+            <span>📹 <b>${vidC!=null?vidC:'—'}</b> video có bình luận</span>
+            <span>📥 <b>${items.length}</b> vừa tải</span>
+            ${newCount?`<span class="cm-newpill">🔴 ${newCount} mới chưa xem</span>`:`<span class="p-sub">✓ không có bình luận mới</span>`}
+            <span style="flex:1;min-width:6px"></span>
+            ${newCount?`<button class="btn-mini" onclick="cmMarkSeen('${esc(ch)}')">✓ Đánh dấu đã xem</button>`:''}`; }
+        window.__cmNew=window.__cmNew||{}; window.__cmNew[ch]=newCount; buildCmPicker();
       }catch(e){ $("cmStatus").textContent="❌ "+e.message; }
     }
-    function renderComments(items){
+    window.cmMarkSeen=(ch)=>{ localStorage.setItem("cm_seen_"+ch, String(Date.now())); (window.__cmNew=window.__cmNew||{})[ch]=0; buildCmPicker(); loadComments(); };
+    function renderComments(items, lastSeen=0){
       if(!items.length){ $("cmList").innerHTML=emptyBox(t("cm_none")); return; }
       $("cmList").innerHTML=items.map(it=>{
         const reps=(it.replies||[]).map(r=>`<div class="cm-reply"><b>${esc(r.author)}</b> ${esc(r.text)}</div>`).join("");
         const vid=it.videoId?`<a href="https://youtu.be/${esc(it.videoId)}" target="_blank" class="p-sub">▶ video</a>`:"";
-        return `<div class="panel cm-card" data-id="${esc(it.commentId)}">
+        const isNew=new Date(it.publishedAt).getTime()>lastSeen;
+        return `<div class="panel cm-card${isNew?' cm-isnew':''}" data-id="${esc(it.commentId)}">
           <div class="cm-top"><img src="${esc(it.authorImg||'')}" class="cm-ava" onerror="this.style.visibility='hidden'">
-            <div style="flex:1"><div class="cm-au">${esc(it.author)} <span class="p-sub">· ${ago(it.publishedAt)} · ♥ ${it.likes||0} ${vid}</span></div>
+            <div style="flex:1"><div class="cm-au">${esc(it.author)} ${isNew?'<span class="cm-newtag">MỚI</span>':''}<span class="p-sub">· ${ago(it.publishedAt)} · ♥ ${it.likes||0} ${vid}</span></div>
             <div class="cm-tx">${esc(it.text)}</div></div></div>
           ${reps?`<div class="cm-reps">${reps}</div>`:""}
           <div class="cm-acts">
@@ -1755,7 +1799,7 @@
       const {x,w,h}=prep(cv,260);x.clearRect(0,0,w,h);
       $("lgViews").innerHTML=data.map(d=>`<span class="lg"><span class="sw" style="background:${d.color}"></span>${esc(d.label)}</span>`).join("");
       if(!data.length){x.fillStyle=cssVar("--faint");x.font="13px "+cssVar("--sans");x.fillText(t("no_view_data"),10,30);return;}
-      const max=Math.max(...data.map(d=>d.value),1),pad=30,bw=Math.min(70,(w-pad*2)/data.length-16),baseY=h-34,top=14;
+      const max=Math.max(...data.map(d=>d.value),1),pad=30,bw=Math.min(70,(w-pad*2)/data.length-16),baseY=h-34,top=26;
       data.forEach((d,i)=>{const cx=pad+(i+.5)*((w-pad*2)/data.length),bh=(baseY-top)*(d.value/max),y=baseY-bh;
         const g=x.createLinearGradient(0,y,0,baseY);g.addColorStop(0,d.color);g.addColorStop(1,d.color+"66");
         x.fillStyle=g;rr(x,cx-bw/2,y,bw,bh,6);x.fill();
@@ -1775,15 +1819,26 @@
       $("lgDonut").innerHTML=segs.map(s=>`<span class="lg"><span class="sw" style="background:${s.color}"></span>${s.label} <b class="tnum" style="color:var(--text);margin-left:4px">${s.value}</b></span>`).join("")||`<span class="lg" style="color:var(--faint)">${t("no_video")}</span>`;
     }
     function renderChannels(){
-      const map=chanMap();const ks=allChannels();
-      $("chanList").innerHTML=ks.map(k=>{const vids=map[k]||[],posted=vids.filter(v=>eff(v)==="posted").length,pct=vids.length?Math.round(posted/vids.length*100):0;
-        const subs=C()[k]?.subscribers,col=chColor(k);const linked=!!C()[k];
-        return `<div class="chan-item">${chAva(k,'ava')}
-          <div class="chan-mid"><div class="nm">${esc(chName(k))} ${subs!=null?`<span class="p-sub tnum">· ${fmtN(subs)} subs</span>`:(linked?`<span class="p-sub">· đã kết nối</span>`:"")}</div>
-          <div class="st">${vids.length?`${posted}/${vids.length} đã đăng · ${vids.length-posted} hàng đợi`:`chưa có video — sẵn sàng nhận bài`}</div><div class="bar"><i style="width:${pct}%"></i></div></div>
-          <div class="chan-right"><div class="big tnum">${pct}%</div><div class="cap">hoàn tất</div></div></div>`;
+      const map=chanMap();const ks=allChannels();const RS=window.__realStats||{};
+      $("chanList").innerHTML=ks.map(k=>{const vids=map[k]||[],posted=vids.filter(v=>eff(v)==="posted").length;
+        const rs=RS[k]; const linked=!!C()[k];
+        const subs = rs? rs.subscribers : C()[k]?.subscribers;
+        // Nếu đã đồng bộ số thật -> hiện video thật + views; chưa thì hiện trạng thái hàng đợi tool
+        let midSt, rightBig, rightCap;
+        if(rs){ midSt=`${rs.videoCount} video · ${rs.longs||0} long / ${rs.shorts||0} short`;
+          rightBig=fmtN(rs.totalViews); rightCap="views"; }
+        else { const pct=vids.length?Math.round(posted/vids.length*100):0;
+          midSt=vids.length?`${posted}/${vids.length} đã đăng · ${vids.length-posted} hàng đợi`:`chưa đồng bộ — bấm 🔄 ở trên để lấy số thật`;
+          rightBig=pct+"%"; rightCap="hoàn tất"; }
+        const barPct=rs?Math.min(100,Math.round((rs.totalViews/Math.max(1,Math.max(...ks.map(x=>RS[x]?RS[x].totalViews:0))))*100)):(vids.length?Math.round(posted/vids.length*100):0);
+        return `<div class="chan-item chan-click" onclick="openChannelDetail('${esc(k)}')" title="Xem chi tiết ${esc(chName(k))}">${chAva(k,'ava')}
+          <div class="chan-mid"><div class="nm">${esc(chName(k))} ${subs!=null?`<span class="p-sub tnum">· ${fmtN(subs)} subs</span>`:(linked?`<span class="p-sub">· đã kết nối</span>`:"")} <span class="chan-go">chi tiết ›</span></div>
+          <div class="st">${midSt}</div><div class="bar"><i style="width:${barPct}%"></i></div></div>
+          <div class="chan-right"><div class="big tnum">${rightBig}</div><div class="cap">${rightCap}</div></div></div>`;
       }).join("")||emptyBox("Chưa có kênh nào — kết nối kênh ở tab Kết nối API.");
     }
+    // Mở chi tiết 1 kênh -> tab Videos (trình quản lý Studio), tự chọn + tải
+    window.openChannelDetail=(k)=>{ gotoView('videos'); const s=$("ytVidsCh"); if(s){ fillYtVidsCh(); s.value=k; } if(window.loadYtVids) setTimeout(()=>window.loadYtVids(),40); };
     // ==== HUB "Kênh của tôi": mỗi kênh 1 thẻ, có video hay chưa cũng hiện + thao tác ====
     function renderChannelHub(){
       const map=chanMap(); const ks=allChannels();
@@ -2034,7 +2089,7 @@
     window.opChannel=(k, what)=>{
       if(what==='videos'){ const f=$("chFilter"); if(f)f.value=k; gotoView('videos'); renderAll(); return; }
       if(what==='branding'){ gotoView('branding'); const s=$("brChannel"); if(s){s.value=k; if(s.value===k) loadBranding();} return; }
-      if(what==='comments'){ gotoView('comments'); const s=$("cmChannel"); if(s){s.value=k; if(s.value===k) loadComments();} return; }
+      if(what==='comments'){ gotoView('comments'); const s=$("cmChannel"); if(s){s.value=k; buildCmPicker(); if(s.value===k) loadComments();} return; }
     };
 
     function renderUpcoming(){
