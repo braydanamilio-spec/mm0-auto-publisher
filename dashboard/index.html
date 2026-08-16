@@ -399,6 +399,11 @@
       </section>
 
       <section id="v-videos" class="content hide">
+        <div class="subtabs" id="vid-tabs">
+          <button class="subtab on" data-p="yt" onclick="setSubTab('vid','yt')">📺 YouTube</button>
+          <button class="subtab" data-p="fb" onclick="setSubTab('vid','fb')">📘📷 Facebook &amp; Instagram</button>
+        </div>
+        <div id="vid-yt" class="subpane">
         <div class="panel">
           <div class="yt-mgr-head">
             <select id="ytVidsCh"></select>
@@ -425,6 +430,8 @@
           </div>
           <div id="ytVidsPanel" style="margin-top:10px"></div>
         </div>
+        </div><!-- /vid-yt -->
+        <div id="vid-fb" class="subpane hide"></div>
       </section>
       <div id="socEditModal" class="modal-back hide">
         <div class="modal-card">
@@ -663,6 +670,11 @@
       </section>
 
       <section id="v-publish" class="content hide">
+        <div class="subtabs" id="pub-tabs">
+          <button class="subtab on" data-p="yt" onclick="setSubTab('pub','yt')">📺 YouTube</button>
+          <button class="subtab" data-p="fb" onclick="setSubTab('pub','fb')">📘📷 Facebook &amp; Instagram</button>
+        </div>
+        <div id="pub-yt" class="subpane">
         <div class="panel" style="margin-bottom:16px">
           <div class="p-head"><div class="p-title">📺 <span data-i18n="ch_title">Content Hub — schedule to YouTube from Drive</span></div>
             <button class="btn-mini" onclick="gotoView('storage')" data-i18n="ch_browse">📂 Browse Drive → pick videos</button></div>
@@ -716,6 +728,8 @@
             </div></div>
           <div id="pubList"></div>
         </div>
+        </div><!-- /pub-yt -->
+        <div id="pub-fb" class="subpane hide"></div>
       </section>
 
       <style>
@@ -893,6 +907,16 @@
         .seg{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px}
         .seg-btn{background:none;border:none;color:var(--muted);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans)}
         .seg-btn.on{background:var(--accent);color:#fff}
+        .subtabs{display:inline-flex;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:16px;flex-wrap:wrap}
+        .subtab{background:none;border:none;color:var(--muted);border-radius:9px;padding:9px 18px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--sans)}
+        .subtab.on{background:var(--accent);color:#fff}
+        .subpane.hide{display:none}
+        .rw-badge{background:var(--warn-soft);color:var(--warn);font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px}
+        .rw-badge.bad{background:var(--bad-soft,rgba(220,38,38,.12));color:var(--bad)}
+        .rw-chip{display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 10px 4px 4px;font-size:12.5px;font-weight:600}
+        .rw-chip.bad{border-color:var(--bad);color:var(--bad)}
+        .rw-chip .chpick-ava{width:20px;height:20px;font-size:9px}
+        @media(max-width:560px){.subtab{padding:8px 12px;font-size:13px;flex:1}}
         #socPage{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:8px 11px;font-family:var(--sans);font-size:13px;min-width:170px}
         .btn-reconn.danger{flex:none;width:auto;padding-left:12px;padding-right:12px;color:var(--bad);border-color:var(--bad)}
         .btn-reconn.danger:hover{background:var(--bad);color:#fff}
@@ -1154,7 +1178,7 @@
         sub_connections:"YouTube · Facebook · quota status", sub_storage:"Pool usage & cleanup",
         sub_settings:"Templates & system config",
         channels:"My Channels", branding:"Branding", comments:"Comments", channels_hub:"My Channels", sub_channels:"Your connected channels — pick one to manage",
-        facebook:"Facebook", nav_social:"Social", sub_facebook:"Facebook Pages — separate from YouTube", fb_manage:"Facebook Pages", fb_connect:"Connect Facebook", fb_note:"Facebook is separate from YouTube (not the same Gmail). One connect grabs all Pages you manage.",
+        facebook:"Facebook", nav_social:"FB / IG Connect", sub_facebook:"Connect & group Facebook Pages / Instagram", fb_manage:"Facebook Pages", fb_connect:"Connect Facebook", fb_note:"Manage posts in the Videos & Publish tabs (FB & IG sub-tab). Here you connect Pages & group them by managing UID.",
         act_branding:"Branding", act_comments:"Comments", act_videos:"Videos", act_reconnect:"Reconnect", act_template:"Template",
         th_hashtag:"Hashtag", cancel:"Cancel", close:"Close", loading:"Loading…",
         vm_load:"🔄 Load channel videos", vm_hint:"Pick a channel → Load. Manage every video like YouTube Studio: edit title/description/hashtags, change privacy, delete.", vm_search:"🔍 Search title…",
@@ -1235,7 +1259,7 @@
         sub_connections:"Trạng thái YouTube · Facebook · quota", sub_storage:"Dung lượng pool & dọn dẹp",
         sub_settings:"Template & cấu hình hệ thống",
         channels:"Kênh của tôi", branding:"Thương hiệu", comments:"Bình luận", channels_hub:"Kênh của tôi", sub_channels:"Các kênh đã kết nối — chọn 1 kênh để quản lý",
-        facebook:"Facebook", nav_social:"Mạng xã hội", sub_facebook:"Facebook Page — tách riêng YouTube", fb_manage:"Facebook Page", fb_connect:"Kết nối Facebook", fb_note:"Facebook tách riêng YouTube (không cùng Gmail). Kết nối 1 lần lấy hết Page bạn quản lý; đăng/lịch FB quản lý riêng tại đây.",
+        facebook:"Facebook", nav_social:"Kết nối FB / IG", sub_facebook:"Kết nối & nhóm Facebook Page / Instagram", fb_manage:"Facebook Page", fb_connect:"Kết nối Facebook", fb_note:"Quản lý bài ở tab Videos & Publish (sub-tab FB & IG). Ở đây: kết nối Page & nhóm theo UID nick quản lý.",
         act_branding:"Thương hiệu", act_comments:"Bình luận", act_videos:"Video", act_reconnect:"Kết nối lại", act_template:"Template",
         th_hashtag:"Hashtag", cancel:"Huỷ", close:"Đóng", loading:"Đang tải…",
         vm_load:"🔄 Tải video kênh", vm_hint:"Chọn kênh → Tải. Quản lý mọi video như YouTube Studio: sửa tiêu đề/mô tả/hashtag, đổi quyền, xoá.", vm_search:"🔍 Tìm tiêu đề…",
@@ -1330,6 +1354,19 @@
     let __QUOTA=[];
     window.setQuota = (q) => { __QUOTA=q||[]; renderQuota(); };
     // Cảnh báo kênh SẮP HẾT BÀI (hết video chờ đăng / lịch chỉ còn trong 24h)
+    // ===== Sub-tab nền tảng (YouTube / FB & IG) trên Videos + Publish =====
+    function moveSocialPanels(){
+      const vf=$("vid-fb"), pf=$("pub-fb"), smp=$("socMgrPanel"), sqp=$("socQueuePanel");
+      if(vf&&smp&&smp.parentNode!==vf) vf.appendChild(smp);
+      if(pf&&sqp&&sqp.parentNode!==pf) pf.appendChild(sqp);
+    }
+    window.setSubTab=(page,plat)=>{
+      document.querySelectorAll(`#${page}-tabs .subtab`).forEach(b=>b.classList.toggle("on",b.dataset.p===plat));
+      const yt=$(page+"-yt"), fb=$(page+"-fb");
+      if(yt) yt.classList.toggle("hide",plat!=="yt");
+      if(fb) fb.classList.toggle("hide",plat!=="fb");
+      try{ localStorage["subtab_"+page]=plat; }catch(_){}
+    };
     // ===== P0 #2: Bảng sức khoẻ + cảnh báo lỗi đăng =====
     let __healthNotified=0;
     function renderHealth(){
@@ -1370,18 +1407,30 @@
     function renderRunway(){
       const box=$("runwayAlert"); if(!box) return;
       const chans=allChannels().filter(k=>C()[k]);   // kênh đã kết nối
-      const warns=[];
+      const empty=[], low=[];
       chans.forEach(k=>{
         const vids=V().filter(v=>v.channel===k && eff(v)!=="posted");
-        if(!vids.length){ warns.push(`<b>${esc(chName(k))}</b>: hết bài — chưa có video chờ`); return; }
+        if(!vids.length){ empty.push(k); return; }
         const sched=vids.filter(v=>v.publish_at).map(v=>new Date(v.publish_at)).sort((a,b)=>b-a);
-        if(sched.length){ const hrs=(sched[0]-Date.now())/3.6e6;
-          if(hrs<24) warns.push(`<b>${esc(chName(k))}</b>: sắp hết — lịch chỉ tới ${sched[0].toLocaleDateString('vi-VN')}`); }
+        if(sched.length && (sched[0]-Date.now())/3.6e6 < 24) low.push(k);
       });
-      if(!warns.length){ box.style.display="none"; return; }
-      box.style.display=""; box.className="pub-warn"; box.style.marginBottom="16px";
-      box.innerHTML=`⚠️ <b>Kênh sắp/đã hết bài đăng</b> — cần thêm video: `+warns.join(" · ")
-        +` <span class="sd">(dùng import_project.py để nạp thêm)</span>`;
+      if(!empty.length && !low.length){ box.style.display="none"; return; }
+      box.style.display=""; box.className=""; box.style.marginBottom="16px";
+      const open=window.__runwayOpen, cap=40;
+      const all=[...empty.map(k=>({k,bad:true})),...low.map(k=>({k,bad:false}))];
+      box.innerHTML=`<div class="panel" style="border-color:var(--warn);padding:13px 16px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <b style="color:var(--warn)">⚠️ Nội dung sắp cạn</b>
+          ${empty.length?`<span class="rw-badge bad">${empty.length} kênh hết bài</span>`:''}
+          ${low.length?`<span class="rw-badge">${low.length} kênh sắp hết</span>`:''}
+          <span style="flex:1;min-width:6px"></span>
+          <button class="btn-mini" onclick="window.__runwayOpen=!window.__runwayOpen;renderRunway()">${open?'Ẩn ▴':'Xem kênh ▾'}</button>
+        </div>
+        ${open?`<div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;max-height:220px;overflow:auto">
+          ${all.slice(0,cap).map(x=>`<span class="rw-chip ${x.bad?'bad':''}" title="${x.bad?'hết bài':'sắp hết'}">${chAva(x.k,'chpick-ava')}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px">${esc(chName(x.k))}</span></span>`).join("")}
+          ${all.length>cap?`<span class="rw-chip">+${all.length-cap} kênh…</span>`:''}
+        </div>`:''}
+      </div>`;
     }
     // ===== Phân tích TOÀN KÊNH theo kỳ (YouTube Analytics API qua Worker) =====
     let __anDays=30;
@@ -1952,6 +2001,8 @@
       if($("anChannel"))$("anChannel").onchange=window.anLoad;
       if($("loadYtVids"))$("loadYtVids").onclick=window.loadYtVids;
       if($("ovSyncBtn"))$("ovSyncBtn").onclick=window.ovSyncReal;
+      moveSocialPanels();
+      setSubTab('vid', localStorage.subtab_vid||'yt'); setSubTab('pub', localStorage.subtab_pub||'yt');
       if($("fbAccount"))$("fbAccount").onchange=()=>{ if($("fbSearch"))$("fbSearch").value=""; window.__fb.account=$("fbAccount").value; window.__fb.stack=[]; fbOpen(null,"My Drive"); };
       if($("fbSearch"))$("fbSearch").oninput=(e)=>window.fbSearchInput(e.target.value);
       if($("stSort"))$("stSort").onchange=renderStorage;
