@@ -689,15 +689,14 @@
             </div>
             <div class="p-sub" id="upSpreadInfo" style="margin-top:8px"></div>
           </div>
-          <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
-            <label class="btn-mini" style="cursor:pointer">📁 Chọn cả folder kênh<input id="upFolder" type="file" webkitdirectory directory multiple style="display:none"></label>
-            <span class="p-sub" style="align-self:center">← chọn folder có tên trùng kênh (vd "bright-line") → tự nhận kênh + gom hết video bên trong</span>
-          </div>
-          <div id="upDrop" style="margin-top:10px;border:2px dashed var(--border);border-radius:12px;padding:24px;text-align:center;cursor:pointer;transition:.15s">
+          <div id="upDrop" style="margin-top:12px;border:2px dashed var(--border);border-radius:12px;padding:22px;text-align:center;transition:.15s">
             <div style="font-size:30px">📤</div>
-            <div style="margin-top:6px">Kéo thả video/folder vào đây, hoặc <b style="color:var(--accent);text-decoration:underline">bấm chọn file</b></div>
-            <div class="p-sub" style="margin-top:4px">Nhiều file/folder cùng lúc · mp4/mov/mkv/webm · không giới hạn dung lượng</div>
-            <input id="upFiles" type="file" accept="video/*" multiple style="display:none">
+            <div style="margin-top:6px">Kéo thả <b>video HOẶC cả folder kênh</b> vào đây</div>
+            <div style="margin-top:12px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+              <label class="btn-conn" style="cursor:pointer">📄 Chọn video<input id="upFiles" type="file" accept="video/*" multiple style="display:none"></label>
+              <label class="btn-conn" style="cursor:pointer;background:var(--surface2)">📁 Chọn CẢ FOLDER kênh<input id="upFolder" type="file" webkitdirectory multiple style="display:none"></label>
+            </div>
+            <div class="p-sub" style="margin-top:8px">Chọn folder trùng tên kênh (vd "bright-line") → tự nhận kênh + gom hết video bên trong (kể cả subfolder shorts). mp4/mov/mkv/webm · không giới hạn dung lượng.</div>
           </div>
           <div id="upList" style="margin-top:12px"></div>
         </div>
@@ -3745,7 +3744,6 @@
       if(window.renderTimePacks&&$("upTimePacks")) renderTimePacks("upTimePacks","upTimes","upResched","upTz");
       if(window.upSchedUI) upSchedUI();
       if(drop&&!drop.__wired){ drop.__wired=true;
-        drop.onclick=()=>fi&&fi.click();
         drop.ondragover=e=>{e.preventDefault();drop.style.borderColor="var(--accent)";};
         drop.ondragleave=()=>{drop.style.borderColor="var(--border)";};
         drop.ondrop=async e=>{e.preventDefault();drop.style.borderColor="var(--border)";
