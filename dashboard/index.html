@@ -414,8 +414,26 @@
               <textarea id="ytEDesc" rows="6" maxlength="5000" oninput="ytECount()"></textarea></label>
             <label class="fld"><span>Hashtag / thẻ <em class="p-sub">(cách nhau bằng dấu phẩy hoặc khoảng trắng)</em></span>
               <input id="ytETags" placeholder="#tiente, #datarace, tài chính"></label>
-            <label class="fld"><span>Quyền riêng tư</span>
-              <select id="ytEPriv"><option value="public">🌐 Công khai</option><option value="unlisted">🔗 Không liệt kê</option><option value="private">🔒 Riêng tư</option></select></label>
+            <div class="fld2">
+              <label class="fld"><span>Quyền riêng tư</span>
+                <select id="ytEPriv"><option value="public">🌐 Công khai</option><option value="unlisted">🔗 Không liệt kê</option><option value="private">🔒 Riêng tư</option></select></label>
+              <label class="fld"><span>Đối tượng (Made for Kids)</span>
+                <select id="ytEKids"><option value="0">🙋 Không dành cho trẻ em</option><option value="1">🧸 Nội dung dành cho trẻ em</option></select></label>
+            </div>
+            <div class="fld"><span>Ảnh đại diện (thumbnail)</span>
+              <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+                <img id="ytEThumb" alt="" style="width:128px;height:72px;border-radius:8px;object-fit:cover;background:var(--surface2);border:1px solid var(--border)">
+                <div style="flex:1;min-width:160px">
+                  <input type="file" id="ytEThumbFile" accept="image/jpeg,image/png" style="display:none" onchange="ytThumbPick(this)">
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button type="button" class="btn-mini" onclick="document.getElementById('ytEThumbFile').click()">🖼 Chọn ảnh mới</button>
+                    <button type="button" class="btn-conn" id="ytThumbUp" style="display:none;padding:7px 12px" onclick="ytThumbUpload()">⬆ Đổi thumbnail</button>
+                  </div>
+                  <div class="p-sub" style="margin-top:5px">JPG/PNG · &lt;2MB · 16:9. Cần kênh đã xác minh SĐT.</div>
+                </div>
+              </div></div>
+            <div class="fld"><span>Phụ đề hiện có <em id="ytECapCnt" class="p-sub"></em></span>
+              <div id="ytECaps" class="p-sub" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px">—</div></div>
             <div id="ytEMsg" class="p-sub" style="min-height:18px"></div>
           </div>
           <div class="modal-foot">
@@ -753,6 +771,10 @@
         .fld{display:flex;flex-direction:column;gap:5px} .fld>span{font-size:12.5px;font-weight:700;color:var(--text2)}
         .fld input,.fld textarea,.fld select{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-family:var(--sans);font-size:14px;width:100%}
         .fld textarea{resize:vertical;line-height:1.5}
+        .fld2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+        @media(max-width:520px){.fld2{grid-template-columns:1fr}}
+        .cap-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2);font-size:13px}
+        .cap-row:last-child{border-bottom:none}
         .btn-reconn.danger{flex:none;width:auto;padding-left:12px;padding-right:12px;color:var(--bad);border-color:var(--bad)}
         .btn-reconn.danger:hover{background:var(--bad);color:#fff}
       </style>
@@ -1245,19 +1267,37 @@
     window.ytClearSel=()=>{ __ytSel=new Set(); renderYtRows(); };
     // ---- Sửa video (modal như Studio) ----
     window.ytECount=()=>{ const t1=$("ytETitle"),t2=$("ytEDesc"); if($("ytEChTitle"))$("ytEChTitle").textContent=`${(t1?t1.value.length:0)}/100`; if($("ytEChDesc"))$("ytEChDesc").textContent=`${(t2?t2.value.length:0)}/5000`; };
-    window.ytEdit=(id)=>{ const v=(window.__ytVids||[]).find(x=>x.id===id); if(!v) return; window.__ytEditId=id;
+    window.ytEdit=(id)=>{ const v=(window.__ytVids||[]).find(x=>x.id===id); if(!v) return; window.__ytEditId=id; window.__ytThumbData=null;
       $("ytEditTitle").textContent="Sửa video"; $("ytETitle").value=v.title||""; $("ytEDesc").value=v.description||"";
-      $("ytETags").value=(v.tags||[]).join(", "); $("ytEPriv").value=v.privacy||"public"; $("ytEOpen").href=ytVidUrl(v);
-      $("ytEMsg").textContent=""; ytECount(); $("ytEditModal").classList.remove("hide"); };
-    window.ytEditClose=()=>{ $("ytEditModal").classList.add("hide"); window.__ytEditId=null; };
+      $("ytETags").value=(v.tags||[]).join(", "); $("ytEPriv").value=v.privacy||"public"; $("ytEKids").value=v.madeForKids?"1":"0"; $("ytEOpen").href=ytVidUrl(v);
+      $("ytEThumb").src=v.thumb||""; $("ytThumbUp").style.display="none"; if($("ytEThumbFile"))$("ytEThumbFile").value="";
+      $("ytEMsg").textContent=""; ytECount(); $("ytEditModal").classList.remove("hide"); ytLoadCaps(id); };
+    window.ytEditClose=()=>{ $("ytEditModal").classList.add("hide"); window.__ytEditId=null; window.__ytThumbData=null; };
+    // Xem phụ đề hiện có
+    async function ytLoadCaps(id){ const box=$("ytECaps"), cnt=$("ytECapCnt"); if(!box) return; box.textContent="Đang kiểm tra…"; if(cnt)cnt.textContent="";
+      try{ const d=await workerApi(`/api/video-captions?channel=${encodeURIComponent(window.__ytVidsCh)}&id=${id}`); const items=d.items||[];
+        if(cnt)cnt.textContent=`· ${items.length} track`;
+        box.innerHTML=items.length?items.map(c=>`<div class="cap-row">📄 <b>${esc((c.language||'?').toUpperCase())}</b>${c.name?` · ${esc(c.name)}`:''} <span class="tag2 ${c.auto?'warn':''}">${c.auto?'tự động (ASR)':'thủ công'}</span>${c.lastUpdated?`<span class="p-sub" style="margin-left:auto">${new Date(c.lastUpdated).toLocaleDateString('vi-VN')}</span>`:''}</div>`).join(""):`Chưa có phụ đề nào.`;
+      }catch(e){ box.innerHTML=`<span style="color:var(--warn)">Không đọc được phụ đề: ${esc(e.message)}</span>`; } }
+    // Chọn + đổi thumbnail
+    window.ytThumbPick=(input)=>{ const f=input.files&&input.files[0]; if(!f) return;
+      if(f.size>2*1024*1024){ $("ytEMsg").innerHTML='<span style="color:var(--bad)">Ảnh quá 2MB — chọn ảnh nhỏ hơn.</span>'; input.value=""; return; }
+      const r=new FileReader(); r.onload=()=>{ window.__ytThumbData=r.result; $("ytEThumb").src=r.result; $("ytThumbUp").style.display=""; $("ytEMsg").textContent="Đã chọn ảnh — bấm '⬆ Đổi thumbnail' để áp dụng."; }; r.readAsDataURL(f); };
+    window.ytThumbUpload=async()=>{ const id=window.__ytEditId, data=window.__ytThumbData; if(!id||!data) return;
+      const btn=$("ytThumbUp"); btn.disabled=true; $("ytEMsg").textContent="Đang tải thumbnail lên YouTube…";
+      try{ const r=await workerApi("/api/video-thumbnail",{method:"POST",body:{channel:window.__ytVidsCh,id,image:data}});
+        const v=(window.__ytVids||[]).find(x=>x.id===id); if(v&&r.thumb){ v.thumb=r.thumb; }
+        if(r.thumb)$("ytEThumb").src=r.thumb; window.__ytThumbData=null; btn.style.display="none";
+        toastMsg("✔ Đã đổi thumbnail"); $("ytEMsg").innerHTML='<span style="color:var(--good)">✔ Đã đổi thumbnail trên YouTube.</span>'; renderYtRows();
+      }catch(e){ $("ytEMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ btn.disabled=false; } };
     window.ytEditSave=async()=>{
       const id=window.__ytEditId; if(!id) return; const ch=window.__ytVidsCh;
       const tags=$("ytETags").value.split(/[,\n]+/).map(s=>s.trim().replace(/^#+/,"")).filter(Boolean);
-      const body={channel:ch,id,title:$("ytETitle").value.trim(),description:$("ytEDesc").value,tags,privacy:$("ytEPriv").value};
+      const body={channel:ch,id,title:$("ytETitle").value.trim(),description:$("ytEDesc").value,tags,privacy:$("ytEPriv").value,madeForKids:$("ytEKids").value==="1"};
       if(!body.title){ $("ytEMsg").innerHTML='<span style="color:var(--bad)">Tiêu đề không được để trống.</span>'; return; }
       const btn=$("ytESave"); btn.disabled=true; $("ytEMsg").textContent="Đang lưu lên YouTube…";
       try{ await workerApi("/api/video-update",{method:"POST",body});
-        const v=(window.__ytVids||[]).find(x=>x.id===id); if(v){ v.title=body.title; v.description=body.description; v.tags=tags; v.privacy=body.privacy; }
+        const v=(window.__ytVids||[]).find(x=>x.id===id); if(v){ v.title=body.title; v.description=body.description; v.tags=tags; v.privacy=body.privacy; v.madeForKids=body.madeForKids; }
         toastMsg("✔ Đã lưu lên YouTube"); ytEditClose(); renderYtRows();
       }catch(e){ $("ytEMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; }
       finally{ btn.disabled=false; }

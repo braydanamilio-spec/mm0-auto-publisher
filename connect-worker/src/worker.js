@@ -33,6 +33,8 @@ export default {
       if (url.pathname === "/api/analytics") return corsResp(await apiAnalytics(request, url, env));
       if (url.pathname === "/api/channel-videos") return corsResp(await apiChannelVideos(request, url, env));
       if (url.pathname === "/api/video-update") return corsResp(await apiVideoUpdate(request, url, env));
+      if (url.pathname === "/api/video-thumbnail") return corsResp(await apiVideoThumbnail(request, url, env));
+      if (url.pathname === "/api/video-captions") return corsResp(await apiVideoCaptions(request, url, env));
       if (url.pathname === "/api/video-delete") return corsResp(await apiVideoDelete(request, url, env));
     } catch (e) {
       // API trả JSON lỗi; trang HTML trả trang lỗi
@@ -235,6 +237,9 @@ async function apiChannelVideos(request, url, env) {
         comments: +(v.statistics.commentCount || 0), duration: secs,
         type: secs > 0 && secs <= 60 ? "short" : "long",
         privacy: (v.status || {}).privacyStatus || "",
+        madeForKids: (v.status || {}).selfDeclaredMadeForKids != null
+          ? !!(v.status.selfDeclaredMadeForKids) : !!((v.status || {}).madeForKids),
+        categoryId: (v.snippet || {}).categoryId || "",
       });
     });
   }
@@ -258,7 +263,11 @@ async function apiVideoUpdate(request, url, env) {
     tags: Array.isArray(b.tags) ? b.tags.slice(0, 60) : (sn.tags || []),
     defaultLanguage: sn.defaultLanguage,
   };
-  const status = { privacyStatus: b.privacy || stt.privacyStatus || "public" };
+  const status = {
+    privacyStatus: b.privacy || stt.privacyStatus || "public",
+    selfDeclaredMadeForKids: b.madeForKids != null ? !!b.madeForKids
+      : (stt.selfDeclaredMadeForKids != null ? stt.selfDeclaredMadeForKids : !!stt.madeForKids),
+  };
   try {
     await ytSend("PUT", "videos?part=snippet,status", ctx.yat, { id, snippet, status });
   } catch (e) {
@@ -267,6 +276,41 @@ async function apiVideoUpdate(request, url, env) {
     throw e;
   }
   return json({ ok: true });
+}
+
+// POST /api/video-thumbnail {channel,id,image=dataURL} -> đặt thumbnail tùy chỉnh
+async function apiVideoThumbnail(request, url, env) {
+  const ctx = await authCtx(request, url, env);
+  const id = ctx.g("id"); const dataUrl = (ctx.body || {}).image;
+  if (!id || !dataUrl) throw new Error("Thiếu id hoặc ảnh.");
+  const m = /^data:(image\/[\w.+-]+);base64,(.+)$/.exec(dataUrl);
+  if (!m) throw new Error("Ảnh không hợp lệ (cần JPG/PNG).");
+  const bin = atob(m[2]); const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  if (bytes.length > 2 * 1024 * 1024) throw new Error("Ảnh quá 2MB — chọn ảnh nhỏ hơn.");
+  const r = await fetch(`https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=${encodeURIComponent(id)}`,
+    { method: "POST", headers: { Authorization: `Bearer ${ctx.yat}`, "content-type": m[1] }, body: bytes });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    if (r.status === 403) throw new Error("Kênh cần XÁC MINH số điện thoại để đặt thumbnail tùy chỉnh (hoặc Kết nối lại để cấp quyền).");
+    throw new Error((j.error && j.error.message) || ("Thumbnail " + r.status));
+  }
+  const it = (j.items || [])[0] || {};
+  return json({ ok: true, thumb: (it.medium || it.high || it.default || {}).url || "" });
+}
+
+// GET /api/video-captions?channel=&id= -> danh sách phụ đề hiện có của video
+async function apiVideoCaptions(request, url, env) {
+  const ctx = await authCtx(request, url, env);
+  const id = ctx.g("id"); if (!id) throw new Error("Thiếu id video.");
+  const r = await ytGet(`captions?part=snippet&videoId=${encodeURIComponent(id)}`, ctx.yat);
+  const items = (r.items || []).map((c) => ({
+    id: c.id, language: (c.snippet || {}).language || "",
+    name: (c.snippet || {}).name || "", trackKind: (c.snippet || {}).trackKind || "",
+    auto: (c.snippet || {}).trackKind === "ASR",
+    lastUpdated: (c.snippet || {}).lastUpdated || "",
+  }));
+  return json({ ok: true, items });
 }
 
 // POST /api/video-delete {channel,id} -> XOÁ video thật khỏi YouTube (không thể hoàn tác)
