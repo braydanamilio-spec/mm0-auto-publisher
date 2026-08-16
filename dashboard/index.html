@@ -2969,7 +2969,7 @@
         const view=f.webViewLink?`<a href="${esc(f.webViewLink)}" target="_blank" class="mini">Xem</a>`:"";
         const isVid=/\.(mp4|mov|mkv|webm)$/i.test(f.name);
         const pub=isVid?`<button class="mini" style="color:#c00;border-color:#c00" onclick="ytQueueFrom('${f.id}',this)" data-nm="${esc(f.name)}">${t("yt_post")}</button><button class="mini" style="color:var(--accent);border-color:var(--accent)" onclick="socQueueFrom('${f.id}',this)" data-nm="${esc(f.name)}">${t("fb_post")}</button>`:"";
-        const chk=isVid?`<input type="checkbox" class="fb-chk" ${(window.__stSel||new Set()).has(f.id)?'checked':''} onclick="stToggle('${f.id}',this)" data-nm="${esc(f.name)}" title="Chọn để rải lịch hàng loạt">`:'<span style="width:15px;display:inline-block"></span>';
+        const chk=fold?'<span style="width:15px;display:inline-block"></span>':`<input type="checkbox" class="fb-chk" ${(window.__fbSel||new Set()).has(f.id)?'checked':''} onclick="fbSelToggle('${f.id}',this)" title="Chọn để xoá / rải lịch hàng loạt">`;
         return `<div class="fb-row">
           ${chk}<span class="fb-ic">${icon}</span>
           <div style="flex:1;min-width:0">${name}<div class="fb-meta">${esc(size)}${size&&f.modifiedTime?" · ":""}${f.modifiedTime?ago(f.modifiedTime):""}</div></div>
@@ -2978,9 +2978,30 @@
             <button class="mini bad" onclick="fbTrash('${f.id}')">Xoá</button></span>
         </div>`;
       }).join("");
-      $("fbList").innerHTML=rows||emptyBox("Thư mục trống.");
-      renderStBulk();
+      // Thanh chọn hàng loạt (chọn tất cả + xoá / rải lịch)
+      const nonFold=files.filter(f=>!isFold(f)); const sel=window.__fbSel||new Set();
+      const selN=nonFold.filter(f=>sel.has(f.id)).length;
+      const allChk=nonFold.length>0 && nonFold.every(f=>sel.has(f.id));
+      const bar=nonFold.length?`<div class="fb-row" style="background:var(--surface2);position:sticky;top:0;z-index:1">
+        <input type="checkbox" class="fb-chk" ${allChk?'checked':''} onclick="fbSelAll(this.checked)" title="Chọn tất cả file trong thư mục">
+        <span class="fb-ic">☑️</span>
+        <div style="flex:1;min-width:0"><b>${selN?`Đã chọn ${selN} file`:`Chọn tất cả (${nonFold.length} file)`}</b></div>
+        ${selN?`<span class="fb-acts"><button class="mini" onclick="fbBulkSchedule()">📅 Rải lịch</button><button class="mini bad" onclick="fbBulkDelete()">🗑️ Xoá ${selN}</button><button class="mini" onclick="fbSelClear()">Bỏ chọn</button></span>`:''}
+      </div>`:'';
+      $("fbList").innerHTML=(bar+rows)||emptyBox("Thư mục trống.");
     }
+    window.__fbSel=new Set();
+    window.fbSelToggle=(id,el)=>{ window.__fbSel=window.__fbSel||new Set(); if(el.checked) window.__fbSel.add(id); else window.__fbSel.delete(id); fbRender(window.__fb.files); };
+    window.fbSelAll=(checked)=>{ window.__fbSel=window.__fbSel||new Set(); (window.__fb.files||[]).filter(f=>f.mimeType!==FOLDER_MIME).forEach(f=>{ if(checked) window.__fbSel.add(f.id); else window.__fbSel.delete(f.id); }); fbRender(window.__fb.files); };
+    window.fbSelClear=()=>{ window.__fbSel=new Set(); fbRender(window.__fb.files); };
+    window.fbBulkDelete=async()=>{ const ids=[...(window.__fbSel||new Set())].filter(id=>(window.__fb.files||[]).some(f=>f.id===id));
+      if(!ids.length) return; if(!confirm(`Đưa ${ids.length} file vào THÙNG RÁC Drive? (khôi phục được trong 30 ngày)`)) return;
+      let ok=0; for(const id of ids){ const f=(window.__fb.files||[]).find(x=>x.id===id); try{ await workerApi("/api/file-action",{method:"POST",body:{account:fbAcc(f),action:"trash",fileId:id}}); ok++; }catch(_){} }
+      window.__fbSel=new Set(); toastMsg(`🗑️ Đã xoá ${ok} file`); fbAfter(); };
+    window.fbBulkSchedule=()=>{ const vids=(window.__fb.files||[]).filter(f=>window.__fbSel.has(f.id)&&/\.(mp4|mov|mkv|webm)$/i.test(f.name));
+      if(!vids.length){ toastMsg("Chọn ít nhất 1 video để rải lịch"); return; }
+      window.__stSel=new Set(vids.map(f=>f.id)); window.__stSelNm={}; vids.forEach(f=>window.__stSelNm[f.id]=f.name);
+      if(window.stBulkOpen) stBulkOpen(); };
     window.fbEnter=(id)=>{ const f=(window.__fb.files||[]).find(x=>x.id===id); if(f){ window.__fb.stack.push({id,name:f.name}); fbOpen(id,f.name); } };
     window.fbCrumb=(i)=>{ window.__fb.stack=window.__fb.stack.slice(0,i+1); const top=window.__fb.stack[i]; fbOpen(i===0?null:top.id, top.name); };
     window.fbRefresh=fbRefresh;
