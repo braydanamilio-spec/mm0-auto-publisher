@@ -25,6 +25,7 @@ import yaml
 sys.path.insert(0, os.path.dirname(__file__))
 import metadata as M
 import affiliate as AFF
+import autotitle as AT
 import scheduler as S
 from drive_client import Drive
 from firestore_state import State
@@ -458,6 +459,7 @@ def process_users(channels_cfg, templates, safety, tz, dry_run, state, now):
         ov = state.get_doc("settings", "overrides__" + uid) or {}
         review_mode = bool(ov.get("review_mode"))
         ov_ch = ov.get("channels", {})
+        fb_meta_cfg = ov.get("fallback_meta") or {}   # PHƯƠNG ÁN 2: metadata tổ hợp dự phòng (mặc định tắt)
 
         pool = []
         for dc in u["drive"]:
@@ -491,6 +493,8 @@ def process_users(channels_cfg, templates, safety, tz, dry_run, state, now):
                     for k in ("title", "description", "tags", "hashtags"):
                         if doc.get(k) not in (None, "", []):
                             raw[k] = doc[k]
+                # PHƯƠNG ÁN 2: nếu BẬT và video KHÔNG có metadata thật -> điền tổ hợp dự phòng.
+                AT.apply_fallback(raw, fb_meta_cfg, f["id"])
                 meta = M.build_metadata(raw, branding)
                 groups.setdefault(channel, []).append({
                     "drive_file_id": f["id"], "drive_name": f["name"], "parent_id": f["parents"][0],

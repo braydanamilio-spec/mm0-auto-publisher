@@ -749,6 +749,16 @@
           <div class="p-sub" style="margin-top:10px;line-height:1.6">🛡️ <b>Chống spam / đúng điều khoản (tự động):</b> CTA <b>random mỗi bài</b> + UTM <b>khác nhau mỗi bài</b> → không bị coi là "spam link giống hệt hàng loạt"; tự thêm <b>khai báo tiếp thị</b>; <b>1 link/bài</b>; đã có <b>giãn cách jitter + trần bài/lần chạy</b>. Anh chỉ cần đặt link 1 lần — hệ tự biến hoá để an toàn.</div>
           <div class="p-sub" style="margin-top:6px;line-height:1.6">⚠️ <b>Instagram không thể chèn link click qua API</b> (giới hạn Meta) — chỉ ghi "link ở bio", anh tự đặt link-in-bio. <b>Gắn sản phẩm/tag</b> trên Reels cần Facebook Shop + quyền Commerce (không tự động được). Nên dùng <b>link rút gọn thương hiệu</b> ở dưới (không bit.ly trần) để không bị giảm reach.</div>
         </div>
+        <div class="panel" style="margin-top:16px" id="fbmPanel">
+          <div class="p-head"><div class="p-title">🎲 Phương án 2 — Metadata dự phòng tự động</div>
+            <label style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer"><input type="checkbox" id="fbmEnabled" onchange="fbmToggle(this)" style="width:16px;height:16px"> Bật dự phòng</label></div>
+          <div class="p-sub" style="margin:6px 0 12px;line-height:1.6">Khi video <b>KHÔNG có metadata riêng</b> (không tiêu đề/mô tả), hệ tự tạo <b>tiêu đề + emoji + mô tả + hashtag + tag</b> tổ hợp — <b>hàng triệu biến thể</b>, hook cao, chung chung, chuẩn <b>USA</b> — để vẫn đăng được. <b>Mặc định TẮT.</b> Video có tiêu đề riêng của anh <b>KHÔNG bị đụng</b>. Mỗi video 1 tiêu đề cố định (retry không đổi).</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <button class="btn-mini" onclick="fbmPreview()">🎲 Xem thử 5 mẫu</button>
+            <span class="p-sub" id="fbmMsg"></span>
+          </div>
+          <div id="fbmSamples" style="margin-top:10px"></div>
+        </div>
         <div class="panel" style="margin-top:16px" id="linkPanel">
           <div class="p-head"><div class="p-title">🔗 Link rút gọn thương hiệu <span class="p-sub">— redirect riêng, đếm click, 100% free</span></div></div>
           <div class="p-sub" style="margin:6px 0 12px;line-height:1.6">Tạo link ngắn qua <b>domain của chính anh</b> (Cloudflare Worker) → 302 tới link affiliate + <b>đếm click</b>. Đây là cách <b>các ông lớn</b> làm (không dùng bit.ly trần dễ bị giảm reach). Dán link ngắn này vào ô "Link" ở trên. UTM vẫn được nối tự động khi đăng.</div>
@@ -3657,6 +3667,7 @@
           <div class="tpl-pick">Chọn gói này →</div></div>`;
       }).join("");
       if(window.affLoad) affLoad();
+      if(window.fbmLoad) fbmLoad();
       if(window.renderLinks) renderLinks();
     }
 
@@ -3689,6 +3700,29 @@
       if(cfg.enabled && !cfg.default_url && !Object.keys(links).length){ if(msg){msg.style.color="var(--bad)";msg.textContent="Nhập link mặc định hoặc link riêng ít nhất 1 kênh.";} return; }
       try{ await window.__setOverridesDoc({affiliate:cfg}); if(msg){msg.style.color="var(--good)";msg.textContent="✔ Đã lưu — áp dụng lần đăng tới.";} toastMsg("✔ Đã lưu cấu hình affiliate"); }
       catch(e){ if(msg){msg.style.color="var(--bad)";msg.textContent="❌ "+e.message;} } };
+
+    /* ===== PHƯƠNG ÁN 2: METADATA DỰ PHÒNG (preview client-side minh hoạ) ===== */
+    const FBM={ hooks:["You won't believe","Nobody talks about","The truth about","POV:","Wait for it —","Stop scrolling —","Here's why","The secret behind","Plot twist:","This broke the internet:","Caught on camera:","Little-known fact:"],
+      power:["insane","unbelievable","genius","wild","shocking","next-level","jaw-dropping","mind-blowing","epic","crazy","unreal","legendary"],
+      subj:["this","this trick","this moment","the results","what happens next","this hack","this story","the ending","this reaction","the details"],
+      lead:["🔥","😱","🤯","🚨","👀","💥","⚡","💯","🥶","❤️‍🔥","😳","✨"], tail:["🔥🔥","😱","🤯","💯","👇","‼️","🙌","👀","🚀","✅"],
+      tags:["#fyp","#foryou","#viral","#trending","#usa","#explore","#mustwatch","#relatable","#satisfying","#storytime","#wow","#viralvideo"] };
+    function fbmGen(seed){ let s=0; const str=String(seed); for(let i=0;i<str.length;i++) s=(s*31+str.charCodeAt(i))>>>0;
+      const R=()=>{ s=(s*1103515245+12345)>>>0; return s/4294967296; }; const pick=a=>a[Math.floor(R()*a.length)];
+      const h=pick(FBM.hooks),p=pick(FBM.power),sub=pick(FBM.subj),l=pick(FBM.lead),t=pick(FBM.tail);
+      const fmts=[`${l} ${h} ${sub} ${t}`,`${h} ${p} ${sub} ${t}`,`${l} ${p[0].toUpperCase()+p.slice(1)}! ${sub} ${t}`,`${h} ${sub}… ${t}`,`${l} This is ${p} ${t}`];
+      const title=pick(fmts).trim().slice(0,100);
+      const tg=[...FBM.tags].sort(()=>R()-0.5).slice(0,6);
+      return {title,tags:tg}; }
+    window.fbmPreview=()=>{ const box=$("fbmSamples"); if(!box) return;
+      const rows=Array.from({length:5},(_,i)=>fbmGen("sample_"+Date.now()+"_"+i));
+      box.innerHTML=`<div class="p-sub" style="margin-bottom:6px">Ví dụ (mỗi lần bấm ra mẫu khác — thực tế cố định theo video):</div>`+
+        rows.map(r=>`<div class="svc"><div class="snm" style="min-width:0">${esc(r.title)}</div><span class="sd" style="margin-left:auto">${esc(r.tags.join(' '))}</span></div>`).join(""); };
+    window.fbmToggle=(el)=>{ const on=el.checked;
+      if(on && !confirm("BẬT Phương án 2?\n\nVideo KHÔNG có tiêu đề/mô tả riêng sẽ được TỰ ĐỘNG tạo tiêu đề + emoji + mô tả + hashtag + tag tổ hợp (chuẩn USA) để vẫn đăng được.\n\nVideo có metadata riêng của anh KHÔNG bị đụng. Đồng ý?")){ el.checked=false; return; }
+      window.__setOverridesDoc({fallback_meta:{enabled:on}}).then(()=>{ const m=$("fbmMsg"); if(m){m.style.color=on?"var(--good)":"var(--muted)";m.textContent=on?"✔ Đã bật — dùng khi video thiếu metadata":"Đã tắt";} toastMsg(on?"✔ Bật phương án 2":"Đã tắt phương án 2"); })
+        .catch(e=>{ el.checked=!on; alert("❌ "+e.message); }); };
+    window.fbmLoad=()=>{ const a=(__OVERRIDES.fallback_meta)||{}; const e=$("fbmEnabled"); if(e) e.checked=!!a.enabled; };
 
     /* ===== LINK RÚT GỌN THƯƠNG HIỆU ===== */
     window.__links=[];
