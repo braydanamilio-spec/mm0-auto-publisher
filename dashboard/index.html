@@ -1049,6 +1049,13 @@
         toastMsg(`✔ Đã gộp ${channels.length} kênh vào ${gmail}`); }
       catch(e){ alert("Lỗi: "+e.message); }
     };
+    // Gán nhóm THỦ CÔNG cho Facebook Page (nick/UID/Gmail) — như gmail_group của YouTube
+    window.saveFbGroup = async (slugs, label) => {
+      const map={}; (slugs||[]).forEach(s=>map[s]=label);
+      try { await setDoc(ovDoc(), {owner:window.__uid, fb_group:map}, {merge:true});
+        toastMsg(label?`✔ Đã gộp ${slugs.length} Page vào "${label}"`:`✔ Đã bỏ nhóm`); }
+      catch(e){ alert("Lỗi: "+e.message); }
+    };
     window.saveFbMap = async (channel, pageSlug) => {
       try { await setDoc(ovDoc(), {owner:window.__uid, fb_map:{[channel]: pageSlug||""}}, {merge:true});
         toastMsg(pageSlug?`✔ ${channel} → Page (áp dụng lần đăng tới)`:`✔ ${channel}: bỏ đăng FB/IG`); }
@@ -1531,17 +1538,25 @@
         ${p.ig_user_id
           ? `<div class="svc"><div class="ava" id="igava-${esc(p.name)}" style="width:34px;height:34px;background:linear-gradient(135deg,#F9CE34,#EE2A7B 45%,#6228D7);overflow:hidden;flex:none;display:grid;place-items:center;position:relative"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="#fff" stroke-width="2">${svgIcon('ig')}</svg>${p.ig_avatar?`<img src="${esc(p.ig_avatar)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`:''}</div><div style="flex:1;min-width:0"><div class="snm" id="igname-${esc(p.name)}">${esc(p.ig_name||'Instagram')}</div><div class="sd" id="igsd-${esc(p.name)}">${p.ig_username?'@'+esc(p.ig_username):'đã liên kết'} · Reels tự động</div></div><span class="tag t-connected" style="margin-left:auto">Đã kết nối</span></div>`
           : svcRow('ig','#E1306C','Instagram', 'unknown', 'chưa liên kết IG — vào Page → Linked accounts để nối')}
+        <button class="btn-reconn" style="width:100%;margin-top:8px;justify-content:flex-start" onclick="assignFbGroup('${esc(p.name)}')">👥 Nhóm quản lý: <b style="margin-left:4px">${fbG[p.name]?esc(fbG[p.name]):(p.fb_owner_name?esc(p.fb_owner_name)+' (UID)':'chưa gán (bấm để gộp)')}</b></button>
         <div class="p-sub" style="margin-top:8px">📅 Kết nối: <b>${dt}</b>${p.connected_at?` · ${ago(p.connected_at)}`:''} <span id="fbtok-${esc(p.name)}"></span></div>
         <div style="display:flex;gap:8px;margin-top:10px">
           <button class="btn-mini" onclick="fbCheckToken('${esc(p.name)}')">🔍 Kiểm tra token</button>
           <button class="btn-reconn" style="flex:1" onclick="connectChannel('','facebook')">🔗 Kết nối lại</button>
           <button class="btn-reconn danger" onclick="disconnectChannel('${esc(p.name)}','facebook','${esc(p.page_name||p.name)}')">🗑</button>
         </div></div>`; };
-      const groups={}; __FBP.forEach(p=>{ const g=p.fb_owner_id||"__none__"; (groups[g]=groups[g]||[]).push(p); });
+      // Nhóm: gán tay (fb_group) > UID nick FB (fb_owner_id) > chưa rõ
+      const fbG=(__OVERRIDES.fb_group)||{};
+      const groups={}; __FBP.forEach(p=>{ const g=fbG[p.name]||p.fb_owner_id||"__none__"; (groups[g]=groups[g]||[]).push(p); });
       const order=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length);
       $("fbPages").innerHTML=order.map(g=>{
         const arr=groups[g], p0=arr[0];
-        const head=g==="__none__"?"👤 Chưa rõ tài khoản FB (kết nối lại để nhóm)":`👤 ${esc(p0.fb_owner_name||'Tài khoản Facebook')} <span class="p-sub">· UID …${esc(String(g).slice(-8))} · ${arr.length} Page</span>`;
+        const isManual=fbG[p0.name]===g;
+        const head=g==="__none__"
+          ? `👤 Chưa gán nhóm <span class="p-sub">· bấm "👥 Nhóm quản lý" ở thẻ để gộp · ${arr.length} Page</span>`
+          : isManual
+            ? `👥 ${esc(g)} <span class="p-sub">· ${arr.length} Page</span>`
+            : `👤 ${esc(p0.fb_owner_name||'Tài khoản Facebook')} <span class="p-sub">· UID …${esc(String(g).slice(-8))} · ${arr.length} Page</span>`;
         return `<div class="hub-ghead">${head}</div>`+arr.map(fbCard).join("");
       }).join("");
       socFillPages();
@@ -1568,6 +1583,10 @@
       const av=$("igava-"+slug); if(av && pr.avatar && !av.querySelector('img')){ const img=document.createElement('img'); img.src=pr.avatar; img.style.cssText="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"; img.onerror=function(){this.style.display='none';}; av.appendChild(img); }
     }
     // Kiểm tra token còn sống không (ping insight thật; hỏng -> nhắc kết nối lại)
+    window.assignFbGroup=(slug)=>{ const cur=((__OVERRIDES.fb_group)||{})[slug]||"";
+      const p=(__FBP||[]).find(x=>x.name===slug)||{};
+      const v=prompt(`Nhóm quản lý cho Page "${p.page_name||slug}"\n(gõ nick FB / UID / Gmail để gộp các Page cùng chủ về 1 nhóm — bỏ trống = bỏ nhóm):`, cur||p.fb_owner_name||"");
+      if(v===null) return; window.saveFbGroup([slug], v.trim()); };
     window.fbCheckToken=async(name)=>{ const el=$("fbtok-"+name); if(el)el.innerHTML=`· <span class="p-sub">⏳ đang kiểm tra…</span>`;
       try{ await workerApi(`/api/social-insights?channel=${encodeURIComponent(name)}&platform=fb`);
         if(el)el.innerHTML=`· <span style="color:var(--good)">✔ token còn hiệu lực</span>`;
