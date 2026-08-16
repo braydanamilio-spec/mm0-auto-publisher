@@ -368,8 +368,11 @@
         <div id="ov-fb" class="subpane hide">
           <div class="panel" id="fbMonetPanel" style="margin-bottom:14px">
             <div class="p-head"><div class="p-title">💰 Điều kiện kiếm tiền Facebook <span class="p-sub">— In-stream / Reels (ĐO tham khảo)</span></div>
-              <button class="btn-conn" id="fbMonetBtn" onclick="checkFbMonet()">🔍 Kiểm tra Page</button></div>
-            <div id="fbMonetList"><div class="p-sub" style="padding:6px">Bấm <b>Kiểm tra</b> để đo số liệu Page so với ngưỡng Meta. ⚠️ Facebook <b>KHÔNG có API báo "đủ điều kiện"</b> — chốt cuối phải xem ở <b>Meta Business Suite → Kiếm tiền</b>.</div></div>
+              <button class="btn-mini" id="fbMonetTgl" onclick="toggleMonet('fb')">▾ Hiện</button></div>
+            <div id="fbMonetBody" style="display:none">
+              <div style="margin-bottom:10px"><button class="btn-conn" id="fbMonetBtn" onclick="checkFbMonet()">🔍 Kiểm tra Page</button></div>
+              <div id="fbMonetList"><div class="p-sub" style="padding:6px">Bấm <b>Kiểm tra</b> để đo số liệu Page so với ngưỡng Meta. ⚠️ Facebook <b>KHÔNG có API báo "đủ điều kiện"</b> — chốt cuối phải xem ở <b>Meta Business Suite → Kiếm tiền</b>.</div></div>
+            </div>
           </div>
           <div id="fbOverview"></div>
         </div>
@@ -377,8 +380,11 @@
         <div id="runwayAlert" style="display:none"></div>
         <div class="panel" id="monetPanel" style="margin-bottom:14px">
           <div class="p-head"><div class="p-title">💰 Điều kiện kiếm tiền YouTube <span class="p-sub">— 1.000 sub + 4.000 giờ xem / 12 tháng</span></div>
-            <button class="btn-conn" id="monetBtn" onclick="checkMonet()">🔍 Kiểm tra tất cả kênh</button></div>
-          <div id="monetList"><div class="p-sub" style="padding:6px">Bấm <b>Kiểm tra</b> để xem kênh nào sắp/đủ điều kiện. Tool <b>KHÔNG tự bật kiếm tiền</b> — chỉ đo &amp; nhắc + dẫn tới Studio để anh tự nộp (an toàn, đúng chính sách Google).</div></div>
+            <button class="btn-mini" id="monetTgl" onclick="toggleMonet('yt')">▾ Hiện</button></div>
+          <div id="monetBody" style="display:none">
+            <div style="margin-bottom:10px"><button class="btn-conn" id="monetBtn" onclick="checkMonet()">🔍 Kiểm tra tất cả kênh</button></div>
+            <div id="monetList"><div class="p-sub" style="padding:6px">Bấm <b>Kiểm tra</b> để xem kênh nào sắp/đủ điều kiện. Tool <b>KHÔNG tự bật kiếm tiền</b> — chỉ đo &amp; nhắc + dẫn tới Studio để anh tự nộp (an toàn, đúng chính sách Google).</div></div>
+          </div>
         </div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
           <button class="btn-conn" id="ovSyncBtn">🔄 Đồng bộ số liệu thật từ YouTube</button>
@@ -719,8 +725,9 @@
           <div class="p-sub" style="margin:6px 0 12px;line-height:1.6">Chèn link ĐÚNG CHỖ từng nền tảng: YouTube + FB video dài → mô tả · FB Reels → bình luận ghim · Instagram → "link ở bio". Tự thêm <b>UTM</b> (đo hiệu suất, chống spam) + <b>khai báo tiếp thị</b> (đúng chính sách).</div>
           <div class="pubbar">
             <label class="fld" style="grid-column:span 2"><span>Link mặc định (áp cho mọi kênh chưa đặt riêng)</span><input id="affUrl" type="url" placeholder="https://shopee.vn/... hoặc link rút gọn có thương hiệu"></label>
-            <label class="fld"><span>Chữ CTA trước link</span><input id="affCta" type="text" placeholder="🛒 Mua ngay:" value="🛒 Link:"></label>
+            <label class="fld"><span>Chữ CTA trước link <span class="p-sub">(trống = random mẫu USA)</span></span><input id="affCta" type="text" placeholder="trống để tự random 12 mẫu chuẩn USA"></label>
             <label class="fld"><span>Dòng khai báo tiếp thị</span><input id="affDisc" type="text" placeholder="Tiếp thị liên kết · có thể nhận hoa hồng #ad" value="Tiếp thị liên kết · có thể nhận hoa hồng #ad"></label>
+            <label class="fld"><span>📍 Vị trí chèn link</span><select id="affPlace"><option value="bottom">Cuối mô tả (khuyến nghị)</option><option value="top">Đầu mô tả</option></select></label>
           </div>
           <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;align-items:center">
             <span class="p-sub">Áp dụng nền tảng:</span>
@@ -739,7 +746,8 @@
             <button class="btn-conn" onclick="affSave()">💾 Lưu cấu hình affiliate</button>
             <span class="p-sub" id="affMsg"></span>
           </div>
-          <div class="p-sub" style="margin-top:10px;line-height:1.6">⚠️ <b>Instagram không thể chèn link click qua API</b> (giới hạn Meta) — chỉ ghi "link ở bio", anh tự đặt link-in-bio. <b>Gắn sản phẩm/tag</b> trên Reels cần Facebook Shop + quyền Commerce (không tự động được). Nên dùng <b>link rút gọn thương hiệu</b> ở dưới (không bit.ly trần) để không bị giảm reach.</div>
+          <div class="p-sub" style="margin-top:10px;line-height:1.6">🛡️ <b>Chống spam / đúng điều khoản (tự động):</b> CTA <b>random mỗi bài</b> + UTM <b>khác nhau mỗi bài</b> → không bị coi là "spam link giống hệt hàng loạt"; tự thêm <b>khai báo tiếp thị</b>; <b>1 link/bài</b>; đã có <b>giãn cách jitter + trần bài/lần chạy</b>. Anh chỉ cần đặt link 1 lần — hệ tự biến hoá để an toàn.</div>
+          <div class="p-sub" style="margin-top:6px;line-height:1.6">⚠️ <b>Instagram không thể chèn link click qua API</b> (giới hạn Meta) — chỉ ghi "link ở bio", anh tự đặt link-in-bio. <b>Gắn sản phẩm/tag</b> trên Reels cần Facebook Shop + quyền Commerce (không tự động được). Nên dùng <b>link rút gọn thương hiệu</b> ở dưới (không bit.ly trần) để không bị giảm reach.</div>
         </div>
         <div class="panel" style="margin-top:16px" id="linkPanel">
           <div class="p-head"><div class="p-title">🔗 Link rút gọn thương hiệu <span class="p-sub">— redirect riêng, đếm click, 100% free</span></div></div>
@@ -1654,6 +1662,12 @@
       if(!(typeof connectedYT==="function"&&connectedYT().length)) return;
       window.__apiAutoTried=true; enableAnalyticsApis({loud:false});
     };
+    // ===== Ẩn/hiện panel kiếm tiền (mặc định ẩn cho gọn — cả YT & FB) =====
+    window.__monetOpen={yt:false, fb:false};
+    window.toggleMonet=(which)=>{ window.__monetOpen[which]=!window.__monetOpen[which];
+      const body=$(which==='fb'?'fbMonetBody':'monetBody'), btn=$(which==='fb'?'fbMonetTgl':'monetTgl');
+      if(body) body.style.display=window.__monetOpen[which]?'':'none';
+      if(btn) btn.textContent=window.__monetOpen[which]?'▴ Ẩn':'▾ Hiện'; };
     // ===== Điều kiện kiếm tiền YouTube (ĐO + NHẮC, KHÔNG tự bật — đúng chính sách) =====
     window.checkMonet=async()=>{ const box=$("monetList"), btn=$("monetBtn"); const chans=connectedYT();
       if(!chans.length){ box.innerHTML=`<div class="p-sub" style="padding:6px">Chưa có kênh YouTube kết nối.</div>`; return; }
@@ -3651,6 +3665,7 @@
       const set=(id,v)=>{ const e=$(id); if(e) e.value=v; };
       const chk=(id,v)=>{ const e=$(id); if(e) e.checked=!!v; };
       chk("affEnabled",a.enabled); set("affUrl",a.default_url||""); if(a.cta_text!=null) set("affCta",a.cta_text); if(a.disclosure!=null) set("affDisc",a.disclosure);
+      set("affPlace",a.placement||"bottom");
       chk("affYt",p.youtube!==false); chk("affFb",p.facebook!==false); chk("affIg",p.instagram!==false);
       chk("affUtm",a.utm!==false); chk("affComment",a.auto_comment!==false);
       window.__affLinks=Object.assign({}, a.links||{}); };
@@ -3668,7 +3683,7 @@
     window.affSave=async()=>{ const g=id=>($(id)||{}).value||""; const c=id=>!!($(id)||{}).checked;
       const links={}; const src=window.__affLinks||{}; Object.keys(src).forEach(k=>{ if((src[k]||"").trim()) links[k]=src[k].trim(); });
       const cfg={ enabled:c("affEnabled"), default_url:g("affUrl").trim(), cta_text:g("affCta"), disclosure:g("affDisc"),
-        utm:c("affUtm"), auto_comment:c("affComment"),
+        placement:g("affPlace")||"bottom", utm:c("affUtm"), auto_comment:c("affComment"),
         platforms:{youtube:c("affYt"),facebook:c("affFb"),instagram:c("affIg")}, links };
       const msg=$("affMsg");
       if(cfg.enabled && !cfg.default_url && !Object.keys(links).length){ if(msg){msg.style.color="var(--bad)";msg.textContent="Nhập link mặc định hoặc link riêng ít nhất 1 kênh.";} return; }

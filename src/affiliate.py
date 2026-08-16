@@ -92,9 +92,9 @@ def _block(cfg: dict, url: str, cta: str) -> str:
     return out
 
 
-def _fit(desc: str, block: str, limit: int) -> str:
+def _fit(desc: str, block: str, limit: int, top: bool = False) -> str:
     """Ghép desc + block sao cho TỔNG <= limit, ƯU TIÊN GIỮ block (link).
-    Nếu tràn -> cắt bớt DESC GỐC (không cắt link) ở ranh giới từ."""
+    top=True -> block Ở ĐẦU mô tả; ngược lại ở cuối. Tràn -> cắt DESC GỐC (không cắt link) ở ranh giới từ."""
     desc = (desc or "").strip()
     block = (block or "").strip()
     sep = "\n\n"
@@ -107,7 +107,9 @@ def _fit(desc: str, block: str, limit: int) -> str:
         if sp >= int(room * 0.6):
             cut = cut[:sp].rstrip()
         desc = cut + "…"
-    return (desc + sep + block).strip() if desc else block
+    if not desc:
+        return block
+    return (block + sep + desc) if top else (desc + sep + block)
 
 
 def apply(meta: dict, cfg: dict, platform: str, slug: str, content_id: str) -> str | None:
@@ -120,6 +122,7 @@ def apply(meta: dict, cfg: dict, platform: str, slug: str, content_id: str) -> s
         return None
     vtype = meta.get("type", "long")
     limit = LIMITS.get((platform, vtype), 2200)
+    top = str(cfg.get("placement") or "bottom") == "top"   # vị trí link: đầu / cuối mô tả
     url = add_utm(url0, platform, slug, content_id, bool(cfg.get("utm", True)))
     disc = str(cfg.get("disclosure") or "").strip()
     desc = str(meta.get("description") or "")
@@ -128,7 +131,7 @@ def apply(meta: dict, cfg: dict, platform: str, slug: str, content_id: str) -> s
         # Caption/comment IG KHÔNG bấm link -> chỉ CTA bio (không nhét link thật).
         cta = pick_cta(cfg, content_id, "bio")
         add = cta + ("\n" + disc if disc else "")
-        meta["description"] = _fit(desc, add, limit)
+        meta["description"] = _fit(desc, add, limit, top)
         return None
 
     if platform == "facebook":
@@ -137,15 +140,15 @@ def apply(meta: dict, cfg: dict, platform: str, slug: str, content_id: str) -> s
         if vtype == "short":
             # Reels: caption không click -> link ở BÌNH LUẬN. Caption chỉ CTA "link ở comment".
             note = pick_cta(cfg, content_id, "comment")
-            meta["description"] = _fit(desc, note, limit)
+            meta["description"] = _fit(desc, note, limit, top)
             return block
-        meta["description"] = _fit(desc, block, limit)
+        meta["description"] = _fit(desc, block, limit, top)
         return block if cfg.get("auto_comment") else None
 
     if platform == "youtube":
         cta = pick_cta(cfg, content_id, "url")
         block = _block(cfg, url, cta)
-        meta["description"] = _fit(desc, block, limit)
+        meta["description"] = _fit(desc, block, limit, top)
         return block if cfg.get("auto_comment") else None
 
     return None
