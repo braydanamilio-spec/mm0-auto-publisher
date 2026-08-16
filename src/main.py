@@ -579,6 +579,15 @@ def main():
             print(f"  ❌ Per-user lỗi tổng: {e}")
             traceback.print_exc()
 
+    # CONTENT HUB: đăng YouTube từ hàng đợi cloud (user chọn video Drive trên dashboard)
+    if not args.only:
+        try:
+            import publish_yt_queue
+            publish_yt_queue.run(dry_run=args.dry_run)
+        except Exception as e:
+            print(f"  ❌ yt_queue lỗi tổng: {e}")
+            traceback.print_exc()
+
     # Ghi cấu hình cho dashboard (trang Cài đặt)
     try:
         default_tmpl = os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short")

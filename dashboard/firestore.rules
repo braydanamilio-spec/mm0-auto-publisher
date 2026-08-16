@@ -34,6 +34,13 @@ service cloud.firestore {
       allow create: if willOwn();
       allow update: if owns(resource.data) && willOwn();
     }
+
+    // Content Hub — hàng đợi đăng YouTube từ Drive (KHÔNG chứa token).
+    match /yt_queue/{doc} {
+      allow read, delete: if owns(resource.data);
+      allow create: if willOwn();
+      allow update: if owns(resource.data) && willOwn();
+    }
     match /quota/{doc}            { allow read: if owns(resource.data); allow write: if false; }
 
     // TOKEN kết nối — không client nào đọc/ghi (chỉ server/Worker qua Admin).

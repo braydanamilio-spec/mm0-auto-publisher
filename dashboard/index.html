@@ -466,6 +466,32 @@
             <button class="btn-mini" onclick="socQClose()" data-i18n="cancel">Cancel</button><button class="btn-conn" id="socQSave" onclick="socQSubmit()" data-i18n="sq_add">➕ Add to queue</button></div>
         </div>
       </div>
+      <div id="ytQModal" class="modal-back hide">
+        <div class="modal-card">
+          <div class="modal-head"><b data-i18n="yq_title">📺 Schedule to YouTube (Content Hub)</b><button class="modal-x" onclick="ytQClose()">✕</button></div>
+          <div class="modal-body">
+            <div class="p-sub">🎬 File: <b id="ytQFile"></b></div>
+            <div class="fld2">
+              <label class="fld"><span data-i18n="yq_channel">Channel</span><select id="ytQCh"></select><em class="p-sub" id="ytQSug"></em></label>
+              <label class="fld"><span data-i18n="ed_privacy">Privacy</span><select id="ytQPriv"><option value="public" data-i18n="priv_public2">🌐 Public</option><option value="unlisted" data-i18n="priv_unlisted2">🔗 Unlisted</option><option value="private" data-i18n="priv_private2">🔒 Private</option></select></label>
+            </div>
+            <label class="fld"><span data-i18n="ed_title">Title</span><input id="ytQTitle" maxlength="100"></label>
+            <label class="fld"><span data-i18n="ed_desc">Description</span><textarea id="ytQDesc" rows="4" maxlength="5000"></textarea></label>
+            <label class="fld"><span><span data-i18n="ed_tags">Hashtags / tags</span> <em class="p-sub" data-i18n="sq_tags_hint">(separated by commas)</em></span><input id="ytQTags" placeholder="#datarace, #finance"></label>
+            <div class="fld2">
+              <label class="fld"><span data-i18n="ed_kids">Audience (Made for Kids)</span><select id="ytQKids"><option value="0" data-i18n="ed_kids_no">🙋 Not made for kids</option><option value="1" data-i18n="ed_kids_yes">🧸 Made for kids</option></select></label>
+              <label class="fld"><span data-i18n="yq_type">Type</span><select id="ytQType"><option value="long" data-i18n="vm_long">Long only</option><option value="short" data-i18n="vm_short">Short only</option></select></label>
+            </div>
+            <div class="fld2">
+              <label class="fld"><span data-i18n="sq_when">When</span><select id="ytQWhen" onchange="ytQWhenChange()"><option value="now" data-i18n="sq_now">Post now (next cron ~30')</option><option value="at" data-i18n="sq_at">Schedule…</option></select></label>
+              <label class="fld" id="ytQAtWrap" style="display:none"><span data-i18n="sq_pick_time">Pick time</span><input type="datetime-local" id="ytQAt"></label>
+            </div>
+            <div id="ytQMsg" class="p-sub" style="min-height:18px"></div>
+          </div>
+          <div class="modal-foot"><span class="p-sub" data-i18n="yq_note">Cron downloads from Drive & uploads to YouTube · no local script · no duplicates.</span><span style="flex:1"></span>
+            <button class="btn-mini" onclick="ytQClose()" data-i18n="cancel">Cancel</button><button class="btn-conn" id="ytQSave" onclick="ytQSubmit()" data-i18n="sq_add">➕ Add to queue</button></div>
+        </div>
+      </div>
       <div id="ytEditModal" class="modal-back hide">
         <div class="modal-card">
           <div class="modal-head"><b id="ytEditTitle" data-i18n="ed_edit_video">Edit video</b><button class="modal-x" onclick="ytEditClose()">✕</button></div>
@@ -636,6 +662,23 @@
       </section>
 
       <section id="v-publish" class="content hide">
+        <div class="panel" style="margin-bottom:16px">
+          <div class="p-head"><div class="p-title">📺 <span data-i18n="ch_title">Content Hub — schedule to YouTube from Drive</span></div>
+            <button class="btn-mini" onclick="gotoView('storage')" data-i18n="ch_browse">📂 Browse Drive → pick videos</button></div>
+          <div class="p-sub" style="margin:4px 0 10px" data-i18n="ch_hint">Go to Storage → Browse files → click “📺 YouTube” on a video. Cron downloads from Drive and uploads to YouTube automatically (no local script). Below: everything you queued.</div>
+          <div class="yt-tools" style="margin-bottom:8px">
+            <div class="seg" id="chFilterSeg">
+              <button type="button" class="seg-btn on" data-s="all" onclick="chFilter('all')" data-i18n="ch_all">All</button>
+              <button type="button" class="seg-btn" data-s="pending" onclick="chFilter('pending')" data-i18n="ch_pending">Queued</button>
+              <button type="button" class="seg-btn" data-s="scheduled" onclick="chFilter('scheduled')" data-i18n="ch_scheduled">Scheduled</button>
+              <button type="button" class="seg-btn" data-s="posted" onclick="chFilter('posted')" data-i18n="ch_posted">Posted</button>
+              <button type="button" class="seg-btn" data-s="failed" onclick="chFilter('failed')" data-i18n="ch_failed">Failed</button>
+            </div>
+            <span style="flex:1;min-width:6px"></span>
+            <button class="btn-mini danger" onclick="ytQueueCleanup()" data-i18n="ch_cleanup">🧹 Clear posted</button>
+          </div>
+          <div id="ytQueueList"></div>
+        </div>
         <div class="panel" style="margin-bottom:16px">
           <div class="p-head"><div class="p-title">🚀 <span data-i18n="pub_bulk">Bulk schedule / publish</span></div></div>
           <div class="pubbar">
@@ -1008,10 +1051,14 @@
       sub("fb_pages", s => { window.setFbPages(s.docs.map(d=>({id:d.id,...d.data()}))); });
       sub("quota", s => { window.setQuota(s.docs.map(d=>({id:d.id,...d.data()}))); });
       sub("social_queue", s => { if(window.setSocQueue) window.setSocQueue(s.docs.map(d=>({id:d.id,...d.data()}))); });
+      sub("yt_queue", s => { if(window.setYtQueue) window.setYtQueue(s.docs.map(d=>({id:d.id,...d.data()}))); });
     }
     // Ghi/xoá hàng đợi đăng FB/IG độc lập (client tự tạo item của mình)
     window.__socQueueAdd = async (data) => { await addDoc(collection(db,"social_queue"), {owner:window.__uid, status:"pending", attempts:0, created_at:new Date().toISOString(), ...data}); };
     window.__socQueueDel = async (id) => { await deleteDoc(doc(db,"social_queue",id)); };
+    // Content Hub: hàng đợi đăng YouTube từ Drive
+    window.__ytQueueAdd = async (data) => { await addDoc(collection(db,"yt_queue"), {owner:window.__uid, status:"pending", attempts:0, created_at:new Date().toISOString(), ...data}); };
+    window.__ytQueueDel = async (id) => { await deleteDoc(doc(db,"yt_queue",id)); };
     function setLive(ok){
       const el=document.getElementById("live"); el.classList.toggle("err",!ok);
       const T=window.t||(x=>x);
@@ -1125,6 +1172,9 @@
         sqp_title:"Standalone post queue", sqp_sub:"— no YouTube channel needed · cron auto-posts", sqp_hint:"Go to Storage → Browse files → click “📤 Post to FB/IG” on a video to add it here. It auto-posts on time (even if PC is off), no duplicates.",
         th_post:"Post", th_platform:"Platform", follower:"followers", ig_readonly:"IG view + comments only (Meta locks edit/delete)",
         sm_noposts:"No posts yet.", sq_empty:"No posts in queue yet.", sq_pending:"Pending", sq_posted:"Posted", sq_failed:"Failed", th_posttime:"Post time", fb_post:"📤 Post FB/IG",
+        yt_post:"📺 YouTube", yq_title:"📺 Schedule to YouTube (Content Hub)", yq_channel:"Channel", yq_type:"Type", yq_note:"Cron downloads from Drive & uploads to YouTube · no local script · no duplicates.",
+        ch_title:"Content Hub — schedule to YouTube from Drive", ch_browse:"📂 Browse Drive → pick videos", ch_hint:"Go to Storage → Browse files → click “📺 YouTube” on a video. Cron downloads from Drive and uploads to YouTube automatically (no local script). Below: everything you queued.",
+        ch_all:"All", ch_pending:"Queued", ch_scheduled:"Scheduled", ch_posted:"Posted", ch_failed:"Failed", ch_cleanup:"🧹 Clear posted", ch_empty:"Nothing queued yet.",
         ch_ready:"No videos yet — ready to receive", ch_connect_first:"No channel yet — connect one in API Connections.",
         sub_branding:"Channel identity via API", sub_comments:"Read, reply & moderate",
         nav_channel:"Channel", br_pick:"Pick a connected channel", br_load:"Load current",
@@ -1203,6 +1253,9 @@
         sqp_title:"Hàng đợi đăng độc lập", sqp_sub:"— không cần kênh YouTube · cron tự đăng", sqp_hint:"Vào Storage → Duyệt file → bấm “📤 Đăng FB/IG” trên video để thêm vào đây. Video sẽ tự đăng đúng giờ (kể cả tắt máy), chống trùng.",
         th_post:"Bài", th_platform:"Nền tảng", follower:"người theo dõi", ig_readonly:"IG chỉ xem + bình luận (Meta khoá sửa/xoá)",
         sm_noposts:"Chưa có bài nào.", sq_empty:"Chưa có bài nào trong hàng đợi.", sq_pending:"Chờ đăng", sq_posted:"Đã đăng", sq_failed:"Lỗi", th_posttime:"Giờ đăng", fb_post:"📤 Đăng FB/IG",
+        yt_post:"📺 YouTube", yq_title:"📺 Lên lịch YouTube (Content Hub)", yq_channel:"Kênh", yq_type:"Loại", yq_note:"Cron tự tải video từ Drive & đăng YouTube · khỏi script local · chống trùng.",
+        ch_title:"Content Hub — lên lịch YouTube từ Drive", ch_browse:"📂 Duyệt Drive → chọn video", ch_hint:"Vào Storage → Duyệt file → bấm “📺 YouTube” trên video. Cron tự tải từ Drive và đăng lên YouTube (khỏi chạy script). Dưới đây là mọi video anh đã xếp.",
+        ch_all:"Tất cả", ch_pending:"Chờ đăng", ch_scheduled:"Đã lên lịch", ch_posted:"Đã đăng", ch_failed:"Lỗi", ch_cleanup:"🧹 Dọn bài đã đăng", ch_empty:"Chưa xếp bài nào.",
         ch_ready:"Chưa có video — sẵn sàng nhận bài", ch_connect_first:"Chưa có kênh — kết nối ở tab Kết nối API.",
         sub_branding:"Nhận diện kênh qua API", sub_comments:"Đọc, trả lời & kiểm duyệt",
         nav_channel:"Kênh", br_pick:"Chọn kênh đã kết nối", br_load:"Tải hiện tại",
@@ -1536,8 +1589,8 @@
       // GOM Page theo UID Facebook chủ (như YouTube gom theo Gmail)
       const fbCard=(p)=>{ const dt=p.connected_at?new Date(p.connected_at).toLocaleDateString('vi-VN'):"—";
         return `<div class="conn" id="fbcard-${esc(p.name)}">
-        <div class="conn-head"><div class="ava" style="background:linear-gradient(145deg,#1877f2,#0a58ca);overflow:hidden">${fbPageAva(p)}</div>
-          <div class="nm">${esc(p.page_name||p.name)}<div class="p-sub">ID ${esc(p.page_id||'')}</div></div></div>
+        <div class="conn-head"><div class="ava" id="fbava-${esc(p.name)}" style="background:linear-gradient(145deg,#1877f2,#0a58ca);overflow:hidden">${fbPageAva(p)}</div>
+          <div class="nm">${esc(p.page_name||p.name)}<div class="p-sub">Facebook Page · ID ${esc(p.page_id||'')}</div></div></div>
         ${svcRow('fb','#1877f2','Facebook Page','connected','token dài hạn (không tự hết hạn)')}
         ${p.ig_user_id
           ? `<div class="svc"><div class="ava" id="igava-${esc(p.name)}" style="width:34px;height:34px;background:linear-gradient(135deg,#F9CE34,#EE2A7B 45%,#6228D7);overflow:hidden;flex:none;display:grid;place-items:center;position:relative"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="#fff" stroke-width="2">${svgIcon('ig')}</svg>${p.ig_avatar?`<img src="${esc(p.ig_avatar)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`:''}</div><div style="flex:1;min-width:0"><div class="snm" id="igname-${esc(p.name)}">${esc(p.ig_name||'Instagram')}</div><div class="sd" id="igsd-${esc(p.name)}">${p.ig_username?'@'+esc(p.ig_username):'đã liên kết'} · Reels tự động</div></div><span class="tag t-connected" style="margin-left:auto">Đã kết nối</span></div>`
@@ -1569,8 +1622,14 @@
     }
     // Lazy-load tên + avatar Instagram THẬT (không cần connect lại) — cache để khỏi gọi lại
     window.__igProf = window.__igProf || {};
+    window.__fbAva = window.__fbAva || {};
     async function socLoadIgProfiles(){
       for(const p of (__FBP||[])){
+        // Backfill avatar Page FB nếu thiếu (không cần connect lại)
+        if(!p.page_avatar){ const cav=window.__fbAva[p.name];
+          if(cav){ applyFbAvatar(p.name, cav); }
+          else { try{ const d=await workerApi(`/api/social-insights?channel=${encodeURIComponent(p.name)}&platform=fb`);
+            if(d.avatar){ window.__fbAva[p.name]=d.avatar; applyFbAvatar(p.name, d.avatar); } }catch(_){} } }
         if(!p.ig_user_id) continue;
         const have = p.ig_avatar && p.ig_name;
         const cached = window.__igProf[p.name];
@@ -1582,6 +1641,7 @@
         }catch(_){}
       }
     }
+    function applyFbAvatar(slug, url){ const av=$("fbava-"+slug); if(av && url && !av.querySelector('img')){ av.innerHTML=`<img src="${esc(url)}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`; } }
     function applyIgProfile(slug, pr){
       const nm=$("igname-"+slug); if(nm && pr.name) nm.textContent=pr.name;
       const sd=$("igsd-"+slug); if(sd) sd.textContent=(pr.username?'@'+pr.username:'đã liên kết')+(pr.followers?` · ${fmtN(pr.followers)} follower`:'')+' · Reels tự động';
@@ -1698,6 +1758,52 @@
         <td>${q.status!=='posted'?`<button class="yt-rowbtn" title="Xoá khỏi hàng đợi" onclick="socQCancel('${q.id}')">🗑️</button>`:''}</td></tr>`).join("")}</tbody></table></div>`;
     }
     window.socQCancel=async(id)=>{ if(!confirm("Xoá bài này khỏi hàng đợi?")) return; try{ await window.__socQueueDel(id); toastMsg("🗑️ Đã xoá"); }catch(e){ alert("❌ "+e.message); } };
+    /* ===== Content Hub: đăng YouTube từ Drive (hàng đợi cloud) ===== */
+    function suggestChannelByFolder(){ const stack=(window.__fb&&window.__fb.stack)||[]; const folder=(stack[stack.length-1]||{}).name||"";
+      const norm=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,""); const nf=norm(folder); if(!nf) return "";
+      for(const k of connectedYT()){ const nc=norm(chName(k)); if(nc&&(nf.includes(nc)||nc.includes(nf))) return k; } return ""; }
+    window.ytQueueFrom=(fileId,btn)=>{ const nm=btn?btn.dataset.nm:""; window.__ytQFile={id:fileId,name:nm,account:(window.__fb&&window.__fb.account)||""};
+      const chans=connectedYT(); if(!chans.length){ alert("Chưa có kênh YouTube kết nối (tab API Connections)."); return; }
+      $("ytQFile").textContent=nm||fileId;
+      $("ytQCh").innerHTML=chans.map(k=>`<option value="${esc(k)}">${esc(chName(k))}</option>`).join("");
+      const sug=suggestChannelByFolder(); if(sug){ $("ytQCh").value=sug; $("ytQSug").textContent="✓ gợi ý theo tên folder"; } else $("ytQSug").textContent="";
+      $("ytQType").value=/short|reel|\bs\d/i.test(nm)?"short":"long";
+      $("ytQTitle").value=nm.replace(/\.(mp4|mov|mkv|webm)$/i,"")||""; $("ytQDesc").value=""; $("ytQTags").value=""; $("ytQPriv").value="public"; $("ytQKids").value="0";
+      $("ytQWhen").value="now"; ytQWhenChange(); $("ytQMsg").textContent=""; $("ytQModal").classList.remove("hide"); };
+    window.ytQWhenChange=()=>{ $("ytQAtWrap").style.display=$("ytQWhen").value==="at"?"":"none"; };
+    window.ytQClose=()=>{ $("ytQModal").classList.add("hide"); };
+    window.ytQSubmit=async()=>{ const f=window.__ytQFile; if(!f) return; const ch=$("ytQCh").value;
+      if(!ch){ $("ytQMsg").innerHTML='<span style="color:var(--bad)">Chọn kênh.</span>'; return; }
+      let publish_at=new Date().toISOString();
+      if($("ytQWhen").value==="at"){ const v=$("ytQAt").value; if(!v){ $("ytQMsg").innerHTML='<span style="color:var(--bad)">Chọn giờ.</span>'; return; } publish_at=new Date(v).toISOString(); }
+      const tags=$("ytQTags").value.split(/[,\n]+/).map(s=>s.trim().replace(/^#+/,"")).filter(Boolean);
+      const btn=$("ytQSave"); btn.disabled=true; $("ytQMsg").textContent="Đang thêm…";
+      try{ await window.__ytQueueAdd({ channel:ch, drive_file_id:f.id, drive_name:f.name, drive_account:f.account||"",
+          title:$("ytQTitle").value.trim(), description:$("ytQDesc").value, hashtags:tags, tags,
+          privacy:$("ytQPriv").value, made_for_kids:$("ytQKids").value==="1", type:$("ytQType").value, publish_at });
+        toastMsg("✔ Đã thêm vào Content Hub"); ytQClose();
+      }catch(e){ $("ytQMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ btn.disabled=false; } };
+    window.setYtQueue=(items)=>{ window.__ytQueue=items||[]; renderYtQueue(); };
+    let __chFilterS="all";
+    window.chFilter=(s)=>{ __chFilterS=s; document.querySelectorAll("#chFilterSeg .seg-btn").forEach(b=>b.classList.toggle("on",b.dataset.s===s)); renderYtQueue(); };
+    function ytqStatus(q){ if(q.status==="pending"){ return (q.publish_at&&new Date(q.publish_at).getTime()>Date.now())?"scheduled":"pending"; } return q.status; }
+    function renderYtQueue(){ const box=$("ytQueueList"); if(!box) return;
+      let items=(window.__ytQueue||[]).slice().sort((a,b)=>String(b.created_at||"").localeCompare(String(a.created_at||"")));
+      if(__chFilterS!=="all") items=items.filter(q=>ytqStatus(q)===__chFilterS);
+      if(!items.length){ box.innerHTML=`<div class="p-sub" style="padding:6px">${t("ch_empty")}</div>`; return; }
+      const badge=(s)=>({pending:`<span class="tag t-scheduled">${t("ch_pending")}</span>`,scheduled:`<span class="tag t-scheduled">${t("ch_scheduled")}</span>`,posted:`<span class="tag t-connected">${t("ch_posted")}</span>`,failed:`<span class="tag t-error">${t("ch_failed")}</span>`}[s]||esc(s));
+      box.innerHTML=`<div class="scroll-x"><table class="yt-table"><thead><tr><th>${t("th_video")}</th><th>${t("th_channel")}</th><th>${t("th_privacy")}</th><th>${t("th_posttime")}</th><th>${t("th_status")}</th><th></th></tr></thead><tbody>${items.map(q=>{const st=ytqStatus(q);const url=q.results&&q.results.youtube&&q.results.youtube.url;return `<tr>
+        <td><span class="nm" title="${esc(q.drive_name||'')}">${esc(q.drive_name||q.drive_file_id)}</span></td>
+        <td class="p-sub">${esc(chName(q.channel))}</td>
+        <td><span class="tag2">${esc(q.privacy||'')}</span> ${q.made_for_kids?'🧸':''}</td>
+        <td class="p-sub">${q.publish_at?new Date(q.publish_at).toLocaleString('vi-VN'):'—'}</td>
+        <td>${badge(st)}${q.error?`<div class="p-sub" style="color:var(--bad);max-width:200px">${esc(q.error)}</div>`:''}</td>
+        <td style="white-space:nowrap">${url?`<a class="yt-rowbtn" href="${esc(url)}" target="_blank" title="Mở">↗</a>`:''}${st!=='posted'?`<button class="yt-rowbtn" title="Xoá" onclick="ytQueueCancel('${q.id}')">🗑️</button>`:''}</td></tr>`;}).join("")}</tbody></table></div>`;
+    }
+    window.ytQueueCancel=async(id)=>{ if(!confirm("Xoá bài này khỏi Content Hub?")) return; try{ await window.__ytQueueDel(id); toastMsg("🗑️ Đã xoá"); }catch(e){ alert("❌ "+e.message); } };
+    window.ytQueueCleanup=async()=>{ const posted=(window.__ytQueue||[]).filter(q=>q.status==="posted"); if(!posted.length){ toastMsg("Không có bài đã đăng để dọn"); return; }
+      if(!confirm(`Dọn ${posted.length} bài ĐÃ ĐĂNG khỏi danh sách? (KHÔNG xoá video trên YouTube)`)) return;
+      let ok=0; for(const q of posted){ try{ await window.__ytQueueDel(q.id); ok++; }catch(_){} } toastMsg(`🧹 Đã dọn ${ok} bài`); };
     window.setSettings = (s) => { __SETTINGS=s; renderSettings(); };
     window.setOverrides = (o) => { __OVERRIDES=o||{}; renderSettings(); renderAll(); };
     // Catalog template (khớp config/posting_templates.yaml) — hiển thị ở trang Cài đặt
@@ -1989,7 +2095,7 @@
         const name=fold?`<a class="fb-name fb-fold" onclick="fbEnter('${f.id}')">${esc(f.name)}</a>`:`<span class="fb-name">${esc(f.name)}</span>`;
         const view=f.webViewLink?`<a href="${esc(f.webViewLink)}" target="_blank" class="mini">Xem</a>`:"";
         const isVid=/\.(mp4|mov|mkv|webm)$/i.test(f.name);
-        const pub=isVid?`<button class="mini" style="color:var(--accent);border-color:var(--accent)" onclick="socQueueFrom('${f.id}',this)" data-nm="${esc(f.name)}">${t("fb_post")}</button>`:"";
+        const pub=isVid?`<button class="mini" style="color:#c00;border-color:#c00" onclick="ytQueueFrom('${f.id}',this)" data-nm="${esc(f.name)}">${t("yt_post")}</button><button class="mini" style="color:var(--accent);border-color:var(--accent)" onclick="socQueueFrom('${f.id}',this)" data-nm="${esc(f.name)}">${t("fb_post")}</button>`:"";
         return `<div class="fb-row">
           <span class="fb-ic">${icon}</span>
           <div style="flex:1;min-width:0">${name}<div class="fb-meta">${esc(size)}${size&&f.modifiedTime?" · ":""}${f.modifiedTime?ago(f.modifiedTime):""}</div></div>

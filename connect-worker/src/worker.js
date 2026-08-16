@@ -468,8 +468,9 @@ async function apiSocialInsights(request, url, env) {
     return json({ ok: true, platform: "ig", username: r.username || "", name: r.name || "",
       avatar: r.profile_picture_url || "", followers: +(r.followers_count || 0), posts: +(r.media_count || 0) });
   }
-  const r = await fbGet(`${ctx.page_id}?fields=name,fan_count,followers_count`, ctx.page_token);
-  return json({ ok: true, platform: "fb", name: r.name || "", followers: +(r.followers_count || r.fan_count || 0), fans: +(r.fan_count || 0) });
+  const r = await fbGet(`${ctx.page_id}?fields=name,fan_count,followers_count,picture.width(100).height(100){url}`, ctx.page_token);
+  return json({ ok: true, platform: "fb", name: r.name || "", avatar: (((r.picture || {}).data) || {}).url || "",
+    followers: +(r.followers_count || r.fan_count || 0), fans: +(r.fan_count || 0) });
 }
 // GET /api/social-comments?channel=&platform=&mediaId=&max=
 async function apiSocialComments(request, url, env) {
