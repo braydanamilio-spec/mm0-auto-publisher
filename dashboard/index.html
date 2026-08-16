@@ -365,7 +365,14 @@
           <button class="subtab on" data-p="yt" onclick="setSubTab('ov','yt')">📺 YouTube</button>
           <button class="subtab" data-p="fb" onclick="setSubTab('ov','fb')">📘📷 Facebook &amp; Instagram</button>
         </div>
-        <div id="ov-fb" class="subpane hide"><div id="fbOverview"></div></div>
+        <div id="ov-fb" class="subpane hide">
+          <div class="panel" id="fbMonetPanel" style="margin-bottom:14px">
+            <div class="p-head"><div class="p-title">💰 Điều kiện kiếm tiền Facebook <span class="p-sub">— In-stream / Reels (ĐO tham khảo)</span></div>
+              <button class="btn-conn" id="fbMonetBtn" onclick="checkFbMonet()">🔍 Kiểm tra Page</button></div>
+            <div id="fbMonetList"><div class="p-sub" style="padding:6px">Bấm <b>Kiểm tra</b> để đo số liệu Page so với ngưỡng Meta. ⚠️ Facebook <b>KHÔNG có API báo "đủ điều kiện"</b> — chốt cuối phải xem ở <b>Meta Business Suite → Kiếm tiền</b>.</div></div>
+          </div>
+          <div id="fbOverview"></div>
+        </div>
         <div id="ov-yt" class="subpane">
         <div id="runwayAlert" style="display:none"></div>
         <div class="panel" id="monetPanel" style="margin-bottom:14px">
@@ -1559,7 +1566,8 @@
       for(const k of chans){ box.innerHTML=`<div class="p-sub" style="padding:6px">⏳ ${esc(chName(k))}…</div>`;
         try{ const d=await workerApi(`/api/monetization?channel=${encodeURIComponent(k)}`); rows.push({k,d}); if(d.eligible) eligibleNew.push(k); }
         catch(e){ rows.push({k,d:{err:e.message}}); } }
-      btn.disabled=false; btn.textContent="🔄 Kiểm tra lại"; renderMonet(rows);
+      btn.disabled=false; btn.textContent="🔄 Kiểm tra lại"; window.__monetAt=Date.now(); renderMonet(rows);
+      try{ localStorage.mm0_monet=JSON.stringify({t:window.__monetAt,rows}); }catch(_){}
       if(eligibleNew.length && localStorage.mm0notif==="1" && "Notification" in window && Notification.permission==="granted"){
         try{ new Notification("🎉 Kênh đủ điều kiện kiếm tiền!",{body:eligibleNew.map(chName).join(", ")+" — nộp đơn YPP ở Studio"}); }catch(_){}
       }
@@ -1568,7 +1576,11 @@
       const bar=(cur,goal)=>`<div style="height:6px;background:var(--surface2);border-radius:20px;overflow:hidden;margin-top:4px"><i style="display:block;height:100%;width:${Math.min(100,Math.round((cur/goal)*100))}%;background:${cur>=goal?'var(--good)':'var(--accent)'}"></i></div>`;
       const nEli=rows.filter(r=>r.d.eligible).length;
       box.innerHTML=`${nEli?`<div class="p-sub" style="margin-bottom:10px;color:var(--good);font-weight:700">🎉 ${nEli} kênh ĐỦ ĐIỀU KIỆN — nộp đơn ở Studio!</div>`:''}<div class="conn-grid">${rows.map(({k,d})=>{
-        if(d.err==="need_analytics") return `<div class="conn"><div class="conn-head">${chAva(k,'ava')}<div class="nm">${esc(chName(k))}<div class="p-sub">⚠ Cần "Kết nối lại" để đo giờ xem</div></div></div><button class="btn-mini" onclick="connectChannel('${esc(k)}','youtube')" style="margin-top:8px">🔗 Kết nối lại YouTube</button></div>`;
+        if(d.err==="need_analytics"){ const sn=d.subNeed!=null?d.subNeed:Math.max(0,1000-(d.subscribers||0));
+          return `<div class="conn"><div class="conn-head">${chAva(k,'ava')}<div class="nm">${esc(chName(k))} <span class="tag t-scheduled">⏳ Đang tích luỹ</span></div></div>
+          <div style="margin-top:10px"><div class="p-sub">👥 Subscribers <b>${fmtN(d.subscribers||0)}</b> / 1.000 ${d.subOk?'✅':`· còn ${fmtN(sn)}`}</div>${bar(d.subscribers||0,1000)}</div>
+          <div style="margin-top:10px"><div class="p-sub">⏱ Giờ xem 12 tháng <b>—</b> / 4.000h <span style="color:var(--warn)">cần cấp quyền</span></div>${bar(0,4000)}</div>
+          <button class="btn-mini" onclick="connectChannel('${esc(k)}','youtube')" style="margin-top:10px">🔗 Kết nối lại để đo giờ xem</button></div>`; }
         if(d.err) return `<div class="conn"><div class="conn-head">${chAva(k,'ava')}<div class="nm">${esc(chName(k))}<div class="p-sub" style="color:var(--bad)">❌ ${esc(d.err)}</div></div></div></div>`;
         const badge=d.eligible?`<span class="tag t-connected">✅ Đủ điều kiện</span>`:`<span class="tag t-scheduled">⏳ Đang tích luỹ</span>`;
         return `<div class="conn" style="${d.eligible?'border-color:var(--good)':''}"><div class="conn-head">${chAva(k,'ava')}<div class="nm">${esc(chName(k))} ${badge}</div></div>
@@ -1577,8 +1589,41 @@
           ${d.eligible?`<a class="btn-conn" href="https://studio.youtube.com/channel/${esc(d.channelId||'')}/monetization" target="_blank" style="margin-top:12px;display:block;text-align:center;text-decoration:none">🎉 Nộp đơn ở Studio →</a>`:`<a class="btn-mini" href="https://www.youtube.com/creators/how-things-work/video-monetization/" target="_blank" style="margin-top:10px;display:inline-block">📖 Điều kiện YPP</a>`}
         </div>`;
       }).join("")}</div>
+      ${window.__monetAt?`<div class="p-sub" style="margin-top:6px">⏱ Đã đo lúc <b>${new Date(window.__monetAt).toLocaleString('vi-VN')}</b> — số liệu lưu tạm (không gọi API lại tới khi anh bấm "Kiểm tra lại"), tránh phí quota.</div>`:''}
       <div class="p-sub" style="margin-top:10px;line-height:1.6">ℹ️ YPP còn cần: bật <b>2FA</b>, <b>không vi phạm</b> chính sách, ở <b>quốc gia hỗ trợ</b>, có <b>AdSense</b> liên kết. Việc bật kiếm tiền <b>anh tự làm ở Studio</b> — Google không cho API tự bật (tool tự bật = vi phạm). Ta chỉ ĐO + NHẮC minh bạch.</div>`;
     }
+    // Khôi phục kết quả đã đo (cache) khi mở lại — KHÔNG gọi API (chống spam quota).
+    window.__restoreMonet=()=>{ try{ const c=JSON.parse(localStorage.mm0_monet||"null");
+      if(c&&c.rows&&c.rows.length){ window.__monetAt=c.t; renderMonet(c.rows);
+        const b=$("monetBtn"); if(b) b.textContent="🔄 Kiểm tra lại"; } }catch(_){} };
+
+    // ===== Điều kiện kiếm tiền FACEBOOK (ĐO tham khảo — KHÔNG có API "đủ điều kiện", KHÔNG tự bật) =====
+    window.checkFbMonet=async()=>{ const box=$("fbMonetList"), btn=$("fbMonetBtn"); const pages=__FBP||[];
+      if(!pages.length){ box.innerHTML=`<div class="p-sub" style="padding:6px">Chưa kết nối Facebook Page.</div>`; return; }
+      btn.disabled=true; btn.textContent="⏳ Đang đo…"; const rows=[];
+      for(const p of pages){ box.innerHTML=`<div class="p-sub" style="padding:6px">⏳ ${esc(p.page_name||p.name)}…</div>`;
+        try{ const d=await workerApi(`/api/fb-monetization?channel=${encodeURIComponent(p.name)}&platform=fb`); rows.push({p,d}); }
+        catch(e){ rows.push({p,d:{err:e.message}}); } }
+      btn.disabled=false; btn.textContent="🔄 Kiểm tra lại"; window.__fbMonetAt=Date.now(); renderFbMonet(rows);
+      try{ localStorage.mm0_fbmonet=JSON.stringify({t:window.__fbMonetAt,rows}); }catch(_){} };
+    function renderFbMonet(rows){ const box=$("fbMonetList"); if(!box) return;
+      const bar=(cur,goal)=>`<div style="height:6px;background:var(--surface2);border-radius:20px;overflow:hidden;margin-top:4px"><i style="display:block;height:100%;width:${Math.min(100,Math.round((cur/goal)*100))}%;background:${cur>=goal?'var(--good)':'var(--accent)'}"></i></div>`;
+      box.innerHTML=`<div class="conn-grid">${rows.map(({p,d})=>{
+        if(d.err) return `<div class="conn"><div class="conn-head">${fbAvaMini(p)}<div class="nm">${esc(p.page_name||p.name)}<div class="p-sub" style="color:var(--bad)">❌ ${esc(d.err)}</div></div></div></div>`;
+        const wShown=d.watchMin!=null;
+        return `<div class="conn"><div class="conn-head">${fbAvaMini(p)}<div class="nm">${esc(p.page_name||p.name)}</div></div>
+          <div style="margin-top:10px"><div class="p-sub">👥 Followers <b>${fmtN(d.followers||0)}</b> / 5.000 ${d.followOk?'✅':`· còn ${fmtN(d.followNeed||0)}`}</div>${bar(d.followers||0,5000)}</div>
+          <div style="margin-top:10px"><div class="p-sub">⏱ Phút xem 60 ngày <b>${wShown?fmtN(d.watchMin):'—'}</b> / 60.000 ${d.watchOk?'✅':(wShown?`· còn ${fmtN(d.watchNeed||0)}`:'<span style="color:var(--warn)">Meta ẩn số này</span>')}</div>${bar(d.watchMin||0,60000)}</div>
+          <div style="margin-top:10px"><div class="p-sub">🎬 Video hoạt động <b>${d.videos!=null?d.videos:'—'}</b> / 5 ${d.videosOk?'✅':''}</div></div>
+          <a class="btn-mini" href="https://business.facebook.com/latest/monetization" target="_blank" style="margin-top:10px;display:inline-block">📊 Xem ở Business Suite →</a>
+        </div>`;
+      }).join("")}</div>
+      ${window.__fbMonetAt?`<div class="p-sub" style="margin-top:6px">⏱ Đã đo lúc <b>${new Date(window.__fbMonetAt).toLocaleString('vi-VN')}</b> — lưu tạm, không gọi API lại tới khi bấm "Kiểm tra lại".</div>`:''}
+      <div class="p-sub" style="margin-top:10px;line-height:1.6">ℹ️ <b>Sự thật:</b> Facebook <b>không mở API</b> báo "đủ điều kiện kiếm tiền" cho app thường (endpoint đó khoá cho đối tác được Meta duyệt). Ta chỉ ĐO số liệu thô so ngưỡng Meta công bố (5.000 follow + 60.000 phút xem/60 ngày + ≥5 video, không vi phạm chính sách, quốc gia hỗ trợ, 18+). Bật kiếm tiền <b>anh tự làm ở Meta Business Suite → Kiếm tiền</b>. Ngưỡng có thể đổi — đây là số tham khảo.</div>`;
+    }
+    window.__restoreFbMonet=()=>{ try{ const c=JSON.parse(localStorage.mm0_fbmonet||"null");
+      if(c&&c.rows&&c.rows.length){ window.__fbMonetAt=c.t; renderFbMonet(c.rows);
+        const b=$("fbMonetBtn"); if(b) b.textContent="🔄 Kiểm tra lại"; } }catch(_){} };
     // ===== Sub-tab nền tảng (YouTube / FB & IG) trên Videos + Publish =====
     function moveSocialPanels(){
       const vf=$("vid-fb"), pf=$("pub-fb"), smp=$("socMgrPanel"), sqp=$("socQueuePanel");
@@ -1596,7 +1641,7 @@
       });
       document.querySelectorAll("#platSwitch .seg-btn").forEach(b=>b.classList.toggle("on",b.dataset.p===plat));
       if(window.buildChanFilter) buildChanFilter();   // picker top đổi theo nền tảng
-      if(plat==="fb"){ const v=window.__view; if(v==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(v==="schedule"&&window.renderFbSchedule) renderFbSchedule(); if(v==="overview"&&window.renderFbOverview) renderFbOverview(); if(v==="comments"&&window.renderCmFb) renderCmFb(); }
+      if(plat==="fb"){ const v=window.__view; if(v==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(v==="schedule"&&window.renderFbSchedule) renderFbSchedule(); if(v==="overview"){ if(window.renderFbOverview) renderFbOverview(); if(window.__restoreFbMonet&&!window.__fbMonetAt) window.__restoreFbMonet(); } if(v==="comments"&&window.renderCmFb) renderCmFb(); }
     };
     window.setSubTab=(page,plat)=>setPlat(plat);   // per-page sub-tab -> điều khiển toàn cục
     // ===== P0 #2: Bảng sức khoẻ + cảnh báo lỗi đăng =====
@@ -2424,6 +2469,7 @@
         setTitle(v);
         if(["branding","comments","publish","channels"].includes(v)) fillChannelPickers();
         if(v==="analytics" && typeof anInit==="function") anInit();
+        if(v==="overview" && window.__restoreMonet && !window.__monetAt) window.__restoreMonet();
       }
       window.__activateView=activateView;
       document.querySelectorAll(".nav").forEach(n=>n.onclick=()=>{ location.hash=n.dataset.view; });

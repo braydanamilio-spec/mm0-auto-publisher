@@ -33,6 +33,7 @@ export default {
       if (url.pathname === "/api/analytics") return corsResp(await apiAnalytics(request, url, env));
       if (url.pathname === "/api/channel-videos") return corsResp(await apiChannelVideos(request, url, env));
       if (url.pathname === "/api/monetization") return corsResp(await apiMonetization(request, url, env));
+      if (url.pathname === "/api/fb-monetization") return corsResp(await apiFbMonetization(request, url, env));
       if (url.pathname === "/api/video-update") return corsResp(await apiVideoUpdate(request, url, env));
       if (url.pathname === "/api/video-thumbnail") return corsResp(await apiVideoThumbnail(request, url, env));
       if (url.pathname === "/api/video-captions") return corsResp(await apiVideoCaptions(request, url, env));
@@ -314,6 +315,39 @@ async function apiMonetization(request, url, env) {
     eligible: subOk && hoursOk,
     subNeed: Math.max(0, 1000 - subs), hoursNeed: watchHours != null ? Math.max(0, 4000 - watchHours) : null,
     err,
+  });
+}
+
+// GET /api/fb-monetization?channel=&platform=fb -> ĐO tiêu chí kiếm tiền FB (In-stream/Reels).
+//   LƯU Ý TRUNG THỰC: Facebook KHÔNG có API công khai trả "đủ/không đủ điều kiện" cho app thường
+//   (các endpoint monetization eligibility bị khoá cho đối tác được duyệt). Ta chỉ ĐO số liệu thô
+//   (followers + phút xem 60 ngày + số video) rồi so với ngưỡng Meta công bố + dẫn tới Business Suite.
+async function apiFbMonetization(request, url, env) {
+  const ctx = await fbAuthCtx(request, url, env);
+  const p = await fbGet(`${ctx.page_id}?fields=name,fan_count,followers_count,picture.width(100).height(100){url}`, ctx.page_token);
+  const followers = +(p.followers_count || p.fan_count || 0);
+  let watchMin = null, videos = null, note = null;
+  // Phút xem 60 ngày — metric page_video_view_time (mili-giây). Best-effort: metric có thể bị Meta gỡ.
+  try {
+    const since = Math.floor((Date.now() - 60 * 86400000) / 1000);
+    const until = Math.floor(Date.now() / 1000);
+    const ins = await fbGet(`${ctx.page_id}/insights/page_video_view_time?period=day&since=${since}&until=${until}`, ctx.page_token);
+    const vals = ((ins.data || [])[0] || {}).values || [];
+    const totalMs = vals.reduce((s, v) => s + (+v.value || 0), 0);
+    watchMin = Math.round(totalMs / 1000 / 60);
+  } catch (e) { note = "watch_metric_unavailable"; }
+  // Số video (>=5 video hoạt động là 1 tiêu chí In-stream)
+  try {
+    const vc = await fbGet(`${ctx.page_id}/videos?fields=id&limit=25`, ctx.page_token);
+    videos = (vc.data || []).length;
+  } catch (e) {}
+  const followOk = followers >= 5000;
+  const watchOk = watchMin != null && watchMin >= 60000;
+  return json({
+    ok: true, platform: "fb", name: p.name || "", avatar: (((p.picture || {}).data) || {}).url || "",
+    followers, followOk, followNeed: Math.max(0, 5000 - followers),
+    watchMin, watchOk, watchNeed: watchMin != null ? Math.max(0, 60000 - watchMin) : null,
+    videos, videosOk: videos != null ? videos >= 5 : null, note,
   });
 }
 
