@@ -523,6 +523,25 @@
             <button class="btn-mini" onclick="ytQClose()" data-i18n="cancel">Cancel</button><button class="btn-conn" id="ytQSave" onclick="ytQSubmit()" data-i18n="sq_add">➕ Add to queue</button></div>
         </div>
       </div>
+      <div id="stBulkModal" class="modal-back hide">
+        <div class="modal-card">
+          <div class="modal-head"><b>📅 Rải lịch hàng loạt FB/IG</b><button class="modal-x" onclick="stBulkClose()">✕</button></div>
+          <div class="modal-body">
+            <div class="p-sub">🎬 <b id="stBulkCount">0</b> video đã chọn</div>
+            <label class="fld"><span>Đăng lên Page (tick nhiều = cross-post)</span><div id="stBulkPages" class="stbulk-pages"></div></label>
+            <label class="fld"><span>Nền tảng</span><select id="stBulkPlat"><option value="fb">📘 Facebook</option><option value="ig">📷 Instagram (Reels)</option><option value="both">📘+📷 Cả hai</option></select></label>
+            <div class="fld2">
+              <label class="fld"><span>Số bài / ngày</span><input type="number" id="stBulkPerDay" value="3" min="1" max="20" oninput="stBulkPreview()"></label>
+              <label class="fld"><span>Ngày bắt đầu</span><input type="date" id="stBulkStart" oninput="stBulkPreview()"></label>
+            </div>
+            <label class="fld"><span>Khung giờ (giờ VN, cách nhau dấu phẩy)</span><input id="stBulkTimes" value="09:00, 12:00, 20:00" oninput="stBulkPreview()"></label>
+            <div id="stBulkPreview" class="p-sub" style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 11px"></div>
+            <div id="stBulkMsg" class="p-sub" style="min-height:18px"></div>
+          </div>
+          <div class="modal-foot"><span class="p-sub">Cron tự đăng · chống trùng · tắt máy vẫn chạy</span><span style="flex:1"></span>
+            <button class="btn-mini" onclick="stBulkClose()">Huỷ</button><button class="btn-conn" id="stBulkSave" onclick="stBulkSubmit()">📅 Đẩy cả loạt vào hàng đợi</button></div>
+        </div>
+      </div>
       <div id="ytEditModal" class="modal-back hide">
         <div class="modal-card">
           <div class="modal-head"><b id="ytEditTitle" data-i18n="ed_edit_video">Edit video</b><button class="modal-x" onclick="ytEditClose()">✕</button></div>
@@ -660,6 +679,7 @@
           <input type="search" id="fbSearch" placeholder="🔍 Tìm file/thư mục trên TẤT CẢ tài khoản kho…"
             style="width:100%;margin:10px 0 4px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 13px;font-family:var(--sans);font-size:14px">
           <div id="fbBread" class="fb-bread"></div>
+          <div id="stBulkBar" class="yt-bulk" style="display:none"></div>
           <div id="fbList"></div>
         </div>
         <div class="panel help">
@@ -848,6 +868,9 @@
         .chpick-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:500}
         .chpick-item:hover{background:var(--surface2)} .chpick-item.on{background:var(--accent-soft);color:var(--accent);font-weight:700}
         .chpick-item.chpick-sub{padding-left:22px;position:relative} .chpick-link{color:var(--muted);margin-right:2px;font-size:13px}
+        .fb-chk{width:15px;height:15px;cursor:pointer;flex:none;accent-color:var(--accent)}
+        .stbulk-pages{display:flex;flex-direction:column;gap:6px;max-height:150px;overflow:auto;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px}
+        .stbulk-pg{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer} .stbulk-pg input{width:15px;height:15px;accent-color:var(--accent)}
         .cm-dot{margin-left:auto;background:var(--bad);color:#fff;font-size:10px;font-weight:800;min-width:18px;height:18px;padding:0 5px;border-radius:20px;display:inline-grid;place-items:center}
         .cm-stats{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;font-size:13px}
         .cm-stats b{color:var(--text);font-variant-numeric:tabular-nums}
@@ -1963,6 +1986,43 @@
     window.ytQueueCleanup=async()=>{ const posted=(window.__ytQueue||[]).filter(q=>q.status==="posted"); if(!posted.length){ toastMsg("Không có bài đã đăng để dọn"); return; }
       if(!confirm(`Dọn ${posted.length} bài ĐÃ ĐĂNG khỏi danh sách? (KHÔNG xoá video trên YouTube)`)) return;
       let ok=0; for(const q of posted){ try{ await window.__ytQueueDel(q.id); ok++; }catch(_){} } toastMsg(`🧹 Đã dọn ${ok} bài`); };
+    /* ===== RẢI LỊCH HÀNG LOẠT FB/IG (tick nhiều video trong Storage) ===== */
+    window.__stSel=new Set(); window.__stSelNm={};
+    window.stToggle=(id,el)=>{ if(el.checked){ window.__stSel.add(id); window.__stSelNm[id]=el.dataset.nm; } else window.__stSel.delete(id); renderStBulk(); };
+    function renderStBulk(){ const bar=$("stBulkBar"); if(!bar) return; const n=window.__stSel.size;
+      if(!n){ bar.style.display="none"; bar.innerHTML=""; return; }
+      bar.style.display="flex"; bar.innerHTML=`<b>Đã chọn ${n} video</b><span style="flex:1;min-width:6px"></span><button class="btn-conn" onclick="stBulkOpen()">📅 Rải lịch FB/IG</button><button class="btn-mini" onclick="stClearSel()">Bỏ chọn</button>`;
+    }
+    window.stClearSel=()=>{ window.__stSel=new Set(); window.__stSelNm={}; if(window.__fb&&window.__fb.files) fbRender(window.__fb.files); };
+    window.stBulkOpen=()=>{ if(!window.__stSel.size) return; const pages=__FBP||[]; if(!pages.length){ alert("Chưa có Facebook Page. Kết nối ở tab Kết nối FB/IG trước."); return; }
+      $("stBulkCount").textContent=window.__stSel.size;
+      $("stBulkPages").innerHTML=pages.map((p,i)=>`<label class="stbulk-pg"><input type="checkbox" value="${esc(p.name)}" ${i===0?'checked':''}> ${esc(p.page_name||p.name)}${p.ig_user_id?' <span class="p-sub">+IG</span>':''}</label>`).join("");
+      $("stBulkStart").value=new Date().toISOString().slice(0,10); $("stBulkMsg").textContent=""; $("stBulkModal").classList.remove("hide"); stBulkPreview();
+    };
+    window.stBulkClose=()=>{ $("stBulkModal").classList.add("hide"); };
+    window.stBulkPreview=()=>{ const n=window.__stSel.size, per=Math.max(1,+($("stBulkPerDay")||{}).value||3);
+      const times=(($("stBulkTimes")||{}).value||"").split(",").map(s=>s.trim()).filter(Boolean); const days=Math.ceil(n/per);
+      const start=($("stBulkStart")||{}).value; const el=$("stBulkPreview"); if(!el) return;
+      const endD=start?new Date(new Date(start+"T00:00:00").getTime()+(days-1)*86400000).toLocaleDateString('vi-VN'):"—";
+      el.innerHTML=`📊 ${n} video · ${per} bài/ngày · ${times.length} khung giờ → <b>${days} ngày</b> (đến ${endD})`;
+    };
+    window.stBulkSubmit=async()=>{ const ids=[...window.__stSel]; if(!ids.length) return;
+      const pages=[...document.querySelectorAll("#stBulkPages input:checked")].map(c=>c.value);
+      if(!pages.length){ $("stBulkMsg").innerHTML='<span style="color:var(--bad)">Chọn ít nhất 1 Page.</span>'; return; }
+      const plat=$("stBulkPlat").value, per=Math.max(1,+$("stBulkPerDay").value||3);
+      const times=$("stBulkTimes").value.split(",").map(s=>s.trim()).filter(s=>/\d/.test(s));
+      if(!times.length){ $("stBulkMsg").innerHTML='<span style="color:var(--bad)">Nhập khung giờ.</span>'; return; }
+      const start=$("stBulkStart").value; if(!start){ $("stBulkMsg").innerHTML='<span style="color:var(--bad)">Chọn ngày bắt đầu.</span>'; return; }
+      const acct=(window.__fb&&window.__fb.account)||""; const btn=$("stBulkSave"); btn.disabled=true; $("stBulkMsg").textContent="Đang đẩy vào hàng đợi…";
+      let count=0;
+      try{ for(let i=0;i<ids.length;i++){ const day=Math.floor(i/per), slot=i%per, hm=times[slot%times.length];
+          const dt=new Date(start+"T00:00:00"); dt.setDate(dt.getDate()+day); const mm=(hm||"09:00").split(":"); dt.setHours(parseInt(mm[0],10)||0, parseInt(mm[1],10)||0, 0, 0);
+          const nm=window.__stSelNm[ids[i]]||""; const title=nm.replace(/\.(mp4|mov|mkv|webm)$/i,"");
+          for(const pg of pages){ await window.__socQueueAdd({ page:pg, platform:plat, drive_file_id:ids[i], drive_name:nm, drive_account:acct, title, description:"", hashtags:[], type:"short", publish_at:dt.toISOString() }); count++; }
+        }
+        toastMsg(`✔ Đã rải lịch ${count} bài (${ids.length} video × ${pages.length} Page)`); stClearSel(); stBulkClose();
+      }catch(e){ $("stBulkMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ btn.disabled=false; }
+    };
     /* ===== Analytics + Schedule cho FB/IG (sub-tab) ===== */
     window.renderFbAnalytics=()=>{ const box=$("fbAnalytics"); if(!box) return; const pages=__FBP||[];
       if(!pages.length){ box.innerHTML=`<div class="panel"><div class="p-sub" style="padding:14px">Chưa kết nối Facebook Page. Vào tab <b>Kết nối FB/IG</b> để kết nối.</div></div>`; return; }
@@ -2329,8 +2389,9 @@
         const view=f.webViewLink?`<a href="${esc(f.webViewLink)}" target="_blank" class="mini">Xem</a>`:"";
         const isVid=/\.(mp4|mov|mkv|webm)$/i.test(f.name);
         const pub=isVid?`<button class="mini" style="color:#c00;border-color:#c00" onclick="ytQueueFrom('${f.id}',this)" data-nm="${esc(f.name)}">${t("yt_post")}</button><button class="mini" style="color:var(--accent);border-color:var(--accent)" onclick="socQueueFrom('${f.id}',this)" data-nm="${esc(f.name)}">${t("fb_post")}</button>`:"";
+        const chk=isVid?`<input type="checkbox" class="fb-chk" ${(window.__stSel||new Set()).has(f.id)?'checked':''} onclick="stToggle('${f.id}',this)" data-nm="${esc(f.name)}" title="Chọn để rải lịch hàng loạt">`:'<span style="width:15px;display:inline-block"></span>';
         return `<div class="fb-row">
-          <span class="fb-ic">${icon}</span>
+          ${chk}<span class="fb-ic">${icon}</span>
           <div style="flex:1;min-width:0">${name}<div class="fb-meta">${esc(size)}${size&&f.modifiedTime?" · ":""}${f.modifiedTime?ago(f.modifiedTime):""}</div></div>
           <span class="fb-acts">${view}${pub}
             <button class="mini" onclick="fbRename('${f.id}')">Đổi tên</button>
@@ -2338,6 +2399,7 @@
         </div>`;
       }).join("");
       $("fbList").innerHTML=rows||emptyBox("Thư mục trống.");
+      renderStBulk();
     }
     window.fbEnter=(id)=>{ const f=(window.__fb.files||[]).find(x=>x.id===id); if(f){ window.__fb.stack.push({id,name:f.name}); fbOpen(id,f.name); } };
     window.fbCrumb=(i)=>{ window.__fb.stack=window.__fb.stack.slice(0,i+1); const top=window.__fb.stack[i]; fbOpen(i===0?null:top.id, top.name); };
