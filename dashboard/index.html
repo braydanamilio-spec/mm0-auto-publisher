@@ -2074,7 +2074,7 @@
           title:$("socQTitle").value.trim(), description:$("socQDesc").value, hashtags:tags, type:"short", publish_at });
         toastMsg("✔ Đã thêm vào hàng đợi"); socQClose();
       }catch(e){ $("socQMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ btn.disabled=false; } };
-    window.setSocQueue=(items)=>{ window.__socQueue=items||[]; renderSocQueue(); if(window.__view==="schedule"&&window.__plat==="fb"&&window.renderFbSchedule) renderFbSchedule(); };
+    window.setSocQueue=(items)=>{ window.__socQueue=items||[]; renderSocQueue(); if(window.__view==="schedule"&&window.__plat==="fb"&&window.renderFbSchedule) renderFbSchedule(); if(window.__view==="overview"&&window.__plat==="fb"&&window.renderFbOverview) renderFbOverview(); };
     function renderSocQueue(){ const box=$("socQueueList"); if(!box) return;
       const items=(window.__socQueue||[]).slice().sort((a,b)=>String(b.created_at||"").localeCompare(String(a.created_at||"")));
       if(!items.length){ box.innerHTML=`<div style="padding:16px;text-align:center"><div style="font-size:32px">📭</div><div class="p-sub" style="margin:8px 0">${t("sq_empty")}</div><button class="btn-conn" onclick="gotoView('storage')">📂 Chọn video từ Drive để đăng FB/IG</button></div>`; return; }
@@ -2317,10 +2317,19 @@
           </tbody></table></div>`;
       }catch(e){ box.innerHTML=`<div class="panel" style="border-color:var(--bad)"><div class="p-sub" style="padding:12px;color:var(--bad)">❌ ${esc(e.message)}</div></div>`; }
     };
+    function fbRunwayHtml(){ const pages=__FBP||[], sq=window.__socQueue||[];
+      const empty=pages.filter(p=>!sq.some(q=>q.page===p.name && (q.status==="pending"||q.status==="processing")));
+      if(!empty.length) return ""; const open=window.__fbRunwayOpen;
+      return `<div class="panel" style="border-color:var(--warn);padding:13px 16px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="color:var(--warn)">⚠️ Nội dung FB/IG sắp cạn</b>
+          <span class="rw-badge bad">${empty.length} Page hết bài chờ</span><span style="flex:1;min-width:6px"></span>
+          <button class="btn-mini" onclick="gotoView('storage')">📂 Thêm bài</button>
+          <button class="btn-mini" onclick="window.__fbRunwayOpen=!window.__fbRunwayOpen;renderFbOverview()">${open?'Ẩn ▴':'Xem Page ▾'}</button></div>
+        ${open?`<div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:12px">${empty.slice(0,40).map(p=>`<span class="rw-chip bad">${fbAvaMini(p)}<span style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.page_name||p.name)}</span></span>`).join("")}${empty.length>40?`<span class="rw-chip">+${empty.length-40}</span>`:''}</div>`:''}</div>`; }
     window.renderFbOverview=async()=>{ const box=$("fbOverview"); if(!box) return; const pages=__FBP||[];
       if(!pages.length){ box.innerHTML=`<div class="panel"><div class="p-sub" style="padding:14px">Chưa kết nối Facebook Page. Vào tab <b>Kết nối FB/IG</b>.</div></div>`; return; }
       const igCount=pages.filter(p=>p.ig_user_id).length;
-      box.innerHTML=`<div class="kpis" id="fbovKpis"></div>
+      box.innerHTML=`${fbRunwayHtml()}<div class="kpis" id="fbovKpis"></div>
         <div class="panel" style="margin-top:16px"><div class="p-head"><div class="p-title">📘📷 Trang & tài khoản</div><div class="p-sub">${pages.length} Page · ${igCount} Instagram</div></div>
         <div class="conn-grid" style="margin-top:6px">${pages.map(p=>`<div class="conn conn-click" onclick="openFbDetail('${esc(p.name)}','fb')" title="Xem chi tiết ${esc(p.page_name||p.name)}"><div class="conn-head"><div class="ava" style="overflow:hidden;background:linear-gradient(145deg,#1877f2,#0a58ca)">${fbPageAva(p)}</div><div class="nm">${esc(p.page_name||p.name)} <span class="chan-go">chi tiết ›</span><div class="p-sub" id="fbov-fb-${esc(p.name)}">Đang tải…</div></div></div>${p.ig_user_id?`<div class="p-sub" id="fbov-ig-${esc(p.name)}" style="margin-top:8px;cursor:pointer" onclick="event.stopPropagation();openFbDetail('${esc(p.name)}','ig')">📷 IG: đang tải…</div>`:''}</div>`).join("")}</div></div>`;
       let totFol=0, done=0;
