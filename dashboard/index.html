@@ -803,6 +803,13 @@
       catch(e){ alert("Lỗi: "+e.message); }
     };
     window.__setOverridesDoc = async (data) => { await setDoc(ovDoc(), {owner:window.__uid, ...data}, {merge:true}); };
+    // Gộp brand channel vào 1 Gmail thật (Google giấu Gmail của tài khoản thương hiệu)
+    window.saveGmailGroup = async (channels, gmail) => {
+      const map={}; (channels||[]).forEach(c=>map[c]=gmail);
+      try { await setDoc(ovDoc(), {owner:window.__uid, gmail_group:map}, {merge:true});
+        toastMsg(`✔ Đã gộp ${channels.length} kênh vào ${gmail}`); }
+      catch(e){ alert("Lỗi: "+e.message); }
+    };
     window.saveFbMap = async (channel, pageSlug) => {
       try { await setDoc(ovDoc(), {owner:window.__uid, fb_map:{[channel]: pageSlug||""}}, {merge:true});
         toastMsg(pageSlug?`✔ ${channel} → Page (áp dụng lần đăng tới)`:`✔ ${channel}: bỏ đăng FB/IG`); }
@@ -1337,8 +1344,16 @@
         toastMsg("✔ "+t("dc_done")+" "+(name||channel));
       }catch(e){ alert("❌ "+e.message); }
     };
+    const gmailKeyOf=(k)=> ((__OVERRIDES.gmail_group||{})[k]) || ((__C[k]&&__C[k].email)||"");
+    window.assignGmail=(oldKey)=>{
+      const keys=Object.keys(__C||{}).filter(k=>gmailKeyOf(k)===oldKey);
+      if(!keys.length) return;
+      const gmail=prompt("Nhập Gmail thật quản lý các kênh này (để gộp nhóm cho dễ quản lý):", "");
+      if(!gmail||!gmail.includes("@")) return;
+      window.saveGmailGroup(keys, gmail.trim());
+    };
     window.removeGmailGroup = async (email)=>{
-      const keys=Object.keys(__C||{}).filter(k=>((__C[k]&&__C[k].email)||"")===email);
+      const keys=Object.keys(__C||{}).filter(k=>gmailKeyOf(k)===email);
       if(!keys.length) return;
       if(!confirm(`${t("dc_gmail_confirm")}\n\n${email}\n${keys.length} ${t("channels_word")}`)) return;
       try{ for(const k of keys){ await workerApi("/api/disconnect",{method:"POST",body:{channel:k,kind:"youtube"}}); }
@@ -1784,8 +1799,12 @@
         (chName(k).toLowerCase().includes(q)) || k.toLowerCase().includes(q) || ((c.email||"").toLowerCase().includes(q)); };
       const shown=all.filter(match);
       // GOM NHÓM theo Gmail: mỗi email -> các kênh dưới nó (minh bạch: 1 mail có mấy kênh)
+      // Khoá nhóm = Gmail anh tự gộp (nếu có) > email thật. Brand account -> email @pages.plusgoogle.com (giả).
+      const gm=(__OVERRIDES.gmail_group)||{};
+      const keyOf=(k)=> gm[k] || ((C()[k]&&C()[k].email)||"");
+      const isBrand=(e)=> /@pages\.plusgoogle\.com$/i.test(e||"");
       const groups={};
-      shown.forEach(k=>{ const em=(C()[k]&&C()[k].email)||""; (groups[em]=groups[em]||[]).push(k); });
+      shown.forEach(k=>{ const g=keyOf(k); (groups[g]=groups[g]||[]).push(k); });
       const emails=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length);
       const collapsed=window.__collapsedGmail=window.__collapsedGmail||new Set();
       let stt=0, gi=0;
@@ -1794,14 +1813,18 @@
         const keys=groups[em].sort();
         const cardsHtml=keys.map(k=>{ stt++; return cardHtml(k, stt); }).join("");
         const subs=keys.reduce((a,k)=>a+((C()[k]&&C()[k].subscribers)||0),0);
-        const known=!!em;
+        const known=!!em, brand=isBrand(em);
         const isCol=collapsed.has(em||"__none");
+        const label = !known ? '⚠ Chưa có email — Kết nối lại hoặc 🗑'
+          : brand ? `🏷️ ${esc(chName(keys[0]))} <span class="p-sub">· tài khoản thương hiệu (Google giấu Gmail)</span>`
+          : esc(em);
         return `<div class="gmail-group">
           <div class="gmail-head" onclick="toggleGmail('${esc(em||'__none')}')" style="cursor:pointer">
             <span class="gmail-caret">${isCol?'▸':'▾'}</span>
-            <div class="gmail-ic">${known?'✉':'?'}</div>
-            <div style="flex:1"><div class="gmail-em"><span class="gmail-idx">Gmail ${gi}</span> ${known?esc(em):'⚠ Kênh nối bản cũ (chưa lưu email) — Kết nối lại để gắn Gmail, hoặc 🗑 để gỡ'}</div>
+            <div class="gmail-ic">${brand?'🏷️':(known?'✉':'?')}</div>
+            <div style="flex:1;min-width:0"><div class="gmail-em"><span class="gmail-idx">${brand?'Brand':'Gmail'} ${gi}</span> ${label}</div>
               <div class="p-sub">${keys.length} kênh${subs?` · ${fmtN(subs)} subs tổng`:''}</div></div>
+            ${brand?`<button class="mini" onclick="event.stopPropagation();assignGmail('${esc(em)}')">✉ Gộp vào Gmail</button>`:''}
             ${known?`<button class="mini bad" onclick="event.stopPropagation();removeGmailGroup('${esc(em)}')">🗑 ${esc(t('remove_gmail'))}</button>`:''}
           </div>
           <div class="conn-grid" style="${isCol?'display:none':''}">${cardsHtml}</div>
