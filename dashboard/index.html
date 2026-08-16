@@ -1300,7 +1300,7 @@
     function sub(name, cb){ onSnapshot(query(collection(db,name), where("owner","==",(window.__ownerUid||window.__uid))), cb, () => setLive(false)); }
     function subscribe(){
       sub("videos", s => { window.setData(s.docs.map(d=>({id:d.id,...d.data()})), null, null); setLive(true); });
-      sub("channels", s => { const c={}; s.docs.forEach(d=>{const v=d.data();c[v.channel||d.id]=v;}); window.setData(null,c,null); });
+      sub("channels", s => { const c={}; s.docs.forEach(d=>{const v=d.data();c[v.channel||d.id]=v;}); window.setData(null,c,null); if(window.__maybeAutoEnableApis) setTimeout(window.__maybeAutoEnableApis,1500); });
       sub("counters", s => { const k={}; s.docs.forEach(d=>{const v=d.data();k[v.channel||d.id]=v;}); window.setData(null,null,k); });
       sub("storage_accounts", s => {
         const accounts = s.docs.map(d=>{const v=d.data();return {name:v.name, email:v.email, used:v.used||0, cap:(v.cap_gb||14)*1e9};});
@@ -1635,6 +1635,25 @@
     let __QUOTA=[];
     window.setQuota = (q) => { __QUOTA=q||[]; renderQuota(); };
     // Cảnh báo kênh SẮP HẾT BÀI (hết video chờ đăng / lịch chỉ còn trong 24h)
+    // ===== TỰ BẬT YouTube Analytics API (theo PROJECT, 1 lần cho mọi kênh) =====
+    window.enableAnalyticsApis=async({loud=false}={})=>{
+      try{ const d=await workerApi("/api/enable-apis",{method:"POST",body:{}});
+        if(d.ok){ try{localStorage.mm0_apis_enabled="1";}catch(_){}
+          if(loud){ toastMsg(`✅ Đã bật Analytics API cho ${(d.projects||[]).length} project — chờ 1-2' rồi Kiểm tra lại`); setTimeout(()=>{if(window.checkMonet)checkMonet();},2000); } return d; }
+        if(d.needManual){ try{localStorage.mm0_apis_enabled="manual";}catch(_){}
+          if(loud){ const p=(d.projects||[])[0]||""; alert(`⚠️ Worker chưa đủ quyền tự bật (service account cần vai trò "Service Usage Admin" trên project).\n\nAnh bật TAY 1 lần (áp cho MỌI kênh):\nhttps://console.developers.google.com/apis/api/youtubeanalytics.googleapis.com/overview${p?`?project=${p}`:''}`); }
+          return d; }
+        if(loud) alert("Chưa bật được:\n"+JSON.stringify(d.results,null,1));
+        return d;
+      }catch(e){ if(loud) alert("❌ "+e.message); }
+    };
+    // Auto thử 1 lần sau khi có kênh YouTube (tức ngay sau bước connect) — im lặng, không spam.
+    window.__maybeAutoEnableApis=()=>{
+      if(window.__apiAutoTried) return;
+      try{ if(localStorage.mm0_apis_enabled) return; }catch(_){}
+      if(!(typeof connectedYT==="function"&&connectedYT().length)) return;
+      window.__apiAutoTried=true; enableAnalyticsApis({loud:false});
+    };
     // ===== Điều kiện kiếm tiền YouTube (ĐO + NHẮC, KHÔNG tự bật — đúng chính sách) =====
     window.checkMonet=async()=>{ const box=$("monetList"), btn=$("monetBtn"); const chans=connectedYT();
       if(!chans.length){ box.innerHTML=`<div class="p-sub" style="padding:6px">Chưa có kênh YouTube kết nối.</div>`; return; }
@@ -1657,8 +1676,9 @@
           return `<div class="conn" style="border-color:var(--warn)"><div class="conn-head">${chAva(k,'ava')}<div class="nm">${esc(chName(k))} <span class="tag t-scheduled">⏳ Đang tích luỹ</span></div></div>
           <div style="margin-top:10px"><div class="p-sub">👥 Subscribers <b>${fmtN(d.subscribers||0)}</b> / 1.000 ${d.subOk?'✅':`· còn ${fmtN(sn)}`}</div>${bar(d.subscribers||0,1000)}</div>
           <div style="margin-top:10px"><div class="p-sub">⏱ Giờ xem 12 tháng <b>—</b> <span style="color:var(--warn)">API chưa bật</span></div>${bar(0,4000)}</div>
-          <div class="p-sub" style="margin-top:8px;line-height:1.5">⚠️ <b>KHÔNG phải lỗi token</b> — cần <b>bật YouTube Analytics API</b> 1 lần trong Google Cloud${proj?` (project ${esc(proj)})`:''}. Kết nối lại vô ích.</div>
-          <a class="btn-conn" href="https://console.developers.google.com/apis/api/youtubeanalytics.googleapis.com/overview${proj?`?project=${esc(proj)}`:''}" target="_blank" style="margin-top:10px;display:block;text-align:center;text-decoration:none">🔧 Bật Analytics API →</a></div>`; }
+          <div class="p-sub" style="margin-top:8px;line-height:1.5">⚠️ <b>KHÔNG phải lỗi token</b> — cần <b>bật YouTube Analytics API</b> 1 lần/project${proj?` (project ${esc(proj)})`:''} (áp cho MỌI kênh, không phải từng kênh). Kết nối lại vô ích.</div>
+          <button class="btn-conn" onclick="enableAnalyticsApis({loud:true})" style="margin-top:10px;width:100%">⚡ Tự bật qua Worker (thử ngay)</button>
+          <a class="btn-mini" href="https://console.developers.google.com/apis/api/youtubeanalytics.googleapis.com/overview${proj?`?project=${esc(proj)}`:''}" target="_blank" style="margin-top:8px;display:inline-block">🔧 Hoặc bật tay ở Google Cloud →</a></div>`; }
         if(d.err==="need_analytics"){ const sn=d.subNeed!=null?d.subNeed:Math.max(0,1000-(d.subscribers||0));
           return `<div class="conn"><div class="conn-head">${chAva(k,'ava')}<div class="nm">${esc(chName(k))} <span class="tag t-scheduled">⏳ Đang tích luỹ</span></div></div>
           <div style="margin-top:10px"><div class="p-sub">👥 Subscribers <b>${fmtN(d.subscribers||0)}</b> / 1.000 ${d.subOk?'✅':`· còn ${fmtN(sn)}`}</div>${bar(d.subscribers||0,1000)}</div>

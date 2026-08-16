@@ -35,6 +35,7 @@ export default {
       if (url.pathname === "/api/analytics") return corsResp(await apiAnalytics(request, url, env));
       if (url.pathname === "/api/channel-videos") return corsResp(await apiChannelVideos(request, url, env));
       if (url.pathname === "/api/monetization") return corsResp(await apiMonetization(request, url, env));
+      if (url.pathname === "/api/enable-apis") return corsResp(await apiEnableApis(request, url, env));
       if (url.pathname === "/api/fb-monetization") return corsResp(await apiFbMonetization(request, url, env));
       if (url.pathname === "/api/video-update") return corsResp(await apiVideoUpdate(request, url, env));
       if (url.pathname === "/api/video-thumbnail") return corsResp(await apiVideoThumbnail(request, url, env));
@@ -327,6 +328,38 @@ async function apiMonetization(request, url, env) {
     subNeed: Math.max(0, 1000 - subs), hoursNeed: watchHours != null ? Math.max(0, 4000 - watchHours) : null,
     err, errDetail, errReason,
   });
+}
+
+// POST /api/enable-apis -> TỰ BẬT YouTube Analytics + Data API cho MỌI project OAuth (1 lần, theo project).
+//   Cần Service Account có quyền 'Service Usage Admin' trên project OAuth. Không đủ quyền -> trả lỗi rõ,
+//   user bật tay (chỉ 1 lần/project — KHÔNG phải từng channel).
+async function apiEnableApis(request, url, env) {
+  const t = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+  const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);   // chỉ user đã đăng nhập
+  if (!uid) throw new Error("Chưa đăng nhập.");
+  // Project number = phần số đầu của mỗi OAuth client id (trước dấu '-').
+  const projects = [...new Set(ytClients(env)
+    .map((c) => (String(c.id || "").match(/^(\d+)-/) || [])[1]).filter(Boolean))];
+  if (!projects.length) throw new Error("Không tìm thấy project từ OAuth client.");
+  const apis = ["youtubeanalytics.googleapis.com", "youtube.googleapis.com"];
+  let at;
+  try { at = await saAccessToken(env, "https://www.googleapis.com/auth/cloud-platform"); }
+  catch (e) { throw new Error("SA không lấy được quyền cloud-platform: " + e.message); }
+  const results = [];
+  for (const proj of projects) {
+    for (const api of apis) {
+      try {
+        const r = await fetch(`https://serviceusage.googleapis.com/v1/projects/${proj}/services/${api}:enable`,
+          { method: "POST", headers: { Authorization: `Bearer ${at}`, "content-type": "application/json" }, body: "{}" });
+        const j = await r.json().catch(() => ({}));
+        if (r.ok) results.push({ project: proj, api, ok: true });
+        else results.push({ project: proj, api, ok: false, error: (j.error && j.error.message) || ("HTTP " + r.status), status: r.status });
+      } catch (e) { results.push({ project: proj, api, ok: false, error: String(e && e.message || e) }); }
+    }
+  }
+  const allOk = results.every((x) => x.ok);
+  const needManual = results.some((x) => !x.ok && (x.status === 403 || x.status === 401));
+  return json({ ok: allOk, projects, results, needManual });
 }
 
 // GET /api/fb-monetization?channel=&platform=fb -> ĐO tiêu chí kiếm tiền FB (In-stream/Reels).
@@ -966,11 +999,11 @@ async function ensureDriveFolder(accessToken, name) {
 }
 
 /* ---------- Firestore REST bằng service account (JWT RS256) ---------- */
-async function saAccessToken(env) {
+async function saAccessToken(env, scope = "https://www.googleapis.com/auth/datastore") {
   const now = Math.floor(Date.now() / 1000);
   const claim = {
     iss: env.SA_CLIENT_EMAIL,
-    scope: "https://www.googleapis.com/auth/datastore",
+    scope,
     aud: "https://oauth2.googleapis.com/token",
     iat: now, exp: now + 3600,
   };
