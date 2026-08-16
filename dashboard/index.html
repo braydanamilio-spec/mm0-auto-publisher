@@ -888,6 +888,7 @@
         .tk-move button{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:4px;font-size:12px;cursor:pointer;color:var(--muted)}
         .tk-move button:hover{border-color:var(--accent);color:var(--accent)}
         .tk-ava{width:20px;height:20px;border-radius:50%;background:linear-gradient(145deg,var(--accent),var(--violet));display:inline-grid;place-items:center;color:#fff;font-size:9px;font-weight:800}
+        .fbc-chk{position:absolute;top:12px;right:12px;width:17px;height:17px;cursor:pointer;accent-color:var(--accent);z-index:2}
         .cm-dot{margin-left:auto;background:var(--bad);color:#fff;font-size:10px;font-weight:800;min-width:18px;height:18px;padding:0 5px;border-radius:20px;display:inline-grid;place-items:center}
         .cm-stats{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;font-size:13px}
         .cm-stats b{color:var(--text);font-variant-numeric:tabular-nums}
@@ -1066,6 +1067,7 @@
             <button class="btn-conn" id="btnConnFB">🔗 <span data-i18n="fb_connect">Kết nối Facebook</span></button></div>
           <div class="p-sub" style="margin-top:6px" data-i18n="fb_note">Facebook tách riêng YouTube (không cùng Gmail). Kết nối 1 lần lấy hết Page bạn quản lý; đăng/lịch FB quản lý riêng tại đây.</div>
         </div>
+        <div id="fbConnBulk" class="yt-bulk" style="display:none;margin-bottom:12px"></div>
         <div class="conn-grid" id="fbPages"></div>
 
         <div class="panel" id="socMgrPanel" style="margin-top:16px">
@@ -1862,6 +1864,7 @@
         const ageD=p.connected_at?Math.floor((Date.now()-new Date(p.connected_at).getTime())/86400000):0;
         const tokWarn=ageD>=50?`<div class="p-sub" style="color:var(--warn);margin-top:4px">⚠ Token ${ageD} ngày — nên bấm "Kết nối lại" để làm mới (user-token FB ~60 ngày)</div>`:"";
         return `<div class="conn" id="fbcard-${esc(p.name)}">
+        <input type="checkbox" class="fbc-chk" ${(window.__fbConnSel||new Set()).has(p.name)?'checked':''} onclick="event.stopPropagation();fbConnToggle('${esc(p.name)}',this)" title="Chọn để thao tác hàng loạt">
         <div class="conn-head"><div class="ava" id="fbava-${esc(p.name)}" style="background:linear-gradient(145deg,#1877f2,#0a58ca);overflow:hidden">${fbPageAva(p)}</div>
           <div class="nm">${esc(p.page_name||p.name)}<div class="p-sub">Facebook Page · ID ${esc(p.page_id||'')}</div></div></div>
         ${svcRow('fb','#1877f2','Facebook Page','connected','token dài hạn (không tự hết hạn)')}
@@ -1892,6 +1895,7 @@
       }).join("");
       socFillPages();
       socLoadIgProfiles();
+      if(window.renderFbConnBulk) renderFbConnBulk();
       if(window.renderCmFb) renderCmFb();
       if(window.__view==="analytics"&&window.__plat==="fb"&&window.renderFbAnalytics) renderFbAnalytics();
     }
@@ -2612,6 +2616,25 @@
         toastMsg("✔ "+t("dc_done")+" "+(name||channel));
       }catch(e){ alert("❌ "+e.message); }
     };
+    /* ===== Chọn nhiều Page + thao tác hàng loạt (FB/IG Connect) ===== */
+    window.__fbConnSel=new Set();
+    window.fbConnToggle=(name,el)=>{ if(el.checked) window.__fbConnSel.add(name); else window.__fbConnSel.delete(name); renderFbConnBulk(); };
+    window.fbConnClearSel=()=>{ window.__fbConnSel=new Set(); renderFacebook(); };
+    window.renderFbConnBulk=()=>{ const bar=$("fbConnBulk"); if(!bar) return; const n=window.__fbConnSel.size;
+      if(!n){ bar.style.display="none"; bar.innerHTML=""; return; }
+      bar.style.display="flex"; bar.innerHTML=`<b>Đã chọn ${n} Page</b><span style="flex:1;min-width:6px"></span>
+        <button class="btn-mini" onclick="fbConnBulkGroup()">👥 Gán nhóm</button>
+        <button class="btn-mini" onclick="fbConnBulkCheck()">🔍 Kiểm tra token</button>
+        <button class="btn-mini danger" onclick="fbConnBulkDisconnect()">🗑️ Gỡ ${n} Page</button>
+        <button class="btn-mini" onclick="fbConnClearSel()">Bỏ chọn</button>`; };
+    window.fbConnBulkGroup=()=>{ const slugs=[...window.__fbConnSel]; if(!slugs.length) return;
+      const v=prompt(`Gán nhóm quản lý cho ${slugs.length} Page\n(nick FB / UID / Gmail — bỏ trống = bỏ nhóm):`,"");
+      if(v===null) return; window.saveFbGroup(slugs, v.trim()); window.__fbConnSel=new Set(); };
+    window.fbConnBulkCheck=async()=>{ for(const s of [...window.__fbConnSel]){ try{ await fbCheckToken(s); }catch(_){} } };
+    window.fbConnBulkDisconnect=async()=>{ const slugs=[...window.__fbConnSel]; if(!slugs.length) return;
+      if(!confirm(`GỠ ${slugs.length} Page khỏi hệ thống? (KHÔNG xoá Page trên Facebook)`)) return;
+      let ok=0; for(const s of slugs){ try{ await workerApi("/api/disconnect",{method:"POST",body:{channel:s,kind:"facebook"}}); ok++; }catch(_){} }
+      window.__fbConnSel=new Set(); toastMsg(`🗑️ Đã gỡ ${ok} Page`); };
     const gmailKeyOf=(k)=>{ const g=(__OVERRIDES.gmail_group||{})[k]; if(g) return g;
       return (__C[k]&&__C[k].email)||""; };
     const _normGmail=(g)=>{ g=(g||"").trim(); if(!g) return ""; return g.includes("@")?g:g+"@gmail.com"; };
