@@ -378,7 +378,10 @@
           <select id="stFilter"><option value="">Mọi trạng thái</option><option value="needs_review">Chờ duyệt</option><option value="posted">Đã đăng</option><option value="scheduled">Đã lên lịch</option><option value="pending">Chờ</option><option value="uploading">Đang upload</option><option value="failed">Lỗi</option></select>
           <select id="tyFilter"><option value="">Long &amp; Short</option><option value="long">Long</option><option value="short">Short</option></select>
           <select id="sortBy"><option value="publish_at">Sắp theo giờ đăng</option><option value="views">Sắp theo lượt xem</option></select>
+          <button class="btn-conn" id="loadYtVids" style="margin-left:auto">📥 Tải toàn bộ video kênh (YouTube)</button>
         </div>
+        <div class="p-sub" style="margin-bottom:10px">Bảng dưới = video hệ quản lý. Bấm <b>“Tải toàn bộ video kênh”</b> (chọn kênh ở góc phải trên) để xem <b>mọi video đã đăng trên kênh</b> như YouTube Studio.</div>
+        <div id="ytVidsPanel" style="display:none;margin-bottom:16px"></div>
         <div class="tbl-card"><div class="scroll-x"><table>
           <thead><tr><th data-i18n="th_channel">Channel</th><th data-i18n="th_title">Title</th><th data-i18n="th_type">Type</th><th data-i18n="th_status">Status</th><th data-i18n="th_time">Publish time</th><th class="num">Views</th><th class="num">Likes</th><th data-i18n="th_link">Link</th></tr></thead>
           <tbody id="rows"></tbody></table></div></div>
@@ -1066,6 +1069,37 @@
           <b class="tnum">${fmtN(v.views)}</b></div>`).join("")||`<div class="p-sub">Chưa có video trong kỳ.</div>`);
     }
     window.anInit=anInit;
+    // Tải TOÀN BỘ video đã đăng trên kênh (như YouTube Studio) qua Worker
+    let __ytVidsFilter="";
+    window.loadYtVids=async()=>{
+      const ch=cur(); const box=$("ytVidsPanel"); if(!box) return;
+      if(!ch) return alert("Chọn 1 kênh ở góc phải trên (không phải 'Tất cả kênh') rồi bấm lại.");
+      box.style.display=""; box.innerHTML=`<div class="panel"><div class="p-sub" style="padding:8px">${t("working")} — đang tải video của ${esc(chName(ch))}…</div></div>`;
+      try{ const d=await workerApi(`/api/channel-videos?channel=${encodeURIComponent(ch)}&max=200`);
+        window.__ytVids=d.items||[]; window.__ytVidsCh=ch; renderYtVids();
+      }catch(e){ box.innerHTML=`<div class="panel"><div class="p-sub" style="padding:8px">❌ ${esc(e.message)}</div></div>`; }
+    };
+    function renderYtVids(){
+      const box=$("ytVidsPanel"); if(!box) return; const all=window.__ytVids||[];
+      const q=__ytVidsFilter.toLowerCase();
+      const rows=all.filter(v=>!q||v.title.toLowerCase().includes(q));
+      const tv=all.reduce((a,v)=>a+v.views,0);
+      box.innerHTML=`<div class="panel">
+        <div class="p-head"><div class="p-title">📺 Toàn bộ video kênh ${esc(chName(window.__ytVidsCh))} <span class="p-sub">· ${all.length} video · ${fmtN(tv)} views tổng</span></div>
+          <input type="search" id="ytVidSearch" placeholder="🔍 Tìm tiêu đề…" value="${esc(__ytVidsFilter)}" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:8px 11px;font-family:var(--sans);font-size:13px;min-width:180px"></div>
+        <div class="scroll-x" style="margin-top:10px"><table style="min-width:640px"><thead><tr>
+          <th>Video</th><th>Loại</th><th>Đăng</th><th class="num">Views</th><th class="num">Likes</th><th class="num">Bình luận</th><th>Riêng tư</th><th>Link</th></tr></thead><tbody>
+          ${rows.map(v=>`<tr>
+            <td style="display:flex;align-items:center;gap:8px;max-width:340px">${v.thumb?`<img src="${esc(v.thumb)}" style="width:52px;height:30px;border-radius:4px;object-fit:cover;flex:none">`:""}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.title)}</span></td>
+            <td><span class="tag2 ${v.type==='short'?'warn':''}">${v.type}</span></td>
+            <td class="p-sub">${new Date(v.publishedAt).toLocaleDateString('vi-VN')}</td>
+            <td class="num tnum">${fmtN(v.views)}</td><td class="num tnum">${fmtN(v.likes)}</td><td class="num tnum">${fmtN(v.comments)}</td>
+            <td><span class="p-sub">${esc(v.privacy||'')}</span></td>
+            <td><a href="https://youtu.be/${esc(v.id)}" target="_blank">mở ↗</a></td></tr>`).join("")||`<tr><td colspan="8" class="p-sub" style="padding:12px">Không có video khớp.</td></tr>`}
+        </tbody></table></div></div>`;
+      const s=$("ytVidSearch"); if(s) s.oninput=(e)=>{ __ytVidsFilter=e.target.value; renderYtVids(); s2=$("ytVidSearch"); if(s2){s2.focus();s2.setSelectionRange(s2.value.length,s2.value.length);} };
+    }
+    var s2;
     function renderQuota(){
       const box=$("quotaPanel"); if(!box) return;
       const suf=todayId();
@@ -1214,6 +1248,7 @@
       if($("connAssignBrand"))$("connAssignBrand").onclick=window.assignAllBrand;
       if($("anLoad"))$("anLoad").onclick=window.anLoad;
       if($("anChannel"))$("anChannel").onchange=window.anLoad;
+      if($("loadYtVids"))$("loadYtVids").onclick=window.loadYtVids;
       if($("fbAccount"))$("fbAccount").onchange=()=>{ if($("fbSearch"))$("fbSearch").value=""; window.__fb.account=$("fbAccount").value; window.__fb.stack=[]; fbOpen(null,"My Drive"); };
       if($("fbSearch"))$("fbSearch").oninput=(e)=>window.fbSearchInput(e.target.value);
       if($("stSort"))$("stSort").onchange=renderStorage;
