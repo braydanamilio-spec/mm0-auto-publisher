@@ -1304,6 +1304,8 @@
       const ch=$("anChannel")&&$("anChannel").value; if(!ch) return;
       $("anStatus").textContent=t("working")+" — đang lấy dữ liệu video…"; $("anKpis").innerHTML=""; $("anTop").innerHTML="";
       try{ const d=await workerApi(`/api/channel-videos?channel=${encodeURIComponent(ch)}&max=300`);
+        // Nối vào modal Sửa video (cùng nguồn dữ liệu) -> Analytics cũng sửa/mở được
+        window.__ytVids=d.items||[]; window.__ytVidsStat=d.channel||null; window.__ytVidsCh=ch;
         renderAn(d, ch); $("anStatus").textContent=`✔ ${chName(ch)} · ${(d.items||[]).length} video · kỳ ${__anDays} ngày`;
       }catch(e){ $("anStatus").textContent="";
         $("anKpis").innerHTML=`<div class="panel" style="grid-column:1/-1;border-color:var(--bad)"><div style="padding:14px"><b style="color:var(--bad)">❌ Chưa lấy được dữ liệu</b><div class="p-sub" style="margin-top:6px">${esc(e.message)}</div><div style="margin-top:10px"><button class="btn-mini" onclick="connectChannel('${esc(ch)}','youtube')">🔗 Kết nối lại YouTube kênh này</button></div></div></div>`; }
@@ -1332,7 +1334,8 @@
         <div class="pub-row"><span style="width:22px;color:var(--muted)">${i+1}</span>
           ${v.thumb?`<img src="${esc(v.thumb)}" style="width:44px;height:26px;border-radius:5px;object-fit:cover">`:""}
           <a href="https://www.youtube.com/watch?v=${esc(v.id)}" target="_blank" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)">${esc(v.title)}</a>
-          <span class="tag2 ${v.type==='short'?'warn':''}">${v.type}</span><b class="tnum" style="margin-left:8px">${fmtN(v.views)}</b></div>`).join("")||`<div class="p-sub">Chưa có video.</div>`);
+          <span class="tag2 ${v.type==='short'?'warn':''}">${v.type}</span><b class="tnum" style="margin:0 8px">${fmtN(v.views)}</b>
+          <span style="white-space:nowrap;flex:none"><button class="yt-rowbtn" title="Sửa" onclick="ytEdit('${esc(v.id)}')">✏️</button><a class="yt-rowbtn" title="Mở YouTube" href="https://www.youtube.com/watch?v=${esc(v.id)}" target="_blank">↗</a></span></div>`).join("")||`<div class="p-sub">Chưa có video.</div>`);
     }
     window.anInit=anInit;
     // ===== Trình quản lý video kênh (YouTube Studio-like) qua Worker =====
@@ -1463,6 +1466,7 @@
       try{ await workerApi("/api/video-update",{method:"POST",body});
         const v=(window.__ytVids||[]).find(x=>x.id===id); if(v){ v.title=body.title; v.description=body.description; v.tags=tags; v.privacy=body.privacy; v.madeForKids=body.madeForKids; }
         toastMsg("✔ Đã lưu lên YouTube"); ytEditClose(); renderYtRows();
+        if(window.__view==='analytics' && window.__ytVidsStat) renderAn({items:window.__ytVids,channel:window.__ytVidsStat}, window.__ytVidsCh);
       }catch(e){ $("ytEMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; }
       finally{ btn.disabled=false; }
     };
