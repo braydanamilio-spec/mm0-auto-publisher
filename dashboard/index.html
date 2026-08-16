@@ -1338,9 +1338,15 @@
       V().forEach(v=>{ if(eff(v)==="failed") fails.push({p:"Video",nm:v.title||v.drive_name||v.id,err:(v.error||(v.warnings&&v.warnings[0])||"lỗi đăng")}); });
       (window.__ytQueue||[]).forEach(q=>{ if(q.status==="failed") fails.push({p:"YouTube",nm:q.drive_name||q.drive_file_id,err:q.error||"lỗi",id:q.id,coll:"yt_queue"}); });
       (window.__socQueue||[]).forEach(q=>{ if(q.status==="failed") fails.push({p:"FB/IG",nm:q.drive_name||q.drive_file_id,err:q.error||"lỗi",id:q.id,coll:"social_queue"}); });
+      // Cảnh báo (không phải lỗi): token FB sắp hết hạn, kênh YouTube cần kết nối lại
+      const warns=[];
+      (__FBP||[]).forEach(p=>{ const a=p.connected_at?Math.floor((Date.now()-new Date(p.connected_at).getTime())/86400000):0; if(a>=50) warns.push(`FB "${p.page_name||p.name}": token ${a} ngày — nên kết nối lại (user-token ~60 ngày)`); });
+      Object.keys(C()||{}).forEach(k=>{ if(C()[k]&&C()[k].yt_ok===false) warns.push(`YouTube "${chName(k)}": cần Kết nối lại`); });
+      const warnHtml=warns.length?`<div style="margin-top:10px">${warns.map(w=>`<div class="p-sub" style="color:var(--warn)">⚠ ${esc(w)}</div>`).join("")}</div>`:"";
       const notifOn=localStorage.mm0notif==="1";
       const notifBtn=`<button class="btn-mini" onclick="toggleNotif()">${notifOn?'🔔 Cảnh báo: BẬT':'🔕 Bật cảnh báo lỗi'}</button>`;
       if(!fails.length){
+        if(warns.length){ box.innerHTML=`<div class="panel" style="border-color:var(--warn)"><div class="p-head"><div class="p-title" style="color:var(--warn)">⚠️ ${warns.length} cảnh báo</div>${notifBtn}</div>${warnHtml}</div>`; __healthNotified=0; return; }
         box.innerHTML=`<div class="panel" style="border-color:var(--good);display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px"><span style="color:var(--good);font-weight:800">✅ Hệ thống ổn</span><span class="p-sub">Không có lỗi đăng.</span><span style="flex:1"></span>${notifBtn}</div>`;
         __healthNotified=0; return;
       }
@@ -1353,7 +1359,7 @@
         <div class="scroll-x" style="margin-top:8px"><table class="yt-table"><thead><tr><th>Nền tảng</th><th>Video</th><th>Lỗi</th><th></th></tr></thead><tbody>
         ${fails.slice(0,20).map(f=>`<tr><td><span class="tag2">${esc(f.p)}</span></td><td><span class="nm" title="${esc(f.nm)}">${esc(f.nm)}</span></td><td class="p-sub" style="color:var(--bad);max-width:320px">${esc(f.err)}</td>
           <td style="white-space:nowrap">${f.coll?`<button class="yt-rowbtn" title="Thử lại" onclick="healthRetry('${f.coll}','${f.id}')">↻</button><button class="yt-rowbtn" title="Bỏ" onclick="healthDismiss('${f.coll}','${f.id}')">🗑️</button>`:''}</td></tr>`).join("")}
-        </tbody></table></div>${fails.length>20?`<div class="p-sub" style="margin-top:6px">… và ${fails.length-20} mục khác</div>`:''}</div>`;
+        </tbody></table></div>${fails.length>20?`<div class="p-sub" style="margin-top:6px">… và ${fails.length-20} mục khác</div>`:''}${warnHtml}</div>`;
     }
     window.toggleNotif=async()=>{ if(localStorage.mm0notif==="1"){ localStorage.mm0notif="0"; toastMsg("🔕 Đã tắt cảnh báo"); renderHealth(); return; }
       if(!("Notification" in window)){ toastMsg("Trình duyệt không hỗ trợ thông báo"); return; }
@@ -1622,6 +1628,8 @@
       }).join("")||`<div class="p-sub">Chưa có kênh YouTube — kết nối ở tab Kết nối API.</div>`;
       // GOM Page theo UID Facebook chủ (như YouTube gom theo Gmail)
       const fbCard=(p)=>{ const dt=p.connected_at?new Date(p.connected_at).toLocaleDateString('vi-VN'):"—";
+        const ageD=p.connected_at?Math.floor((Date.now()-new Date(p.connected_at).getTime())/86400000):0;
+        const tokWarn=ageD>=50?`<div class="p-sub" style="color:var(--warn);margin-top:4px">⚠ Token ${ageD} ngày — nên bấm "Kết nối lại" để làm mới (user-token FB ~60 ngày)</div>`:"";
         return `<div class="conn" id="fbcard-${esc(p.name)}">
         <div class="conn-head"><div class="ava" id="fbava-${esc(p.name)}" style="background:linear-gradient(145deg,#1877f2,#0a58ca);overflow:hidden">${fbPageAva(p)}</div>
           <div class="nm">${esc(p.page_name||p.name)}<div class="p-sub">Facebook Page · ID ${esc(p.page_id||'')}</div></div></div>
@@ -1630,7 +1638,7 @@
           ? `<div class="svc"><div class="ava" id="igava-${esc(p.name)}" style="width:34px;height:34px;background:linear-gradient(135deg,#F9CE34,#EE2A7B 45%,#6228D7);overflow:hidden;flex:none;display:grid;place-items:center;position:relative"><svg viewBox="0 0 24 24" width="18" fill="none" stroke="#fff" stroke-width="2">${svgIcon('ig')}</svg>${p.ig_avatar?`<img src="${esc(p.ig_avatar)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`:''}</div><div style="flex:1;min-width:0"><div class="snm" id="igname-${esc(p.name)}">${esc(p.ig_name||'Instagram')}</div><div class="sd" id="igsd-${esc(p.name)}">${p.ig_username?'@'+esc(p.ig_username):'đã liên kết'} · Reels tự động</div></div><span class="tag t-connected" style="margin-left:auto">Đã kết nối</span></div>`
           : svcRow('ig','#E1306C','Instagram', 'unknown', 'chưa liên kết IG — vào Page → Linked accounts để nối')}
         <button class="btn-reconn" style="width:100%;margin-top:8px;justify-content:flex-start" onclick="assignFbGroup('${esc(p.name)}')">👥 Nhóm quản lý: <b style="margin-left:4px">${fbG[p.name]?esc(fbG[p.name]):(p.fb_owner_name?esc(p.fb_owner_name)+(/^\d+$/.test(String(p.fb_owner_id||''))?' · UID '+esc(String(p.fb_owner_id)):''):'chưa gán (bấm để gộp)')}</b></button>
-        <div class="p-sub" style="margin-top:8px">📅 Kết nối: <b>${dt}</b>${p.connected_at?` · ${ago(p.connected_at)}`:''} <span id="fbtok-${esc(p.name)}"></span></div>
+        <div class="p-sub" style="margin-top:8px">📅 Kết nối: <b>${dt}</b>${p.connected_at?` · ${ago(p.connected_at)}`:''} <span id="fbtok-${esc(p.name)}"></span></div>${tokWarn}
         <div style="display:flex;gap:8px;margin-top:10px">
           <button class="btn-mini" onclick="fbCheckToken('${esc(p.name)}')">🔍 Kiểm tra token</button>
           <button class="btn-reconn" style="flex:1" onclick="connectChannel('','facebook')">🔗 Kết nối lại</button>
