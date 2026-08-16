@@ -1024,7 +1024,8 @@
         </div>
 
         <div class="panel" id="socQueuePanel" style="margin-top:16px">
-          <div class="p-head"><div class="p-title">📤 <span data-i18n="sqp_title">Standalone post queue</span> <span class="p-sub" data-i18n="sqp_sub">— no YouTube channel needed · cron auto-posts</span></div></div>
+          <div class="p-head"><div class="p-title">📤 <span data-i18n="sqp_title">Standalone post queue</span> <span class="p-sub" data-i18n="sqp_sub">— no YouTube channel needed · cron auto-posts</span></div>
+            <button class="btn-conn" onclick="gotoView('storage')" data-i18n="ch_browse">📂 Browse Drive → pick videos</button></div>
           <div class="p-sub" style="margin:4px 0 8px" data-i18n="sqp_hint">Go to Storage → Browse files → click “📤 Post to FB/IG” on a video to add it here. It auto-posts on time (even if PC is off), no duplicates.</div>
           <div id="socQueueList"></div>
         </div>
@@ -1903,7 +1904,7 @@
     window.setSocQueue=(items)=>{ window.__socQueue=items||[]; renderSocQueue(); if(window.__view==="schedule"&&window.__plat==="fb"&&window.renderFbSchedule) renderFbSchedule(); };
     function renderSocQueue(){ const box=$("socQueueList"); if(!box) return;
       const items=(window.__socQueue||[]).slice().sort((a,b)=>String(b.created_at||"").localeCompare(String(a.created_at||"")));
-      if(!items.length){ box.innerHTML=`<div class="p-sub" style="padding:6px">${t("sq_empty")}</div>`; return; }
+      if(!items.length){ box.innerHTML=`<div style="padding:16px;text-align:center"><div style="font-size:32px">📭</div><div class="p-sub" style="margin:8px 0">${t("sq_empty")}</div><button class="btn-conn" onclick="gotoView('storage')">📂 Chọn video từ Drive để đăng FB/IG</button></div>`; return; }
       const badge=(s)=>({pending:`<span class="tag t-scheduled">${t("sq_pending")}</span>`,processing:`<span class="tag t-scheduled">⏳ ${t("sq_posted")}…</span>`,posted:`<span class="tag t-connected">${t("sq_posted")}</span>`,failed:`<span class="tag t-error">${t("sq_failed")}</span>`}[s]||esc(s));
       box.innerHTML=`<div class="scroll-x"><table class="yt-table"><thead><tr><th>${t("th_video")}</th><th>Page</th><th>${t("th_platform")}</th><th>${t("th_posttime")}</th><th>${t("th_status")}</th><th></th></tr></thead><tbody>${items.map(q=>`<tr>
         <td><span class="nm" title="${esc(q.drive_name||'')}">${esc(q.drive_name||q.drive_file_id)}</span></td>
@@ -2022,7 +2023,7 @@
     };
     window.renderFbSchedule=()=>{ const box=$("fbScheduleList"); if(!box) return;
       const items=(window.__socQueue||[]).filter(q=>q.status==="pending"||q.status==="processing").slice().sort((a,b)=>String(a.publish_at||"").localeCompare(String(b.publish_at||"")));
-      if(!items.length){ box.innerHTML=`<div class="p-sub" style="padding:6px">Chưa có bài FB/IG nào trong lịch. Thêm ở <b>Storage → 📤 Đăng FB/IG</b>.</div>`; return; }
+      if(!items.length){ box.innerHTML=`<div style="padding:16px;text-align:center"><div style="font-size:32px">🗓️</div><div class="p-sub" style="margin:8px 0">Chưa có bài FB/IG nào trong lịch.</div><button class="btn-conn" onclick="gotoView('storage')">📂 Chọn video từ Drive để lên lịch</button></div>`; return; }
       let html="",last="";
       items.forEach(q=>{ const day=q.publish_at?new Date(q.publish_at).toLocaleDateString('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit'}):"—";
         if(day!==last){ html+=`<div class="p-sub" style="margin:14px 0 6px;font-weight:600;color:var(--text2)">${day}</div>`; last=day; }
