@@ -22,8 +22,23 @@ import requests
 GRAPH = "https://graph.facebook.com/v21.0"
 
 
+def publish_limit_ok(ig_user_id: str, page_token: str, cap: int = 25) -> bool:
+    """IG cho ~25 bài đăng qua API / 24h / tài khoản. Trả True nếu CÒN quota.
+    An toàn: gọi lỗi -> trả True (không chặn oan), để uploader tự báo lỗi nếu thật sự hết."""
+    try:
+        r = requests.get(f"{GRAPH}/{ig_user_id}/content_publishing_limit",
+                         params={"fields": "quota_usage,config", "access_token": page_token},
+                         timeout=30).json()
+        row = (r.get("data") or [{}])[0]
+        used = int(row.get("quota_usage") or 0)
+        limit = int(((row.get("config") or {}).get("quota_total")) or cap)
+        return used < limit
+    except Exception:
+        return True
+
+
 def upload(video_url: str, meta: dict, ig_user_id: str, page_token: str,
-           poll_seconds: int = 6, max_polls: int = 40) -> dict:
+           poll_seconds: int = 15, max_polls: int = 40) -> dict:
     caption = f"{meta['title']}\n\n{meta['description']}".strip()[:2200]
 
     # 1) Tạo container (mọi video coi là REELS)

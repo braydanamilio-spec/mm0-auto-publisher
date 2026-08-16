@@ -11,6 +11,7 @@ Chi phí quota: mỗi lần upload ~1.600 đơn vị. Mặc định 10.000/ngày
 
 from __future__ import annotations
 import os
+import time
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -104,13 +105,17 @@ def upload(
         try:
             _status, response = request.next_chunk()
         except HttpError as e:
-            # 5xx -> thử lại
+            # 5xx -> thử lại CÓ BACKOFF (tránh nện API khi đang sự cố)
             if e.resp.status in (500, 502, 503, 504) and retries < 5:
                 retries += 1
+                time.sleep(min(60, 2 ** retries))   # 2,4,8,16,32s
                 continue
-            # hết quota -> ném QuotaExceeded (giữ video pending, thử lại ngày mai)
             body = (getattr(e, "content", b"") or b"").decode("utf-8", "ignore").lower()
-            if e.resp.status == 403 and ("quota" in body or "dailylimit" in body):
+            # Hết quota HOẶC vượt trần upload 24h (YouTube coi mass-upload nhanh là spam)
+            # -> ném QuotaExceeded: giữ video pending, để mai, KHÔNG spam thêm & KHÔNG đánh failed oan.
+            if e.resp.status == 403 and (
+                "quota" in body or "dailylimit" in body
+                or "uploadlimitexceeded" in body or "ratelimitexceeded" in body):
                 raise QuotaExceeded(str(e))
             raise
     vid = response["id"]

@@ -21,6 +21,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import time
 
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials
@@ -30,6 +31,12 @@ from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload, MediaInMe
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 VIDEO_MIME = ("video/mp4", "video/quicktime", "video/x-matroska", "video/webm")
 TOKEN_URI = "https://oauth2.googleapis.com/token"
+_RETRIES = 5   # googleapiclient tự backoff cho 429/5xx khi execute(num_retries=...)
+
+
+def _q(name: str) -> str:
+    """Escape tên file cho Drive query (tên có dấu ' hoặc \\ làm hỏng cú pháp -> sai/miss file)."""
+    return str(name).replace("\\", "\\\\").replace("'", "\\'")
 
 
 def _service():
@@ -72,21 +79,30 @@ class Drive:
         if cache_key in self._folder_cache:
             return self._folder_cache[cache_key]
         q = (
-            f"'{parent_id}' in parents and name = '{name}' "
+            f"'{parent_id}' in parents and name = '{_q(name)}' "
             "and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
         )
-        res = self.svc.files().list(q=q, fields="files(id,name)", pageSize=1).execute()
-        files = res.get("files", [])
-        if files:
-            fid = files[0]["id"]
-        elif create:
+
+        def _find_oldest():
+            # Lấy NHIỀU rồi chọn folder CŨ NHẤT (deterministic) -> reader & writer luôn trùng folder,
+            # tránh cảnh "upload vào folder trùng A, list đọc folder B" khi có bản sao do race.
+            res = self.svc.files().list(
+                q=q, fields="files(id,name,createdTime)", pageSize=10,
+                orderBy="createdTime").execute(num_retries=_RETRIES)
+            fs = res.get("files", [])
+            return fs[0]["id"] if fs else None
+
+        fid = _find_oldest()
+        if not fid and create:
             meta = {
                 "name": name,
                 "mimeType": "application/vnd.google-apps.folder",
                 "parents": [parent_id],
             }
-            fid = self.svc.files().create(body=meta, fields="id").execute()["id"]
-        else:
+            self.svc.files().create(body=meta, fields="id").execute(num_retries=_RETRIES)
+            # Re-query sau khi tạo: nếu tiến trình khác cũng vừa tạo (race) -> vẫn chốt CÙNG folder cũ nhất.
+            fid = _find_oldest()
+        if not fid:
             return None
         self._folder_cache[cache_key] = fid
         return fid
@@ -110,7 +126,7 @@ class Drive:
                 fields="nextPageToken, files(id,name,mimeType,size,parents,modifiedTime,createdTime)",
                 pageToken=token,
                 pageSize=100,
-            ).execute()
+            ).execute(num_retries=_RETRIES)
             for f in res.get("files", []):
                 if f.get("mimeType") in VIDEO_MIME:
                     items.append(f)
@@ -121,16 +137,16 @@ class Drive:
 
     # ---- tìm 1 file theo tên trong folder (trả id hoặc None) ----
     def find_file(self, parent_id: str, name: str) -> str | None:
-        q = f"'{parent_id}' in parents and name = '{name}' and trashed = false"
-        res = self.svc.files().list(q=q, fields="files(id)", pageSize=1).execute()
+        q = f"'{parent_id}' in parents and name = '{_q(name)}' and trashed = false"
+        res = self.svc.files().list(q=q, fields="files(id)", pageSize=1).execute(num_retries=_RETRIES)
         files = res.get("files", [])
         return files[0]["id"] if files else None
 
     # ---- đọc sidecar JSON (nếu có) cạnh video ----
     def read_sidecar(self, parent_id: str, video_name: str) -> dict:
         base = video_name.rsplit(".", 1)[0]
-        q = f"'{parent_id}' in parents and name = '{base}.json' and trashed = false"
-        res = self.svc.files().list(q=q, fields="files(id)", pageSize=1).execute()
+        q = f"'{parent_id}' in parents and name = '{_q(base)}.json' and trashed = false"
+        res = self.svc.files().list(q=q, fields="files(id)", pageSize=1).execute(num_retries=_RETRIES)
         files = res.get("files", [])
         if not files:
             return {}
@@ -162,45 +178,71 @@ class Drive:
     # ---- di chuyển file sang _POSTED / _FAILED ----
     def move(self, file_id: str, channel_root_id: str, target: str = "_POSTED"):
         dest = self.child_folder(channel_root_id, target)
-        f = self.svc.files().get(fileId=file_id, fields="parents").execute()
+        f = self.svc.files().get(fileId=file_id, fields="parents").execute(num_retries=_RETRIES)
         prev = ",".join(f.get("parents", []))
         self.svc.files().update(
             fileId=file_id, addParents=dest, removeParents=prev, fields="id,parents"
-        ).execute()
+        ).execute(num_retries=_RETRIES)
 
     # ---- chuyển file sang 1 folder bất kỳ (theo id folder đích) ----
     def move_to_folder(self, file_id: str, dest_folder_id: str):
-        f = self.svc.files().get(fileId=file_id, fields="parents").execute()
+        f = self.svc.files().get(fileId=file_id, fields="parents").execute(num_retries=_RETRIES)
         prev = ",".join(f.get("parents", []))
         self.svc.files().update(
             fileId=file_id, addParents=dest_folder_id, removeParents=prev, fields="id"
-        ).execute()
+        ).execute(num_retries=_RETRIES)
 
     # ---- XOÁ file (chỉ được khi token là chủ sở hữu file) ----
     def delete(self, file_id: str):
-        self.svc.files().delete(fileId=file_id).execute()
+        self.svc.files().delete(fileId=file_id).execute(num_retries=_RETRIES)
 
     # ---- LINK CÔNG KHAI TẠM (để FB/IG tự kéo video — KHÔNG tải-lại qua cron) ----
     def make_public(self, file_id: str) -> str:
         """Cho 'anyone with link' đọc -> trả URL tải trực tiếp (dùng cho FB file_url / IG video_url)."""
         try:
             self.svc.permissions().create(
-                fileId=file_id, body={"type": "anyone", "role": "reader"}, fields="id").execute()
-        except Exception:
-            pass  # có thể đã public sẵn
+                fileId=file_id, body={"type": "anyone", "role": "reader"},
+                fields="id").execute(num_retries=_RETRIES)
+        except Exception as e:
+            # 'đã public sẵn' -> bỏ qua; lỗi thật (quyền/quota) -> báo để tầng trên biết link có thể KHÔNG công khai.
+            if "already" not in str(e).lower() and "duplicate" not in str(e).lower():
+                print(f"     ⚠️ make_public {file_id}: {e}")
         # URL tải trực tiếp, bỏ qua trang quét virus với confirm=t
         return f"https://drive.usercontent.google.com/download?id={file_id}&export=download&confirm=t"
 
-    def make_private(self, file_id: str):
-        """Thu hồi mọi quyền 'anyone' sau khi đăng xong (bảo mật)."""
-        try:
-            perms = self.svc.permissions().list(
-                fileId=file_id, fields="permissions(id,type)").execute().get("permissions", [])
-            for p in perms:
-                if p.get("type") == "anyone":
-                    self.svc.permissions().delete(fileId=file_id, permissionId=p["id"]).execute()
-        except Exception:
-            pass
+    def _anyone_perms(self, file_id: str) -> list[str]:
+        """Liệt kê MỌI permission type=anyone (có phân trang) -> tránh sót khi >100 quyền."""
+        ids, token = [], None
+        while True:
+            res = self.svc.permissions().list(
+                fileId=file_id, fields="nextPageToken, permissions(id,type)",
+                pageSize=100, pageToken=token).execute(num_retries=_RETRIES)
+            ids += [p["id"] for p in res.get("permissions", []) if p.get("type") == "anyone"]
+            token = res.get("nextPageToken")
+            if not token:
+                break
+        return ids
+
+    def make_private(self, file_id: str) -> bool:
+        """Thu hồi MỌI quyền 'anyone' sau khi đăng xong (bảo mật).
+        Retry + verify: trả True nếu chắc chắn không còn quyền anyone; False nếu THẤT BẠI
+        (tầng trên nên ghi cờ cần-thu-hồi để sweeper quét lại — không để file public vĩnh viễn)."""
+        for attempt in range(4):
+            try:
+                ids = self._anyone_perms(file_id)
+                if not ids:
+                    return True   # đã sạch
+                for pid in ids:
+                    self.svc.permissions().delete(
+                        fileId=file_id, permissionId=pid).execute(num_retries=_RETRIES)
+                # verify: list lại, còn sót thì thử vòng sau
+                if not self._anyone_perms(file_id):
+                    return True
+            except Exception as e:
+                print(f"     ⚠️ make_private lần {attempt+1} lỗi: {e}")
+            time.sleep(2 * (attempt + 1))
+        print(f"     ❌ make_private THẤT BẠI cho {file_id} — file có thể CÒN công khai, cần thu hồi lại!")
+        return False
 
     # ---- liệt kê file trong 1 subfolder theo tên (vd _POSTED) ----
     def list_folder_videos(self, root_id: str, subfolder: str) -> list[dict]:

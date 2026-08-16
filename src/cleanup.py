@@ -28,12 +28,26 @@ CAP_EXT = (".srt", ".vtt")          # phụ đề đi kèm -> dọn luôn, trán
 GB = 1_000_000_000
 
 
-def _age_days(f: dict, now: datetime) -> float:
-    t = f.get("modifiedTime") or f.get("createdTime")
+def _age_days(f: dict, now: datetime, posted_at: str | None = None) -> float:
+    # Ưu tiên tính tuổi từ THỜI ĐIỂM ĐĂNG (posted_at) — không phải modifiedTime
+    # (video nằm _QUEUE lâu rồi mới đăng sẽ không bị xoá non ngay khi vào _POSTED).
+    t = posted_at or f.get("modifiedTime") or f.get("createdTime")
     if not t:
         return 1e9
-    dt = datetime.fromisoformat(t.replace("Z", "+00:00"))
+    try:
+        dt = datetime.fromisoformat(str(t).replace("Z", "+00:00"))
+    except Exception:
+        return 1e9
     return (now - dt).total_seconds() / 86400
+
+
+def _confirmed_posted(rec: dict | None) -> bool:
+    """True nếu Firestore XÁC NHẬN video đã đăng (có id kết quả) -> mới an toàn để xoá bản gốc."""
+    if not rec:
+        return False
+    res = rec.get("results") or {}
+    has_result = any((res.get(p) or {}).get("id") for p in ("youtube", "facebook", "instagram"))
+    return rec.get("status") == "posted" or has_result
 
 
 def _companions(drv, parent_id: str, base: str) -> list[str]:
@@ -109,7 +123,16 @@ def run(dry_run=False, force_now=False):
             except Exception:
                 continue
             for f in posted:
-                age = _age_days(f, now)
+                # AN TOÀN CHỐNG MẤT DỮ LIỆU: chỉ xoá khi Firestore xác nhận đã đăng thật (có link/id).
+                rec = None
+                try:
+                    rec = state.get_video(f["id"])
+                except Exception:
+                    rec = None
+                if not _confirmed_posted(rec):
+                    print(f"     ⏭ giữ lại (chưa xác nhận đã đăng): {f['name']}")
+                    continue
+                age = _age_days(f, now, (rec or {}).get("posted_at"))
                 if not force_now and age < keep_days:
                     continue
                 base = f["name"].rsplit(".", 1)[0]

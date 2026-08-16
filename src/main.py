@@ -62,6 +62,8 @@ def resolve_channel_env(ch: dict, state=None, key=None) -> dict:
                 "client_secret": env(yt["client_secret_env"]),
                 "refresh_token": env(yt["refresh_token_env"]),
             }
+        # Đưa client_id lên TOP-LEVEL để publish_one đếm/khoá quota project đúng (trần ~6 upload/ngày).
+        out["client_id"] = out["yt_creds"]["client_id"]
     fb = ch.get("facebook", {})
     if fb.get("enabled"):
         conn = state.get_connection(key, "facebook") if (state and key) else None

@@ -22,7 +22,11 @@ An toàn:
 from __future__ import annotations
 import os
 import sys
+import time
+import random
 from datetime import datetime, timezone
+
+MAX_SOCIAL_PER_RUN = 3   # mỗi lần cron chỉ đăng tối đa 3 bài FB/IG -> giãn cách, tránh Meta gắn cờ spam
 
 sys.path.insert(0, os.path.dirname(__file__))
 import storage as ST
@@ -113,7 +117,11 @@ def run_queue(state, now, dry_run=False):
     if not items:
         return
     drive_conns = state.list_connections("drive")
+    posted_run = 0
     for it in items:
+        if posted_run >= MAX_SOCIAL_PER_RUN:
+            print(f"  ⏸ đủ {MAX_SOCIAL_PER_RUN} bài FB/IG/lần chạy -> phần còn lại để cron sau (chống spam).")
+            break
         pa = it.get("publish_at")
         if pa:
             try:
@@ -158,12 +166,18 @@ def run_queue(state, now, dry_run=False):
                                        "refresh_token": dc["refresh_token"]})
         except Exception as e:
             state.update_queue(it["id"], {"status": "failed", "error": f"drive: {e}"}); continue
-        public_url, errs = None, []
+        # Giới hạn IG 25 bài/ngày/tài khoản -> nếu gần đầy thì để cron sau (giữ pending), tránh bị gắn cờ.
+        if want_ig and not IG.publish_limit_ok(conn["ig_user_id"], conn["page_token"]):
+            want_ig = False; errs_ig_skip = True
+            print("     ⏸ IG đã gần trần 25 bài/ngày -> để cron sau.")
+        else:
+            errs_ig_skip = False
+        public_url, errs, leaked = None, [], False
         try:
             public_url = drv.make_public(fid)
             if want_fb:
                 try:
-                    r = FB.upload_video(None, meta, conn["page_id"], conn["page_token"], video_url=public_url)
+                    r = FB.upload(None, meta, conn["page_id"], conn["page_token"], video_url=public_url)
                     results["facebook"] = r; print(f"     ✅ Facebook: {r.get('url')}")
                 except Exception as e:
                     errs.append(f"FB: {e}"); print(f"     ❌ Facebook: {e}")
@@ -173,25 +187,36 @@ def run_queue(state, now, dry_run=False):
                     results["instagram"] = r; print(f"     ✅ Instagram: {r.get('url')}")
                 except Exception as e:
                     errs.append(f"IG: {e}"); print(f"     ❌ Instagram: {e}")
+            # QUAN TRỌNG: chờ FB KÉO XONG video (file_url tải ngầm) TRƯỚC khi thu hồi link,
+            # nếu không video 2-5GB chưa kịp kéo -> hỏng. IG.upload đã block tới FINISHED nên an toàn sẵn.
+            fb_id = (results.get("facebook") or {}).get("id")
+            if fb_id:
+                if not FB.wait_video_ready(fb_id, conn["page_token"]):
+                    print("     ⚠️ FB xử lý video lâu/không xong trước khi thu hồi link.")
         finally:
             if public_url:
-                try:
-                    drv.make_private(fid)
-                except Exception:
-                    pass
-        # Đã xong TẤT CẢ nền tảng được yêu cầu?
+                if not drv.make_private(fid):
+                    leaked = True   # thu hồi thất bại -> đánh cờ để sweeper/cron sau gỡ lại
+        # Đã xong TẤT CẢ nền tảng được yêu cầu? (IG bị HOÃN do trần ngày -> CHƯA xong)
         fully_done = ((not want_fb) or results.get("facebook", {}).get("id")) and \
-                     ((not want_ig) or results.get("instagram", {}).get("id"))
+                     ((not want_ig) or results.get("instagram", {}).get("id")) and \
+                     not errs_ig_skip
         attempts = it.get("attempts", 0) + 1
+        # IG bị hoãn do trần ngày KHÔNG tính là lần thất bại (khỏi dead-letter oan)
         if fully_done:
-            status = "posted"
+            status = "posted"; posted_run += 1
+        elif errs_ig_skip and not errs:
+            status = "pending"; attempts = it.get("attempts", 0)   # giữ nguyên, chờ quota IG
         elif attempts >= 3:          # bỏ cuộc sau 3 lần (dead-letter)
             status = "failed"
         else:
             status = "pending"       # lỗi TẠM -> giữ pending, cron sau retry (giữ kết quả 1 phần)
         state.update_queue(it["id"], {"status": status, "results": results,
                                       "error": " | ".join(errs), "attempts": attempts,
+                                      "needs_revocation": leaked, "drive_file_id": fid,
                                       "posted_at": now.isoformat() if fully_done else None})
+        if status == "posted":
+            time.sleep(random.uniform(4, 12))   # giãn cách nhẹ giữa các bài -> tránh heuristic spam Meta
 
 
 def _post_one(it, pages, fb_map, do_fb, do_ig, state, now, dry_run):
@@ -221,13 +246,27 @@ def _post_one(it, pages, fb_map, do_fb, do_ig, state, now, dry_run):
         print(f"  (dry) {it['name']} -> Page {page.get('page_name')} FB={want_fb} IG={want_ig}")
         return
 
+    # CHỐNG ĐĂNG TRÙNG (không đụng field `status` của luồng YouTube): đọc LẠI results mới nhất
+    # ngay trước khi đăng -> nếu cron khác vừa đăng xong thì bỏ qua nền tảng đó.
+    fresh = (state.get_video(fid) or {}).get("results") or {}
+    if fresh.get("facebook", {}).get("id"):
+        results["facebook"] = fresh["facebook"]; want_fb = False
+    if fresh.get("instagram", {}).get("id"):
+        results["instagram"] = fresh["instagram"]; want_ig = False
+    if not (want_fb or want_ig):
+        return
+    # Trần IG 25 bài/ngày -> hoãn IG nếu gần đầy (không tính là lỗi)
+    if want_ig and not IG.publish_limit_ok(page["ig_user_id"], page["page_token"]):
+        want_ig = False
+        print("     ⏸ IG gần trần 25 bài/ngày -> để cron sau.")
+
     print(f"  🚀 FB/IG: {it['name']} -> {page.get('page_name')}")
     public_url = None
     try:
         public_url = drv.make_public(fid)   # FB/IG tự kéo từ link này
         if want_fb:
             try:
-                r = FB.upload_video(None, meta, page["page_id"], page["page_token"], video_url=public_url)
+                r = FB.upload(None, meta, page["page_id"], page["page_token"], video_url=public_url)
                 results["facebook"] = r
                 state.upsert_video(fid, {"results": results})
                 print(f"     ✅ Facebook: {r.get('url')}")
@@ -241,9 +280,19 @@ def _post_one(it, pages, fb_map, do_fb, do_ig, state, now, dry_run):
                 print(f"     ✅ Instagram: {r.get('url')}")
             except Exception as e:
                 print(f"     ❌ Instagram lỗi: {e}")
+        # Chờ FB kéo xong video TRƯỚC khi thu hồi link (video nặng tải ngầm nhiều phút).
+        fb_id = (results.get("facebook") or {}).get("id")
+        if fb_id and not FB.wait_video_ready(fb_id, page["page_token"]):
+            print("     ⚠️ FB xử lý video lâu/không xong trước khi thu hồi link.")
     finally:
         if public_url:
-            drv.make_private(fid)   # THU HỒI link công khai ngay (bảo mật)
+            if not drv.make_private(fid):   # THU HỒI link công khai (retry+verify bên trong)
+                state.upsert_video(fid, {"needs_revocation": True})
+    # Nhả khoá: đăng xong -> posted; còn thiếu -> pending để cron sau retry (giữ kết quả 1 phần)
+    fully = ((not want_fb) or results.get("facebook", {}).get("id")) and \
+            ((not want_ig) or results.get("instagram", {}).get("id"))
+    state.upsert_video(fid, {"results": results,
+                             "social_status": "posted" if fully else "pending"})
 
 
 if __name__ == "__main__":

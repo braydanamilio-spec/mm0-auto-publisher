@@ -15,9 +15,32 @@ hoặc hết ~60 ngày nếu lấy từ user token — SETUP.md hướng dẫn c
 
 from __future__ import annotations
 import os
+import time
 import requests
 
 GRAPH = "https://graph.facebook.com/v21.0"
+
+
+def wait_video_ready(video_id: str, page_token: str,
+                     poll_seconds: int = 15, max_polls: int = 80) -> bool:
+    """Chờ FB KÉO + XỬ LÝ xong video (khi đăng bằng file_url, FB tải ngầm).
+    Trả True nếu 'ready'. Dùng để KHÔNG thu hồi link Drive trước khi FB kéo xong
+    (video 2-5GB có thể mất nhiều phút). max_polls*poll_seconds ~ 20 phút.
+    An toàn: lỗi mạng khi poll -> bỏ qua vòng đó, thử lại; hết giờ -> trả False."""
+    for _ in range(max_polls):
+        try:
+            st = requests.get(f"{GRAPH}/{video_id}",
+                              params={"fields": "status", "access_token": page_token},
+                              timeout=60).json()
+            vs = ((st.get("status") or {}).get("video_status")) or ""
+            if vs == "ready":
+                return True
+            if vs == "error":
+                return False
+        except Exception:
+            pass
+        time.sleep(poll_seconds)
+    return False
 
 
 def upload_video(file_path: str, meta: dict, page_id: str, page_token: str,
@@ -37,9 +60,12 @@ def upload_video(file_path: str, meta: dict, page_id: str, page_token: str,
     return {"id": data.get("id"), "url": f"https://facebook.com/{data.get('id')}"}
 
 
-def upload_reel(file_path: str, meta: dict, page_id: str, page_token: str) -> dict:
+def upload_reel(file_path: str | None, meta: dict, page_id: str, page_token: str,
+                video_url: str | None = None) -> dict:
     """
     Đăng Reels (video dọc/short) theo quy trình 3 pha của Graph API.
+    - video_url có sẵn -> PHA 2 gửi header `file_url` để FB tự kéo (không tải-lại bytes).
+    - không -> upload nhị phân từ file_path.
     """
     # PHA 1: start -> lấy video_id + upload_url
     start = requests.post(
@@ -52,19 +78,26 @@ def upload_reel(file_path: str, meta: dict, page_id: str, page_token: str) -> di
     video_id = s["video_id"]
     upload_url = s["upload_url"]
 
-    # PHA 2: upload nhị phân
-    size = os.path.getsize(file_path)
-    with open(file_path, "rb") as f:
+    # PHA 2: upload — ưu tiên hosted file_url (FB tự kéo), fallback upload nhị phân
+    if video_url:
         up = requests.post(
             upload_url,
-            headers={
-                "Authorization": f"OAuth {page_token}",
-                "offset": "0",
-                "file_size": str(size),
-            },
-            data=f,
-            timeout=1800,
+            headers={"Authorization": f"OAuth {page_token}", "file_url": video_url},
+            timeout=300,
         )
+    else:
+        size = os.path.getsize(file_path)
+        with open(file_path, "rb") as f:
+            up = requests.post(
+                upload_url,
+                headers={
+                    "Authorization": f"OAuth {page_token}",
+                    "offset": "0",
+                    "file_size": str(size),
+                },
+                data=f,
+                timeout=1800,
+            )
     up.raise_for_status()
 
     # PHA 3: finish + publish
@@ -84,9 +117,14 @@ def upload_reel(file_path: str, meta: dict, page_id: str, page_token: str) -> di
     return {"id": video_id, "url": f"https://facebook.com/reel/{video_id}"}
 
 
-def upload(file_path: str, meta: dict, page_id: str, page_token: str,
+def upload(file_path: str | None, meta: dict, page_id: str, page_token: str,
            video_url: str | None = None) -> dict:
-    # Reels (short) nhỏ -> upload bytes nhanh; video dài nặng -> ưu tiên file_url (FB tự kéo).
+    # Short -> ưu tiên Reels (đúng định dạng, phân phối tốt hơn); long -> video Page thường.
     if meta.get("type") == "short":
-        return upload_reel(file_path, meta, page_id, page_token)
+        try:
+            return upload_reel(file_path, meta, page_id, page_token, video_url=video_url)
+        except Exception as e:
+            # An toàn: nếu Reels API lỗi (vd không hỗ trợ hosted url) -> quay về video thường (vẫn đăng được).
+            print(f"     ⚠️ Reels lỗi ({e}) -> đăng dạng video thường.")
+            return upload_video(file_path, meta, page_id, page_token, video_url=video_url)
     return upload_video(file_path, meta, page_id, page_token, video_url=video_url)

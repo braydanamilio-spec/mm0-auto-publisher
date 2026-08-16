@@ -23,6 +23,11 @@ import youtube_uploader as YT
 import metadata as M
 from firestore_state import State
 
+# CHỐNG SPAM upload (đúng chính sách YouTube): trần/ngày theo OAuth client + trần mỗi lần cron chạy.
+# Video còn dư tự để lại cron sau -> KHÔNG bắn hàng loạt 1 lượt (YouTube coi mass-upload nhanh là spam).
+YT_CAP_PER_DAY = 6      # ~6 upload/ngày/1 project (quota 10k đơn vị)
+MAX_PER_RUN = 2         # mỗi lần cron chỉ đăng tối đa 2 -> giãn cách tự nhiên theo tần suất cron
+
 
 def run(dry_run: bool = False):
     state = State()
@@ -35,8 +40,13 @@ def run(dry_run: bool = False):
     if not items:
         return
     drive_conns = state.list_connections("drive")
+    uploaded_run: dict[str, int] = {}   # đếm upload trong LẦN CHẠY này theo client_id
+    done_run = 0
 
     for it in items:
+        if done_run >= MAX_PER_RUN:
+            print(f"  ⏸ đủ {MAX_PER_RUN} bài/lần chạy -> phần còn lại để cron sau (giãn cách chống spam).")
+            break
         pa = it.get("publish_at")
         if pa:
             try:
@@ -60,6 +70,17 @@ def run(dry_run: bool = False):
         if results.get("youtube", {}).get("id"):
             state.update_yt_queue(it["id"], {"status": "posted", "results": results}); continue
 
+        # Trần/ngày theo OAuth client (chống vượt quota + chống mass-upload spam) — giữ pending nếu đã đầy.
+        _cid = conn.get("client_id")
+        if _cid:
+            try:
+                used = state.client_uploads_today(_cid, now) + uploaded_run.get(_cid, 0)
+            except Exception:
+                used = uploaded_run.get(_cid, 0)
+            if used >= YT_CAP_PER_DAY:
+                print(f"  ⏸ client đủ {YT_CAP_PER_DAY} upload/ngày -> để mai: {it.get('drive_name') or fid}")
+                continue
+
         owner_drives = [c for c in drive_conns if c.get("owner") == owner]
         dc = next((c for c in owner_drives if acct and (c.get("name") == acct or c.get("email") == acct)), None) \
             or (owner_drives[0] if owner_drives else None)
@@ -74,7 +95,7 @@ def run(dry_run: bool = False):
         ytc = {"privacy": it.get("privacy") or "public",
                "made_for_kids": bool(it.get("made_for_kids")),
                "category_id": it.get("category") or "22",
-               "default_language": it.get("language") or None}
+               "default_language": it.get("language") or "en"}
 
         if dry_run:
             print(f"  (dry) yt_queue {fid} -> {slug} [{ytc['privacy']}]"); continue
@@ -99,7 +120,9 @@ def run(dry_run: bool = False):
             results["youtube"] = r
             state.update_yt_queue(it["id"], {"status": "posted", "results": results,
                                              "attempts": attempts, "posted_at": now.isoformat()})
+            done_run += 1
             if conn.get("client_id"):
+                uploaded_run[conn["client_id"]] = uploaded_run.get(conn["client_id"], 0) + 1
                 try:
                     state.bump_client_uploads(conn["client_id"], now, owner=owner)
                 except Exception:

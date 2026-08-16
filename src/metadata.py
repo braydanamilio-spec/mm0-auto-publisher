@@ -20,6 +20,9 @@ YT_TITLE_MAX = 100
 YT_DESC_MAX = 5000
 YT_TAGS_TOTAL_MAX = 480          # tổng ký tự tags < 500, để đệm an toàn
 FB_TITLE_MAX = 255
+HASHTAG_MAX = 15                 # YouTube: >15 hashtag -> bỏ hết; giữ chung ngưỡng an toàn cho mọi nền tảng
+IG_CAPTION_MAX = 2200           # Instagram caption tối đa
+IG_HASHTAG_MAX = 30             # Instagram: >30 hashtag -> bài bị từ chối / dễ shadowban
 
 # Từ ngữ dễ gây gắn cờ / mất kiếm tiền — cảnh báo (không chặn cứng).
 RISKY_WORDS = [
@@ -42,6 +45,16 @@ def detect_type(filename: str, folder: str | None = None) -> str:
     if "short" in low or low.endswith("_s.mp4") or "/short/" in low:
         return "short"
     return "long"
+
+
+def _cap_hashtags(text: str, maxn: int) -> str:
+    """Giữ tối đa `maxn` hashtag ĐẦU trong text, bỏ dấu # ở các tag thừa (giữ chữ, bỏ #).
+    Vì YouTube >15 hashtag -> BỎ HẾT; ta chủ động cắt để hashtag còn lại vẫn có tác dụng."""
+    seen = [0]
+    def repl(m):
+        seen[0] += 1
+        return m.group(0) if seen[0] <= maxn else m.group(0)[1:]  # bỏ dấu #
+    return re.sub(r"#(\w+)", repl, text)
 
 
 def _clip(text: str, limit: int) -> str:
@@ -87,11 +100,18 @@ def build_metadata(item: dict, branding: dict) -> dict:
         parts.append(topic)
     if branding.get("cta"):
         parts.append("\n" + branding["cta"].strip())
-    if hashtags:
-        parts.append(" ".join(hashtags))
+    # Đếm hashtag NGƯỜI DÙNG đã có sẵn -> chỉ chèn thêm sao cho TỔNG ≤ 15
+    # (YouTube: >15 hashtag -> BỎ TẤT CẢ; Instagram: khuyến nghị ≤30). Chống spam/shadowban.
+    existing_tags = len(re.findall(r"#\w+", " ".join(parts)))
+    room = max(0, HASHTAG_MAX - existing_tags)
+    if hashtags and room:
+        parts.append(" ".join(hashtags[:room]))
     if branding.get("disclaimer"):
         parts.append("\n" + branding["disclaimer"].strip())
-    description = _clip("\n".join(p for p in parts if p), YT_DESC_MAX)
+    description = "\n".join(p for p in parts if p)
+    description = description.replace("<", "").replace(">", "")   # YouTube từ chối cứng < >
+    description = _cap_hashtags(description, HASHTAG_MAX)          # tổng hashtag ≤15 (đúng chính sách)
+    description = _clip(description, YT_DESC_MAX)
 
     # ---- TAGS (keyword YouTube, khác hashtag) ----
     tags = item.get("tags") or []
@@ -141,4 +161,19 @@ def lint(meta: dict) -> list[str]:
             warns.append(f"Cụm từ rủi ro chính sách: '{w}'.")
     if meta["type"] == "short" and "#shorts" not in blob:
         warns.append("Short nên có #shorts để YouTube phân loại đúng.")
+    ntags = len(re.findall(r"#\w+", meta["description"]))
+    if ntags > HASHTAG_MAX:
+        warns.append(f"{ntags} hashtag (>{HASHTAG_MAX}) — YouTube sẽ BỎ HẾT hashtag.")
+    return warns
+
+
+def lint_ig(meta: dict) -> list[str]:
+    """Lint riêng cho Instagram/Facebook (caption 2200, hashtag ≤30)."""
+    warns = []
+    caption = f"{meta.get('title','')}\n\n{meta.get('description','')}"
+    if len(caption) > IG_CAPTION_MAX:
+        warns.append(f"Caption IG > {IG_CAPTION_MAX} ký tự (sẽ bị cắt).")
+    ntags = len(re.findall(r"#\w+", caption))
+    if ntags > IG_HASHTAG_MAX:
+        warns.append(f"{ntags} hashtag (>{IG_HASHTAG_MAX}) — IG dễ từ chối / shadowban.")
     return warns
