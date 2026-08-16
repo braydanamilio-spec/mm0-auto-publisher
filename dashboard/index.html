@@ -544,6 +544,7 @@
               <label class="fld"><span>Số bài / ngày</span><input type="number" id="stBulkPerDay" value="3" min="1" max="20" oninput="stBulkPreview()"></label>
               <label class="fld"><span>Ngày bắt đầu</span><input type="date" id="stBulkStart" oninput="stBulkPreview()"></label>
             </div>
+            <label class="fld"><span>🎲 Lệch ngẫu nhiên ± phút</span><input type="number" id="stBulkJitter" value="15" min="0" max="120" title="Mỗi Page/bài lệch giờ ngẫu nhiên -> tránh dồn cùng 1 phút, chống nghẽn cron"></label>
             <label class="fld"><span>Khung giờ (giờ VN, cách nhau dấu phẩy)</span><input id="stBulkTimes" value="09:00, 12:00, 20:00" oninput="stBulkPreview()"></label>
             <div id="stTimePacks" style="display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 2px"></div>
             <div id="stBulkPreview" class="p-sub" style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 11px"></div>
@@ -772,6 +773,7 @@
             <label class="fld"><span data-i18n="pub_short_day">Short / ngày</span><input id="pubShort" type="number" min="0" max="20" value="3"></label>
             <label class="fld" style="grid-column:span 2"><span data-i18n="pub_times">Khung giờ (Long trước, rồi Short) — cách nhau dấu phẩy</span><input id="pubTimes" type="text" value="12:00, 15:00, 18:00, 21:00"></label>
             <label class="fld"><span data-i18n="pub_start">Start date</span><input id="pubStart" type="date"></label>
+            <label class="fld"><span>🎲 Lệch ngẫu nhiên ± phút</span><input id="pubJitter" type="number" min="0" max="120" value="15" title="Mỗi kênh lệch giờ ngẫu nhiên trong khoảng này -> tránh hàng trăm kênh đăng đúng 1 phút (nghẽn cron)"></label>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
             <button class="btn-conn" id="pubSpread">📅 <span data-i18n="pub_spread">Spread schedule</span></button>
@@ -803,6 +805,7 @@
               <label class="fld"><span>Page áp dụng</span><select id="fbBulkPage" onchange="fbBulkPreview()"></select></label>
               <label class="fld"><span>Bài / ngày</span><input id="fbBulkPer" type="number" min="1" max="20" value="3" oninput="fbBulkPreview()"></label>
               <label class="fld"><span>Ngày bắt đầu</span><input id="fbBulkStart" type="date" oninput="fbBulkPreview()"></label>
+              <label class="fld"><span>🎲 Lệch ± phút</span><input id="fbBulkJitter" type="number" min="0" max="120" value="15" title="Lệch giờ ngẫu nhiên để tránh dồn nhiều Page cùng 1 phút"></label>
               <label class="fld" style="grid-column:span 2"><span>Khung giờ (giờ VN) — cách nhau dấu phẩy</span><input id="fbBulkTimes" type="text" value="09:00, 12:00, 20:00" oninput="fbBulkPreview()"></label>
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
@@ -2257,12 +2260,13 @@
       const times=$("stBulkTimes").value.split(",").map(s=>s.trim()).filter(s=>/\d/.test(s));
       if(!times.length){ $("stBulkMsg").innerHTML='<span style="color:var(--bad)">Nhập khung giờ.</span>'; return; }
       const start=$("stBulkStart").value; if(!start){ $("stBulkMsg").innerHTML='<span style="color:var(--bad)">Chọn ngày bắt đầu.</span>'; return; }
-      const acct=(window.__fb&&window.__fb.account)||""; const btn=$("stBulkSave"); btn.disabled=true; $("stBulkMsg").textContent="Đang đẩy vào hàng đợi…";
+      const acct=(window.__fb&&window.__fb.account)||""; const jit=Math.max(0,+($("stBulkJitter")||{}).value||0); const btn=$("stBulkSave"); btn.disabled=true; $("stBulkMsg").textContent="Đang đẩy vào hàng đợi…";
       let count=0;
       try{ for(let i=0;i<ids.length;i++){ const day=Math.floor(i/per), slot=i%per, hm=times[slot%times.length];
           const dt=new Date(start+"T00:00:00"); dt.setDate(dt.getDate()+day); const mm=(hm||"09:00").split(":"); dt.setHours(parseInt(mm[0],10)||0, parseInt(mm[1],10)||0, 0, 0);
           const nm=window.__stSelNm[ids[i]]||""; const title=nm.replace(/\.(mp4|mov|mkv|webm)$/i,"");
-          for(const pg of pages){ await window.__socQueueAdd({ page:pg, platform:plat, drive_file_id:ids[i], drive_name:nm, drive_account:acct, title, description:"", hashtags:[], type:"short", publish_at:dt.toISOString() }); count++; }
+          for(const pg of pages){ const pdt=new Date(dt.getTime()+jitMs(jit));   // mỗi Page lệch riêng -> không dồn cùng phút
+            await window.__socQueueAdd({ page:pg, platform:plat, drive_file_id:ids[i], drive_name:nm, drive_account:acct, title, description:"", hashtags:[], type:"short", publish_at:pdt.toISOString() }); count++; }
         }
         toastMsg(`✔ Đã rải lịch ${count} bài (${ids.length} video × ${pages.length} Page)`); stClearSel(); stBulkClose();
       }catch(e){ $("stBulkMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ btn.disabled=false; }
@@ -2298,9 +2302,10 @@
       items.sort((a,b)=>String(a.publish_at||a.created_at||"").localeCompare(String(b.publish_at||b.created_at||"")));
       if(!items.length){ msg.innerHTML='<span style="color:var(--warn)">Không có bài đang chờ để rải lại. Chọn video từ Drive ở Storage trước.</span>'; return; }
       if(!confirm(`Rải lại giờ cho ${items.length} bài đang chờ${page?' của Page này':''}?`)) return;
+      const jit=Math.max(0,+($("fbBulkJitter")||{}).value||0);
       const [Y,Mo,D]=start.split("-").map(Number); if(btn) btn.disabled=true; msg.textContent="Đang rải lại…"; let n=0;
       try{ for(let i=0;i<items.length;i++){ const day=Math.floor(i/per), slot=i%per; const [hh,mm]=(times[slot%times.length]).split(":").map(Number);
-          const dt=zonedTimeToUtc(Y,Mo,D+day,hh||9,mm||0,"Asia/Ho_Chi_Minh");
+          const dt=new Date(zonedTimeToUtc(Y,Mo,D+day,hh||9,mm||0,"Asia/Ho_Chi_Minh").getTime()+jitMs(jit));
           await window.__socQueueUpd(items[i].id,{publish_at:dt.toISOString(), status:"pending"}); n++; }
         toastMsg(`✔ Đã rải lại ${n} bài`); msg.textContent=`✅ Xong ${n} bài`; fbBulkPreview();
       }catch(e){ msg.innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ if(btn) btn.disabled=false; } };
@@ -3061,7 +3066,9 @@
     function renderChannelHub(){
       const map=chanMap(); const ks=allChannels();
       if(!ks.length){ $("channelHub").innerHTML=emptyBox(t("ch_connect_first")); $("chHubBanner").innerHTML=""; return; }
-      $("chHubBanner").innerHTML=`<div class="p-sub" style="margin-bottom:14px">${esc(t("sub_channels"))}</div>`;
+      $("chHubBanner").innerHTML=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <span class="p-sub">${esc(t("sub_channels"))}</span><span style="flex:1;min-width:6px"></span>
+        <button class="btn-mini" onclick="chHubSelectAll()">✓ Chọn tất cả ${ks.length} kênh</button></div>`;
       const hubCard=(k,num)=>{
         const c=C()[k]||{}, col=chColor(k), vids=map[k]||[];
         const posted=vids.filter(v=>eff(v)==="posted").length, queue=vids.length-posted;
@@ -3106,13 +3113,25 @@
         return rank(a)-rank(b) || groups[b].length-groups[a].length;
       });
       let num=0;
-      $("channelHub").innerHTML=order.map(g=>{
+      window.__chHubGroups=groups; window.__chHubOrder=order;   // để "chọn cả nhóm" tra cứu
+      const sel=window.__chHubSel||new Set();
+      $("channelHub").innerHTML=order.map((g,gi)=>{
         const subs=groups[g].reduce((a,k)=>a+((C()[k]&&C()[k].subscribers)||0),0);
-        return `<div class="hub-ghead">${esc(gname(g))} <span class="p-sub">· ${groups[g].length} kênh${subs?` · ${fmtN(subs)} subs`:''}</span></div>`
+        const allSel=groups[g].length>0 && groups[g].every(k=>sel.has(k));
+        return `<div class="hub-ghead" style="display:flex;align-items:center;gap:9px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer" title="Chọn/bỏ tất cả kênh của email này">
+            <input type="checkbox" class="fbc-chk" style="position:static;margin:0" ${allSel?'checked':''} onclick="chHubSelectGroup(${gi},this.checked)">
+            <span>${esc(gname(g))}</span></label>
+          <span class="p-sub">· ${groups[g].length} kênh${subs?` · ${fmtN(subs)} subs`:''}</span></div>`
           + groups[g].map(k=>hubCard(k,++num)).join("");
       }).join("");
       renderChHubBulk();
     }
+    window.chHubSelectGroup=(gi,check)=>{ const g=(window.__chHubOrder||[])[gi]; const ks=(window.__chHubGroups||{})[g]||[];
+      window.__chHubSel=window.__chHubSel||new Set();
+      ks.forEach(k=>{ if(check) window.__chHubSel.add(k); else window.__chHubSel.delete(k); });
+      renderChannelHub(); };
+    window.chHubSelectAll=()=>{ window.__chHubSel=new Set(allChannels()); renderChannelHub(); };
     /* ===== My Channels: chọn nhiều kênh + thao tác hàng loạt ===== */
     window.__chHubSel=new Set();
     window.chHubToggle=(k,el)=>{ if(el.checked) window.__chHubSel.add(k); else window.__chHubSel.delete(k); renderChHubBulk(); };
@@ -3242,6 +3261,8 @@
       const utc=Date.UTC(y,mo-1,d,h,mi,0);
       return new Date(utc-tzOffsetMs(new Date(utc),tz));
     }
+    // Lệch ngẫu nhiên 0..jMin phút (ms) — rải giờ đăng để KHÔNG dồn hàng trăm kênh vào đúng 1 phút.
+    window.jitMs=(jMin)=>{ const j=Math.max(0,+jMin||0); return j?Math.floor(Math.random()*j*60000):0; };
     window.pubSpread=async ()=>{
       const ch=$("pubChannel").value;
       const longPerDay=Math.max(0,Number($("pubLong").value)||0);
@@ -3265,6 +3286,7 @@
           ? `Tất cả ${already.length} video đều ĐÃ CÓ LỊCH. Tick "Xếp lại cả video đã có lịch" nếu muốn đổi giờ.`
           : t("pub_empty"));
       window.__pubExisting = reSched?[]:already;   // hiện trong preview (giữ nguyên)
+      const jit=Math.max(0,Number(($("pubJitter")||{}).value)||0);
       const [Y,M,D]=start.split("-").map(Number);
       const plan=[]; let day=0;
       while((longs.length||shorts.length) && day<3650){
@@ -3272,7 +3294,8 @@
         for(let i=0;i<longPerDay&&longs.length;i++) dayVids.push(longs.shift());
         for(let i=0;i<shortPerDay&&shorts.length;i++) dayVids.push(shorts.shift());
         dayVids.forEach((v,i)=>{ const [hh,mm]=(times[i]||times[times.length-1]).split(":").map(Number);
-          const dt=zonedTimeToUtc(Y,M,D+day,hh||12,mm||0,tz);
+          let dt=zonedTimeToUtc(Y,M,D+day,hh||12,mm||0,tz);
+          dt=new Date(dt.getTime()+jitMs(jit));   // lệch ngẫu nhiên -> tránh dồn cùng 1 phút
           plan.push({id:v.id, dt, title:(v.title||v.drive_name||v.id), type:v.type, channel:v.channel,
             data:{status:"pending", publish_at:dt.toISOString()}}); });
         day++;
