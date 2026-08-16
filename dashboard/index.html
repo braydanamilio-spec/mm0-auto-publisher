@@ -543,10 +543,11 @@
 
       <style>
         .hub-ghead{grid-column:1/-1;font-weight:700;font-size:14px;padding:10px 12px;margin-top:6px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;word-break:break-all}
-        .chub{border:1px solid var(--border);border-radius:16px;padding:18px;background:var(--surface);display:flex;flex-direction:column;gap:14px;min-width:0}
+        .chub{border:1px solid var(--border);border-radius:16px;padding:16px;background:var(--surface);display:flex;flex-direction:column;gap:12px;min-width:0}
         .chub-top{display:flex;align-items:center;gap:12px}
-        .chub-av{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:16px;flex:none}
-        .chub-nm{font-weight:800;font-size:16px;line-height:1.2}
+        .chub-av{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:16px;flex:none}
+        .chub-nm{font-weight:800;font-size:15.5px;line-height:1.25;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+        .chub-idx{background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:800;padding:1px 8px;border-radius:20px;font-variant-numeric:tabular-nums;flex:none}
         .chub-stats{display:flex;gap:18px;flex-wrap:wrap}
         .chub-st{display:flex;flex-direction:column} .chub-st b{font-size:18px;font-family:var(--mono,monospace)} .chub-st span{font-size:12px;color:var(--muted)}
         .chub-acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -1081,25 +1082,27 @@
     };
     function renderYtVids(){
       const box=$("ytVidsPanel"); if(!box) return; const all=window.__ytVids||[];
-      const q=__ytVidsFilter.toLowerCase();
-      const rows=all.filter(v=>!q||v.title.toLowerCase().includes(q));
       const tv=all.reduce((a,v)=>a+v.views,0);
       box.innerHTML=`<div class="panel">
         <div class="p-head"><div class="p-title">📺 Toàn bộ video kênh ${esc(chName(window.__ytVidsCh))} <span class="p-sub">· ${all.length} video · ${fmtN(tv)} views tổng</span></div>
           <input type="search" id="ytVidSearch" placeholder="🔍 Tìm tiêu đề…" value="${esc(__ytVidsFilter)}" style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:8px 11px;font-family:var(--sans);font-size:13px;min-width:180px"></div>
         <div class="scroll-x" style="margin-top:10px"><table style="min-width:640px"><thead><tr>
-          <th>Video</th><th>Loại</th><th>Đăng</th><th class="num">Views</th><th class="num">Likes</th><th class="num">Bình luận</th><th>Riêng tư</th><th>Link</th></tr></thead><tbody>
-          ${rows.map(v=>`<tr>
-            <td style="display:flex;align-items:center;gap:8px;max-width:340px">${v.thumb?`<img src="${esc(v.thumb)}" style="width:52px;height:30px;border-radius:4px;object-fit:cover;flex:none">`:""}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.title)}</span></td>
-            <td><span class="tag2 ${v.type==='short'?'warn':''}">${v.type}</span></td>
-            <td class="p-sub">${new Date(v.publishedAt).toLocaleDateString('vi-VN')}</td>
-            <td class="num tnum">${fmtN(v.views)}</td><td class="num tnum">${fmtN(v.likes)}</td><td class="num tnum">${fmtN(v.comments)}</td>
-            <td><span class="p-sub">${esc(v.privacy||'')}</span></td>
-            <td><a href="https://youtu.be/${esc(v.id)}" target="_blank">mở ↗</a></td></tr>`).join("")||`<tr><td colspan="8" class="p-sub" style="padding:12px">Không có video khớp.</td></tr>`}
-        </tbody></table></div></div>`;
-      const s=$("ytVidSearch"); if(s) s.oninput=(e)=>{ __ytVidsFilter=e.target.value; renderYtVids(); s2=$("ytVidSearch"); if(s2){s2.focus();s2.setSelectionRange(s2.value.length,s2.value.length);} };
+          <th>Video</th><th>Loại</th><th>Đăng</th><th class="num">Views</th><th class="num">Likes</th><th class="num">Bình luận</th><th>Riêng tư</th><th>Link</th></tr></thead>
+          <tbody id="ytVidRows"></tbody></table></div></div>`;
+      const s=$("ytVidSearch"); if(s) s.oninput=()=>{ __ytVidsFilter=s.value; renderYtRows(); };
+      renderYtRows();
     }
-    var s2;
+    function renderYtRows(){
+      const tb=$("ytVidRows"); if(!tb) return; const q=__ytVidsFilter.toLowerCase();
+      const rows=(window.__ytVids||[]).filter(v=>!q||v.title.toLowerCase().includes(q));
+      tb.innerHTML=rows.map(v=>`<tr>
+        <td style="max-width:340px"><div style="display:flex;align-items:center;gap:8px">${v.thumb?`<img src="${esc(v.thumb)}" style="width:52px;height:30px;border-radius:4px;object-fit:cover;flex:none">`:""}<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(v.title)}</span></div></td>
+        <td><span class="tag2 ${v.type==='short'?'warn':''}">${v.type}</span></td>
+        <td class="p-sub">${new Date(v.publishedAt).toLocaleDateString('vi-VN')}</td>
+        <td class="num tnum">${fmtN(v.views)}</td><td class="num tnum">${fmtN(v.likes)}</td><td class="num tnum">${fmtN(v.comments)}</td>
+        <td><span class="p-sub">${esc(v.privacy||'')}</span></td>
+        <td><a href="https://youtu.be/${esc(v.id)}" target="_blank">mở ↗</a></td></tr>`).join("")||`<tr><td colspan="8" class="p-sub" style="padding:12px">Không có video khớp.</td></tr>`;
+    }
     function renderQuota(){
       const box=$("quotaPanel"); if(!box) return;
       const suf=todayId();
@@ -1590,15 +1593,15 @@
       const map=chanMap(); const ks=allChannels();
       if(!ks.length){ $("channelHub").innerHTML=emptyBox(t("ch_connect_first")); $("chHubBanner").innerHTML=""; return; }
       $("chHubBanner").innerHTML=`<div class="p-sub" style="margin-bottom:14px">${esc(t("sub_channels"))}</div>`;
-      const hubCard=(k)=>{
+      const hubCard=(k,num)=>{
         const c=C()[k]||{}, col=chColor(k), vids=map[k]||[];
         const posted=vids.filter(v=>eff(v)==="posted").length, queue=vids.length-posted;
         const linked=!!C()[k], em=c.email||"";
         return `<div class="chub">
           <div class="chub-top">
             ${chAva(k,'chub-av')}
-            <div style="flex:1;min-width:0"><div class="chub-nm">${esc(chName(k))}</div>
-              <div class="p-sub" style="word-break:break-all">${em?esc(em):(linked?'✓ đã kết nối':'⚠ nhãn cũ')}${chName(k).toUpperCase()!==k?` · <code>${esc(k)}</code>`:""}</div></div>
+            <div style="flex:1;min-width:0"><div class="chub-nm"><span class="chub-idx">#${num}</span>${esc(chName(k))}</div>
+              <div class="p-sub" style="word-break:break-all">${em?esc(em):(linked?'✓ đã kết nối':'⚠ nhãn cũ')}</div></div>
             <span class="tag ${c.yt_ok?'t-connected':'t-unknown'}">${c.yt_ok?'YouTube ✓':'—'}</span>
           </div>
           <div class="chub-stats">
@@ -1607,7 +1610,6 @@
             <div class="chub-st"><b class="tnum">${fmtN(queue)}</b><span>hàng đợi</span></div>
             <div class="chub-st"><b class="tnum">${c.total_views!=null?fmtN(c.total_views):'—'}</b><span>views</span></div>
           </div>
-          ${vids.length?'':`<div class="p-sub">📭 ${esc(t("ch_ready"))}</div>`}
           <div style="display:flex;align-items:center;gap:8px;min-width:0">
             <span class="p-sub" style="white-space:nowrap">📅 ${esc(t("act_template"))}:</span>
             <select style="flex:1;min-width:0;width:100%;max-width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-family:var(--sans);font-size:12.5px;text-overflow:ellipsis" onchange="saveOverride('${esc(k)}',this.value)">
@@ -1622,16 +1624,22 @@
           </div>
         </div>`;
       };
-      // GOM theo Gmail (Gmail đã gắn > email thật > brand riêng) cho gọn
+      // GOM theo Gmail: Gmail đã gắn tay > email Gmail thật > TẤT CẢ brand chưa gắn Gmail dồn 1 nhóm
       const gmH=(__OVERRIDES.gmail_group)||{};
-      const gkey=(k)=> gmH[k] || ((C()[k]&&C()[k].email)||"—");
-      const gname=(g)=> g==="—"?"Chưa có email" : /@pages\.plusgoogle\.com$/i.test(g)?"🏷️ Tài khoản thương hiệu (chưa gắn Gmail)":("📧 "+g);
+      const isBrand=(em)=>/@pages\.plusgoogle\.com$/i.test(em||"");
+      const gkey=(k)=>{ if(gmH[k]) return gmH[k]; const em=(C()[k]&&C()[k].email)||""; if(!em) return "__none__"; if(isBrand(em)) return "__brand__"; return em; };
+      const gname=(g)=> g==="__none__"?"⚠️ Chưa rõ email" : g==="__brand__"?"🏷️ Tài khoản thương hiệu (chưa gắn Gmail)":("📧 "+g);
       const groups={}; ks.forEach(k=>(groups[gkey(k)]=groups[gkey(k)]||[]).push(k));
-      const order=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length);
+      // nhóm Gmail thật lên trước, brand & chưa rõ xuống cuối
+      const order=Object.keys(groups).sort((a,b)=>{
+        const rank=(g)=> g==="__none__"?2 : g==="__brand__"?1 : 0;
+        return rank(a)-rank(b) || groups[b].length-groups[a].length;
+      });
+      let num=0;
       $("channelHub").innerHTML=order.map(g=>{
         const subs=groups[g].reduce((a,k)=>a+((C()[k]&&C()[k].subscribers)||0),0);
         return `<div class="hub-ghead">${esc(gname(g))} <span class="p-sub">· ${groups[g].length} kênh${subs?` · ${fmtN(subs)} subs`:''}</span></div>`
-          + groups[g].map(hubCard).join("");
+          + groups[g].map(k=>hubCard(k,++num)).join("");
       }).join("");
     }
     // ==== ĐĂNG BÀI: đăng ngay + rải lịch hàng loạt cho video trong kho ====
