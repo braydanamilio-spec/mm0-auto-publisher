@@ -659,7 +659,7 @@ async function startAuth(url, env) {
     });
     // App "Facebook Login for Business" dùng config_id; app thường dùng scope.
     if (env.FB_CONFIG_ID) fp.set("config_id", env.FB_CONFIG_ID);
-    else fp.set("scope", "pages_show_list,pages_manage_posts,pages_read_engagement,business_management,instagram_basic,instagram_content_publish");
+    else fp.set("scope", "pages_show_list,pages_manage_posts,pages_read_engagement,pages_manage_engagement,business_management,instagram_basic,instagram_content_publish,instagram_manage_comments,instagram_manage_insights,read_insights");
     return Response.redirect("https://www.facebook.com/v19.0/dialog/oauth?" + fp.toString(), 302);
   }
 
