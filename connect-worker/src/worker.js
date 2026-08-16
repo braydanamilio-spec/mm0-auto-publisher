@@ -36,6 +36,14 @@ export default {
       if (url.pathname === "/api/video-thumbnail") return corsResp(await apiVideoThumbnail(request, url, env));
       if (url.pathname === "/api/video-captions") return corsResp(await apiVideoCaptions(request, url, env));
       if (url.pathname === "/api/video-delete") return corsResp(await apiVideoDelete(request, url, env));
+      if (url.pathname === "/api/social-posts") return corsResp(await apiSocialPosts(request, url, env));
+      if (url.pathname === "/api/social-update") return corsResp(await apiSocialUpdate(request, url, env));
+      if (url.pathname === "/api/social-delete") return corsResp(await apiSocialDelete(request, url, env));
+      if (url.pathname === "/api/social-insights") return corsResp(await apiSocialInsights(request, url, env));
+      if (url.pathname === "/api/social-comments") return corsResp(await apiSocialComments(request, url, env));
+      if (url.pathname === "/api/social-comment-action") return corsResp(await apiSocialCommentAction(request, url, env));
+      if (url.pathname === "/api/caption-add") return corsResp(await apiCaptionAdd(request, url, env));
+      if (url.pathname === "/api/caption-delete") return corsResp(await apiCaptionDelete(request, url, env));
     } catch (e) {
       // API trả JSON lỗi; trang HTML trả trang lỗi
       if (url.pathname.startsWith("/api/")) return corsResp(json({ error: String(e && e.message || e) }, 400));
@@ -240,6 +248,7 @@ async function apiChannelVideos(request, url, env) {
         madeForKids: (v.status || {}).selfDeclaredMadeForKids != null
           ? !!(v.status.selfDeclaredMadeForKids) : !!((v.status || {}).madeForKids),
         categoryId: (v.snippet || {}).categoryId || "",
+        defaultLanguage: (v.snippet || {}).defaultLanguage || "",
       });
     });
   }
@@ -261,7 +270,7 @@ async function apiVideoUpdate(request, url, env) {
     title: (b.title != null ? String(b.title) : (sn.title || "")).slice(0, 100),
     description: b.description != null ? String(b.description).slice(0, 5000) : (sn.description || ""),
     tags: Array.isArray(b.tags) ? b.tags.slice(0, 60) : (sn.tags || []),
-    defaultLanguage: sn.defaultLanguage,
+    defaultLanguage: b.defaultLanguage != null ? (b.defaultLanguage || undefined) : sn.defaultLanguage,
   };
   const status = {
     privacyStatus: b.privacy || stt.privacyStatus || "public",
@@ -325,6 +334,147 @@ async function apiVideoDelete(request, url, env) {
     throw new Error((j.error && j.error.message) || ("Xoá lỗi " + r.status));
   }
   return json({ ok: true });
+}
+
+/* ================= PHỤ ĐỀ: thêm / xoá (YouTube) ================= */
+// POST /api/caption-add {channel,id,language,name,content} -> captions.insert (content = text .srt/.vtt hoặc dataURL)
+async function apiCaptionAdd(request, url, env) {
+  const ctx = await authCtx(request, url, env);
+  const b = ctx.body || {}, id = b.id, lang = b.language, name = b.name || "";
+  if (!id || !lang || !b.content) throw new Error("Thiếu video / ngôn ngữ / nội dung phụ đề.");
+  let text = String(b.content);
+  const m = /^data:[^;,]*;base64,(.+)$/.exec(text); if (m) text = decodeURIComponent(escape(atob(m[1])));
+  const boundary = "mm0cap" + Math.random().toString(36).slice(2);
+  const meta = JSON.stringify({ snippet: { videoId: id, language: lang, name, isDraft: false } });
+  const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n` +
+    `--${boundary}\r\nContent-Type: application/octet-stream\r\n\r\n${text}\r\n--${boundary}--`;
+  const r = await fetch("https://www.googleapis.com/upload/youtube/v3/captions?part=snippet", {
+    method: "POST", headers: { Authorization: `Bearer ${ctx.yat}`, "content-type": `multipart/related; boundary=${boundary}` }, body });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    if (r.status === 403) throw new Error("Cần KẾT NỐI LẠI kênh để cấp quyền phụ đề (force-ssl), hoặc kênh chưa bật.");
+    throw new Error((j.error && j.error.message) || ("Thêm phụ đề lỗi " + r.status));
+  }
+  return json({ ok: true });
+}
+// POST /api/caption-delete {channel,id(caption id)}
+async function apiCaptionDelete(request, url, env) {
+  const ctx = await authCtx(request, url, env);
+  const id = ctx.g("id"); if (!id) throw new Error("Thiếu id phụ đề.");
+  const r = await fetch(`https://www.googleapis.com/youtube/v3/captions?id=${encodeURIComponent(id)}`,
+    { method: "DELETE", headers: { Authorization: `Bearer ${ctx.yat}` } });
+  if (r.status !== 204) { const j = await r.json().catch(() => ({})); throw new Error((j.error && j.error.message) || ("Xoá phụ đề lỗi " + r.status)); }
+  return json({ ok: true });
+}
+
+/* ================= FACEBOOK + INSTAGRAM (tách hẳn YouTube) ================= *
+ * Auth theo connections/{uid}__{channel}__facebook (page_token, page_id, ig_user_id).
+ * FB: liệt kê/sửa/xoá video + bình luận. IG: liệt kê media + bình luận (Meta KHÔNG cho sửa/xoá media). */
+async function fbAuthCtx(request, url, env) {
+  const body = request.method === "POST" ? await request.json().catch(() => ({})) : {};
+  const g = (k) => body[k] != null ? body[k] : url.searchParams.get(k);
+  const t = g("t"), channel = g("channel"), platform = (g("platform") || "fb").toLowerCase();
+  if (!t) throw new Error("Thiếu token đăng nhập.");
+  if (!channel) throw new Error("Thiếu trang (channel).");
+  const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
+  const at = await saAccessToken(env);
+  const conn = await fsGet(env, at, `connections/${uid}__${channel}__facebook`);
+  if (!conn || !conn.page_token) throw new Error("Trang chưa kết nối Facebook.");
+  if (platform === "ig" && !conn.ig_user_id) throw new Error("Trang này chưa liên kết Instagram Business.");
+  return { body, g, uid, at, channel, platform, page_id: conn.page_id, page_token: conn.page_token,
+    ig_user_id: conn.ig_user_id, ig_username: conn.ig_username, page_name: conn.page_name };
+}
+const GRAPH = "https://graph.facebook.com/v19.0/";
+async function fbGet(pq, token) {
+  const r = await fetch(GRAPH + pq + (pq.includes("?") ? "&" : "?") + "access_token=" + encodeURIComponent(token));
+  const j = await r.json(); if (!r.ok || j.error) throw new Error((j.error && j.error.message) || ("Graph " + r.status)); return j;
+}
+async function fbSend(method, pq, token, params) {
+  const form = new URLSearchParams(); for (const k in (params || {})) form.set(k, params[k]); form.set("access_token", token);
+  const r = await fetch(GRAPH + pq, { method, body: form });
+  const j = await r.json().catch(() => ({})); if (!r.ok || j.error) throw new Error((j.error && j.error.message) || ("Graph " + r.status)); return j;
+}
+// GET /api/social-posts?channel=&platform=fb|ig&max=
+async function apiSocialPosts(request, url, env) {
+  const ctx = await fbAuthCtx(request, url, env);
+  const max = Math.min(100, Math.max(1, Number(ctx.g("max") || 50) || 50));
+  if (ctx.platform === "ig") {
+    const r = await fbGet(`${ctx.ig_user_id}/media?fields=id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count&limit=${max}`, ctx.page_token);
+    const items = (r.data || []).map((m) => ({
+      id: m.id, title: ((m.caption || "").split("\n")[0] || "").slice(0, 120) || "(không có caption)",
+      description: m.caption || "", type: m.media_product_type === "REELS" ? "reel" : (m.media_type || "").toLowerCase(),
+      thumb: m.thumbnail_url || m.media_url || "", url: m.permalink || "", publishedAt: m.timestamp || "",
+      views: 0, likes: +(m.like_count || 0), comments: +(m.comments_count || 0), canEdit: false, canDelete: false,
+    }));
+    return json({ ok: true, platform: "ig", account: ctx.ig_username || "", items });
+  }
+  const r = await fbGet(`${ctx.page_id}/videos?fields=id,title,description,created_time,permalink_url,picture,length,likes.summary(true),comments.summary(true),views&limit=${max}`, ctx.page_token);
+  const items = (r.data || []).map((v) => {
+    const pu = v.permalink_url || "";
+    return {
+      id: v.id, title: v.title || ((v.description || "").split("\n")[0] || "").slice(0, 120) || "(không tiêu đề)",
+      description: v.description || "", type: v.length && v.length <= 60 ? "short" : "long",
+      thumb: v.picture || "", url: pu ? (pu.startsWith("http") ? pu : "https://www.facebook.com" + pu) : "",
+      publishedAt: v.created_time || "", views: +(v.views || 0),
+      likes: +((v.likes && v.likes.summary && v.likes.summary.total_count) || 0),
+      comments: +((v.comments && v.comments.summary && v.comments.summary.total_count) || 0),
+      canEdit: true, canDelete: true,
+    };
+  });
+  return json({ ok: true, platform: "fb", account: ctx.page_name || "", items });
+}
+// POST /api/social-update {channel,platform,id,title,description}  (chỉ FB)
+async function apiSocialUpdate(request, url, env) {
+  const ctx = await fbAuthCtx(request, url, env);
+  if (ctx.platform === "ig") throw new Error("Instagram KHÔNG cho sửa bài đã đăng (giới hạn của Meta).");
+  const b = ctx.body || {}, id = b.id; if (!id) throw new Error("Thiếu id.");
+  const p = {}; if (b.title != null) p.title = String(b.title).slice(0, 255); if (b.description != null) p.description = String(b.description);
+  await fbSend("POST", `${id}`, ctx.page_token, p);
+  return json({ ok: true });
+}
+// POST /api/social-delete {channel,platform,id}  (chỉ FB)
+async function apiSocialDelete(request, url, env) {
+  const ctx = await fbAuthCtx(request, url, env);
+  if (ctx.platform === "ig") throw new Error("Instagram KHÔNG cho xoá media qua API (giới hạn của Meta).");
+  const id = ctx.g("id"); if (!id) throw new Error("Thiếu id.");
+  await fbSend("DELETE", `${id}`, ctx.page_token, {});
+  return json({ ok: true });
+}
+// GET /api/social-insights?channel=&platform=  -> số liệu trang/tài khoản
+async function apiSocialInsights(request, url, env) {
+  const ctx = await fbAuthCtx(request, url, env);
+  if (ctx.platform === "ig") {
+    const r = await fbGet(`${ctx.ig_user_id}?fields=username,followers_count,media_count`, ctx.page_token);
+    return json({ ok: true, platform: "ig", name: r.username || "", followers: +(r.followers_count || 0), posts: +(r.media_count || 0) });
+  }
+  const r = await fbGet(`${ctx.page_id}?fields=name,fan_count,followers_count`, ctx.page_token);
+  return json({ ok: true, platform: "fb", name: r.name || "", followers: +(r.followers_count || r.fan_count || 0), fans: +(r.fan_count || 0) });
+}
+// GET /api/social-comments?channel=&platform=&mediaId=&max=
+async function apiSocialComments(request, url, env) {
+  const ctx = await fbAuthCtx(request, url, env);
+  const mediaId = ctx.g("mediaId"); if (!mediaId) throw new Error("Thiếu id bài viết.");
+  const max = Math.min(50, Math.max(1, Number(ctx.g("max") || 25) || 25));
+  if (ctx.platform === "ig") {
+    const r = await fbGet(`${mediaId}/comments?fields=id,username,text,timestamp,like_count&limit=${max}`, ctx.page_token);
+    return json({ ok: true, items: (r.data || []).map((c) => ({ id: c.id, author: c.username || "", text: c.text || "", publishedAt: c.timestamp || "", likes: +(c.like_count || 0) })) });
+  }
+  const r = await fbGet(`${mediaId}/comments?fields=id,from,message,created_time,like_count&order=reverse_chronological&limit=${max}`, ctx.page_token);
+  return json({ ok: true, items: (r.data || []).map((c) => ({ id: c.id, author: (c.from && c.from.name) || "", text: c.message || "", publishedAt: c.created_time || "", likes: +(c.like_count || 0) })) });
+}
+// POST /api/social-comment-action {channel,platform,action(reply|hide|delete),id,text}
+async function apiSocialCommentAction(request, url, env) {
+  const ctx = await fbAuthCtx(request, url, env);
+  const b = ctx.body || {}, action = b.action, id = b.id; if (!id || !action) throw new Error("Thiếu id / hành động.");
+  if (action === "delete") { await fbSend("DELETE", `${id}`, ctx.page_token, {}); return json({ ok: true }); }
+  if (action === "hide") { await fbSend("POST", `${id}`, ctx.page_token, ctx.platform === "ig" ? { hide: "true" } : { is_hidden: "true" }); return json({ ok: true }); }
+  if (action === "reply") {
+    const text = (b.text || "").trim(); if (!text) throw new Error("Thiếu nội dung trả lời.");
+    if (ctx.platform === "ig") await fbSend("POST", `${id}/replies`, ctx.page_token, { message: text });
+    else await fbSend("POST", `${id}/comments`, ctx.page_token, { message: text });
+    return json({ ok: true });
+  }
+  throw new Error("Hành động không hợp lệ.");
 }
 
 // GET /api/analytics?channel=&t=&days=  -> PHÂN TÍCH TOÀN KÊNH theo kỳ (mọi video, kể cả không đăng bằng tool)

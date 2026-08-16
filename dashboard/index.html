@@ -308,7 +308,7 @@
       <div class="nav" data-view="channels"><span class="ic" data-i="stack"></span> <span data-i18n="channels_hub">My Channels</span> <span class="badge" id="nvChans">0</span></div>
       <div class="nav" data-view="branding"><span class="ic" data-i="badge"></span> <span data-i18n="branding">Branding</span></div>
       <div class="nav" data-view="comments"><span class="ic" data-i="chat"></span> <span data-i18n="comments">Comments</span></div>
-      <div class="nav" data-view="facebook"><span class="ic" data-i="fb"></span> <span data-i18n="facebook">Facebook</span> <span class="badge" id="nvFb">0</span></div>
+      <div class="nav" data-view="facebook"><span class="ic" data-i="fb"></span> <span>Mạng xã hội</span> <span class="badge" id="nvFb">0</span></div>
       <div class="side-foot">
         <button class="ghost" id="langBtn">🌐 Tiếng Việt</button>
         <button class="ghost" id="themeBtn"><span id="themeIc">🌙</span> <span id="themeTx" data-i18n="theme_dark">Dark theme</span></button>
@@ -404,6 +404,25 @@
           <div id="ytVidsPanel" style="margin-top:10px"></div>
         </div>
       </section>
+      <div id="socEditModal" class="modal-back hide">
+        <div class="modal-card">
+          <div class="modal-head"><b>Sửa bài Facebook</b><button class="modal-x" onclick="socEditClose()">✕</button></div>
+          <div class="modal-body">
+            <label class="fld"><span>Tiêu đề</span><input id="socETitle" maxlength="255"></label>
+            <label class="fld"><span>Mô tả / nội dung</span><textarea id="socEDesc" rows="6"></textarea></label>
+            <div id="socEMsg" class="p-sub" style="min-height:18px"></div>
+          </div>
+          <div class="modal-foot"><a id="socEOpen" href="#" target="_blank" class="btn-mini">↗ Mở trên Facebook</a><span style="flex:1"></span>
+            <button class="btn-mini" onclick="socEditClose()">Huỷ</button><button class="btn-conn" id="socESave" onclick="socEditSave()">💾 Lưu</button></div>
+        </div>
+      </div>
+      <div id="socCmModal" class="modal-back hide">
+        <div class="modal-card">
+          <div class="modal-head"><b id="socCmTitle">Bình luận</b><button class="modal-x" onclick="socCmClose()">✕</button></div>
+          <div class="modal-body" id="socCmBody"><div class="p-sub">Đang tải…</div></div>
+          <div class="modal-foot"><span class="p-sub" id="socCmNote"></span><span style="flex:1"></span><button class="btn-mini" onclick="socCmClose()">Đóng</button></div>
+        </div>
+      </div>
       <div id="ytEditModal" class="modal-back hide">
         <div class="modal-card">
           <div class="modal-head"><b id="ytEditTitle">Sửa video</b><button class="modal-x" onclick="ytEditClose()">✕</button></div>
@@ -432,8 +451,17 @@
                   <div class="p-sub" style="margin-top:5px">JPG/PNG · &lt;2MB · 16:9. Cần kênh đã xác minh SĐT.</div>
                 </div>
               </div></div>
-            <div class="fld"><span>Phụ đề hiện có <em id="ytECapCnt" class="p-sub"></em></span>
-              <div id="ytECaps" class="p-sub" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px">—</div></div>
+            <label class="fld"><span>Ngôn ngữ chính của video <em class="p-sub">(nên đặt trước khi thêm phụ đề)</em></span>
+              <select id="ytELang"></select></label>
+            <div class="fld"><span>Phụ đề <em id="ytECapCnt" class="p-sub"></em></span>
+              <div id="ytECaps" class="p-sub" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px">—</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">
+                <select id="ytCapLang" style="max-width:150px"></select>
+                <input type="file" id="ytCapFile" accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain" style="display:none" onchange="ytCapPick(this)">
+                <button type="button" class="btn-mini" onclick="document.getElementById('ytCapFile').click()">📄 Chọn file .srt/.vtt</button>
+                <button type="button" class="btn-conn" id="ytCapAdd" style="display:none;padding:7px 12px" onclick="ytCapUpload()">➕ Thêm phụ đề</button>
+                <span class="p-sub" id="ytCapFileName"></span>
+              </div></div>
             <div id="ytEMsg" class="p-sub" style="min-height:18px"></div>
           </div>
           <div class="modal-foot">
@@ -775,6 +803,10 @@
         @media(max-width:520px){.fld2{grid-template-columns:1fr}}
         .cap-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2);font-size:13px}
         .cap-row:last-child{border-bottom:none}
+        .seg{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px}
+        .seg-btn{background:none;border:none;color:var(--muted);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans)}
+        .seg-btn.on{background:var(--accent);color:#fff}
+        #socPage{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:8px 11px;font-family:var(--sans);font-size:13px;min-width:170px}
         .btn-reconn.danger{flex:none;width:auto;padding-left:12px;padding-right:12px;color:var(--bad);border-color:var(--bad)}
         .btn-reconn.danger:hover{background:var(--bad);color:#fff}
       </style>
@@ -830,6 +862,24 @@
           <div class="p-sub" style="margin-top:6px" data-i18n="fb_note">Facebook tách riêng YouTube (không cùng Gmail). Kết nối 1 lần lấy hết Page bạn quản lý; đăng/lịch FB quản lý riêng tại đây.</div>
         </div>
         <div class="conn-grid" id="fbPages"></div>
+
+        <div class="panel" id="socMgrPanel" style="margin-top:16px">
+          <div class="p-head"><div class="p-title">🗂️ Quản lý bài đã đăng <span class="p-sub">— như trình quản lý, cho Facebook & Instagram</span></div>
+            <a class="btn-mini" href="#videos">▶ YouTube ở tab Videos</a></div>
+          <div class="yt-tools" style="margin-top:8px">
+            <select id="socPage"></select>
+            <div class="seg" id="socPlat">
+              <button type="button" class="seg-btn on" data-p="fb" onclick="socPlat('fb')">📘 Facebook</button>
+              <button type="button" class="seg-btn" data-p="ig" onclick="socPlat('ig')">📷 Instagram</button>
+            </div>
+            <button type="button" class="btn-conn" id="socLoad" onclick="socLoad()">🔄 Tải bài</button>
+            <span style="flex:1;min-width:6px"></span>
+            <input type="search" id="socSearch" placeholder="🔍 Tìm tiêu đề…" oninput="socRender()" style="max-width:180px">
+          </div>
+          <div id="socHdr" class="p-sub" style="margin:6px 0 8px"></div>
+          <div id="socPanel"><div class="p-sub" style="padding:6px">Chọn Page → Facebook/Instagram → <b>Tải bài</b>.</div></div>
+        </div>
+
         <div class="panel" id="fbMapPanel" style="margin-top:16px;display:none">
           <div class="p-head"><div class="p-title">🔗 Gắn kênh YouTube → Facebook Page</div></div>
           <div id="fbMap" style="margin-top:6px"></div>
@@ -1267,17 +1317,33 @@
     window.ytClearSel=()=>{ __ytSel=new Set(); renderYtRows(); };
     // ---- Sửa video (modal như Studio) ----
     window.ytECount=()=>{ const t1=$("ytETitle"),t2=$("ytEDesc"); if($("ytEChTitle"))$("ytEChTitle").textContent=`${(t1?t1.value.length:0)}/100`; if($("ytEChDesc"))$("ytEChDesc").textContent=`${(t2?t2.value.length:0)}/5000`; };
-    window.ytEdit=(id)=>{ const v=(window.__ytVids||[]).find(x=>x.id===id); if(!v) return; window.__ytEditId=id; window.__ytThumbData=null;
+    const YT_LANGS=[["","— Không đặt —"],["en","English"],["vi","Tiếng Việt"],["es","Español"],["fr","Français"],["de","Deutsch"],["pt","Português"],["ru","Русский"],["ja","日本語"],["ko","한국어"],["zh-Hans","中文 (giản thể)"],["hi","हिन्दी"],["id","Bahasa Indonesia"],["th","ไทย"],["ar","العربية"]];
+    const langOpts=(sel,skipEmpty)=>YT_LANGS.filter(l=>!skipEmpty||l[0]).map(([c,n])=>`<option value="${c}" ${c===sel?'selected':''}>${n}</option>`).join("");
+    window.ytEdit=(id)=>{ const v=(window.__ytVids||[]).find(x=>x.id===id); if(!v) return; window.__ytEditId=id; window.__ytThumbData=null; window.__ytCapContent=null;
       $("ytEditTitle").textContent="Sửa video"; $("ytETitle").value=v.title||""; $("ytEDesc").value=v.description||"";
       $("ytETags").value=(v.tags||[]).join(", "); $("ytEPriv").value=v.privacy||"public"; $("ytEKids").value=v.madeForKids?"1":"0"; $("ytEOpen").href=ytVidUrl(v);
+      $("ytELang").innerHTML=langOpts(v.defaultLanguage||"",false); $("ytCapLang").innerHTML=langOpts(v.defaultLanguage||"en",true);
       $("ytEThumb").src=v.thumb||""; $("ytThumbUp").style.display="none"; if($("ytEThumbFile"))$("ytEThumbFile").value="";
+      $("ytCapAdd").style.display="none"; if($("ytCapFile"))$("ytCapFile").value=""; if($("ytCapFileName"))$("ytCapFileName").textContent="";
       $("ytEMsg").textContent=""; ytECount(); $("ytEditModal").classList.remove("hide"); ytLoadCaps(id); };
+    window.ytCapPick=(input)=>{ const f=input.files&&input.files[0]; if(!f) return;
+      if(f.size>1024*1024){ $("ytEMsg").innerHTML='<span style="color:var(--bad)">File phụ đề quá 1MB.</span>'; input.value=""; return; }
+      const r=new FileReader(); r.onload=()=>{ window.__ytCapContent=r.result; $("ytCapAdd").style.display=""; if($("ytCapFileName"))$("ytCapFileName").textContent="📄 "+f.name; }; r.readAsText(f); };
+    window.ytCapUpload=async()=>{ const id=window.__ytEditId, content=window.__ytCapContent; if(!id||!content) return;
+      const lang=$("ytCapLang").value; const btn=$("ytCapAdd"); btn.disabled=true; $("ytEMsg").textContent="Đang thêm phụ đề…";
+      try{ await workerApi("/api/caption-add",{method:"POST",body:{channel:window.__ytVidsCh,id,language:lang,name:"",content}});
+        window.__ytCapContent=null; btn.style.display="none"; if($("ytCapFile"))$("ytCapFile").value=""; if($("ytCapFileName"))$("ytCapFileName").textContent="";
+        toastMsg("✔ Đã thêm phụ đề"); $("ytEMsg").innerHTML='<span style="color:var(--good)">✔ Đã thêm phụ đề.</span>'; ytLoadCaps(id);
+      }catch(e){ $("ytEMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ btn.disabled=false; } };
+    window.ytCapDelete=async(capId)=>{ if(!confirm("Xoá phụ đề này?")) return;
+      try{ await workerApi("/api/caption-delete",{method:"POST",body:{channel:window.__ytVidsCh,id:capId}}); toastMsg("🗑️ Đã xoá phụ đề"); ytLoadCaps(window.__ytEditId);
+      }catch(e){ alert("❌ "+e.message); } };
     window.ytEditClose=()=>{ $("ytEditModal").classList.add("hide"); window.__ytEditId=null; window.__ytThumbData=null; };
     // Xem phụ đề hiện có
     async function ytLoadCaps(id){ const box=$("ytECaps"), cnt=$("ytECapCnt"); if(!box) return; box.textContent="Đang kiểm tra…"; if(cnt)cnt.textContent="";
       try{ const d=await workerApi(`/api/video-captions?channel=${encodeURIComponent(window.__ytVidsCh)}&id=${id}`); const items=d.items||[];
         if(cnt)cnt.textContent=`· ${items.length} track`;
-        box.innerHTML=items.length?items.map(c=>`<div class="cap-row">📄 <b>${esc((c.language||'?').toUpperCase())}</b>${c.name?` · ${esc(c.name)}`:''} <span class="tag2 ${c.auto?'warn':''}">${c.auto?'tự động (ASR)':'thủ công'}</span>${c.lastUpdated?`<span class="p-sub" style="margin-left:auto">${new Date(c.lastUpdated).toLocaleDateString('vi-VN')}</span>`:''}</div>`).join(""):`Chưa có phụ đề nào.`;
+        box.innerHTML=items.length?items.map(c=>`<div class="cap-row">📄 <b>${esc((c.language||'?').toUpperCase())}</b>${c.name?` · ${esc(c.name)}`:''} <span class="tag2 ${c.auto?'warn':''}">${c.auto?'tự động (ASR)':'thủ công'}</span><span style="margin-left:auto;display:flex;gap:8px;align-items:center">${c.lastUpdated?`<span class="p-sub">${new Date(c.lastUpdated).toLocaleDateString('vi-VN')}</span>`:''}${c.auto?'':`<button class="yt-rowbtn" title="Xoá phụ đề" onclick="ytCapDelete('${c.id}')">🗑️</button>`}</span></div>`).join(""):`Chưa có phụ đề nào.`;
       }catch(e){ box.innerHTML=`<span style="color:var(--warn)">Không đọc được phụ đề: ${esc(e.message)}</span>`; } }
     // Chọn + đổi thumbnail
     window.ytThumbPick=(input)=>{ const f=input.files&&input.files[0]; if(!f) return;
@@ -1293,7 +1359,7 @@
     window.ytEditSave=async()=>{
       const id=window.__ytEditId; if(!id) return; const ch=window.__ytVidsCh;
       const tags=$("ytETags").value.split(/[,\n]+/).map(s=>s.trim().replace(/^#+/,"")).filter(Boolean);
-      const body={channel:ch,id,title:$("ytETitle").value.trim(),description:$("ytEDesc").value,tags,privacy:$("ytEPriv").value,madeForKids:$("ytEKids").value==="1"};
+      const body={channel:ch,id,title:$("ytETitle").value.trim(),description:$("ytEDesc").value,tags,privacy:$("ytEPriv").value,madeForKids:$("ytEKids").value==="1",defaultLanguage:$("ytELang").value};
       if(!body.title){ $("ytEMsg").innerHTML='<span style="color:var(--bad)">Tiêu đề không được để trống.</span>'; return; }
       const btn=$("ytESave"); btn.disabled=true; $("ytEMsg").textContent="Đang lưu lên YouTube…";
       try{ await workerApi("/api/video-update",{method:"POST",body});
@@ -1375,7 +1441,76 @@
           <button class="btn-reconn" style="flex:1" onclick="connectChannel('','facebook')">🔗 Kết nối lại</button>
           <button class="btn-reconn danger" onclick="disconnectChannel('${esc(p.name)}','facebook','${esc(p.page_name||p.name)}')">🗑</button>
         </div></div>`).join("");
+      socFillPages();
     }
+    /* ===== Trình quản lý bài Facebook + Instagram (tách hẳn YouTube) ===== */
+    window.__soc={plat:"fb",page:"",items:[]};
+    function socFillPages(){ const sel=$("socPage"); if(!sel) return; const keep=sel.value;
+      sel.innerHTML=(__FBP||[]).map(p=>`<option value="${esc(p.name)}">${esc(p.page_name||p.name)}${p.ig_user_id?" (có IG)":""}</option>`).join("")||`<option value="">— chưa có Page —</option>`;
+      if((__FBP||[]).some(p=>p.name===keep)) sel.value=keep; }
+    window.socPlat=(p)=>{ window.__soc.plat=p; document.querySelectorAll("#socPlat .seg-btn").forEach(b=>b.classList.toggle("on",b.dataset.p===p)); };
+    const socPlatName=()=>window.__soc.plat==="ig"?"Instagram":"Facebook";
+    window.socLoad=async()=>{ const page=($("socPage")||{}).value, plat=window.__soc.plat, box=$("socPanel"), hdr=$("socHdr");
+      if(!page){ box.innerHTML=`<div class="p-sub" style="padding:6px">⚠️ Chưa có Page. Bấm “Kết nối Facebook” ở trên.</div>`; return; }
+      box.innerHTML=`<div class="p-sub" style="padding:6px">${t("working")} — đang tải bài ${socPlatName()}…</div>`; if(hdr)hdr.textContent="";
+      try{ const d=await workerApi(`/api/social-posts?channel=${encodeURIComponent(page)}&platform=${plat}&max=50`);
+        window.__soc.items=d.items||[]; window.__soc.page=page; window.__soc.account=d.account||"";
+        // insight (nhẹ)
+        let ins=null; try{ ins=await workerApi(`/api/social-insights?channel=${encodeURIComponent(page)}&platform=${plat}`);}catch(_){}
+        window.__soc.ins=ins; socRender();
+      }catch(e){ box.innerHTML=`<div class="panel" style="border-color:var(--bad)"><div style="padding:12px"><b style="color:var(--bad)">❌ Không tải được</b><div class="p-sub" style="margin-top:6px">${esc(e.message)}</div></div></div>`; }
+    };
+    window.socRender=()=>{ const box=$("socPanel"), hdr=$("socHdr"); if(!box) return;
+      const all=window.__soc.items||[], plat=window.__soc.plat, isIg=plat==="ig";
+      const q=(($("socSearch")||{}).value||"").toLowerCase();
+      const rows=all.filter(v=>!q||(v.title||"").toLowerCase().includes(q));
+      const ins=window.__soc.ins;
+      if(hdr) hdr.innerHTML=`${isIg?"📷":"📘"} <b>${esc(window.__soc.account||window.__soc.page)}</b> · ${all.length} bài${ins?` · ${fmtN(ins.followers||0)} ${isIg?'follower':'người theo dõi'}`:''}${isIg?` <span class="tag2 warn">IG chỉ xem + bình luận (Meta khoá sửa/xoá)</span>`:''}`;
+      if(!all.length){ box.innerHTML=`<div class="p-sub" style="padding:6px">📭 Chưa có bài nào.</div>`; return; }
+      box.innerHTML=`<div class="scroll-x"><table class="yt-table"><thead><tr>
+        <th>Bài</th><th>Loại</th><th>Ngày</th>${isIg?"":'<th class="num">Views</th>'}<th class="num">Likes</th><th class="num">B.luận</th><th style="width:150px">Thao tác</th></tr></thead><tbody>
+        ${rows.map(v=>`<tr>
+          <td><div class="yt-vtitle"><img src="${esc(v.thumb||'')}" alt="" loading="lazy"><span class="nm" title="${esc(v.title)}">${esc(v.title)}</span></div></td>
+          <td><span class="tag2">${esc(v.type||'')}</span></td>
+          <td class="p-sub" style="white-space:nowrap">${v.publishedAt?new Date(v.publishedAt).toLocaleDateString('vi-VN'):'—'}</td>
+          ${isIg?"":`<td class="num tnum">${fmtN(v.views)}</td>`}
+          <td class="num tnum">${fmtN(v.likes)}</td><td class="num tnum">${fmtN(v.comments)}</td>
+          <td style="white-space:nowrap">
+            ${v.canEdit?`<button class="yt-rowbtn" title="Sửa" onclick="socEdit('${esc(v.id)}')">✏️</button>`:''}
+            <button class="yt-rowbtn" title="Bình luận" onclick="socComments('${esc(v.id)}')">💬</button>
+            ${v.url?`<a class="yt-rowbtn" title="Mở" href="${esc(v.url)}" target="_blank">↗</a>`:''}
+            ${v.canDelete?`<button class="yt-rowbtn" title="Xoá" onclick="socDelete('${esc(v.id)}')">🗑️</button>`:''}
+          </td></tr>`).join("")}</tbody></table></div>`;
+    };
+    const socItem=(id)=>(window.__soc.items||[]).find(x=>x.id===id);
+    window.socEdit=(id)=>{ const v=socItem(id); if(!v) return; window.__socEditId=id;
+      $("socETitle").value=v.title||""; $("socEDesc").value=v.description||""; $("socEOpen").href=v.url||"#"; $("socEMsg").textContent=""; $("socEditModal").classList.remove("hide"); };
+    window.socEditClose=()=>{ $("socEditModal").classList.add("hide"); window.__socEditId=null; };
+    window.socEditSave=async()=>{ const id=window.__socEditId; if(!id) return; const btn=$("socESave"); btn.disabled=true; $("socEMsg").textContent="Đang lưu…";
+      try{ await workerApi("/api/social-update",{method:"POST",body:{channel:window.__soc.page,platform:window.__soc.plat,id,title:$("socETitle").value,description:$("socEDesc").value}});
+        const v=socItem(id); if(v){ v.title=$("socETitle").value; v.description=$("socEDesc").value; } toastMsg("✔ Đã lưu"); socEditClose(); socRender();
+      }catch(e){ $("socEMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ btn.disabled=false; } };
+    window.socDelete=async(id)=>{ const v=socItem(id); if(!v) return; if(!confirm(`XOÁ bài này khỏi Facebook?\n\n"${v.title}"\n\nKhông thể hoàn tác.`)) return;
+      try{ await workerApi("/api/social-delete",{method:"POST",body:{channel:window.__soc.page,platform:window.__soc.plat,id}});
+        window.__soc.items=window.__soc.items.filter(x=>x.id!==id); toastMsg("🗑️ Đã xoá"); socRender();
+      }catch(e){ alert("❌ "+e.message); } };
+    window.socComments=async(id)=>{ const v=socItem(id); window.__socCmId=id; $("socCmTitle").textContent="Bình luận · "+((v&&v.title)||"");
+      $("socCmBody").innerHTML='<div class="p-sub">Đang tải…</div>'; $("socCmModal").classList.remove("hide");
+      try{ const d=await workerApi(`/api/social-comments?channel=${encodeURIComponent(window.__soc.page)}&platform=${window.__soc.plat}&mediaId=${encodeURIComponent(id)}&max=40`);
+        socCmRender(d.items||[]);
+      }catch(e){ $("socCmBody").innerHTML=`<div class="p-sub" style="color:var(--bad)">❌ ${esc(e.message)}</div>`; } };
+    function socCmRender(items){ const b=$("socCmBody"); if(!b) return;
+      b.innerHTML=items.length?items.map(c=>`<div class="panel cm-card" data-id="${esc(c.id)}" style="margin-bottom:8px"><div class="cm-au"><b>${esc(c.author||'')}</b> <span class="p-sub">· ${c.publishedAt?ago(c.publishedAt):''} · ♥ ${c.likes||0}</span></div>
+        <div class="cm-tx">${esc(c.text||'')}</div>
+        <div class="cm-acts" style="margin-top:8px"><input class="cm-reply-in" placeholder="Trả lời…"><button class="mini" onclick="socCmAct(this,'reply')">Trả lời</button><button class="mini warn" onclick="socCmAct(this,'hide')">Ẩn</button><button class="mini bad" onclick="socCmAct(this,'delete')">Xoá</button></div></div>`).join(""):'<div class="p-sub">Chưa có bình luận.</div>';
+    }
+    window.socCmAct=async(btn,action)=>{ const card=btn.closest(".cm-card"); const id=card.dataset.id; const text=action==="reply"?(card.querySelector(".cm-reply-in").value||"").trim():null;
+      if(action==="reply"&&!text) return; btn.disabled=true; const old=btn.textContent; btn.textContent="…";
+      try{ await workerApi("/api/social-comment-action",{method:"POST",body:{channel:window.__soc.page,platform:window.__soc.plat,action,id,text}});
+        if(action==="delete"||action==="hide"){ card.style.opacity=".45"; card.querySelector(".cm-acts").innerHTML="<span class='p-sub'>✓ "+action+"</span>"; }
+        else { toastMsg("✔ Đã trả lời"); card.querySelector(".cm-reply-in").value=""; btn.textContent=old; btn.disabled=false; }
+      }catch(e){ alert("❌ "+e.message); btn.textContent=old; btn.disabled=false; } };
+    window.socCmClose=()=>{ $("socCmModal").classList.add("hide"); window.__socCmId=null; };
     window.setSettings = (s) => { __SETTINGS=s; renderSettings(); };
     window.setOverrides = (o) => { __OVERRIDES=o||{}; renderSettings(); renderAll(); };
     // Catalog template (khớp config/posting_templates.yaml) — hiển thị ở trang Cài đặt

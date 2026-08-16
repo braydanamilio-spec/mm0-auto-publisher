@@ -2,6 +2,10 @@ name = "mm0-connect"
 main = "src/worker.js"
 compatibility_date = "2024-11-01"
 
+# App ID Facebook (CÔNG KHAI — không phải secret). App Secret đặt riêng bằng wrangler secret.
+[vars]
+FB_APP_ID = "3317605138408247"
+
 # Secrets (KHÔNG ghi giá trị ở đây) — đặt bằng: wrangler secret put <TÊN>
 #   YT_CLIENT_ID        (OAuth client "Web application" client_id)
 #   YT_CLIENT_SECRET
