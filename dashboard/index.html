@@ -3792,10 +3792,17 @@
       async function walk(ent,path){ if(ent.isFile){ await new Promise(r=>ent.file(f=>{ try{Object.defineProperty(f,"webkitRelativePath",{value:path+f.name});}catch(_){} out.push(f); r(); }, ()=>r())); }
         else if(ent.isDirectory){ const rd=ent.createReader(); await new Promise(r=>{ const readAll=()=>rd.readEntries(async es=>{ if(!es.length){r();return;} for(const e of es) await walk(e,path+ent.name+"/"); readAll(); }, ()=>r()); readAll(); }); } }
       for(const e of ents) await walk(e,""); return out; }
-    function upDetectType(file){ return new Promise(res=>{ try{ const v=document.createElement("video"); v.preload="metadata";
-      v.onloadedmetadata=()=>{ const dur=v.duration||0, vert=v.videoHeight>=v.videoWidth; URL.revokeObjectURL(v.src); res((dur>0&&dur<=182&&vert)?"short":"long"); };
-      v.onerror=()=>{ try{URL.revokeObjectURL(v.src);}catch(_){} res(/short|reel|vert/i.test(file.name)?"short":"long"); };
-      v.src=URL.createObjectURL(file); }catch(_){ res("long"); } }); }
+    function upDetectType(file){ return new Promise(res=>{
+      const v=document.createElement("video"); let done=false;
+      // đoán theo TÊN khi không đọc được metadata: short/reel/dọc, hoặc pattern -s1/-s2 (segment ngắn)
+      const guess=()=>/short|reel|vert|[-_]s\d/i.test(file.name||"")?"short":"long";
+      const finish=(tp)=>{ if(done) return; done=true; clearTimeout(to); try{URL.revokeObjectURL(v.src);}catch(_){} res(tp); };
+      const to=setTimeout(()=>finish(guess()), 8000);   // QUÁ 8s -> đoán theo tên, KHÔNG treo hàng đợi
+      try{ v.preload="metadata"; v.muted=true;
+        v.onloadedmetadata=()=>{ const dur=v.duration||0, vert=v.videoHeight>=v.videoWidth; finish((dur>0&&dur<=182&&vert)?"short":"long"); };
+        v.onerror=()=>finish(guess());
+        v.src=URL.createObjectURL(file);
+      }catch(_){ finish(guess()); } }); }
     const _norm=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
     function upGuessChannel(folderName){ const nf=_norm(folderName); if(!nf) return "";
       for(const k of connectedYT()){ const nc=_norm(chName(k)), nk=_norm(k); if(nc&&(nf===nc||nf.includes(nc)||nc.includes(nf))) return k; if(nk&&(nf===nk||nf.includes(nk)||nk.includes(nf))) return k; } return ""; }
