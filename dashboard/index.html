@@ -401,17 +401,17 @@
         <div class="panel">
           <div class="yt-mgr-head">
             <select id="ytVidsCh"></select>
-            <button class="btn-conn" id="loadYtVids">🔄 Tải video kênh</button>
-            <span class="p-sub" id="ytVidsHint">Chọn kênh → Tải. Quản lý mọi video như YouTube Studio: sửa tiêu đề/mô tả/hashtag, đổi quyền, xoá.</span>
+            <button class="btn-conn" id="loadYtVids" data-i18n="vm_load">🔄 Load channel videos</button>
+            <span class="p-sub" id="ytVidsHint" data-i18n="vm_hint">Pick a channel → Load. Manage every video like YouTube Studio: edit title/description/hashtags, change privacy, delete.</span>
           </div>
           <div id="ytMgr" style="display:none">
             <div class="yt-tools">
-              <input type="search" id="ytVidSearch" placeholder="🔍 Tìm tiêu đề…">
-              <select id="ytVidType"><option value="">Long &amp; Short</option><option value="long">Chỉ Long</option><option value="short">Chỉ Short</option></select>
-              <select id="ytVidPriv"><option value="">Mọi quyền</option><option value="public">Công khai</option><option value="unlisted">Không liệt kê</option><option value="private">Riêng tư</option></select>
-              <select id="ytVidSort"><option value="date">Mới nhất</option><option value="views">View nhiều nhất</option><option value="likes">Like nhiều nhất</option><option value="comments">B.luận nhiều nhất</option></select>
+              <input type="search" id="ytVidSearch" data-i18n-ph="vm_search" placeholder="🔍 Search title…">
+              <select id="ytVidType"><option value="" data-i18n="vm_ls">Long &amp; Short</option><option value="long" data-i18n="vm_long">Long only</option><option value="short" data-i18n="vm_short">Short only</option></select>
+              <select id="ytVidPriv"><option value="" data-i18n="vm_allpriv">All privacy</option><option value="public" data-i18n="priv_public">Public</option><option value="unlisted" data-i18n="priv_unlisted">Unlisted</option><option value="private" data-i18n="priv_private">Private</option></select>
+              <select id="ytVidSort"><option value="date" data-i18n="sort_new">Newest</option><option value="views" data-i18n="sort_views">Most views</option><option value="likes" data-i18n="sort_likes">Most likes</option><option value="comments" data-i18n="sort_comments">Most comments</option></select>
               <span style="flex:1;min-width:8px"></span>
-              <button class="btn-mini" onclick="ytVidsCopy()">📋 Copy link</button>
+              <button class="btn-mini" onclick="ytVidsCopy()" data-i18n="vm_copy">📋 Copy links</button>
               <button class="btn-mini" onclick="ytVidsExport('csv')">⬇ CSV</button>
               <button class="btn-mini" onclick="ytVidsExport('txt')">⬇ TXT</button>
             </div>
@@ -419,7 +419,7 @@
             <div id="ytVidsHdr" class="p-sub" style="margin:2px 0 8px"></div>
             <div class="scroll-x"><table class="yt-table"><thead><tr>
               <th style="width:34px"><input type="checkbox" id="ytSelAll" onclick="ytSelAll(this.checked)"></th>
-              <th>Video</th><th>Loại</th><th>Ngày</th><th class="num">Views</th><th class="num">Likes</th><th class="num">B.luận</th><th>Quyền</th><th style="width:150px">Thao tác</th>
+              <th data-i18n="th_video">Video</th><th data-i18n="th_type">Type</th><th data-i18n="th_date">Date</th><th class="num">Views</th><th class="num">Likes</th><th class="num" data-i18n="th_comments">Comments</th><th data-i18n="th_privacy">Privacy</th><th style="width:150px" data-i18n="th_actions">Actions</th>
             </tr></thead><tbody id="ytVidRows"></tbody></table></div>
           </div>
           <div id="ytVidsPanel" style="margin-top:10px"></div>
@@ -427,91 +427,91 @@
       </section>
       <div id="socEditModal" class="modal-back hide">
         <div class="modal-card">
-          <div class="modal-head"><b>Sửa bài Facebook</b><button class="modal-x" onclick="socEditClose()">✕</button></div>
+          <div class="modal-head"><b data-i18n="se_title">Edit Facebook post</b><button class="modal-x" onclick="socEditClose()">✕</button></div>
           <div class="modal-body">
-            <label class="fld"><span>Tiêu đề</span><input id="socETitle" maxlength="255"></label>
-            <label class="fld"><span>Mô tả / nội dung</span><textarea id="socEDesc" rows="6"></textarea></label>
+            <label class="fld"><span data-i18n="ed_title">Title</span><input id="socETitle" maxlength="255"></label>
+            <label class="fld"><span data-i18n="se_content">Description / content</span><textarea id="socEDesc" rows="6"></textarea></label>
             <div id="socEMsg" class="p-sub" style="min-height:18px"></div>
           </div>
-          <div class="modal-foot"><a id="socEOpen" href="#" target="_blank" class="btn-mini">↗ Mở trên Facebook</a><span style="flex:1"></span>
-            <button class="btn-mini" onclick="socEditClose()">Huỷ</button><button class="btn-conn" id="socESave" onclick="socEditSave()">💾 Lưu</button></div>
+          <div class="modal-foot"><a id="socEOpen" href="#" target="_blank" class="btn-mini" data-i18n="se_open">↗ Open on Facebook</a><span style="flex:1"></span>
+            <button class="btn-mini" onclick="socEditClose()" data-i18n="cancel">Cancel</button><button class="btn-conn" id="socESave" onclick="socEditSave()" data-i18n="save">💾 Save</button></div>
         </div>
       </div>
       <div id="socCmModal" class="modal-back hide">
         <div class="modal-card">
-          <div class="modal-head"><b id="socCmTitle">Bình luận</b><button class="modal-x" onclick="socCmClose()">✕</button></div>
-          <div class="modal-body" id="socCmBody"><div class="p-sub">Đang tải…</div></div>
-          <div class="modal-foot"><span class="p-sub" id="socCmNote"></span><span style="flex:1"></span><button class="btn-mini" onclick="socCmClose()">Đóng</button></div>
+          <div class="modal-head"><b id="socCmTitle" data-i18n="comments">Comments</b><button class="modal-x" onclick="socCmClose()">✕</button></div>
+          <div class="modal-body" id="socCmBody"><div class="p-sub" data-i18n="loading">Loading…</div></div>
+          <div class="modal-foot"><span class="p-sub" id="socCmNote"></span><span style="flex:1"></span><button class="btn-mini" onclick="socCmClose()" data-i18n="close">Close</button></div>
         </div>
       </div>
       <div id="socQModal" class="modal-back hide">
         <div class="modal-card">
-          <div class="modal-head"><b>📤 Đăng FB/IG (hàng đợi tự động)</b><button class="modal-x" onclick="socQClose()">✕</button></div>
+          <div class="modal-head"><b data-i18n="sq_title">📤 Post to FB/IG (auto queue)</b><button class="modal-x" onclick="socQClose()">✕</button></div>
           <div class="modal-body">
             <div class="p-sub">🎬 File: <b id="socQFile"></b></div>
             <div class="fld2">
-              <label class="fld"><span>Đăng lên Page</span><select id="socQPage"></select></label>
-              <label class="fld"><span>Nền tảng</span><select id="socQPlat"><option value="fb">📘 Facebook</option><option value="ig">📷 Instagram (Reels)</option><option value="both">📘+📷 Cả hai</option></select></label>
+              <label class="fld"><span data-i18n="sq_topage">Post to Page</span><select id="socQPage"></select></label>
+              <label class="fld"><span data-i18n="sq_platform">Platform</span><select id="socQPlat"><option value="fb">📘 Facebook</option><option value="ig">📷 Instagram (Reels)</option><option value="both" data-i18n="sq_both">📘+📷 Both</option></select></label>
             </div>
-            <label class="fld"><span>Tiêu đề</span><input id="socQTitle" maxlength="255"></label>
-            <label class="fld"><span>Nội dung / caption</span><textarea id="socQDesc" rows="4"></textarea></label>
-            <label class="fld"><span>Hashtag <em class="p-sub">(cách nhau bằng dấu phẩy)</em></span><input id="socQTags" placeholder="#datarace, #tiente"></label>
+            <label class="fld"><span data-i18n="ed_title">Title</span><input id="socQTitle" maxlength="255"></label>
+            <label class="fld"><span data-i18n="sq_caption">Content / caption</span><textarea id="socQDesc" rows="4"></textarea></label>
+            <label class="fld"><span><span data-i18n="th_hashtag">Hashtag</span> <em class="p-sub" data-i18n="sq_tags_hint">(separated by commas)</em></span><input id="socQTags" placeholder="#datarace, #finance"></label>
             <div class="fld2">
-              <label class="fld"><span>Thời điểm</span><select id="socQWhen" onchange="socQWhenChange()"><option value="now">Đăng ngay (cron gần nhất ~30')</option><option value="at">Hẹn giờ…</option></select></label>
-              <label class="fld" id="socQAtWrap" style="display:none"><span>Chọn giờ (giờ VN)</span><input type="datetime-local" id="socQAt"></label>
+              <label class="fld"><span data-i18n="sq_when">When</span><select id="socQWhen" onchange="socQWhenChange()"><option value="now" data-i18n="sq_now">Post now (next cron ~30')</option><option value="at" data-i18n="sq_at">Schedule…</option></select></label>
+              <label class="fld" id="socQAtWrap" style="display:none"><span data-i18n="sq_pick_time">Pick time</span><input type="datetime-local" id="socQAt"></label>
             </div>
             <div id="socQMsg" class="p-sub" style="min-height:18px"></div>
           </div>
-          <div class="modal-foot"><span class="p-sub">Cron tự đăng dù tắt máy · chống trùng.</span><span style="flex:1"></span>
-            <button class="btn-mini" onclick="socQClose()">Huỷ</button><button class="btn-conn" id="socQSave" onclick="socQSubmit()">➕ Thêm vào hàng đợi</button></div>
+          <div class="modal-foot"><span class="p-sub" data-i18n="sq_note">Cron posts automatically even if PC is off · no duplicates.</span><span style="flex:1"></span>
+            <button class="btn-mini" onclick="socQClose()" data-i18n="cancel">Cancel</button><button class="btn-conn" id="socQSave" onclick="socQSubmit()" data-i18n="sq_add">➕ Add to queue</button></div>
         </div>
       </div>
       <div id="ytEditModal" class="modal-back hide">
         <div class="modal-card">
-          <div class="modal-head"><b id="ytEditTitle">Sửa video</b><button class="modal-x" onclick="ytEditClose()">✕</button></div>
+          <div class="modal-head"><b id="ytEditTitle" data-i18n="ed_edit_video">Edit video</b><button class="modal-x" onclick="ytEditClose()">✕</button></div>
           <div class="modal-body">
-            <label class="fld"><span>Tiêu đề <em id="ytEChTitle" class="p-sub"></em></span>
+            <label class="fld"><span><span data-i18n="ed_title">Title</span> <em id="ytEChTitle" class="p-sub"></em></span>
               <input id="ytETitle" maxlength="100" oninput="ytECount()"></label>
-            <label class="fld"><span>Mô tả <em id="ytEChDesc" class="p-sub"></em></span>
+            <label class="fld"><span><span data-i18n="ed_desc">Description</span> <em id="ytEChDesc" class="p-sub"></em></span>
               <textarea id="ytEDesc" rows="6" maxlength="5000" oninput="ytECount()"></textarea></label>
-            <label class="fld"><span>Hashtag / thẻ <em class="p-sub">(cách nhau bằng dấu phẩy hoặc khoảng trắng)</em></span>
-              <input id="ytETags" placeholder="#tiente, #datarace, tài chính"></label>
+            <label class="fld"><span><span data-i18n="ed_tags">Hashtags / tags</span> <em class="p-sub" data-i18n="ed_tags_hint">(separated by comma or space)</em></span>
+              <input id="ytETags" placeholder="#finance, #datarace"></label>
             <div class="fld2">
-              <label class="fld"><span>Quyền riêng tư</span>
-                <select id="ytEPriv"><option value="public">🌐 Công khai</option><option value="unlisted">🔗 Không liệt kê</option><option value="private">🔒 Riêng tư</option></select></label>
-              <label class="fld"><span>Đối tượng (Made for Kids)</span>
-                <select id="ytEKids"><option value="0">🙋 Không dành cho trẻ em</option><option value="1">🧸 Nội dung dành cho trẻ em</option></select></label>
+              <label class="fld"><span data-i18n="ed_privacy">Privacy</span>
+                <select id="ytEPriv"><option value="public" data-i18n="priv_public2">🌐 Public</option><option value="unlisted" data-i18n="priv_unlisted2">🔗 Unlisted</option><option value="private" data-i18n="priv_private2">🔒 Private</option></select></label>
+              <label class="fld"><span data-i18n="ed_kids">Audience (Made for Kids)</span>
+                <select id="ytEKids"><option value="0" data-i18n="ed_kids_no">🙋 Not made for kids</option><option value="1" data-i18n="ed_kids_yes">🧸 Made for kids</option></select></label>
             </div>
-            <div class="fld"><span>Ảnh đại diện (thumbnail)</span>
+            <div class="fld"><span data-i18n="ed_thumb">Thumbnail</span>
               <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
                 <img id="ytEThumb" alt="" style="width:128px;height:72px;border-radius:8px;object-fit:cover;background:var(--surface2);border:1px solid var(--border)">
                 <div style="flex:1;min-width:160px">
                   <input type="file" id="ytEThumbFile" accept="image/jpeg,image/png" style="display:none" onchange="ytThumbPick(this)">
                   <div style="display:flex;gap:8px;flex-wrap:wrap">
-                    <button type="button" class="btn-mini" onclick="document.getElementById('ytEThumbFile').click()">🖼 Chọn ảnh mới</button>
-                    <button type="button" class="btn-conn" id="ytThumbUp" style="display:none;padding:7px 12px" onclick="ytThumbUpload()">⬆ Đổi thumbnail</button>
+                    <button type="button" class="btn-mini" onclick="document.getElementById('ytEThumbFile').click()" data-i18n="ed_pick_img">🖼 Choose new image</button>
+                    <button type="button" class="btn-conn" id="ytThumbUp" style="display:none;padding:7px 12px" onclick="ytThumbUpload()" data-i18n="ed_set_thumb">⬆ Set thumbnail</button>
                   </div>
-                  <div class="p-sub" style="margin-top:5px">JPG/PNG · &lt;2MB · 16:9. Cần kênh đã xác minh SĐT.</div>
+                  <div class="p-sub" style="margin-top:5px" data-i18n="ed_thumb_hint">JPG/PNG · &lt;2MB · 16:9. Channel must be phone-verified.</div>
                 </div>
               </div></div>
-            <label class="fld"><span>Ngôn ngữ chính của video <em class="p-sub">(nên đặt trước khi thêm phụ đề)</em></span>
+            <label class="fld"><span><span data-i18n="ed_lang">Video language</span> <em class="p-sub" data-i18n="ed_lang_hint">(set before adding subtitles)</em></span>
               <select id="ytELang"></select></label>
-            <div class="fld"><span>Phụ đề <em id="ytECapCnt" class="p-sub"></em></span>
+            <div class="fld"><span><span data-i18n="ed_subs">Subtitles</span> <em id="ytECapCnt" class="p-sub"></em></span>
               <div id="ytECaps" class="p-sub" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px">—</div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">
                 <select id="ytCapLang" style="max-width:150px"></select>
                 <input type="file" id="ytCapFile" accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain" style="display:none" onchange="ytCapPick(this)">
-                <button type="button" class="btn-mini" onclick="document.getElementById('ytCapFile').click()">📄 Chọn file .srt/.vtt</button>
-                <button type="button" class="btn-conn" id="ytCapAdd" style="display:none;padding:7px 12px" onclick="ytCapUpload()">➕ Thêm phụ đề</button>
+                <button type="button" class="btn-mini" onclick="document.getElementById('ytCapFile').click()" data-i18n="ed_pick_sub">📄 Choose .srt/.vtt file</button>
+                <button type="button" class="btn-conn" id="ytCapAdd" style="display:none;padding:7px 12px" onclick="ytCapUpload()" data-i18n="ed_add_sub">➕ Add subtitle</button>
                 <span class="p-sub" id="ytCapFileName"></span>
               </div></div>
             <div id="ytEMsg" class="p-sub" style="min-height:18px"></div>
           </div>
           <div class="modal-foot">
-            <a id="ytEOpen" href="#" target="_blank" class="btn-mini">↗ Mở trên YouTube</a>
+            <a id="ytEOpen" href="#" target="_blank" class="btn-mini" data-i18n="ed_open_yt">↗ Open on YouTube</a>
             <span style="flex:1"></span>
-            <button class="btn-mini" onclick="ytEditClose()">Huỷ</button>
-            <button class="btn-conn" id="ytESave" onclick="ytEditSave()">💾 Lưu thay đổi</button>
+            <button class="btn-mini" onclick="ytEditClose()" data-i18n="cancel">Cancel</button>
+            <button class="btn-conn" id="ytESave" onclick="ytEditSave()" data-i18n="ed_save">💾 Save changes</button>
           </div>
         </div>
       </div>
@@ -907,25 +907,25 @@
         <div class="conn-grid" id="fbPages"></div>
 
         <div class="panel" id="socMgrPanel" style="margin-top:16px">
-          <div class="p-head"><div class="p-title">🗂️ Quản lý bài đã đăng <span class="p-sub">— như trình quản lý, cho Facebook & Instagram</span></div>
-            <a class="btn-mini" href="#videos">▶ YouTube ở tab Videos</a></div>
+          <div class="p-head"><div class="p-title">🗂️ <span data-i18n="sm_title">Manage published posts</span> <span class="p-sub" data-i18n="sm_sub">— manager for Facebook & Instagram</span></div>
+            <a class="btn-mini" href="#videos" data-i18n="sm_yt">▶ YouTube in Videos tab</a></div>
           <div class="yt-tools" style="margin-top:8px">
             <select id="socPage"></select>
             <div class="seg" id="socPlat">
               <button type="button" class="seg-btn on" data-p="fb" onclick="socPlat('fb')">📘 Facebook</button>
               <button type="button" class="seg-btn" data-p="ig" onclick="socPlat('ig')">📷 Instagram</button>
             </div>
-            <button type="button" class="btn-conn" id="socLoad" onclick="socLoad()">🔄 Tải bài</button>
+            <button type="button" class="btn-conn" id="socLoad" onclick="socLoad()" data-i18n="sm_load">🔄 Load posts</button>
             <span style="flex:1;min-width:6px"></span>
-            <input type="search" id="socSearch" placeholder="🔍 Tìm tiêu đề…" oninput="socRender()" style="max-width:180px">
+            <input type="search" id="socSearch" data-i18n-ph="vm_search" placeholder="🔍 Search title…" oninput="socRender()" style="max-width:180px">
           </div>
           <div id="socHdr" class="p-sub" style="margin:6px 0 8px"></div>
-          <div id="socPanel"><div class="p-sub" style="padding:6px">Chọn Page → Facebook/Instagram → <b>Tải bài</b>.</div></div>
+          <div id="socPanel"><div class="p-sub" style="padding:6px" data-i18n="sm_hint">Pick a Page → Facebook/Instagram → Load posts.</div></div>
         </div>
 
         <div class="panel" id="socQueuePanel" style="margin-top:16px">
-          <div class="p-head"><div class="p-title">📤 Hàng đợi đăng độc lập <span class="p-sub">— không cần kênh YouTube · cron tự đăng</span></div></div>
-          <div class="p-sub" style="margin:4px 0 8px">Vào <b>Storage → Duyệt file</b> → bấm <b>“📤 Đăng FB/IG”</b> trên video để thêm vào đây. Video sẽ tự đăng đúng giờ (kể cả tắt máy), chống trùng.</div>
+          <div class="p-head"><div class="p-title">📤 <span data-i18n="sqp_title">Standalone post queue</span> <span class="p-sub" data-i18n="sqp_sub">— no YouTube channel needed · cron auto-posts</span></div></div>
+          <div class="p-sub" style="margin:4px 0 8px" data-i18n="sqp_hint">Go to Storage → Browse files → click “📤 Post to FB/IG” on a video to add it here. It auto-posts on time (even if PC is off), no duplicates.</div>
           <div id="socQueueList"></div>
         </div>
 
@@ -1099,6 +1099,25 @@
         channels:"My Channels", branding:"Branding", comments:"Comments", channels_hub:"My Channels", sub_channels:"Your connected channels — pick one to manage",
         facebook:"Facebook", nav_social:"Social", sub_facebook:"Facebook Pages — separate from YouTube", fb_manage:"Facebook Pages", fb_connect:"Connect Facebook", fb_note:"Facebook is separate from YouTube (not the same Gmail). One connect grabs all Pages you manage.",
         act_branding:"Branding", act_comments:"Comments", act_videos:"Videos", act_reconnect:"Reconnect", act_template:"Template",
+        th_hashtag:"Hashtag", cancel:"Cancel", close:"Close", loading:"Loading…",
+        vm_load:"🔄 Load channel videos", vm_hint:"Pick a channel → Load. Manage every video like YouTube Studio: edit title/description/hashtags, change privacy, delete.", vm_search:"🔍 Search title…",
+        vm_ls:"Long & Short", vm_long:"Long only", vm_short:"Short only",
+        vm_allpriv:"All privacy", priv_public:"Public", priv_unlisted:"Unlisted", priv_private:"Private",
+        sort_new:"Newest", sort_views:"Most views", sort_likes:"Most likes", sort_comments:"Most comments",
+        vm_copy:"📋 Copy links", th_video:"Video", th_date:"Date", th_comments:"Comments", th_privacy:"Privacy", th_actions:"Actions",
+        ed_edit_video:"Edit video", ed_title:"Title", ed_desc:"Description", ed_tags:"Hashtags / tags", ed_tags_hint:"(separated by comma or space)",
+        ed_privacy:"Privacy", priv_public2:"🌐 Public", priv_unlisted2:"🔗 Unlisted", priv_private2:"🔒 Private",
+        ed_kids:"Audience (Made for Kids)", ed_kids_no:"🙋 Not made for kids", ed_kids_yes:"🧸 Made for kids",
+        ed_thumb:"Thumbnail", ed_pick_img:"🖼 Choose new image", ed_set_thumb:"⬆ Set thumbnail", ed_thumb_hint:"JPG/PNG · <2MB · 16:9. Channel must be phone-verified.",
+        ed_lang:"Video language", ed_lang_hint:"(set before adding subtitles)", ed_subs:"Subtitles", ed_pick_sub:"📄 Choose .srt/.vtt file", ed_add_sub:"➕ Add subtitle",
+        ed_open_yt:"↗ Open on YouTube", ed_save:"💾 Save changes",
+        se_title:"Edit Facebook post", se_content:"Description / content", se_open:"↗ Open on Facebook",
+        sq_title:"📤 Post to FB/IG (auto queue)", sq_topage:"Post to Page", sq_platform:"Platform", sq_both:"📘+📷 Both", sq_caption:"Content / caption", sq_tags_hint:"(separated by commas)",
+        sq_when:"When", sq_now:"Post now (next cron ~30')", sq_at:"Schedule…", sq_pick_time:"Pick time", sq_note:"Cron posts automatically even if PC is off · no duplicates.", sq_add:"➕ Add to queue",
+        sm_title:"Manage published posts", sm_sub:"— manager for Facebook & Instagram", sm_yt:"▶ YouTube in Videos tab", sm_load:"🔄 Load posts", sm_hint:"Pick a Page → Facebook/Instagram → Load posts.",
+        sqp_title:"Standalone post queue", sqp_sub:"— no YouTube channel needed · cron auto-posts", sqp_hint:"Go to Storage → Browse files → click “📤 Post to FB/IG” on a video to add it here. It auto-posts on time (even if PC is off), no duplicates.",
+        th_post:"Post", th_platform:"Platform", follower:"followers", ig_readonly:"IG view + comments only (Meta locks edit/delete)",
+        sm_noposts:"No posts yet.", sq_empty:"No posts in queue yet.", sq_pending:"Pending", sq_posted:"Posted", sq_failed:"Failed", th_posttime:"Post time", fb_post:"📤 Post FB/IG",
         ch_ready:"No videos yet — ready to receive", ch_connect_first:"No channel yet — connect one in API Connections.",
         sub_branding:"Channel identity via API", sub_comments:"Read, reply & moderate",
         nav_channel:"Channel", br_pick:"Pick a connected channel", br_load:"Load current",
@@ -1158,6 +1177,25 @@
         channels:"Kênh của tôi", branding:"Thương hiệu", comments:"Bình luận", channels_hub:"Kênh của tôi", sub_channels:"Các kênh đã kết nối — chọn 1 kênh để quản lý",
         facebook:"Facebook", nav_social:"Mạng xã hội", sub_facebook:"Facebook Page — tách riêng YouTube", fb_manage:"Facebook Page", fb_connect:"Kết nối Facebook", fb_note:"Facebook tách riêng YouTube (không cùng Gmail). Kết nối 1 lần lấy hết Page bạn quản lý; đăng/lịch FB quản lý riêng tại đây.",
         act_branding:"Thương hiệu", act_comments:"Bình luận", act_videos:"Video", act_reconnect:"Kết nối lại", act_template:"Template",
+        th_hashtag:"Hashtag", cancel:"Huỷ", close:"Đóng", loading:"Đang tải…",
+        vm_load:"🔄 Tải video kênh", vm_hint:"Chọn kênh → Tải. Quản lý mọi video như YouTube Studio: sửa tiêu đề/mô tả/hashtag, đổi quyền, xoá.", vm_search:"🔍 Tìm tiêu đề…",
+        vm_ls:"Long & Short", vm_long:"Chỉ Long", vm_short:"Chỉ Short",
+        vm_allpriv:"Mọi quyền", priv_public:"Công khai", priv_unlisted:"Không liệt kê", priv_private:"Riêng tư",
+        sort_new:"Mới nhất", sort_views:"View nhiều nhất", sort_likes:"Like nhiều nhất", sort_comments:"B.luận nhiều nhất",
+        vm_copy:"📋 Copy link", th_video:"Video", th_date:"Ngày", th_comments:"B.luận", th_privacy:"Quyền", th_actions:"Thao tác",
+        ed_edit_video:"Sửa video", ed_title:"Tiêu đề", ed_desc:"Mô tả", ed_tags:"Hashtag / thẻ", ed_tags_hint:"(cách nhau bằng dấu phẩy hoặc khoảng trắng)",
+        ed_privacy:"Quyền riêng tư", priv_public2:"🌐 Công khai", priv_unlisted2:"🔗 Không liệt kê", priv_private2:"🔒 Riêng tư",
+        ed_kids:"Đối tượng (Made for Kids)", ed_kids_no:"🙋 Không dành cho trẻ em", ed_kids_yes:"🧸 Nội dung dành cho trẻ em",
+        ed_thumb:"Ảnh đại diện (thumbnail)", ed_pick_img:"🖼 Chọn ảnh mới", ed_set_thumb:"⬆ Đổi thumbnail", ed_thumb_hint:"JPG/PNG · <2MB · 16:9. Cần kênh đã xác minh SĐT.",
+        ed_lang:"Ngôn ngữ chính của video", ed_lang_hint:"(nên đặt trước khi thêm phụ đề)", ed_subs:"Phụ đề", ed_pick_sub:"📄 Chọn file .srt/.vtt", ed_add_sub:"➕ Thêm phụ đề",
+        ed_open_yt:"↗ Mở trên YouTube", ed_save:"💾 Lưu thay đổi",
+        se_title:"Sửa bài Facebook", se_content:"Mô tả / nội dung", se_open:"↗ Mở trên Facebook",
+        sq_title:"📤 Đăng FB/IG (hàng đợi tự động)", sq_topage:"Đăng lên Page", sq_platform:"Nền tảng", sq_both:"📘+📷 Cả hai", sq_caption:"Nội dung / caption", sq_tags_hint:"(cách nhau bằng dấu phẩy)",
+        sq_when:"Thời điểm", sq_now:"Đăng ngay (cron gần nhất ~30')", sq_at:"Hẹn giờ…", sq_pick_time:"Chọn giờ (giờ VN)", sq_note:"Cron tự đăng dù tắt máy · chống trùng.", sq_add:"➕ Thêm vào hàng đợi",
+        sm_title:"Quản lý bài đã đăng", sm_sub:"— như trình quản lý, cho Facebook & Instagram", sm_yt:"▶ YouTube ở tab Videos", sm_load:"🔄 Tải bài", sm_hint:"Chọn Page → Facebook/Instagram → Tải bài.",
+        sqp_title:"Hàng đợi đăng độc lập", sqp_sub:"— không cần kênh YouTube · cron tự đăng", sqp_hint:"Vào Storage → Duyệt file → bấm “📤 Đăng FB/IG” trên video để thêm vào đây. Video sẽ tự đăng đúng giờ (kể cả tắt máy), chống trùng.",
+        th_post:"Bài", th_platform:"Nền tảng", follower:"người theo dõi", ig_readonly:"IG chỉ xem + bình luận (Meta khoá sửa/xoá)",
+        sm_noposts:"Chưa có bài nào.", sq_empty:"Chưa có bài nào trong hàng đợi.", sq_pending:"Chờ đăng", sq_posted:"Đã đăng", sq_failed:"Lỗi", th_posttime:"Giờ đăng", fb_post:"📤 Đăng FB/IG",
         ch_ready:"Chưa có video — sẵn sàng nhận bài", ch_connect_first:"Chưa có kênh — kết nối ở tab Kết nối API.",
         sub_branding:"Nhận diện kênh qua API", sub_comments:"Đọc, trả lời & kiểm duyệt",
         nav_channel:"Kênh", br_pick:"Chọn kênh đã kết nối", br_load:"Tải hiện tại",
@@ -1373,7 +1411,7 @@
     const YT_LANGS=[["","— Không đặt —"],["en","English"],["vi","Tiếng Việt"],["es","Español"],["fr","Français"],["de","Deutsch"],["pt","Português"],["ru","Русский"],["ja","日本語"],["ko","한국어"],["zh-Hans","中文 (giản thể)"],["hi","हिन्दी"],["id","Bahasa Indonesia"],["th","ไทย"],["ar","العربية"]];
     const langOpts=(sel,skipEmpty)=>YT_LANGS.filter(l=>!skipEmpty||l[0]).map(([c,n])=>`<option value="${c}" ${c===sel?'selected':''}>${n}</option>`).join("");
     window.ytEdit=(id)=>{ const v=(window.__ytVids||[]).find(x=>x.id===id); if(!v) return; window.__ytEditId=id; window.__ytThumbData=null; window.__ytCapContent=null;
-      $("ytEditTitle").textContent="Sửa video"; $("ytETitle").value=v.title||""; $("ytEDesc").value=v.description||"";
+      $("ytEditTitle").textContent=t("ed_edit_video"); $("ytETitle").value=v.title||""; $("ytEDesc").value=v.description||"";
       $("ytETags").value=(v.tags||[]).join(", "); $("ytEPriv").value=v.privacy||"public"; $("ytEKids").value=v.madeForKids?"1":"0"; $("ytEOpen").href=ytVidUrl(v);
       $("ytELang").innerHTML=langOpts(v.defaultLanguage||"",false); $("ytCapLang").innerHTML=langOpts(v.defaultLanguage||"en",true);
       $("ytEThumb").src=v.thumb||""; $("ytThumbUp").style.display="none"; if($("ytEThumbFile"))$("ytEThumbFile").value="";
@@ -1556,10 +1594,10 @@
       const q=(($("socSearch")||{}).value||"").toLowerCase();
       const rows=all.filter(v=>!q||(v.title||"").toLowerCase().includes(q));
       const ins=window.__soc.ins;
-      if(hdr) hdr.innerHTML=`${isIg?"📷":"📘"} <b>${esc(window.__soc.account||window.__soc.page)}</b> · ${all.length} bài${ins?` · ${fmtN(ins.followers||0)} ${isIg?'follower':'người theo dõi'}`:''}${isIg?` <span class="tag2 warn">IG chỉ xem + bình luận (Meta khoá sửa/xoá)</span>`:''}`;
-      if(!all.length){ box.innerHTML=`<div class="p-sub" style="padding:6px">📭 Chưa có bài nào.</div>`; return; }
+      if(hdr) hdr.innerHTML=`${isIg?"📷":"📘"} <b>${esc(window.__soc.account||window.__soc.page)}</b> · ${all.length} ${t("th_post").toLowerCase()}${ins?` · ${fmtN(ins.followers||0)} ${t("follower")}`:''}${isIg?` <span class="tag2 warn">${t("ig_readonly")}</span>`:''}`;
+      if(!all.length){ box.innerHTML=`<div class="p-sub" style="padding:6px">📭 ${t("sm_noposts")}</div>`; return; }
       box.innerHTML=`<div class="scroll-x"><table class="yt-table"><thead><tr>
-        <th>Bài</th><th>Loại</th><th>Ngày</th>${isIg?"":'<th class="num">Views</th>'}<th class="num">Likes</th><th class="num">B.luận</th><th style="width:150px">Thao tác</th></tr></thead><tbody>
+        <th>${t("th_post")}</th><th>${t("th_type")}</th><th>${t("th_date")}</th>${isIg?"":'<th class="num">Views</th>'}<th class="num">Likes</th><th class="num">${t("th_comments")}</th><th style="width:150px">${t("th_actions")}</th></tr></thead><tbody>
         ${rows.map(v=>`<tr>
           <td><div class="yt-vtitle"><img src="${esc(v.thumb||'')}" alt="" loading="lazy"><span class="nm" title="${esc(v.title)}">${esc(v.title)}</span></div></td>
           <td><span class="tag2">${esc(v.type||'')}</span></td>
@@ -1585,7 +1623,7 @@
       try{ await workerApi("/api/social-delete",{method:"POST",body:{channel:window.__soc.page,platform:window.__soc.plat,id}});
         window.__soc.items=window.__soc.items.filter(x=>x.id!==id); toastMsg("🗑️ Đã xoá"); socRender();
       }catch(e){ alert("❌ "+e.message); } };
-    window.socComments=async(id)=>{ const v=socItem(id); window.__socCmId=id; $("socCmTitle").textContent="Bình luận · "+((v&&v.title)||"");
+    window.socComments=async(id)=>{ const v=socItem(id); window.__socCmId=id; $("socCmTitle").textContent=t("comments")+" · "+((v&&v.title)||"");
       $("socCmBody").innerHTML='<div class="p-sub">Đang tải…</div>'; $("socCmModal").classList.remove("hide");
       try{ const d=await workerApi(`/api/social-comments?channel=${encodeURIComponent(window.__soc.page)}&platform=${window.__soc.plat}&mediaId=${encodeURIComponent(id)}&max=40`);
         socCmRender(d.items||[]);
@@ -1625,9 +1663,9 @@
     window.setSocQueue=(items)=>{ window.__socQueue=items||[]; renderSocQueue(); };
     function renderSocQueue(){ const box=$("socQueueList"); if(!box) return;
       const items=(window.__socQueue||[]).slice().sort((a,b)=>String(b.created_at||"").localeCompare(String(a.created_at||"")));
-      if(!items.length){ box.innerHTML='<div class="p-sub" style="padding:6px">Chưa có bài nào trong hàng đợi.</div>'; return; }
-      const badge=(s)=>({pending:'<span class="tag t-scheduled">Chờ đăng</span>',posted:'<span class="tag t-connected">Đã đăng</span>',failed:'<span class="tag t-error">Lỗi</span>'}[s]||esc(s));
-      box.innerHTML=`<div class="scroll-x"><table class="yt-table"><thead><tr><th>Video</th><th>Page</th><th>Nền tảng</th><th>Giờ đăng</th><th>Trạng thái</th><th></th></tr></thead><tbody>${items.map(q=>`<tr>
+      if(!items.length){ box.innerHTML=`<div class="p-sub" style="padding:6px">${t("sq_empty")}</div>`; return; }
+      const badge=(s)=>({pending:`<span class="tag t-scheduled">${t("sq_pending")}</span>`,posted:`<span class="tag t-connected">${t("sq_posted")}</span>`,failed:`<span class="tag t-error">${t("sq_failed")}</span>`}[s]||esc(s));
+      box.innerHTML=`<div class="scroll-x"><table class="yt-table"><thead><tr><th>${t("th_video")}</th><th>Page</th><th>${t("th_platform")}</th><th>${t("th_posttime")}</th><th>${t("th_status")}</th><th></th></tr></thead><tbody>${items.map(q=>`<tr>
         <td><span class="nm" title="${esc(q.drive_name||'')}">${esc(q.drive_name||q.drive_file_id)}</span></td>
         <td class="p-sub">${esc(socPageName(q.page))}</td>
         <td><span class="tag2">${esc(q.platform||'')}</span></td>
@@ -1927,7 +1965,7 @@
         const name=fold?`<a class="fb-name fb-fold" onclick="fbEnter('${f.id}')">${esc(f.name)}</a>`:`<span class="fb-name">${esc(f.name)}</span>`;
         const view=f.webViewLink?`<a href="${esc(f.webViewLink)}" target="_blank" class="mini">Xem</a>`:"";
         const isVid=/\.(mp4|mov|mkv|webm)$/i.test(f.name);
-        const pub=isVid?`<button class="mini" style="color:var(--accent);border-color:var(--accent)" onclick="socQueueFrom('${f.id}',this)" data-nm="${esc(f.name)}">📤 Đăng FB/IG</button>`:"";
+        const pub=isVid?`<button class="mini" style="color:var(--accent);border-color:var(--accent)" onclick="socQueueFrom('${f.id}',this)" data-nm="${esc(f.name)}">${t("fb_post")}</button>`:"";
         return `<div class="fb-row">
           <span class="fb-ic">${icon}</span>
           <div style="flex:1;min-width:0">${name}<div class="fb-meta">${esc(size)}${size&&f.modifiedTime?" · ":""}${f.modifiedTime?ago(f.modifiedTime):""}</div></div>
