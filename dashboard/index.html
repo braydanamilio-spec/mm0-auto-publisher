@@ -1113,6 +1113,7 @@
             <button class="btn-conn" id="btnConnFB">🔗 <span data-i18n="fb_connect">Kết nối Facebook</span></button></div>
           <div class="p-sub" style="margin-top:6px" data-i18n="fb_note">Facebook tách riêng YouTube (không cùng Gmail). Kết nối 1 lần lấy hết Page bạn quản lý; đăng/lịch FB quản lý riêng tại đây.</div>
         </div>
+        <div id="fbConnBanner"></div>
         <div id="fbConnBulk" class="yt-bulk" style="display:none;margin-bottom:12px"></div>
         <div class="conn-grid" id="fbPages"></div>
 
@@ -2001,7 +2002,13 @@
       const fbG=(__OVERRIDES.fb_group)||{};
       const groups={}; __FBP.forEach(p=>{ const g=fbG[p.name]||p.fb_owner_id||"__none__"; (groups[g]=groups[g]||[]).push(p); });
       const order=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length);
-      $("fbPages").innerHTML=order.map(g=>{
+      window.__fbConnGroups=groups; window.__fbConnOrder=order;   // để "chọn cả nhóm" tra cứu
+      const sel=window.__fbConnSel||new Set();
+      const bn=$("fbConnBanner");
+      if(bn) bn.innerHTML=__FBP.length?`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <span class="p-sub">${__FBP.length} Page · ${order.filter(g=>g!=="__none__").length} nhóm</span><span style="flex:1;min-width:6px"></span>
+        <button class="btn-mini" onclick="fbConnSelectAll()">✓ Chọn tất cả ${__FBP.length} Page</button></div>`:"";
+      $("fbPages").innerHTML=order.map((g,gi)=>{
         const arr=groups[g], p0=arr[0];
         const isManual=fbG[p0.name]===g; const isRealUid=/^\d+$/.test(String(g));
         const gtag=isRealUid?`UID ${esc(String(g))}`:String(g).startsWith('biz_')?`Business ${esc(String(g).slice(4))}`:'nhóm kết nối';
@@ -2010,7 +2017,11 @@
           : isManual
             ? `👥 ${esc(g)} <span class="p-sub">· ${arr.length} Page</span>`
             : `👤 ${esc(p0.fb_owner_name||'Tài khoản Facebook')} <span class="p-sub">· ${gtag} · ${arr.length} Page</span>`;
-        return `<div class="hub-ghead">${head}</div>`+arr.map(fbCard).join("");
+        const allSel=arr.length>0 && arr.every(p=>sel.has(p.name));
+        return `<div class="hub-ghead" style="display:flex;align-items:center;gap:9px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer" title="Chọn/bỏ tất cả Page của nhóm này">
+            <input type="checkbox" class="fbc-chk" style="position:static;margin:0" ${allSel?'checked':''} onclick="fbConnSelectGroup(${gi},this.checked)">
+            <span>${head}</span></label></div>`+arr.map(fbCard).join("");
       }).join("");
       socFillPages();
       socLoadIgProfiles();
@@ -2829,6 +2840,11 @@
     window.__fbConnSel=new Set();
     window.fbConnToggle=(name,el)=>{ if(el.checked) window.__fbConnSel.add(name); else window.__fbConnSel.delete(name); renderFbConnBulk(); };
     window.fbConnClearSel=()=>{ window.__fbConnSel=new Set(); renderFacebook(); };
+    window.fbConnSelectGroup=(gi,check)=>{ const g=(window.__fbConnOrder||[])[gi]; const arr=(window.__fbConnGroups||{})[g]||[];
+      window.__fbConnSel=window.__fbConnSel||new Set();
+      arr.forEach(p=>{ if(check) window.__fbConnSel.add(p.name); else window.__fbConnSel.delete(p.name); });
+      renderFacebook(); };
+    window.fbConnSelectAll=()=>{ window.__fbConnSel=new Set((__FBP||[]).map(p=>p.name)); renderFacebook(); };
     window.renderFbConnBulk=()=>{ const bar=$("fbConnBulk"); if(!bar) return; const n=window.__fbConnSel.size;
       if(!n){ bar.style.display="none"; bar.innerHTML=""; return; }
       bar.style.display="flex"; bar.innerHTML=`<b>Đã chọn ${n} Page</b><span style="flex:1;min-width:6px"></span>
