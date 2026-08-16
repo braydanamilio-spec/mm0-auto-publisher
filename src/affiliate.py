@@ -20,6 +20,7 @@ cfg = settings/overrides__<uid>.affiliate:
 """
 from __future__ import annotations
 import random
+import re
 from urllib.parse import quote
 
 # Giới hạn độ dài caption/description mỗi nền tảng (để chèn link KHÔNG vỡ + link luôn còn).
@@ -70,10 +71,38 @@ def add_utm(url: str, source: str, campaign: str, content: str, on: bool = True)
     return url + sep + q
 
 
+def _as_pool(v) -> list:
+    """Chuẩn hoá về DANH SÁCH url — nhận list, hoặc chuỗi nhiều link (xuống dòng/dấu phẩy)."""
+    if isinstance(v, list):
+        return [str(x).strip() for x in v if str(x).strip()]
+    return [p.strip() for p in re.split(r"[\n,]+", str(v or "")) if p.strip()]
+
+
+def link_pool(cfg: dict, slug: str) -> list:
+    """DANH SÁCH link cho kênh/Page: pool RIÊNG của kênh (nếu có) > pool MẶC ĐỊNH (toàn cục).
+    Hỗ trợ cả kiểu cũ (1 link chuỗi) lẫn mới (nhiều link)."""
+    cfg = cfg or {}
+    links = cfg.get("links") or {}
+    own = _as_pool(links.get(slug))
+    if own:
+        return own
+    return _as_pool(cfg.get("default_urls")) or _as_pool(cfg.get("default_url"))
+
+
+def pick_url(pool: list, content_id: str) -> str:
+    """XOAY VÒNG: chọn 1 link trong pool theo seed content_id -> mỗi video 1 link cố định,
+    nhưng RẢI ĐỀU khác nhau giữa các video (đa dạng, chống spam link giống hệt)."""
+    if not pool:
+        return ""
+    if len(pool) == 1:
+        return pool[0]
+    return random.Random("url:" + str(content_id)).choice(pool)
+
+
 def link_for(cfg: dict, slug: str) -> str:
-    """Link riêng của kênh/Page (nếu có), nếu không lấy link mặc định."""
-    links = (cfg.get("links") or {}) if cfg else {}
-    return str(links.get(slug) or (cfg or {}).get("default_url") or "").strip()
+    """(giữ tương thích) — 1 link đầu của pool."""
+    pool = link_pool(cfg, slug)
+    return pool[0] if pool else ""
 
 
 def enabled_for(cfg: dict, platform: str) -> bool:
@@ -117,7 +146,7 @@ def apply(meta: dict, cfg: dict, platform: str, slug: str, content_id: str) -> s
     Trả về TEXT bình luận cần đăng sau (hoặc None). `meta` nên là BẢN SAO riêng từng nền tảng."""
     if not enabled_for(cfg, platform):
         return None
-    url0 = link_for(cfg, slug)
+    url0 = pick_url(link_pool(cfg, slug), content_id)   # XOAY VÒNG link theo video
     if not url0:
         return None
     vtype = meta.get("type", "long")

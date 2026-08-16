@@ -724,7 +724,7 @@
             <label style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer"><input type="checkbox" id="affEnabled" style="width:16px;height:16px"> Bật chèn link tự động</label></div>
           <div class="p-sub" style="margin:6px 0 12px;line-height:1.6">Chèn link ĐÚNG CHỖ từng nền tảng: YouTube + FB video dài → mô tả · FB Reels → bình luận ghim · Instagram → "link ở bio". Tự thêm <b>UTM</b> (đo hiệu suất, chống spam) + <b>khai báo tiếp thị</b> (đúng chính sách).</div>
           <div class="pubbar">
-            <label class="fld" style="grid-column:span 2"><span>Link mặc định (áp cho mọi kênh chưa đặt riêng)</span><input id="affUrl" type="url" placeholder="https://shopee.vn/... hoặc link rút gọn có thương hiệu"></label>
+            <label class="fld" style="grid-column:span 2"><span>Link mặc định <span class="p-sub">— mỗi dòng 1 link, nhiều link sẽ TỰ XOAY VÒNG ngẫu nhiên</span></span><textarea id="affUrl" rows="3" placeholder="https://shopee.vn/link1&#10;https://amzn.to/link2&#10;https://.../go/deal3" style="resize:vertical;font-family:var(--mono,monospace);font-size:12.5px"></textarea></label>
             <label class="fld"><span>Chữ CTA trước link <span class="p-sub">(trống = random mẫu USA)</span></span><input id="affCta" type="text" placeholder="trống để tự random 12 mẫu chuẩn USA"></label>
             <label class="fld"><span>Dòng khai báo tiếp thị</span><input id="affDisc" type="text" placeholder="Tiếp thị liên kết · có thể nhận hoa hồng #ad" value="Tiếp thị liên kết · có thể nhận hoa hồng #ad"></label>
             <label class="fld"><span>📍 Vị trí chèn link</span><select id="affPlace"><option value="bottom">Cuối mô tả (khuyến nghị)</option><option value="top">Đầu mô tả</option></select></label>
@@ -746,7 +746,7 @@
             <button class="btn-conn" onclick="affSave()">💾 Lưu cấu hình affiliate</button>
             <span class="p-sub" id="affMsg"></span>
           </div>
-          <div class="p-sub" style="margin-top:10px;line-height:1.6">🛡️ <b>Chống spam / đúng điều khoản (tự động):</b> CTA <b>random mỗi bài</b> + UTM <b>khác nhau mỗi bài</b> → không bị coi là "spam link giống hệt hàng loạt"; tự thêm <b>khai báo tiếp thị</b>; <b>1 link/bài</b>; đã có <b>giãn cách jitter + trần bài/lần chạy</b>. Anh chỉ cần đặt link 1 lần — hệ tự biến hoá để an toàn.</div>
+          <div class="p-sub" style="margin-top:10px;line-height:1.6">🛡️ <b>Chống spam / đúng điều khoản (tự động):</b> <b>xoay vòng nhiều link</b> + CTA <b>random mỗi bài</b> + UTM <b>khác nhau mỗi bài</b> → không bị coi là "spam link giống hệt hàng loạt"; tự thêm <b>khai báo tiếp thị</b>; <b>1 link/bài</b>; đã có <b>giãn cách jitter + trần bài/lần chạy</b>. Anh đặt link 1 lần — hệ tự biến hoá để an toàn.</div>
           <div class="p-sub" style="margin-top:6px;line-height:1.6">⚠️ <b>Instagram không thể chèn link click qua API</b> (giới hạn Meta) — chỉ ghi "link ở bio", anh tự đặt link-in-bio. <b>Gắn sản phẩm/tag</b> trên Reels cần Facebook Shop + quyền Commerce (không tự động được). Nên dùng <b>link rút gọn thương hiệu</b> ở dưới (không bit.ly trần) để không bị giảm reach.</div>
         </div>
         <div class="panel" style="margin-top:16px" id="fbmPanel">
@@ -3684,7 +3684,7 @@
     window.affLoad=()=>{ const a=(__OVERRIDES.affiliate)||{}; const p=a.platforms||{};
       const set=(id,v)=>{ const e=$(id); if(e) e.value=v; };
       const chk=(id,v)=>{ const e=$(id); if(e) e.checked=!!v; };
-      chk("affEnabled",a.enabled); set("affUrl",a.default_url||""); if(a.cta_text!=null) set("affCta",a.cta_text); if(a.disclosure!=null) set("affDisc",a.disclosure);
+      chk("affEnabled",a.enabled); set("affUrl", Array.isArray(a.default_urls)?a.default_urls.join("\n"):(a.default_url||"")); if(a.cta_text!=null) set("affCta",a.cta_text); if(a.disclosure!=null) set("affDisc",a.disclosure);
       set("affPlace",a.placement||"bottom");
       chk("affYt",p.youtube!==false); chk("affFb",p.facebook!==false); chk("affIg",p.instagram!==false);
       chk("affUtm",a.utm!==false); chk("affComment",a.auto_comment!==false);
@@ -3695,19 +3695,23 @@
       const yt=connectedYT().map(k=>({slug:k,name:chName(k),ico:"📺"}));
       const fb=(__FBP||[]).map(p=>({slug:p.name,name:(p.page_name||p.name),ico:"📘"}));
       const rows=[...yt,...fb];
-      box.innerHTML=rows.length?`<div class="p-sub" style="margin-bottom:6px">Để trống = dùng link mặc định. Điền = link riêng kênh/Page đó.</div>`+
+      const val=(v)=>Array.isArray(v)?v.join(", "):(v||"");
+      box.innerHTML=rows.length?`<div class="p-sub" style="margin-bottom:6px">Để trống = dùng pool mặc định. Điền = link riêng kênh/Page (<b>nhiều link cách nhau dấu phẩy → tự xoay vòng</b>).</div>`+
         rows.map(r=>`<div class="svc"><div class="snm" style="min-width:0">${r.ico} ${esc(r.name)}</div>
-          <input class="set-sel" style="flex:1;min-width:120px" placeholder="link mặc định" value="${esc(links[r.slug]||'')}" oninput="(window.__affLinks=window.__affLinks||{})['${esc(r.slug)}']=this.value.trim()"></div>`).join("")
+          <input class="set-sel" style="flex:1;min-width:120px" placeholder="dùng pool mặc định · link1, link2 (xoay vòng)" value="${esc(val(links[r.slug]))}" oninput="(window.__affLinks=window.__affLinks||{})['${esc(r.slug)}']=this.value.trim()"></div>`).join("")
         :`<div class="p-sub">Chưa có kênh/Page.</div>`;
       box.style.display=""; };
     window.affSave=async()=>{ const g=id=>($(id)||{}).value||""; const c=id=>!!($(id)||{}).checked;
-      const links={}; const src=window.__affLinks||{}; Object.keys(src).forEach(k=>{ if((src[k]||"").trim()) links[k]=src[k].trim(); });
-      const cfg={ enabled:c("affEnabled"), default_url:g("affUrl").trim(), cta_text:g("affCta"), disclosure:g("affDisc"),
+      const splitLinks=(s)=>String(s||"").split(/[\n,]+/).map(x=>x.trim()).filter(Boolean);
+      const links={}; const src=window.__affLinks||{}; Object.keys(src).forEach(k=>{ const arr=splitLinks(src[k]); if(arr.length) links[k]=arr; });
+      const defUrls=splitLinks(g("affUrl"));
+      const cfg={ enabled:c("affEnabled"), default_urls:defUrls, default_url:defUrls[0]||"", cta_text:g("affCta"), disclosure:g("affDisc"),
         placement:g("affPlace")||"bottom", utm:c("affUtm"), auto_comment:c("affComment"),
         platforms:{youtube:c("affYt"),facebook:c("affFb"),instagram:c("affIg")}, links };
       const msg=$("affMsg");
-      if(cfg.enabled && !cfg.default_url && !Object.keys(links).length){ if(msg){msg.style.color="var(--bad)";msg.textContent="Nhập link mặc định hoặc link riêng ít nhất 1 kênh.";} return; }
-      try{ await window.__setOverridesDoc({affiliate:cfg}); if(msg){msg.style.color="var(--good)";msg.textContent="✔ Đã lưu — áp dụng lần đăng tới.";} toastMsg("✔ Đã lưu cấu hình affiliate"); }
+      if(cfg.enabled && !defUrls.length && !Object.keys(links).length){ if(msg){msg.style.color="var(--bad)";msg.textContent="Nhập ít nhất 1 link (mặc định hoặc riêng kênh).";} return; }
+      const nLinks=defUrls.length+Object.values(links).reduce((a,v)=>a+v.length,0);
+      try{ await window.__setOverridesDoc({affiliate:cfg}); if(msg){msg.style.color="var(--good)";msg.textContent=`✔ Đã lưu ${nLinks} link${nLinks>1?' — sẽ TỰ XOAY VÒNG mỗi bài':''}. Áp dụng lần đăng tới.`;} toastMsg("✔ Đã lưu cấu hình affiliate"); }
       catch(e){ if(msg){msg.style.color="var(--bad)";msg.textContent="❌ "+e.message;} } };
 
     /* ===== PHƯƠNG ÁN 2: METADATA DỰ PHÒNG (preview client-side minh hoạ) ===== */
