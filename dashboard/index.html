@@ -823,6 +823,10 @@
               <option value="America/New_York">🇺🇸 US Eastern (ET) — giờ vàng Mỹ</option>
               <option value="America/Los_Angeles">🇺🇸 US Pacific (PT)</option>
               <option value="America/Chicago">🇺🇸 US Central (CT)</option>
+              <option value="Europe/London">🇬🇧 UK (London, GMT/BST)</option>
+              <option value="Europe/Paris">🇪🇺 EU Trung Âu (CET — Paris/Berlin/Madrid/Rome)</option>
+              <option value="Europe/Berlin">🇩🇪 EU Đức (Berlin, CET)</option>
+              <option value="Europe/Athens">🇪🇺 EU Đông Âu (EET — Athens/Helsinki)</option>
               <option value="Asia/Ho_Chi_Minh">🇻🇳 Việt Nam (ICT)</option>
               <option value="UTC">UTC</option>
             </select></label>
@@ -863,7 +867,17 @@
               <label class="fld"><span>Bài / ngày</span><input id="fbBulkPer" type="number" min="1" max="20" value="3" oninput="fbBulkPreview()"></label>
               <label class="fld"><span>Ngày bắt đầu</span><input id="fbBulkStart" type="date" oninput="fbBulkPreview()"></label>
               <label class="fld"><span>🎲 Lệch ± phút</span><input id="fbBulkJitter" type="number" min="0" max="120" value="15" title="Lệch giờ ngẫu nhiên để tránh dồn nhiều Page cùng 1 phút"></label>
-              <label class="fld" style="grid-column:span 2"><span>Khung giờ (giờ VN) — cách nhau dấu phẩy</span><input id="fbBulkTimes" type="text" value="09:00, 12:00, 20:00" oninput="fbBulkPreview()"></label>
+              <label class="fld"><span>🌐 Múi giờ</span><select id="fbBulkTz">
+                <option value="Asia/Ho_Chi_Minh">🇻🇳 Việt Nam</option>
+                <option value="America/New_York">🇺🇸 US Eastern</option>
+                <option value="America/Los_Angeles">🇺🇸 US Pacific</option>
+                <option value="Europe/London">🇬🇧 UK</option>
+                <option value="Europe/Paris">🇪🇺 EU Trung Âu (CET)</option>
+                <option value="Europe/Berlin">🇩🇪 EU Đức</option>
+                <option value="Europe/Athens">🇪🇺 EU Đông Âu</option>
+                <option value="UTC">UTC</option>
+              </select></label>
+              <label class="fld" style="grid-column:span 2"><span>Khung giờ (theo múi giờ đã chọn) — cách nhau dấu phẩy</span><input id="fbBulkTimes" type="text" value="09:00, 12:00, 20:00" oninput="fbBulkPreview()"></label>
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
               <button class="btn-conn" onclick="fbBulkSpread()">📅 Rải lại lịch hàng đợi</button>
@@ -2384,16 +2398,22 @@
       }catch(e){ $("stBulkMsg").innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ btn.disabled=false; }
     };
     /* ===== GÓI GIỜ ĐĂNG (preset dùng chung YouTube + FB/IG) ===== */
+    // tz gợi ý: chọn gói -> tự set luôn múi giờ tương ứng (nếu có ô timezone)
     window.MM0_TIMEPACKS=[
-      {label:"🇻🇳 Giờ vàng VN", times:"09:00, 12:00, 20:00"},
-      {label:"🇻🇳 VN dày (4)", times:"07:00, 12:00, 18:00, 21:00"},
-      {label:"🇺🇸 Giờ vàng US ET", times:"12:00, 15:00, 18:00, 21:00"},
-      {label:"🇺🇸 US Pacific", times:"09:00, 12:00, 17:00, 20:00"},
-      {label:"🌍 Rải đều 24h", times:"00:00, 06:00, 12:00, 18:00"},
+      {label:"🇻🇳 Giờ vàng VN", times:"09:00, 12:00, 20:00", tz:"Asia/Ho_Chi_Minh"},
+      {label:"🇻🇳 VN dày (4)", times:"07:00, 12:00, 18:00, 21:00", tz:"Asia/Ho_Chi_Minh"},
+      {label:"🇺🇸 Giờ vàng US ET", times:"12:00, 15:00, 18:00, 21:00", tz:"America/New_York"},
+      {label:"🇺🇸 US Pacific", times:"09:00, 12:00, 17:00, 20:00", tz:"America/Los_Angeles"},
+      {label:"🇪🇺 Giờ vàng EU (CET)", times:"12:00, 18:00, 20:00, 21:00", tz:"Europe/Paris"},
+      {label:"🇬🇧 Giờ vàng UK", times:"12:00, 17:00, 19:00, 21:00", tz:"Europe/London"},
+      {label:"🇩🇪 EU dày (5)", times:"08:00, 12:00, 17:00, 20:00, 22:00", tz:"Europe/Berlin"},
+      {label:"🌍 Rải đều 24h", times:"00:00, 06:00, 12:00, 18:00", tz:"UTC"},
     ];
-    window.renderTimePacks=(containerId,inputId,previewFn)=>{ const c=$(containerId); if(!c) return;
-      c.innerHTML=MM0_TIMEPACKS.map((p,i)=>`<button type="button" class="btn-mini" style="border-radius:20px" onclick="applyTimePack('${inputId}',${i}${previewFn?",'"+previewFn+"'":""})">${p.label}</button>`).join(""); };
-    window.applyTimePack=(inputId,i,previewFn)=>{ const p=MM0_TIMEPACKS[i], el=$(inputId); if(p&&el){ el.value=p.times; if(previewFn&&window[previewFn]) window[previewFn](); toastMsg("⚡ Gói: "+p.label); } };
+    window.renderTimePacks=(containerId,inputId,previewFn,tzSelId)=>{ const c=$(containerId); if(!c) return;
+      c.innerHTML=MM0_TIMEPACKS.map((p,i)=>`<button type="button" class="btn-mini" style="border-radius:20px" onclick="applyTimePack('${inputId}',${i}${previewFn?",'"+previewFn+"'":",''"}${tzSelId?",'"+tzSelId+"'":""})">${p.label}</button>`).join(""); };
+    window.applyTimePack=(inputId,i,previewFn,tzSelId)=>{ const p=MM0_TIMEPACKS[i], el=$(inputId); if(p&&el){ el.value=p.times;
+      if(tzSelId){ const tz=$(tzSelId); if(tz&&p.tz&&[...tz.options].some(o=>o.value===p.tz)) tz.value=p.tz; }
+      if(previewFn&&window[previewFn]) window[previewFn](); toastMsg("⚡ Gói: "+p.label+(p.tz?" · "+p.tz.split('/').pop():"")); } };
 
     /* ===== RẢI LỊCH FB/IG trên tab Publish (rải lại hàng đợi đang chờ) ===== */
     window.fillFbBulkPage=()=>{ const sel=$("fbBulkPage"); if(!sel) return; const keep=sel.value; const pages=__FBP||[];
@@ -2415,9 +2435,10 @@
       if(!items.length){ msg.innerHTML='<span style="color:var(--warn)">Không có bài đang chờ để rải lại. Chọn video từ Drive ở Storage trước.</span>'; return; }
       if(!confirm(`Rải lại giờ cho ${items.length} bài đang chờ${page?' của Page này':''}?`)) return;
       const jit=Math.max(0,+($("fbBulkJitter")||{}).value||0);
+      const tz=($("fbBulkTz")||{}).value||"Asia/Ho_Chi_Minh";
       const [Y,Mo,D]=start.split("-").map(Number); if(btn) btn.disabled=true; msg.textContent="Đang rải lại…"; let n=0;
       try{ for(let i=0;i<items.length;i++){ const day=Math.floor(i/per), slot=i%per; const [hh,mm]=(times[slot%times.length]).split(":").map(Number);
-          const dt=new Date(zonedTimeToUtc(Y,Mo,D+day,hh||9,mm||0,"Asia/Ho_Chi_Minh").getTime()+jitMs(jit));
+          const dt=new Date(zonedTimeToUtc(Y,Mo,D+day,hh||9,mm||0,tz).getTime()+jitMs(jit));
           await window.__socQueueUpd(items[i].id,{publish_at:dt.toISOString(), status:"pending"}); n++; }
         toastMsg(`✔ Đã rải lại ${n} bài`); msg.textContent=`✅ Xong ${n} bài`; fbBulkPreview();
       }catch(e){ msg.innerHTML=`<span style="color:var(--bad)">❌ ${esc(e.message)}</span>`; } finally{ if(btn) btn.disabled=false; } };
@@ -2683,7 +2704,7 @@
       if($("loadYtVids"))$("loadYtVids").onclick=window.loadYtVids;
       if($("ovSyncBtn"))$("ovSyncBtn").onclick=window.ovSyncReal;
       moveSocialPanels();
-      if(window.renderTimePacks){ renderTimePacks("ytTimePacks","pubTimes"); renderTimePacks("fbTimePacks","fbBulkTimes","fbBulkPreview"); }
+      if(window.renderTimePacks){ renderTimePacks("ytTimePacks","pubTimes","","pubTz"); renderTimePacks("fbTimePacks","fbBulkTimes","fbBulkPreview","fbBulkTz"); }
       if($("fbBulkStart")) $("fbBulkStart").value=new Date().toISOString().slice(0,10);
       if(window.fillFbBulkPage) fillFbBulkPage();
       setPlat(window.__plat||'yt');
