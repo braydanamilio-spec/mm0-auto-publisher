@@ -2945,12 +2945,73 @@
         window.__fb.stack=[{id:null,name:"My Drive"},{id:rid,name:"MM0-STORE"},{id:q.id,name:"_QUEUE"}];
         fbRender(r2.files||[]); toastMsg("📂 Đang xem _QUEUE — bấm long/short để thấy video, mỗi video có nút Xoá");
       }catch(e){ toastMsg("❌ "+((e&&e.message)||e)); } };
+    /* ===== IMPORT từ Drive: quét folder -> UPLOAD.md/thumbnail/srt -> yt_queue (đăng đủ metadata) ===== */
+    async function fbCollectVideos(acct, folderId, depth, out){ if(depth>4||out.length>=300) return out;
+      let d; try{ d=await workerApi(`/api/files?account=${encodeURIComponent(acct)}&folder=${encodeURIComponent(folderId)}`); }catch(_){ return out; }
+      const files=d.files||[];
+      files.filter(f=>/\.(mp4|mov|mkv|webm|m4v)$/i.test(f.name)).forEach(v=>out.push({video:v, siblings:files}));
+      for(const s of files.filter(f=>f.mimeType===FOLDER_MIME)){ if(out.length>=300) break; await fbCollectVideos(acct, s.id, depth+1, out); }
+      return out; }
+    function fbImpGuessType(text,name){ const m=/(\d{3,4})\s*[×x]\s*(\d{3,4})/.exec(text||""); if(m&&+m[2]>+m[1]) return "short";
+      if(/#shorts\b/i.test(text||"")||/(^|[\/_-])(short|shorts|reel|reels)([\/_-]|$)/i.test(name||"")) return "short"; return "long"; }
+    async function fbImpParse(acct, entry){ const files=entry.siblings, v=entry.video, base=v.name.replace(/\.[^.]+$/,'');
+      const metaF=files.find(f=>f.name.replace(/\.[^.]+$/,'')===base && /\.(json|txt|md)$/i.test(f.name)) || files.find(f=>/^(upload|publish)\.(md|txt)$/i.test(f.name));
+      const imgs=files.filter(f=>/\.(jpe?g|png|webp)$/i.test(f.name));
+      const thumbF=imgs.find(f=>/-(thumb|mb)\.(jpe?g|png|webp)$/i.test(f.name))||imgs.find(f=>!/-(mb-)?[a-c]\.(jpe?g|png|webp)$/i.test(f.name))||imgs[0];
+      const srtF=files.find(f=>f.name.replace(/\.[^.]+$/,'')===base && /\.srt$/i.test(f.name))||files.find(f=>/\.srt$/i.test(f.name));
+      let meta={}, raw="";
+      if(metaF){ try{ const c=await workerApi(`/api/file-content?account=${encodeURIComponent(acct)}&fileId=${encodeURIComponent(metaF.id)}`); raw=c.text||"";
+        if(/\.json$/i.test(metaF.name)){ try{ const j=JSON.parse(raw); meta={title:j.title,description:j.description||j.desc,hashtags:j.hashtags||[],tags:j.tags||[]}; }catch(_){} }
+        else if(/##\s*(title|description)/i.test(raw)) meta=parseUploadMd(raw);
+        else { const L=raw.split(/\r?\n/); meta={title:(L[0]||"").replace(/^#+\s*/,"").trim(), description:L.slice(1).join("\n").trim(), hashtags:(raw.match(/#[\w]+/g)||[])}; }
+      }catch(_){} }
+      return { video:v, type:fbImpGuessType(raw,v.name), title:meta.title||v.name.replace(/\.[^.]+$/,''), description:meta.description||"", hashtags:meta.hashtags||[], tags:meta.tags||[], thumbF, srtF, hasMeta:!!metaF }; }
+    window.fbImport=async()=>{ const acct=window.__fb&&window.__fb.account; const cur=(window.__fb.stack||[]).slice(-1)[0];
+      if(!acct||!cur||!cur.id){ toastMsg("Mở 1 thư mục trong kho trước"); return; }
+      if(!connectedYT().length){ toastMsg("Chưa có kênh YouTube kết nối"); return; }
+      toastMsg("📥 Đang quét + đọc metadata…");
+      const entries=await fbCollectVideos(acct, cur.id, 0, []);
+      if(!entries.length){ toastMsg("Không thấy video trong thư mục này"); return; }
+      const plan=[]; for(const e of entries) plan.push(await fbImpParse(acct, e));
+      window.__fbImpPlan=plan; window.__fbImpAcct=acct; fbImpModal(plan); };
+    function fbImpModal(plan){ const nMeta=plan.filter(p=>p.hasMeta).length, nT=plan.filter(p=>p.thumbF).length, nS=plan.filter(p=>p.srtF).length; const chans=connectedYT();
+      const back=document.createElement("div"); back.className="modal-back";
+      back.innerHTML=`<div class="modal-card" style="max-width:760px"><div class="modal-head"><b>📥 Import ${plan.length} video từ Drive</b><button class="modal-x" onclick="this.closest('.modal-back').remove()">✕</button></div>
+        <div class="modal-body"><div class="p-sub" style="margin-bottom:8px">✅ Nhận diện: <b>${nMeta}</b> mô tả · <b>${nT}</b> thumbnail · <b>${nS}</b> phụ đề</div>
+          <div class="pubbar"><label class="fld"><span>📺 Kênh đích</span><select id="fbImpCh">${chans.map(k=>`<option value="${esc(k)}">${esc(chName(k))}</option>`).join("")}</select></label>
+            <label class="fld"><span>Bài / ngày</span><input id="fbImpPer" type="number" min="1" max="20" value="3"></label>
+            <label class="fld"><span>Ngày bắt đầu</span><input id="fbImpStart" type="date" value="${new Date().toISOString().slice(0,10)}"></label>
+            <label class="fld"><span>Múi giờ</span><select id="fbImpTz"><option value="America/New_York">🇺🇸 US ET</option><option value="Europe/Paris">🇪🇺 EU</option><option value="Asia/Ho_Chi_Minh">🇻🇳 VN</option><option value="UTC">UTC</option></select></label>
+            <label class="fld" style="grid-column:span 2"><span>Khung giờ</span><input id="fbImpTimes" type="text" value="12:00, 15:00, 18:00, 21:00"></label></div>
+          <div class="p-sub" style="margin:10px 0 4px">Xem trước (đã hiểu cấu trúc):</div>
+          <div style="max-height:220px;overflow:auto;border:1px solid var(--border);border-radius:8px"><div class="scroll-x"><table class="yt-table"><thead><tr><th>Tiêu đề</th><th>Loại</th><th>Thumb</th><th>Sub</th></tr></thead><tbody>
+            ${plan.slice(0,40).map(p=>`<tr><td><span class="nm" title="${esc(p.title)}">${esc(p.title)}</span></td><td><span class="tag2">${p.type}</span></td><td>${p.thumbF?'✅':'—'}</td><td>${p.srtF?'✅':'—'}</td></tr>`).join("")}${plan.length>40?`<tr><td colspan="4" class="p-sub">+${plan.length-40} video…</td></tr>`:''}</tbody></table></div></div>
+          <div id="fbImpMsg" class="p-sub" style="margin-top:8px"></div></div>
+        <div class="modal-foot"><span class="p-sub">Tạo hàng đợi Content Hub · cron tự đăng đủ metadata</span><span style="flex:1"></span>
+          <button class="btn-mini" onclick="this.closest('.modal-back').remove()">Huỷ</button>
+          <button class="btn-conn" onclick="fbImpConfirm(this)">📥 Import ${plan.length} video</button></div></div>`;
+      document.body.appendChild(back); }
+    window.fbImpConfirm=async(btn)=>{ const plan=window.__fbImpPlan||[], acct=window.__fbImpAcct; if(!plan.length) return;
+      const ch=($("fbImpCh")||{}).value; if(!ch){ toastMsg("Chọn kênh"); return; }
+      const per=Math.max(1,+($("fbImpPer")||{}).value||3);
+      const times=(($("fbImpTimes")||{}).value||"").split(",").map(s=>s.trim()).filter(s=>/\d/.test(s));
+      const tz=($("fbImpTz")||{}).value||"America/New_York"; const start=($("fbImpStart")||{}).value||new Date().toISOString().slice(0,10); const [Y,Mo,D]=start.split("-").map(Number);
+      const msg=$("fbImpMsg"); btn.disabled=true; let ok=0;
+      for(let i=0;i<plan.length;i++){ const p=plan[i]; const day=Math.floor(i/per), slot=i%per; const [hh,mm]=(times[slot%times.length]||"12:00").split(":").map(Number);
+        const dt=new Date(zonedTimeToUtc(Y,Mo,D+day,hh||12,mm||0,tz).getTime()+jitMs(15));
+        try{ await window.__ytQueueAdd({ channel:ch, drive_file_id:p.video.id, drive_name:p.video.name, drive_account:acct,
+          title:p.title, description:p.description, hashtags:p.hashtags, tags:p.tags, type:p.type,
+          thumbnail_file_id:p.thumbF?p.thumbF.id:"", caption_file_id:p.srtF?p.srtF.id:"",
+          privacy:"public", made_for_kids:false, publish_at:dt.toISOString() }); ok++; }catch(_){}
+        if(msg) msg.textContent=`Đang tạo… ${ok}/${plan.length}`; }
+      toastMsg(`✅ Đã import ${ok} video vào Content Hub (Publish)`); const b=btn.closest(".modal-back"); if(b) b.remove(); };
     const FOLDER_MIME="application/vnd.google-apps.folder";
     function fbRender(files){
       window.__fb.files=files;
       const cur=(window.__fb.stack||[]).slice(-1)[0];
       $("fbBread").innerHTML=window.__fb.stack.map((s,i)=>`<span class="fb-crumb" onclick="fbCrumb(${i})">${esc(s.name)}</span>`).join('<span class="fb-sep">/</span>')
-        + `<button class="mini" style="margin-left:auto" onclick="fbGotoQueue()" title="Nhảy tới _QUEUE — nơi chứa video anh upload qua panel">📂 Video đã upload</button>`
+        + `<button class="mini" style="margin-left:auto;color:var(--good);border-color:var(--good)" onclick="fbImport()" title="Quét folder này -> tự đọc UPLOAD.md + thumbnail + srt -> tạo hàng đợi đăng">📥 Import (nhận metadata)</button>`
+        + `<button class="mini" onclick="fbGotoQueue()" title="Nhảy tới _QUEUE — nơi chứa video anh upload qua panel">📂 Video đã upload</button>`
         + `<label class="mini" style="cursor:pointer" title="Tải video vào thư mục này">⬆️ Tải vào đây<input type="file" accept="video/*" multiple style="display:none" onchange="fbUploadHere(this.files);this.value=''"></label>`
         + `<button class="mini" onclick="fbRefresh()">↻</button>`;
       // Kéo-thả video vào danh sách file -> tải THẲNG vào thư mục hiện tại (check trùng)

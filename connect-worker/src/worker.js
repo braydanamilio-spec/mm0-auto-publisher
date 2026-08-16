@@ -32,6 +32,7 @@ export default {
       if (url.pathname === "/api/disconnect") return corsResp(await apiDisconnect(request, url, env));
       if (url.pathname === "/api/files") return corsResp(await apiFiles(request, url, env));
       if (url.pathname === "/api/file-action") return corsResp(await apiFileAction(request, url, env));
+      if (url.pathname === "/api/file-content") return corsResp(await apiFileContent(request, url, env));
       if (url.pathname === "/api/token-check") return corsResp(await apiTokenCheck(request, url, env));
       if (url.pathname === "/api/upload-init") return corsResp(await apiUploadInit(request, url, env));
       if (url.pathname === "/api/upload-chunk") return corsResp(await apiUploadChunk(request, url, env));
@@ -735,6 +736,20 @@ async function driveChildFolder(dat, parent, name, create = true) {
   const cj = await c.json();
   if (!c.ok) throw new Error("Tạo folder lỗi: " + ((cj.error && cj.error.message) || c.status));
   return cj.id;
+}
+
+// GET /api/file-content?account=&fileId= -> đọc NỘI DUNG text 1 file Drive (UPLOAD.md/json/srt) để parse metadata.
+async function apiFileContent(request, url, env) {
+  const t = url.searchParams.get("t"), account = url.searchParams.get("account"), fileId = url.searchParams.get("fileId");
+  const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
+  if (!uid) throw new Error("Chưa đăng nhập.");
+  if (!account || !fileId) throw new Error("Thiếu account/fileId.");
+  const { dat } = await driveCtx(env, uid, account);
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`,
+    { headers: { Authorization: `Bearer ${dat}` } });
+  if (!r.ok) throw new Error("Đọc file lỗi " + r.status);
+  const text = (await r.text()).slice(0, 80000);   // chỉ file text nhỏ (<=80KB)
+  return json({ ok: true, text });
 }
 
 // POST /api/upload-init {t,account,type(long|short),name,mimeType,size}

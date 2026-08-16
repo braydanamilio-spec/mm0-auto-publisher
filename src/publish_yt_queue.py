@@ -116,14 +116,31 @@ def run(dry_run: bool = False):
                  "refresh_token": conn["refresh_token"]}
         safe_name = "".join(c if (c.isalnum() or c in "._-") else "_" for c in (it.get("drive_name") or (fid + ".mp4")))
         tmp = os.path.join(tempfile.gettempdir(), safe_name)
+        thumb_tmp = None
+        caption_specs = []
         attempts = it.get("attempts", 0) + 1
         try:
             drv = ST.Drive.from_oauth({"client_id": dc["client_id"], "client_secret": dc["client_secret"],
                                        "refresh_token": dc["refresh_token"]})
             drv.download(fid, tmp)
+            # THUMBNAIL có sẵn (import từ Drive) -> tải + đặt làm thumbnail YouTube
+            if it.get("thumbnail_file_id"):
+                try:
+                    thumb_tmp = os.path.join(tempfile.gettempdir(), "thumb_" + safe_name + ".jpg")
+                    drv.download(it["thumbnail_file_id"], thumb_tmp)
+                except Exception as e:
+                    print(f"     ⚠️ thumbnail: {e}"); thumb_tmp = None
+            # PHỤ ĐỀ .srt có sẵn -> tải + up caption (khỏi để YouTube tự tạo)
+            if it.get("caption_file_id"):
+                try:
+                    cpath = os.path.join(tempfile.gettempdir(), "cap_" + safe_name + ".srt")
+                    drv.download(it["caption_file_id"], cpath)
+                    caption_specs.append({"path": cpath, "language": it.get("caption_lang", "en"), "name": "English"})
+                except Exception as e:
+                    print(f"     ⚠️ caption: {e}")
             # publish_at native chỉ khi private + có giờ tương lai (YT tự công khai đúng giờ)
             sched = it.get("publish_at") if ytc["privacy"] == "private" else None
-            r = YT.upload(tmp, meta, ytc, creds, sched)
+            r = YT.upload(tmp, meta, ytc, creds, sched, thumbnail_path=thumb_tmp, captions=caption_specs)
             results["youtube"] = r
             if aff_comment and r.get("id"):
                 try:
@@ -149,11 +166,12 @@ def run(dry_run: bool = False):
             state.update_yt_queue(it["id"], {"status": status, "error": str(e), "attempts": attempts})
             print(f"     ❌ YouTube lỗi: {e}")
         finally:
-            try:
-                if os.path.exists(tmp):
-                    os.remove(tmp)
-            except Exception:
-                pass
+            for p in [tmp, thumb_tmp] + [c["path"] for c in caption_specs]:
+                try:
+                    if p and os.path.exists(p):
+                        os.remove(p)
+                except Exception:
+                    pass
     print("✔ yt_queue xong.")
 
 
