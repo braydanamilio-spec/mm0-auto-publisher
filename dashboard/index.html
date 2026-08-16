@@ -512,7 +512,12 @@
           <div id="pubPreview"></div>
         </div>
         <div class="panel">
-          <div class="p-head"><div class="p-title">📋 <span data-i18n="pub_queue">Queue (not posted yet)</span></div><div class="p-sub" id="pubCount"></div></div>
+          <div class="p-head"><div class="p-title">📋 <span data-i18n="pub_queue">Queue (not posted yet)</span></div>
+            <div style="display:flex;gap:10px;align-items:center">
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;color:var(--warn)">
+                <input type="checkbox" id="pubOnlyIssues" style="width:15px;height:15px;cursor:pointer"> ⚠ Chỉ video cần bổ sung</label>
+              <span class="p-sub" id="pubCount"></span>
+            </div></div>
           <div id="pubList"></div>
         </div>
       </section>
@@ -547,6 +552,8 @@
         @media(max-width:560px){.prev-ch{display:none}}
         /* Editor video (mô phỏng upload YouTube) */
         .pub-item{border-bottom:1px solid var(--border2)}
+        .pub-item.has-issue{border-left:3px solid var(--warn);background:linear-gradient(90deg,var(--warn-soft),transparent 60%)}
+        .pub-item.has-issue .pub-row{padding-left:8px}
         .pub-editor{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;margin:4px 0 12px;display:flex;flex-direction:column;gap:12px}
         .pub-editor .fld{display:flex;flex-direction:column;gap:5px;font-size:12.5px;font-weight:600;color:var(--muted)}
         .pub-editor .fld.full{grid-column:1/-1}
@@ -1085,6 +1092,7 @@
       if($("pubAllNow"))$("pubAllNow").onclick=window.pubAllNow;
       if($("pubTz"))$("pubTz").onchange=renderPublish;
       if($("pubChannel"))$("pubChannel").onchange=renderPublish;
+      if($("pubOnlyIssues"))$("pubOnlyIssues").onchange=renderPublish;
       if($("connSearch"))$("connSearch").oninput=renderConnections;
       if($("connCollapse"))$("connCollapse").onclick=()=>{ const s=window.__collapsedGmail=window.__collapsedGmail||new Set();
         new Set(Object.values(C()).map(c=>c.email||"__none")).forEach(e=>s.add(e)); renderConnections(); };
@@ -1446,14 +1454,17 @@
         sel.innerHTML=`<option value="">${t("pub_all_ch")}</option>`+allChannels().map(k=>`<option value="${esc(k)}">${esc(chName(k))}</option>`).join("");
         sel.value=keep; }
       const st=$("pubStart"); if(st && !st.value){ const d=new Date(); st.value=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
-      const rows=V().filter(notPosted).sort((a,b)=>(a.publish_at||"").localeCompare(b.publish_at||""));
-      $("pubCount").textContent=rows.length+" video";
+      let rows=V().filter(notPosted).sort((a,b)=>(a.publish_at||"").localeCompare(b.publish_at||""));
+      const onlyIssues=$("pubOnlyIssues")&&$("pubOnlyIssues").checked;
+      if(onlyIssues) rows=rows.filter(v=>vIssues(v).length>0);
+      const nIssue=V().filter(notPosted).filter(v=>vIssues(v).length>0).length;
+      $("pubCount").innerHTML=rows.length+" video"+(nIssue?` · <span style="color:var(--warn);font-weight:700">⚠ ${nIssue} cần bổ sung</span>`:"");
       // Gợi ý: múi giờ đang chọn + số long/short trong hàng đợi (theo kênh đang lọc)
       const chSel=sel?sel.value:"", tzSel=($("pubTz")&&$("pubTz").value)||"America/New_York";
       const scope=chSel?rows.filter(v=>v.channel===chSel):rows;
       const nLong=scope.filter(v=>v.type==="long").length, nShort=scope.filter(v=>v.type!=="long"&&v.type).length;
       if($("pubHint")) $("pubHint").innerHTML=`🕐 Giờ đăng tính theo múi giờ <b>${esc(tzSel)}</b> · hàng đợi${chSel?" ("+esc(chName(chSel))+")":""}: <b>${nLong}</b> long · <b>${nShort}</b> short`;
-      if(!rows.length){ $("pubList").innerHTML=emptyBox(t("pub_empty")); return; }
+      if(!rows.length){ $("pubList").innerHTML=emptyBox(onlyIssues?"🎉 Không video nào thiếu — tất cả sẵn sàng đăng!":t("pub_empty")); return; }
       // Cảnh báo trước khi đăng: đếm video thiếu thumbnail/mô tả/hashtag (vẫn đăng được, chỉ nhắc)
       const miss={thumb:0,desc:0,hash:0};
       rows.forEach(v=>{ if(v.checks){ if(!v.checks.thumb)miss.thumb++; if(!v.checks.desc)miss.desc++; if(!v.checks.hashtags)miss.hash++; }});
@@ -1463,8 +1474,8 @@
       $("pubList").innerHTML=banner+rows.map(v=>{
         const col=chColor(v.channel);
         const iss=vIssues(v);
-        const warn=iss.length?`· <span class="tag2 warn" title="${esc(iss.join(' · '))}">⚠ ${iss.length}</span>`:"";
-        return `<div class="pub-item">
+        const warn=iss.length?`· <span class="tag2 warn" title="${esc(iss.join(' · '))}">⚠ ${esc(iss.map(x=>x.replace('thiếu ','')).join(', '))}</span>`:"";
+        return `<div class="pub-item${iss.length?' has-issue':''}">
           <div class="pub-row">
             <div class="ava" style="width:30px;height:30px;font-size:12px;background:linear-gradient(145deg,${col},${col}aa)">${esc((chName(v.channel)||'?').slice(0,2).toUpperCase())}</div>
             <div style="flex:1;min-width:0;cursor:pointer" onclick="pubEdit('${esc(v.id)}')"><div class="nm" style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(v.title||v.drive_name||v.id)}</div>
@@ -1517,12 +1528,14 @@
       try{ await window.__updateVideo(id, data); toastMsg("✔ Đã lưu chỉnh sửa"); window.__pubEditId=null; renderPublish(); }
       catch(e){ alert("❌ "+e.message); }
     };
-    // Danh sách thiếu sót của 1 video (chỉ khi cron đã quét -> có v.checks)
+    // Thiếu sót của 1 video — suy từ checks (cron) HOẶC trực tiếp field doc
     function vIssues(v){
       const out=[]; const c=v.checks;
-      if(c){ if(!c.thumb)out.push("thiếu thumbnail (YouTube tự tạo)");
-        if(!c.desc)out.push("thiếu mô tả riêng (dùng chủ đề)");
-        if(!c.hashtags)out.push("thiếu hashtag"); }
+      const noDesc = c ? !c.desc : !((v.description||"").trim());
+      const noHash = c ? !c.hashtags : !((v.hashtags||[]).length);
+      if(c && !c.thumb) out.push("thiếu thumbnail (YouTube tự tạo)");
+      if(noDesc) out.push("thiếu mô tả riêng");
+      if(noHash) out.push("thiếu hashtag");
       (v.warnings||[]).forEach(w=>out.push(w));
       return out;
     }
