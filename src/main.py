@@ -82,6 +82,12 @@ def _initial_status(prev, review_mode):
     return "needs_review" if review_mode else "pending"
 
 
+import re as _re
+def _natkey(s: str):
+    """Sắp xếp TỰ NHIÊN theo số (01<02<...<10) -> đăng lần lượt, không lộn xộn."""
+    return [int(t) if t.isdigit() else t.lower() for t in _re.split(r"(\d+)", str(s or ""))]
+
+
 def _checks(sidecar: dict, meta: dict) -> dict:
     """Cờ ĐỦ/THIẾU của 1 video (để dashboard cảnh báo trước khi đăng — KHÔNG chặn đăng)."""
     return {
@@ -144,6 +150,7 @@ def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now, 
             used_slots.add(item["publish_at"])
         items.append(item)
 
+    items.sort(key=lambda it: _natkey(it["drive_name"]))   # 01,02,03... nhận slot sớm trước
     S.assign_slots(items, template, tz, now, used_slots)
 
     # Lưu/đồng bộ mọi item về Firestore (để dashboard thấy)
@@ -479,6 +486,7 @@ def process_users(channels_cfg, templates, safety, tz, dry_run, state, now):
             tmpl_name = ov_ch.get(channel) or ch_cfg.get("active_template") \
                 or os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short")
             template = templates["templates"].get(tmpl_name) or templates["templates"]["balanced_1long_3short"]
+            items.sort(key=lambda it: _natkey(it["drive_name"]))   # 01,02,03... trước
             used = {it["publish_at"] for it in items if it.get("publish_at")}
             S.assign_slots(items, template, tz, now, used)
             for it in items:

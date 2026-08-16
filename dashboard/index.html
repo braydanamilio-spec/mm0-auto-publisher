@@ -1488,7 +1488,7 @@
       const tz=$("pubTz").value||"America/New_York";
       const start=$("pubStart").value; if(!start) return alert("Chọn ngày bắt đầu.");
       let rows=V().filter(notPosted); if(ch) rows=rows.filter(v=>v.channel===ch);
-      const bykey=(a,b)=>(a.drive_name||"").localeCompare(b.drive_name||"");
+      const bykey=(a,b)=>(a.drive_name||"").localeCompare(b.drive_name||"",undefined,{numeric:true});
       let longs=rows.filter(v=>v.type==="long").sort(bykey);
       let shorts=rows.filter(v=>v.type!=="long").sort(bykey);
       if(!longs.length && !shorts.length) return alert(t("pub_empty"));
