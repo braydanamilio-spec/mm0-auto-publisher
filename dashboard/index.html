@@ -671,6 +671,7 @@
               <option value="account">📦 Nhóm theo kho</option>
             </select>
             <button class="btn-conn" onclick="window.rsLocateAll&&window.rsLocateAll(this)">🔍 Tìm kho cho video chưa rõ</button>
+            <button class="btn-conn" style="background:#ff5a5a22;border-color:#ff5a5a55;color:#ffb3b3" onclick="window.rsCleanOld&&window.rsCleanOld(this)" title="Chỉ xóa video phiên bản CŨ hơn bản mới nhất — giữ bản tốt">🧹 Dọn bản cũ</button>
           </div>
           <div id="stVault"><div class="d">Chưa có video hoàn tất — render xong sẽ hiện ở đây để tra soát &amp; xem.</div></div>
         </div>
@@ -884,6 +885,7 @@
               <option value="account">📦 Nhóm theo kho</option>
             </select>
             <button class="btn-conn" onclick="window.rsLocateAll&&window.rsLocateAll(this)">🔍 Tìm kho cho video chưa rõ</button>
+            <button class="btn-conn" style="background:#ff5a5a22;border-color:#ff5a5a55;color:#ffb3b3" onclick="window.rsCleanOld&&window.rsCleanOld(this)" title="Chỉ xóa video phiên bản CŨ hơn bản mới nhất — giữ bản tốt">🧹 Dọn bản cũ</button>
           </div>
           <div id="rsGallery"><div class="d">Chưa có video hoàn tất — render xong + đẩy Drive là hiện ở đây.</div></div>
         </div>
@@ -2001,6 +2003,22 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
           await workerApi("/api/file-action",{method:"POST",body:{account:acc,action:"trash",fileId:fid}});
           if(j.id) await deleteDoc(doc(db,"render_jobs",j.id)); ok++; }catch(_){} }
       try{toastMsg(`🗑 Đã xóa ${ok}/${list.length} video`);}catch(_){} };
+    // DỌN THÔNG MINH: chỉ xóa video PHIÊN BẢN CŨ hơn bản mới nhất (pver) -> KHÔNG BAO GIỜ xóa nhầm bản tốt hiện tại.
+    window.rsCleanOld=async(btn)=>{
+      const done=(window.__rsJobsData||[]).filter(j=>j.status==="done"&&(j.drive_id||j.preview));
+      const newest=done.reduce((m,j)=>{const p=j.pver||"";return p>m?p:m;},"");
+      if(!newest){ try{toastMsg("Chưa có video phiên bản mới để so — chạy 1 mẻ render mới trước.");}catch(_){}; return; }
+      const old=done.filter(j=>(j.pver||"")<newest);
+      if(!old.length){ try{toastMsg("✓ Không có bản cũ (tất cả đã là bản mới nhất "+newest+").");}catch(_){}; return; }
+      if(!confirm(`Dọn ${old.length} video PHIÊN BẢN CŨ (cũ hơn ${newest})? GIỮ NGUYÊN các bản mới nhất — an toàn, không xóa nhầm bản tốt.`)) return;
+      if(btn){ btn.disabled=true; } let ok=0;
+      for(let i=0;i<old.length;i++){ const j=old[i]; if(btn) btn.textContent=`⏳ ${i+1}/${old.length}`;
+        const fid=j.drive_id||((/\/d\/([^/]+)/.exec(j.preview||"")||[])[1]||""); if(!fid) continue;
+        try{ let acc=j.drive_account||""; if(!acc) acc=await window.rsLocate(fid,j.id);
+          await workerApi("/api/file-action",{method:"POST",body:{account:acc,action:"trash",fileId:fid}});
+          if(j.id) await deleteDoc(doc(db,"render_jobs",j.id)); ok++; }catch(_){} }
+      if(btn){ btn.textContent="🧹 Dọn bản cũ"; btn.disabled=false; }
+      try{toastMsg(`🧹 Đã dọn ${ok}/${old.length} bản cũ · giữ nguyên bản ${newest}`);}catch(_){} };
     window.rsShareLink=async(fileId,account,btn)=>{ if(!fileId) return; const old=btn?btn.textContent:"";
       if(btn){ btn.textContent="⏳…"; btn.disabled=true; }
       try{ const d=await workerApi(`/api/drive-share?fileId=${encodeURIComponent(fileId)}${account?`&account=${encodeURIComponent(account)}`:""}`);
