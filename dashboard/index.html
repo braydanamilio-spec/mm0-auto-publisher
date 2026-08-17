@@ -1824,6 +1824,13 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       const el=document.getElementById("rsChName"), en=document.getElementById("rsChNiche");
       if(el){ el.value=p.name; el.scrollIntoView({behavior:"smooth",block:"center"}); el.focus(); }
       if(en) en.value=p.niche; try{toastMsg("Đã điền form ✍️ — chọn template rồi bấm ＋ Thêm kênh");}catch(_){} };
+    // 1 CHẠM = thêm kênh ngay (template mặc định) — phản hồi tức thì, chip nhảy sang "Đang làm".
+    window.rsQuickAdd=async(name)=>{ const p=RS_PRESETS.find(x=>x.name===name); if(!p) return;
+      const o=RSowner(); if(!o) return alert("Chưa đăng nhập.");
+      if((window.__rsChannelsData||[]).some(c=>(c.name||"").toUpperCase()===name)) { try{toastMsg("Kênh đã có rồi.");}catch(_){}; return; }
+      try{ await addDoc(collection(db,"render_channels"),{owner:o,name,niche:p.niche,type:"short",img_source:"C",mix:"1long_3short",n_shorts:3,make_long:true,long_target:0,short_target:0,created_at:new Date().toISOString()});
+        try{toastMsg("✅ Đã thêm "+name+" — vào mẻ render tới");}catch(_){} }catch(e){ alert("Lỗi: "+e.message); } };
+    window.rsScrollStatus=()=>{ const el=document.getElementById("rsChanProg")||document.getElementById("rsJobs"); if(el) el.scrollIntoView({behavior:"smooth",block:"center"}); };
     function rsRenderPlan(){
       const host=document.getElementById("rsPlan"); if(!host) return;
       const chans=(window.__rsChannelsData||[]), jobs=(window.__rsJobsData||[]);
@@ -1835,11 +1842,11 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
         const info={...p,d,a,f,mix:added?(added.mix||""):""};
         if(!added) B.ideal.push(info); else if(d>0) B.done.push(info); else B.doing.push(info);
       });
-      const chip=(p,clickable)=>`<button class="cmdtag" style="margin:3px" ${clickable?`onclick="window.rsPick('${p.name}')"`:'disabled style="opacity:.85;margin:3px;cursor:default"'} title="${esc(p.niche)}${p.mix?' · '+esc(p.mix):''}">${esc(p.name)}${p.d?` ✅${p.d}`:""}${p.a?` ⚙️${p.a}`:""}${p.f?` ❌${p.f}`:""}</button>`;
-      const sec=(t,arr,hint,clickable)=>`<div style="margin-bottom:12px"><div class="d" style="margin-bottom:5px">${t} <span style="opacity:.55">(${arr.length})</span> — ${hint}</div><div style="display:flex;flex-wrap:wrap;gap:4px">${arr.length?arr.map(p=>chip(p,clickable)).join(""):'<span class="d">—</span>'}</div></div>`;
-      host.innerHTML = sec("💡 Sẵn sàng — chưa làm",B.ideal,"bấm để đưa vào form + thêm",true)
-        + sec("⚙️ Đang làm",B.doing,"đã thêm, chờ/đang render",false)
-        + sec("✅ Đã có video",B.done,"đã ra video — coi ở Trạng thái Render",false);
+      const chip=(p,act)=>`<button class="cmdtag" style="margin:3px" onclick="${act}('${p.name}')" title="${esc(p.niche)}${p.mix?' · '+esc(p.mix):''}">${esc(p.name)}${p.d?` ✅${p.d}`:""}${p.a?` ⚙️${p.a}`:""}${p.f?` ❌${p.f}`:""}</button>`;
+      const sec=(t,arr,hint,act)=>`<div style="margin-bottom:12px"><div class="d" style="margin-bottom:5px">${t} <span style="opacity:.55">(${arr.length})</span> — ${hint}</div><div style="display:flex;flex-wrap:wrap;gap:4px">${arr.length?arr.map(p=>chip(p,act)).join(""):'<span class="d">—</span>'}</div></div>`;
+      host.innerHTML = sec("💡 Sẵn sàng — bấm để THÊM NGAY",B.ideal,"1 chạm = thêm kênh (mặc định 1 long + 3 short). Muốn tuỳ chỉnh template → form ngay dưới.","window.rsQuickAdd")
+        + sec("⚙️ Đang làm",B.doing,"bấm để xem tiến trình","window.rsScrollStatus")
+        + sec("✅ Đã có video",B.done,"bấm để coi ở Trạng thái Render","window.rsScrollStatus");
     }
     window.__rsRenderPlan=rsRenderPlan;
 
