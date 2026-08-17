@@ -1982,7 +1982,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
               <button class="d" onclick="event.stopPropagation();window.rsShareLink('${esc(fid)}','${esc(acc)}',this)" style="background:none;border:1px solid #8b6cff55;color:#8b6cff;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Copy link full quyền">🔗</button>
               <a href="${esc(pv)}" target="_blank" onclick="event.stopPropagation()" class="d" style="color:#8b6cff;font-size:12px;align-self:center">Drive ↗</a>
               <button class="d" onclick="event.stopPropagation();window.rsMarkFlaw('${esc(j.id||'')}',${j.flagged?'false':'true'})" style="background:none;border:1px solid ${j.flagged?'#f59e0b':'#8b6cff44'};color:${j.flagged?'#f59e0b':'#9aa6c0'};border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Đánh dấu lỗi / bỏ dấu">${j.flagged?'🚩':'⚐'}</button>
-              <button class="d" onclick="event.stopPropagation();window.rsRerender('${esc(j.id||'')}')" style="background:none;border:1px solid #4ea1ff55;color:#4ea1ff;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Render lại + tự thay thế bản này">🔄</button>
+              ${j.rerender?`<span class="d" style="font-size:11px;color:#4ea1ff;align-self:center;white-space:nowrap">🔄 ${esc(j.rerender)}</span><button class="d" onclick="event.stopPropagation();window.rsCancelRerender('${esc(j.id||'')}')" style="background:none;border:1px solid #f59e0b66;color:#f59e0b;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Hủy render lại (chỉ khi chưa chạy)">⏹ Hủy</button>`:`<button class="d" onclick="event.stopPropagation();window.rsRerender('${esc(j.id||'')}')" style="background:none;border:1px solid #4ea1ff55;color:#4ea1ff;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Render lại + tự thay thế bản này">🔄</button>`}
               <button class="d" onclick="event.stopPropagation();window.rsDeleteVideo('${esc(fid)}','${esc(acc)}','${esc(j.id||'')}',this)" style="background:none;border:1px solid #ff5a5a55;color:#ff8080;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Xóa video khỏi Drive">🗑</button>
             </span>
           </div><div id="${pid}"></div></div>`;
@@ -2084,15 +2084,26 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     // 🔄 RENDER LẠI: tạo yêu cầu render lại ĐÚNG video này (cùng chủ đề) -> bản mới đạt sẽ TỰ THAY THẾ bản cũ.
     window.rsRerender=async(jobId)=>{
       const j=(window.__rsJobsData||[]).find(x=>x.id===jobId); if(!j) return;
+      if(j.rerender){ try{toastMsg("Video này đã có yêu cầu render lại rồi.");}catch(_){}; return; }
       const fid=j.drive_id||((/\/d\/([^/]+)/.exec(j.preview||"")||[])[1]||"");
-      if(!confirm(`Render lại "${(j.title||j.type||"video").slice(0,50)}"?\nBản mới đạt chuẩn (≥90, không lỗi) sẽ TỰ THAY THẾ bản này.`)) return;
+      if(!confirm(`⚠️ RENDER LẠI video này?\n\n"${(j.title||j.type||"video").slice(0,60)}"\n\nBản mới (≥90, không lỗi) sẽ TỰ THAY THẾ bản này (bản cũ vào thùng rác).\nNhấn OK để xác nhận, hoặc Cancel để thoát.`)) return;
       const o=RSowner();
       try{
-        await addDoc(collection(db,"render_requests"),{owner:o,channel:j.channel||"",type:j.type||"short",seed:(j.title||""),
+        const ref=await addDoc(collection(db,"render_requests"),{owner:o,channel:j.channel||"",type:j.type||"short",seed:(j.title||""),
           replace_id:fid,replace_account:(j.drive_account||""),status:"pending",created_at:new Date().toISOString()});
-        await setDoc(doc(db,"render_jobs",jobId),{flagged:true,rerender:"đã yêu cầu"},{merge:true});
+        await setDoc(doc(db,"render_jobs",jobId),{flagged:true,rerender:"chờ render lại",rerender_req:ref.id},{merge:true});
         await setDoc(rsCfgDoc(),{owner:o,enabled:true,run_now:new Date().toISOString()},{merge:true});
-        try{toastMsg("🔄 Đã yêu cầu render lại — chạy ≤30' rồi tự thay thế bản cũ");}catch(_){}
+        try{toastMsg("🔄 Đã yêu cầu render lại — chờ chạy (≤30'). Chưa chạy thì bấm ⏹ để hủy.");}catch(_){}
+      }catch(e){ try{toastMsg("Lỗi: "+e.message);}catch(_){} } };
+    // HỦY render lại — chỉ khi CHƯA bắt đầu (status còn 'pending').
+    window.rsCancelRerender=async(jobId)=>{
+      const j=(window.__rsJobsData||[]).find(x=>x.id===jobId); if(!j||!j.rerender_req){ try{toastMsg("Không có yêu cầu để hủy.");}catch(_){}; return; }
+      try{ const rd=await getDoc(doc(db,"render_requests",j.rerender_req)); const st=rd.exists()?(rd.data().status||""):"";
+        if(st!=="pending"){ try{toastMsg("⚠️ Đang render lại hoặc đã xong — KHÔNG hủy được nữa.");}catch(_){}; return; }
+        if(!confirm("Hủy yêu cầu render lại video này?")) return;
+        await deleteDoc(doc(db,"render_requests",j.rerender_req));
+        await setDoc(doc(db,"render_jobs",jobId),{rerender:null,rerender_req:null},{merge:true});
+        try{toastMsg("⏹ Đã hủy render lại");}catch(_){}
       }catch(e){ try{toastMsg("Lỗi: "+e.message);}catch(_){} } };
     // ===== 🎨 BRAND KIT 10 KÊNH — tạo profile/cover NGAY trong web (SVG→PNG), view+tải, đúng size YT/FB/IG =====
     const RS_BRANDS={
