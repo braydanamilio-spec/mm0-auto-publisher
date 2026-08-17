@@ -35,6 +35,7 @@ export default {
       if (url.pathname === "/api/file-content") return corsResp(await apiFileContent(request, url, env));
       if (url.pathname === "/api/drive-stream") return await apiDriveStream(request, url, env);
       if (url.pathname === "/api/drive-thumb") return await apiDriveThumb(request, url, env);
+      if (url.pathname === "/api/drive-share") return corsResp(await apiDriveShare(request, url, env));
       if (url.pathname === "/api/token-check") return corsResp(await apiTokenCheck(request, url, env));
       if (url.pathname === "/api/upload-init") return corsResp(await apiUploadInit(request, url, env));
       if (url.pathname === "/api/upload-chunk") return corsResp(await apiUploadChunk(request, url, env));
@@ -822,6 +823,21 @@ async function resolveDriveDat(env, uid, account0, fileId) {
     } catch (_) { }
   }
   return null;
+}
+
+// GET /api/drive-share?t=&fileId=[&account=] -> đặt quyền "ai có link đều XEM được" + trả link chia sẻ.
+async function apiDriveShare(request, url, env) {
+  const t = url.searchParams.get("t"), account0 = url.searchParams.get("account"), fileId = url.searchParams.get("fileId");
+  const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
+  if (!uid) throw new Error("Chưa đăng nhập.");
+  if (!fileId) throw new Error("Thiếu fileId.");
+  const dat = await resolveDriveDat(env, uid, account0, fileId);
+  if (!dat) throw new Error("Không tìm thấy file trong kho nào (token kho có thể hỏng — bấm 🩺 Kiểm token + quyền).");
+  await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions?supportsAllDrives=true`,
+    { method: "POST", headers: { Authorization: `Bearer ${dat}`, "content-type": "application/json" }, body: JSON.stringify({ role: "reader", type: "anyone" }) });
+  const m = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=webViewLink&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${dat}` } });
+  const mj = await m.json().catch(() => ({}));
+  return json({ ok: true, link: mj.webViewLink || `https://drive.google.com/file/d/${fileId}/view` });
 }
 
 // GET /api/drive-thumb?t=&fileId=[&account=] -> ẢNH THUMBNAIL video (Drive tự tạo) để xem lướt như Google Drive.

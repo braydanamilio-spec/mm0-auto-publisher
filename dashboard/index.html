@@ -1902,7 +1902,10 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
               <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(j.title||j.type||"video")}</div>
               <div class="d" style="font-size:12px">${j.type==="long"?"🎬 long":"📱 short"}${j.score?" · QC "+esc(j.score):""} · ${esc((j.created_at||'').slice(5,16).replace('T',' '))}</div>
             </div>
-            <a href="${esc(pv)}" target="_blank" onclick="event.stopPropagation()" class="d" style="color:#8b6cff;white-space:nowrap;font-size:12px">Drive ↗</a>
+            <span style="display:flex;gap:8px;white-space:nowrap;flex:none">
+              <button class="d" onclick="event.stopPropagation();window.rsShareLink('${esc(fid)}','${esc(acc)}',this)" style="background:none;border:1px solid #8b6cff55;color:#8b6cff;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Đặt quyền ai-có-link-đều-xem + copy link">🔗 Link full quyền</button>
+              <a href="${esc(pv)}" target="_blank" onclick="event.stopPropagation()" class="d" style="color:#8b6cff;font-size:12px;align-self:center">Drive ↗</a>
+            </span>
           </div><div id="${pid}"></div></div>`;
       };
       const grp=(icon,label,arr)=> arr.length?`<div class="d" style="margin:8px 0 3px">${icon} ${label} (${arr.length})</div>${arr.map(item).join("")}`:"";
@@ -1915,6 +1918,14 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       }).join("");
     }
     window.__rsRenderGallery=rsRenderGallery;
+    window.rsShareLink=async(fileId,account,btn)=>{ if(!fileId) return; const old=btn?btn.textContent:"";
+      if(btn){ btn.textContent="⏳…"; btn.disabled=true; }
+      try{ const d=await workerApi(`/api/drive-share?fileId=${encodeURIComponent(fileId)}${account?`&account=${encodeURIComponent(account)}`:""}`);
+        if(d&&d.link){ try{ await navigator.clipboard.writeText(d.link); }catch(_){}
+          try{toastMsg("🔗 Đã bật quyền + copy link vào clipboard");}catch(_){}
+          if(btn){ btn.textContent="✓ Đã copy link"; } window.prompt("Link Drive full quyền (Ctrl/Cmd+C để copy):", d.link); }
+        else throw new Error("no link");
+      }catch(e){ try{toastMsg("Lỗi tạo link: "+(e.message||e));}catch(_){}; if(btn){ btn.textContent=old; btn.disabled=false; } } };
     window.rsPlay=async(id,account,fileId,pv,tall)=>{ const el=document.getElementById(id); if(!el) return;
       if(el.innerHTML){ el.innerHTML=""; return; }   // bấm lần 2 = đóng
       const style=tall?"width:300px;max-width:100%;aspect-ratio:9/16":"width:100%;aspect-ratio:16/9";
