@@ -136,6 +136,8 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
             created = drive.upload_to_queue(root, video, meta["type"], sidecar,
                                             thumbnail_path=thumbnail, subtitle_path=subtitle)
             where = wh
+            if created is not None:
+                created["account"] = wh[4:] if wh.startswith("kho:") else ""   # tên kho -> để Worker stream/preview đúng tài khoản
             if use_pool:
                 ST.reserve(root, os.path.getsize(video))   # trừ tạm dung lượng (usage() lag sau upload)
             break

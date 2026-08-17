@@ -33,6 +33,7 @@ export default {
       if (url.pathname === "/api/files") return corsResp(await apiFiles(request, url, env));
       if (url.pathname === "/api/file-action") return corsResp(await apiFileAction(request, url, env));
       if (url.pathname === "/api/file-content") return corsResp(await apiFileContent(request, url, env));
+      if (url.pathname === "/api/drive-stream") return await apiDriveStream(request, url, env);
       if (url.pathname === "/api/token-check") return corsResp(await apiTokenCheck(request, url, env));
       if (url.pathname === "/api/upload-init") return corsResp(await apiUploadInit(request, url, env));
       if (url.pathname === "/api/upload-chunk") return corsResp(await apiUploadChunk(request, url, env));
@@ -760,6 +761,28 @@ async function apiFileContent(request, url, env) {
   if (!r.ok) throw new Error("Đọc file lỗi " + r.status);
   const text = (await r.text()).slice(0, 80000);   // chỉ file text nhỏ (<=80KB)
   return json({ ok: true, text });
+}
+
+// GET /api/drive-stream?t=&account=&fileId= -> STREAM video từ Drive (dùng token của kho, Range để tua được).
+//   Nhờ vậy XEM INLINE trên dashboard kể cả file CHƯA mở chia sẻ. Token kho KHÔNG lộ ra browser.
+async function apiDriveStream(request, url, env) {
+  const t = url.searchParams.get("t"), account = url.searchParams.get("account"), fileId = url.searchParams.get("fileId");
+  const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
+  if (!uid) return new Response("unauthorized", { status: 401 });
+  if (!account || !fileId) return new Response("missing account/fileId", { status: 400 });
+  let dat;
+  try { ({ dat } = await driveCtx(env, uid, account)); }
+  catch (e) { return new Response("drive auth error: " + (e && e.message || e), { status: 502 }); }
+  const range = request.headers.get("Range");
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`,
+    { headers: { Authorization: `Bearer ${dat}`, ...(range ? { Range: range } : {}) } });
+  const h = new Headers();
+  ["content-type", "content-length", "content-range", "accept-ranges"].forEach(k => { const v = r.headers.get(k); if (v) h.set(k, v); });
+  if (!h.get("content-type")) h.set("content-type", "video/mp4");
+  h.set("accept-ranges", "bytes");
+  h.set("Access-Control-Allow-Origin", "*");
+  h.set("Cache-Control", "private, max-age=60");
+  return new Response(r.body, { status: r.status, headers: h });   // pass-through stream (Range để tua)
 }
 
 // POST /api/upload-init {t,account,type(long|short),name,mimeType,size}
