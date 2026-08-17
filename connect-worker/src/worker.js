@@ -827,6 +827,20 @@ async function resolveDriveDat(env, uid, account0, fileId) {
   return null;
 }
 
+// Dò kho THẬT SỰ SỞ HỮU / có quyền SỬA file (dùng khi xóa/sửa lỗi quyền vì bản ghi kho lệch).
+// File thường share anyoneWithLink (đọc được từ mọi token) -> phải xét ownedByMe/canEdit, KHÔNG chỉ đọc được.
+async function findFileOwnerDat(env, uid, fileId) {
+  const at = await saAccessToken(env);
+  for (const nm of await fsListStorageAccounts(env, at, uid)) {
+    try {
+      const c = await driveCtx(env, uid, nm);
+      const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,ownedByMe,capabilities(canEdit)&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${c.dat}` } });
+      if (r.ok) { const j = await r.json(); if (j.ownedByMe || (j.capabilities && j.capabilities.canEdit)) return { dat: c.dat, name: nm }; }
+    } catch (_) { }
+  }
+  return null;
+}
+
 // GET /api/drive-has?t=&account=&fileId= -> kho NÀY có chứa file không? (rẻ, để CLIENT dò song song, không dính giới hạn 22 kho).
 async function apiDriveHas(request, url, env) {
   const t = url.searchParams.get("t"), account = url.searchParams.get("account"), fileId = url.searchParams.get("fileId");
@@ -969,18 +983,32 @@ async function apiFileAction(request, url, env) {
   if (!t) throw new Error("Thiếu token đăng nhập.");
   if (!account || !fileId || !action) throw new Error("Thiếu tham số.");
   const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
-  const { dat } = await driveCtx(env, uid, account);
   let patch;
   if (action === "rename") { if (!newName) throw new Error("Thiếu tên mới."); patch = { name: newName }; }
   else if (action === "trash") patch = { trashed: true };
   else if (action === "untrash") patch = { trashed: false };
   else throw new Error("action không hỗ trợ: " + action);
-  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,name,trashed`,
-    { method: "PATCH", headers: { Authorization: `Bearer ${dat}`, "content-type": "application/json" },
-      body: JSON.stringify(patch) });
-  const j = await r.json();
-  if (!r.ok) throw new Error((j.error && j.error.message) || ("Drive " + r.status));
-  return json({ ok: true, ...j });
+  const doPatch = async (dat) => {
+    const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,name,trashed&supportsAllDrives=true`,
+      { method: "PATCH", headers: { Authorization: `Bearer ${dat}`, "content-type": "application/json" }, body: JSON.stringify(patch) });
+    const j = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, j };
+  };
+  // 1) thử token kho đã ghi
+  let dat = null; try { dat = (await driveCtx(env, uid, account)).dat; } catch (_) { }
+  let res = dat ? await doPatch(dat) : { ok: false, status: 0, j: {} };
+  // 2) LỖI QUYỀN (403/404): có thể bản ghi kho LỆCH -> dò đúng kho SỞ HỮU file rồi thử lại (tự chữa).
+  if (!res.ok && (res.status === 403 || res.status === 404 || res.status === 0)) {
+    const owner = await findFileOwnerDat(env, uid, fileId);
+    if (owner) { const r2 = await doPatch(owner.dat); if (r2.ok) res = r2; }
+  }
+  if (!res.ok) {
+    const msg = (res.j.error && res.j.error.message) || ("Drive " + res.status);
+    if (/insufficient|permission|forbidden|403/i.test(msg))
+      throw new Error(`Kho "${account}" chưa đủ quyền xóa/sửa file này — vào Storage, KẾT NỐI LẠI tài khoản Drive này và TICK ĐỦ QUYỀN ở màn hình Google. (${msg})`);
+    throw new Error(msg);
+  }
+  return json({ ok: true, ...res.j });
 }
 
 /* ---------- YouTube access token từ refresh_token (retry lỗi TẠM, lộ lỗi THẬT) ---------- */
