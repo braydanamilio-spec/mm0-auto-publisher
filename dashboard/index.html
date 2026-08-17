@@ -1907,7 +1907,9 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       if(q) done=done.filter(j=>((j.title||"")+" "+(j.channel||"")+" "+(j.drive_account||"")+" "+(j.drive_id||"")+" "+(j.type||"")).toLowerCase().includes(q));
       const view=((document.getElementById(viewId)||{}).value)||"channel";
       const tL=done.filter(j=>j.type==="long").length, tS=done.length-tL, unk=done.filter(j=>!j.drive_account).length;
-      const cnt=document.getElementById(countId); if(cnt) cnt.textContent=`📤 ${done.length} video · ${tL} long · ${tS} short${unk?` · 🔍 ${unk} chưa rõ kho`:""}`;
+      done.sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));
+      const CAP=40, over=done.length>CAP && !q; const disp=over?done.slice(0,CAP):done;   // giới hạn hiển thị cho NHẸ (search thì hiện hết kết quả)
+      const cnt=document.getElementById(countId); if(cnt) cnt.textContent=`📤 ${done.length} video · ${tL} long · ${tS} short${unk?` · 🔍 ${unk} chưa rõ kho`:""}${over?` · hiện ${CAP} mới nhất (tìm để xem hết)`:""}`;
       if(!done.length){ host.innerHTML='<div class="d">'+(q?`Không tìm thấy video khớp "${esc(q)}".`:'Chưa có video hoàn tất — render xong + đẩy Drive là hiện ở đây.')+'</div>'; return; }
       let tk=""; try{ tk=await window.__getIdToken(); }catch(_){}
       const item=(j)=>{
@@ -1936,7 +1938,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       };
       const grp=(icon,label,arr)=> arr.length?`<div class="d" style="margin:8px 0 3px">${icon} ${label} (${arr.length})</div>${arr.map(item).join("")}`:"";
       const keyOf = view==="account" ? (j=>j.drive_account||"🔍 Chưa xác định kho") : (j=>j.channel||"?");
-      const groups={}; done.forEach(j=>{const k=keyOf(j);(groups[k]=groups[k]||[]).push(j);});
+      const groups={}; disp.forEach(j=>{const k=keyOf(j);(groups[k]=groups[k]||[]).push(j);});
       host.innerHTML = Object.keys(groups).sort().map(g=>{
         const js=groups[g].sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));
         const longs=js.filter(j=>j.type==="long"), shorts=js.filter(j=>j.type!=="long");
