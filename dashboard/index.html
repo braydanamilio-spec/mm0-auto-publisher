@@ -1680,11 +1680,16 @@
         const ds=s.docs.sort((a,b)=>(b.data().created_at||"").localeCompare(a.data().created_at||"")).slice(0,20);
         const all=s.docs.map(d=>({id:d.id,...d.data()})); window.__rsJobsData = all; window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderGallery&&window.__rsRenderGallery();
         const active=all.filter(j=>["queued","running","writing","rendering","qc"].includes(j.status)).length;
-        const done=all.filter(j=>j.status==="done").length;
+        const done=all.filter(j=>j.status==="done");
         const failed=all.filter(j=>j.status==="failed");
+        // LỖI THẬT = lỗi XẢY RA SAU lần thành công gần nhất; lỗi trước đó coi như ĐÃ KHẮC PHỤC.
+        const lastDoneAt=done.reduce((m,j)=>((j.created_at||"")>m?(j.created_at||""):m),"");
+        const activeFails=failed.filter(f=>!lastDoneAt || (f.created_at||"")>lastDoneAt);
+        const oldFails=failed.length-activeFails.length;
         if(bd) bd.textContent=active;
         const sd=document.getElementById("rsSumDone"),sr=document.getElementById("rsSumRun"),sf=document.getElementById("rsSumFail");
-        if(sd)sd.textContent=done; if(sr)sr.textContent=active; if(sf)sf.textContent=failed.length;
+        if(sd)sd.textContent=done.length; if(sr)sr.textContent=active;
+        if(sf){ sf.textContent=activeFails.length; sf.title=oldFails?`${oldFails} lỗi cũ đã khắc phục (không tính)`:""; }
         const today=new Date().toISOString().slice(0,10);
         const stt=document.getElementById("rsSumToday"); if(stt) stt.textContent=all.filter(j=>j.status==="done"&&(j.created_at||"").slice(0,10)===today).length;
         const byCh={}; all.forEach(j=>{const c=j.channel||"?";(byCh[c]=byCh[c]||[]).push(j);});
@@ -1702,7 +1707,18 @@
           return `<div class="row" style="display:block;padding:7px 0"><div style="display:flex;justify-content:space-between"><span>${bg} <b>${esc(c)}</b>${tgt}</span><span class="d">long ${ld}✅${lf?" "+lf+"❌":""} · short ${shd}/${sh.length}${shf?" "+shf+"❌":""}</span></div>${bar(ld,lt,"#8b6cff")}${bar(shd,st,"#4ea1ff")}</div>`;
         }).join("") : '<div class="d">Chưa có dữ liệu — chạy pipeline để thấy tiến trình từng kênh.</div>'; }
         const al=document.getElementById("rsAlert");
-        if(al){ if(failed.length){ const lf=failed.slice().sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""))[0]; al.style.display="block"; al.textContent="⚠️ "+failed.length+" job lỗi. Gần nhất: "+esc(lf.channel||"")+" — "+esc(lf.step||"lỗi"); } else al.style.display="none"; }
+        if(al){
+          if(activeFails.length){                     // CÓ lỗi mới (sau lần xong gần nhất) -> cảnh báo ĐỎ
+            const lf=activeFails.slice().sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""))[0];
+            al.style.display="block"; al.style.background="#4a1a1a"; al.style.borderColor="#a33"; al.style.color="#ffbcbc";
+            al.innerHTML="⚠️ <b>"+activeFails.length+" lỗi MỚI</b> (chưa khắc phục). Gần nhất: "+esc(lf.channel||"")+" — "+esc((lf.step||"lỗi").slice(0,130))
+              +(oldFails?` <span style="opacity:.8">· ${oldFails} lỗi cũ đã fix</span>`:"");
+          } else if(done.length){                     // KHÔNG lỗi mới + đã có video -> XANH "đang mượt"
+            al.style.display="block"; al.style.background="#123a1e"; al.style.borderColor="#2e7d46"; al.style.color="#b7f0c8";
+            al.innerHTML="✅ <b>Đang chạy mượt</b> — "+done.length+" video xong, KHÔNG lỗi mới."
+              +(oldFails?` <span style="opacity:.85">${oldFails} lỗi cũ đã khắc phục</span> <button class="btn-mini" style="margin-left:6px" onclick="window.rsCmd&&window.rsCmd('clean_jobs')">🧹 Dọn báo lỗi cũ</button>`:"");
+          } else al.style.display="none";
+        }
         if(el) el.innerHTML = ds.length? ds.map(d=>{const j=d.data(); const ic={queued:"⏳",writing:"✍️",rendering:"🎞️",qc:"🔍",done:"✅",failed:"❌",running:"⚙️"}[j.status]||"•";
           return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${ic} <b>${esc(j.channel||"")}</b> · ${esc(j.type||"")} · ${esc(j.step||j.status||"")} ${j.score?`· QC ${esc(j.score)}`:""} ${j.preview?`· <a href="${esc(j.preview)}" target="_blank" style="color:#8b6cff;font-weight:700">▶ Xem</a>`:""}</span><span class="d">${esc((j.created_at||"").slice(11,16))}</span></div>`}).join("") : '<div class="d">Chưa có job nào. Bấm “Render ngay” để thử.</div>'; });
       // ĐẾM tổng tài nguyên (Drive lưu trữ / YouTube / Facebook)
@@ -1737,11 +1753,15 @@
       let h=`<b>📊 Tình hình nhà máy</b><br>`;
       h+=`• Kênh: <b>${s.chans.length}</b>${s.chans.length?` — ${s.chans.map(c=>esc(c.name)).join(", ")}`:" (chưa có — thêm ở dưới)"}<br>`;
       h+=`• Gemini key: <b>${s.keys.length}</b>${s.dead?` · <span style="color:#ff5a5a">${s.dead} chết</span>`:(s.keys.some(k=>k.last_checked)?" · tất cả sống 🟢":"")}<br>`;
-      h+=`• Job: ⚙️ <b>${s.active.length}</b> đang chạy · ✅ <b>${s.done.length}</b> xong (hôm nay ${doneToday}) · ❌ <b>${s.failed.length}</b> lỗi<br>`;
+      const lastDoneAt=s.done.reduce((m,j)=>((j.created_at||"")>m?(j.created_at||""):m),"");
+      const activeFails=s.failed.filter(f=>!lastDoneAt || (f.created_at||"")>lastDoneAt);
+      const oldFails=s.failed.length-activeFails.length;
+      h+=`• Job: ⚙️ <b>${s.active.length}</b> đang chạy · ✅ <b>${s.done.length}</b> xong (hôm nay ${doneToday}) · ❌ <b>${activeFails.length}</b> lỗi mới${oldFails?` <span class="d">(${oldFails} lỗi cũ đã fix)</span>`:""}<br>`;
       if(s.active.length) h+=`• Đang làm: ${s.active.slice(0,6).map(j=>`${esc(j.channel)}/${esc(j.type)} — ${esc(j.step||j.status)}`).join("; ")}<br>`;
-      if(s.failed.length){ const lf=s.failed.slice().sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""))[0];
-        h+=`• ⚠️ Lỗi gần nhất: <b>${esc(lf.channel)}</b> — ${esc((lf.step||"").slice(0,90))}<br><span class="d">Bấm 🔧 Thử lại lỗi để agent cho chạy lại + dọn báo lỗi.</span>`; }
-      else if(!s.active.length && !s.done.length) h+=`<span class="d">Chưa chạy mẻ nào. Bấm ⚡ Render ngay.</span>`;
+      if(activeFails.length){ const lf=activeFails.slice().sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""))[0];
+        h+=`• ⚠️ Lỗi MỚI gần nhất: <b>${esc(lf.channel)}</b> — ${esc((lf.step||"").slice(0,90))}<br><span class="d">Bấm 🔧 Thử lại lỗi để agent chạy lại.</span>`; }
+      else if(s.done.length) h+=`• ✅ <b>Đang chạy mượt</b> — không lỗi mới${oldFails?` (${oldFails} lỗi cũ đã khắc phục)`:""}.`;
+      else if(!s.active.length) h+=`<span class="d">Chưa chạy mẻ nào. Bấm ⚡ Render ngay.</span>`;
       rsLog(h);
     }
     async function rsExec(a){
