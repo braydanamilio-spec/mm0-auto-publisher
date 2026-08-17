@@ -2274,7 +2274,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     window.rsTrashDo=async(btn)=>{
       const accs=window.__rsTrashAccs||[]; if(!accs.length) return;
       const old=btn.textContent; btn.disabled=true; let ok=0;
-      for(let i=0;i<accs.length;i++){ btn.textContent=`⏳ ${i+1}/${accs.length}`;
+      for(let i=0;i<accs.length;i++){ btn.textContent=`⏳ Đang dọn kho ${i+1}/${accs.length}…`;
         try{ await workerApi(`/api/empty-trash?account=${encodeURIComponent(accs[i])}`); ok++; }catch(_){} }
       const ov=document.getElementById("rsTrashModal"); if(ov) ov.remove();
       try{toastMsg(`🧹 Đã đổ rác ${ok}/${accs.length} kho — thu hồi dung lượng`);}catch(_){} };
