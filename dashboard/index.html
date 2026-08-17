@@ -1769,25 +1769,31 @@
         const mr=document.getElementById("rsMaxRun"); if(mr&&document.activeElement!==mr) mr.value=c.max_per_run||"";
         if(c.model) document.getElementById("rsModel").value=c.model;
         window.__rsReserve={long:c.reserve_long||10, short:c.reserve_short||30};   // mức dự trữ an toàn (target=0)
+        window.__deadThresh={warn:c.dead_key_warn_hours||72, repl:c.dead_key_replace_hours||168};   // 2 mức cảnh báo key chết
         window.__rsRenderChList&&window.__rsRenderChList();
         // Cảnh báo AN TOÀN: pipeline tự dừng vì kho Drive gần đầy
         const sb=document.getElementById("rsSafetyStop");
         if(sb){ if(c.last_safety_stop){ sb.style.display="block"; sb.textContent="🛡️ "+c.last_safety_stop; } else sb.style.display="none"; } }, ()=>{});
       onSnapshot(q("gemini_keys"), s=>{ const el=document.getElementById("rsKeyList"); if(!el) return;
         const ds=s.docs; window.__rsKeysData = ds.map(d=>d.data()); const mk=document.getElementById("rsTotKeys"); if(mk) mk.textContent=ds.length;
-        const nowIso=new Date().toISOString(); let nDead=0, nStale=0;
+        const nowIso=new Date().toISOString(); let nDead=0, nWarn=0, nRepl=0;
+        const _dt=window.__deadThresh||{warn:72,repl:168};
         el.innerHTML = ds.length? ds.map((d,ix)=>{const k=d.data();
           const cooling=k.cooling_until&&k.cooling_until>nowIso;
           const dot=k.alive===false?'🔴':(cooling?'😴':(k.alive===true?'🟢':'⚪'));
           if(k.alive===false) nDead++;
           const chk=k.last_checked?` · <span class="d">kiểm ${ago(k.last_checked)}</span>`:'';
           const st=k.alive===false?` <span class="d" style="color:#ff5a5a" title="${esc(k.dead_reason||"")}">CHẾT${k.dead_reason?" ("+esc(String(k.dead_reason).slice(0,40))+")":""}</span>`:(cooling?' <span class="d">nghỉ</span>':'');
-          // Chết QUÁ LÂU (>72h) -> project không tự mở, badge NÊN THAY.
+          // 2 MỨC: 🔴 >repl (7 ngày, THAY NGAY) · ⚠️ >warn (72h, theo dõi).
           let stale='';
-          if(k.alive===false && k.dead_since){ const hrs=(Date.now()-new Date(k.dead_since).getTime())/3.6e6;
-            if(hrs>=72){ nStale++; const dys=Math.max(1,Math.floor(hrs/24)); stale=` <span style="color:#fff;background:#dc2626;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:800" title="chết từ ${esc(k.dead_since)} — không tự mở lại, nên thay">⚠️ NÊN THAY · chết ${dys}d</span>`; } }
+          if(k.alive===false && k.dead_since){ const hrs=(Date.now()-new Date(k.dead_since).getTime())/3.6e6; const dys=Math.max(1,Math.floor(hrs/24));
+            if(hrs>=_dt.repl){ nRepl++; stale=` <span style="color:#fff;background:#dc2626;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:800" title="chết từ ${esc(k.dead_since)} — project chết hẳn, thay ngay">🔴 THAY NGAY · chết ${dys}d</span>`; }
+            else if(hrs>=_dt.warn){ nWarn++; stale=` <span style="color:#111;background:#f59e0b;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:800" title="chết từ ${esc(k.dead_since)} — theo dõi, có thể còn tự mở">⚠️ theo dõi · chết ${dys}d</span>`; } }
           return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${dot} <b style="color:#8b6cff">#${ix+1}</b> 🔑 •••• ${esc(k.last4||"")} · 📧 <b>${esc(k.email||"(chưa ghi Gmail)")}</b>${st}${stale} <span class="d">(${esc(k.source||"")})</span>${chk}</span><button class="btn-conn" onclick="window.__rsDelKey('${d.id}')">Xoá</button></div>`}).join("") : '<div class="d">Chưa có key nào.</div>';
-        const kb=document.getElementById("rsKeyHealth"); if(kb) kb.innerHTML = nStale? `⚠️ <b style="color:#fff;background:#dc2626;padding:2px 7px;border-radius:6px">${nStale} key chết >72h — NÊN THAY NGAY</b> <span class="d">(project không tự mở lại). ${nDead} key chết tổng.</span>` : (nDead? `🔴 <b style="color:#ff5a5a">${nDead} key CHẾT</b> — health-check tự kiểm mỗi ngày, tự mở lại nếu Google bỏ chặn. Quá 72h vẫn chết sẽ báo NÊN THAY.` : (ds.some(d=>d.data().last_checked)? '🟢 Tất cả key sống (kiểm mỗi ngày).' : '⚪ Chưa health-check lần nào (chạy tự động ở lần render tới).')); }, ()=>{});
+        const kb=document.getElementById("rsKeyHealth"); if(kb) kb.innerHTML =
+          (nRepl?`<div>🔴 <b style="color:#fff;background:#dc2626;padding:2px 7px;border-radius:6px">${nRepl} key chết >${Math.round(_dt.repl/24)} ngày — THAY NGAY</b> <span class="d">(project chết hẳn)</span></div>`:'')
+          +(nWarn?`<div style="margin-top:4px">⚠️ <b style="color:#111;background:#f59e0b;padding:2px 7px;border-radius:6px">${nWarn} key chết >${_dt.warn}h — theo dõi</b> <span class="d">(có thể còn tự mở lại)</span></div>`:'')
+          +((!nRepl&&!nWarn)?(nDead? `🔴 <b style="color:#ff5a5a">${nDead} key chết</b> — health-check tự mở lại nếu Google bỏ chặn; quá 72h/7ngày sẽ báo 2 mức.` : (ds.some(d=>d.data().last_checked)? '🟢 Tất cả key sống (kiểm mỗi ngày).' : '⚪ Chưa health-check lần nào (chạy tự động ở lần render tới).')):''); }, ()=>{});
       onSnapshot(q("render_channels"), s=>{
         window.__rsChannelsData = s.docs.map(d=>({id:d.id,...d.data()})); window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderChList&&window.__rsRenderChList(); }, ()=>{});
       const _jobsCb=(s)=>{ const el=document.getElementById("rsJobs"); const bd=document.getElementById("nvRender");
