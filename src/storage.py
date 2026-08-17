@@ -19,10 +19,55 @@ GB = 1_000_000_000
 # Dung lượng TẠM CHIẾM trong phiên chạy (drive.usage() cập nhật trễ sau upload).
 # Nhờ vậy khi đẩy nhiều video liên tiếp, acc không bị chọn quá tay -> chia đều, không tràn.
 _RESERVED: dict[str, int] = {}
+_STATE = None
+_RES_TTL_MIN = 30   # reservation quá 30' coi như job crash -> bỏ (tự dọn, không kẹt chỗ vĩnh viễn)
+
+
+def _state():
+    global _STATE
+    if _STATE is None:
+        from firestore_state import State
+        _STATE = State()
+    return _STATE
 
 
 def reserve(root: str, nbytes: int) -> None:
+    """GIỮ CHỖ (local + CHIA SẺ qua Firestore) -> 10 luồng render SONG SONG thấy nhau, không cùng nhét 1 kho gần đầy."""
     _RESERVED[root] = _RESERVED.get(root, 0) + int(nbytes)
+    try:
+        from datetime import datetime, timezone
+        from google.cloud import firestore as _fs
+        _state().db.collection("storage_reservations").document(root).set(
+            {"bytes": _fs.Increment(int(nbytes)), "at": datetime.now(timezone.utc).isoformat()}, merge=True)
+    except Exception:
+        pass
+
+
+def release(root: str, nbytes: int) -> None:
+    """TRẢ CHỖ khi upload lỗi/nhảy kho khác (khỏi giữ oan)."""
+    _RESERVED[root] = max(0, _RESERVED.get(root, 0) - int(nbytes))
+    try:
+        from datetime import datetime, timezone
+        from google.cloud import firestore as _fs
+        _state().db.collection("storage_reservations").document(root).set(
+            {"bytes": _fs.Increment(-int(nbytes)), "at": datetime.now(timezone.utc).isoformat()}, merge=True)
+    except Exception:
+        pass
+
+
+def _shared_reservations() -> dict:
+    """Reservation ĐANG TREO của MỌI luồng song song (Firestore) -> tính free trừ luôn phần đang bay tới kho đó."""
+    try:
+        from datetime import datetime, timezone, timedelta
+        cutoff = (datetime.now(timezone.utc) - timedelta(minutes=_RES_TTL_MIN)).isoformat()
+        out = {}
+        for d in _state().db.collection("storage_reservations").stream():
+            x = d.to_dict() or {}
+            if (x.get("at") or "") >= cutoff:      # bỏ reservation cũ (crash) -> không kẹt chỗ
+                out[d.id] = max(0, x.get("bytes", 0) or 0)
+        return out
+    except Exception:
+        return {}
 
 
 def load_config() -> dict:
@@ -108,25 +153,35 @@ def account_status(acc: dict) -> dict:
 
 
 def ranked_accounts(need_bytes: int = 0, cfg: dict | None = None,
-                    owner: str | None = None) -> list[tuple[dict, int]]:
+                    owner: str | None = None, seed: str | None = None) -> list[tuple[dict, int]]:
     """
     Danh sách tài khoản pool ĐỦ CHỖ cho need_bytes, sắp theo free giảm dần.
     -> caller thử acc đầu; nếu upload lỗi/đầy thì nhảy acc kế (liền mạch, không kẹt).
     Đọc dung lượng THẬT mỗi acc (America 15GB free hay Google One đều đúng).
     owner != None: chỉ lấy acc của user đó (multi-tenant, tránh chồng chéo giữa user).
+    seed != None (vd tên kênh): XOAY danh sách theo seed -> mỗi kênh bắt đầu ở 1 kho KHÁC nhau
+      -> chạy SONG SONG không dồn 1 kho (đỡ spam API 1 kho, rải đều, giảm rủi ro, đăng sau không nghẽn).
     """
+    shared = _shared_reservations()   # phần ĐANG BAY của các luồng khác -> trừ trước để không tràn
     scored = []
     for acc in pool_accounts(cfg):
         if owner and acc.get("owner") and acc["owner"] != owner:
             continue
         try:
-            free = account_status(acc)["free_under_cap"] - _RESERVED.get(acc["root"], 0)
+            root = acc["root"]
+            held = max(_RESERVED.get(root, 0), shared.get(root, 0))   # local & chia-sẻ: lấy cái lớn hơn (tránh trễ Firestore)
+            free = account_status(acc)["free_under_cap"] - held
         except Exception as e:
             print(f"  ⚠️  Không đọc được dung lượng {acc['name']}: {e}")
             continue
         scored.append((acc, max(0, free)))
     scored.sort(key=lambda x: -x[1])
-    return [(a, f) for (a, f) in scored if f >= max(0, need_bytes)]
+    result = [(a, f) for (a, f) in scored if f >= max(0, need_bytes)]
+    if seed and len(result) > 1:
+        import hashlib
+        k = int(hashlib.md5(str(seed).encode()).hexdigest(), 16) % len(result)
+        result = result[k:] + result[:k]   # xoay điểm bắt đầu theo kênh -> rải đều, song song không đụng nhau
+    return result
 
 
 def pick_upload_account(min_free_bytes: int = 500 * 1_000_000,

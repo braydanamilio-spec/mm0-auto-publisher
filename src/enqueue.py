@@ -119,7 +119,7 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
     use_pool = (pool is True) or (pool == "auto" and bool(ST.pool_accounts()))
     if use_pool:
         need = os.path.getsize(video) + 60 * 1024 * 1024   # +60MB đệm (sidecar/thumb/sub/overhead)
-        ranked = ST.ranked_accounts(need, owner=owner)
+        ranked = ST.ranked_accounts(need, owner=owner, seed=channel)   # seed=kênh -> rải đều kho, song song không dồn 1 kho
         if not ranked:
             raise SystemExit(f"❌ Không tài khoản kho nào đủ chỗ (~{need/1e9:.2f} GB). "
                              f"Kết nối thêm Google Drive hoặc dọn dẹp.")
@@ -132,16 +132,18 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
 
     created, where, last_err = None, None, None
     for drive, root, wh in targets:
+        if use_pool:
+            ST.reserve(root, need)   # GIỮ CHỖ TRƯỚC (ước lượng size thật + đệm) -> luồng khác thấy ngay, không cùng nhét 1 kho gần đầy
         try:
             created = drive.upload_to_queue(root, video, meta["type"], sidecar,
                                             thumbnail_path=thumbnail, subtitle_path=subtitle)
             where = wh
             if created is not None:
                 created["account"] = wh[4:] if wh.startswith("kho:") else ""   # tên kho -> để Worker stream/preview đúng tài khoản
-            if use_pool:
-                ST.reserve(root, os.path.getsize(video))   # trừ tạm dung lượng (usage() lag sau upload)
-            break
+            break                                        # thành công -> GIỮ reservation (TTL 30' tự dọn khi usage() đã cập nhật)
         except Exception as e:
+            if use_pool:
+                ST.release(root, need)   # lỗi/đầy -> TRẢ CHỖ, nhảy kho kế
             last_err = e
             print(f"   ⚠️  Upload vào {wh} lỗi: {e}" + (" → thử tài khoản kế" if len(targets) > 1 else ""))
     if not created:
