@@ -1940,7 +1940,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       let all=(window.__rsJobsData||[]).filter(j=>j.status==="done" && (j.drive_id||j.preview));
       const chSel=document.getElementById(channelId);   // dropdown lọc kênh — liệt kê mọi kênh đã có video
       if(chSel){ const chans=[...new Set(all.map(j=>j.channel||"?"))].sort();
-        const opts='<option value="">📺 Tất cả kênh ('+all.length+')</option>'+chans.map(c=>`<option value="${esc(c)}">${esc(c)} (${all.filter(j=>(j.channel||"?")===c).length})</option>`).join("");
+        const opts='<option value="">📺 Tất cả kênh ('+all.length+')</option>'+chans.map(c=>{const b=(window.RS_BRANDS||{})[String(c).toUpperCase()];const ic=(b&&b.ic)||"📺";return `<option value="${esc(c)}">${ic} ${esc(c)} (${all.filter(j=>(j.channel||"?")===c).length})</option>`;}).join("");
         if(chSel.getAttribute("data-opts")!==opts){ const cur=chSel.value; chSel.innerHTML=opts; chSel.setAttribute("data-opts",opts); if(chans.includes(cur)) chSel.value=cur; } }
       const chF=(chSel&&chSel.value)||"";
       let done = chF ? all.filter(j=>(j.channel||"?")===chF) : all;
@@ -2154,9 +2154,10 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
         </div></div>`;
     };
     window.__rsBrandInit=(selId,hostId)=>{ const sel=document.getElementById(selId); if(!sel) return;
-      if(!sel.__init){ sel.__init=1; sel.innerHTML=Object.keys(RS_BRANDS).map(k=>`<option value="${k}">${esc(RS_BRANDS[k].d)}</option>`).join(""); sel.onchange=()=>window.rsRenderBrand(hostId,selId); }
+      if(!sel.__init){ sel.__init=1; sel.innerHTML=Object.keys(RS_BRANDS).map(k=>`<option value="${k}">${RS_BRANDS[k].ic} ${esc(RS_BRANDS[k].d)}</option>`).join(""); sel.onchange=()=>window.rsRenderBrand(hostId,selId); }
       window.rsRenderBrand(hostId,selId); };
     RS_BRANDS.DATARACE.cat="27";RS_BRANDS.STATEWARS.cat="27";RS_BRANDS.MONEYMOVES.cat="27";RS_BRANDS.POWERPLAY.cat="28";RS_BRANDS.GRIDIRON.cat="17";RS_BRANDS.SCREENKINGS.cat="24";RS_BRANDS.PAYCHECK.cat="27";RS_BRANDS.BODYUSA.cat="27";RS_BRANDS.RIDEUSA.cat="2";RS_BRANDS.EATSUSA.cat="26";
+    window.RS_BRANDS=RS_BRANDS;
     setTimeout(()=>{ try{window.__rsBrandInit("rsBrandSel","rsBrandBox");}catch(_){}; try{window.__rsBrandInit("stBrandSel","stBrandBox");}catch(_){} },1500);
 
     // 🧹 ĐỔ THÙNG RÁC: xóa VĨNH VIỄN file đã trash ở mọi kho -> thu hồi dung lượng ngay (không đợi 30 ngày).
