@@ -669,6 +669,7 @@
             <select id="stVaultView" onchange="window.__rsRenderGallery&&window.__rsRenderGallery()">
               <option value="channel">📺 Nhóm theo kênh</option>
               <option value="account">📦 Nhóm theo kho</option>
+              <option value="flawed">🚩 Nghi lỗi / bản cũ (để xóa)</option>
             </select>
             <button class="btn-conn" onclick="window.rsLocateAll&&window.rsLocateAll(this)">🔍 Tìm kho cho video chưa rõ</button>
             <button class="btn-conn" style="background:#ff5a5a22;border-color:#ff5a5a55;color:#ffb3b3" onclick="window.rsCleanOld&&window.rsCleanOld(this)" title="Chỉ xóa video phiên bản CŨ hơn bản mới nhất — giữ bản tốt">🧹 Dọn bản cũ</button>
@@ -883,6 +884,7 @@
             <select id="rsGalView" onchange="window.__rsRenderGallery&&window.__rsRenderGallery()">
               <option value="channel">📺 Nhóm theo kênh</option>
               <option value="account">📦 Nhóm theo kho</option>
+              <option value="flawed">🚩 Nghi lỗi / bản cũ (để xóa)</option>
             </select>
             <button class="btn-conn" onclick="window.rsLocateAll&&window.rsLocateAll(this)">🔍 Tìm kho cho video chưa rõ</button>
             <button class="btn-conn" style="background:#ff5a5a22;border-color:#ff5a5a55;color:#ffb3b3" onclick="window.rsCleanOld&&window.rsCleanOld(this)" title="Chỉ xóa video phiên bản CŨ hơn bản mới nhất — giữ bản tốt">🧹 Dọn bản cũ</button>
@@ -1911,11 +1913,14 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       const q=(((document.getElementById(searchId)||{}).value)||"").trim().toLowerCase();
       if(q) done=done.filter(j=>((j.title||"")+" "+(j.channel||"")+" "+(j.drive_account||"")+" "+(j.drive_id||"")+" "+(j.type||"")).toLowerCase().includes(q));
       const view=((document.getElementById(viewId)||{}).value)||"channel";
+      const newestPver=done.reduce((m,j)=>{const p=j.pver||"";return p>m?p:m;},"");
+      const isFlawed=j=>((j.pver||"")<newestPver)||(j.score&&Number(j.score)<90);   // bản cũ hơn bản mới nhất HOẶC QC<90 = nghi lỗi
+      if(view==="flawed") done=done.filter(isFlawed);
       const tL=done.filter(j=>j.type==="long").length, tS=done.length-tL, unk=done.filter(j=>!j.drive_account).length;
       done.sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));
       const CAP=40, over=done.length>CAP && !q; const disp=over?done.slice(0,CAP):done;   // giới hạn hiển thị cho NHẸ (search thì hiện hết kết quả)
       const cnt=document.getElementById(countId); if(cnt) cnt.textContent=`📤 ${done.length} video · ${tL} long · ${tS} short${unk?` · 🔍 ${unk} chưa rõ kho`:""}${over?` · hiện ${CAP} mới nhất (tìm để xem hết)`:""}`;
-      if(!done.length){ host.innerHTML='<div class="d">'+(q?`Không tìm thấy video khớp "${esc(q)}".`:'Chưa có video hoàn tất — render xong + đẩy Drive là hiện ở đây.')+'</div>'; return; }
+      if(!done.length){ host.innerHTML='<div class="d">'+(view==="flawed"?'✓ Không có video nghi lỗi/bản cũ — tất cả đều là bản mới nhất. (Sau khi có mẻ v2, đám cũ sẽ hiện ở đây để xóa.)':(q?`Không tìm thấy video khớp "${esc(q)}".`:'Chưa có video hoàn tất — render xong + đẩy Drive là hiện ở đây.'))+'</div>'; return; }
       let tk=""; try{ tk=await window.__getIdToken(); }catch(_){}
       const item=(j)=>{
         const pv=j.preview||`https://drive.google.com/file/d/${j.drive_id}/preview`;
