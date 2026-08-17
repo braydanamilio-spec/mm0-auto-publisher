@@ -1262,8 +1262,11 @@ async function ensureDriveFolder(accessToken, name) {
 }
 
 /* ---------- Firestore REST bằng service account (JWT RS256) ---------- */
+let _saCache = {};   // CACHE token SA theo scope (TTL ~55') -> đỡ tốn subrequest khi dò nhiều kho (giới hạn 50/lần Cloudflare)
 async function saAccessToken(env, scope = "https://www.googleapis.com/auth/datastore") {
-  const now = Math.floor(Date.now() / 1000);
+  const nowMs = Date.now();
+  if (_saCache[scope] && _saCache[scope].exp > nowMs) return _saCache[scope].tok;
+  const now = Math.floor(nowMs / 1000);
   const claim = {
     iss: env.SA_CLIENT_EMAIL,
     scope,
@@ -1280,6 +1283,7 @@ async function saAccessToken(env, scope = "https://www.googleapis.com/auth/datas
     body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: jwt }),
   })).json();
   if (!r.access_token) throw new Error("SA token fail: " + JSON.stringify(r));
+  _saCache[scope] = { tok: r.access_token, exp: nowMs + 55 * 60 * 1000 };   // cache 55'
   return r.access_token;
 }
 
