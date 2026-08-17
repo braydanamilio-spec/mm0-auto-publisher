@@ -665,7 +665,8 @@
         <div class="panel" style="margin-bottom:16px">
           <div class="p-head"><div class="p-title">🎬 Kho tổng video (tất cả kênh &amp; kho)</div><div class="p-sub">Tìm nhanh video/kênh/kho · xem trực quan · bấm phát ngay · <span id="stVaultCount"></span></div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
-            <input id="stVaultSearch" placeholder="🔎 Tìm: tên / kênh / kho / id…" style="flex:1;min-width:200px" oninput="window.__rsRenderGallery&&window.__rsRenderGallery()"/>
+            <select id="stVaultChannel" onchange="window.__rsRenderGallery&&window.__rsRenderGallery()"><option value="">📺 Tất cả kênh</option></select>
+            <input id="stVaultSearch" placeholder="🔎 Tìm: tên / id…" style="flex:1;min-width:160px" oninput="window.__rsRenderGallery&&window.__rsRenderGallery()"/>
             <select id="stVaultView" onchange="window.__rsRenderGallery&&window.__rsRenderGallery()">
               <option value="channel">📺 Nhóm theo kênh</option>
               <option value="account">📦 Nhóm theo kho</option>
@@ -882,7 +883,8 @@
         <div class="panel" style="margin-bottom:14px">
           <div class="p-head"><div class="p-title">🎬 Kho tổng video — xem, tìm &amp; quản lý</div><div class="p-sub">Gộp tất cả kho Drive · tìm kiếm · biết video ở kho nào · <span id="rsGalCount"></span></div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
-            <input id="rsGalSearch" placeholder="🔎 Tìm video: tên / kênh / kho / id…" style="flex:1;min-width:200px" oninput="window.__rsRenderGallery&&window.__rsRenderGallery()"/>
+            <select id="rsGalChannel" onchange="window.__rsRenderGallery&&window.__rsRenderGallery()"><option value="">📺 Tất cả kênh</option></select>
+            <input id="rsGalSearch" placeholder="🔎 Tìm video: tên / id…" style="flex:1;min-width:160px" oninput="window.__rsRenderGallery&&window.__rsRenderGallery()"/>
             <select id="rsGalView" onchange="window.__rsRenderGallery&&window.__rsRenderGallery()">
               <option value="channel">📺 Nhóm theo kênh</option>
               <option value="account">📦 Nhóm theo kho</option>
@@ -1911,9 +1913,15 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     window.__rsRenderPlan=rsRenderPlan;
 
     // ===== 🎬 THƯ VIỆN VIDEO — chia theo kênh, xem inline như mở Drive =====
-    async function rsGalInto(hostId, searchId, viewId, countId){
+    async function rsGalInto(hostId, searchId, viewId, countId, channelId){
       const host=document.getElementById(hostId); if(!host) return;
-      let done=(window.__rsJobsData||[]).filter(j=>j.status==="done" && (j.drive_id||j.preview));
+      let all=(window.__rsJobsData||[]).filter(j=>j.status==="done" && (j.drive_id||j.preview));
+      const chSel=document.getElementById(channelId);   // dropdown lọc kênh — liệt kê mọi kênh đã có video
+      if(chSel){ const chans=[...new Set(all.map(j=>j.channel||"?"))].sort();
+        const opts='<option value="">📺 Tất cả kênh ('+all.length+')</option>'+chans.map(c=>`<option value="${esc(c)}">${esc(c)} (${all.filter(j=>(j.channel||"?")===c).length})</option>`).join("");
+        if(chSel.getAttribute("data-opts")!==opts){ const cur=chSel.value; chSel.innerHTML=opts; chSel.setAttribute("data-opts",opts); if(chans.includes(cur)) chSel.value=cur; } }
+      const chF=(chSel&&chSel.value)||"";
+      let done = chF ? all.filter(j=>(j.channel||"?")===chF) : all;
       const q=(((document.getElementById(searchId)||{}).value)||"").trim().toLowerCase();
       if(q) done=done.filter(j=>((j.title||"")+" "+(j.channel||"")+" "+(j.drive_account||"")+" "+(j.drive_id||"")+" "+(j.type||"")).toLowerCase().includes(q));
       const view=((document.getElementById(viewId)||{}).value)||"channel";
@@ -1957,7 +1965,8 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       const grp=(icon,label,arr)=> arr.length?`<div class="d" style="margin:8px 0 3px">${icon} ${label} (${arr.length})</div>${arr.map(item).join("")}`:"";
       const keyOf = view==="account" ? (j=>j.drive_account||"🔍 Chưa xác định kho") : (j=>j.channel||"?");
       const groups={}; disp.forEach(j=>{const k=keyOf(j);(groups[k]=groups[k]||[]).push(j);});
-      host.innerHTML = Object.keys(groups).sort().map(g=>{
+      const _flawBanner = (view==="flawed" && done.length) ? `<div style="background:#ef444422;border:1px solid #ef4444;border-radius:10px;padding:11px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><b style="color:#ff9a9a">🚩 ${done.length} video nghi lỗi/bản cũ — xem thumbnail + tiêu đề bên dưới, kiểm xong bấm xóa</b><button class="btn-conn" style="background:#ef4444;border:none;color:#fff;font-weight:700" onclick="window.rsCleanOldExec&&window.rsCleanOldExec(this)">🗑 Xóa hết ${done.length} video</button></div>` : "";
+      host.innerHTML = _flawBanner + Object.keys(groups).sort().map(g=>{
         const js=groups[g].sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));
         const longs=js.filter(j=>j.type==="long"), shorts=js.filter(j=>j.type!=="long");
         const head = view==="account"
@@ -1973,8 +1982,8 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     let _galT=null;
     function _visible(id){ const el=document.getElementById(id); if(!el) return false; const sec=el.closest(".content"); return !(sec&&sec.classList.contains("hide")); }
     window.__rsRenderGallery=()=>{ if(_galT) return; _galT=setTimeout(()=>{ _galT=null;
-      if(_visible("rsGallery")) rsGalInto("rsGallery","rsGalSearch","rsGalView","rsGalCount");
-      if(_visible("stVault"))  rsGalInto("stVault","stVaultSearch","stVaultView","stVaultCount");
+      if(_visible("rsGallery")) rsGalInto("rsGallery","rsGalSearch","rsGalView","rsGalCount","rsGalChannel");
+      if(_visible("stVault"))  rsGalInto("stVault","stVaultSearch","stVaultView","stVaultCount","stVaultChannel");
     }, 400); };
     // Tự dò + gắn kho cho MỌI video chưa rõ (1 bấm) -> quản lý minh bạch, biết video ở kho nào.
     window.rsLocateAll=async(btn)=>{
@@ -2019,26 +2028,31 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
           if(j.id) await deleteDoc(doc(db,"render_jobs",j.id)); ok++; }catch(_){} }
       try{toastMsg(`🗑 Đã xóa ${ok}/${list.length} video`);}catch(_){} };
     // DỌN THÔNG MINH: chỉ xóa video PHIÊN BẢN CŨ hơn bản mới nhất (pver) -> KHÔNG BAO GIỜ xóa nhầm bản tốt hiện tại.
+    // BƯỚC 1: chỉ HIỆN mục 🚩 (thumbnail + chi tiết) để REVIEW trực quan — KHÔNG xóa ngay.
     window.rsCleanOld=async(btn)=>{
       const done=(window.__rsJobsData||[]).filter(j=>j.status==="done"&&(j.drive_id||j.preview));
       const newest=done.reduce((m,j)=>{const p=j.pver||"";return p>m?p:m;},"");
-      if(!newest){ try{toastMsg("Chưa có video phiên bản mới để so — chạy 1 mẻ render mới trước.");}catch(_){}; return; }
-      const old=done.filter(j=>(j.pver||"")<newest);
-      if(!old.length){ try{toastMsg("✓ Không có bản cũ (tất cả đã là bản mới nhất "+newest+").");}catch(_){}; return; }
-      // HIỆN danh sách bản cũ (chuyển sang mục 🚩) để anh KIỂM tận mắt trước khi xóa
+      const flaw=done.filter(j=>j.flagged||((j.pver||"")<newest)||(j.score&&Number(j.score)<90));
+      if(!flaw.length){ try{toastMsg("✓ Không có video nghi lỗi/bản cũ nào.");}catch(_){}; return; }
       ["rsGalView","stVaultView"].forEach(id=>{const s=document.getElementById(id); if(s) s.value="flawed";});
       window.__rsRenderGallery&&window.__rsRenderGallery();
-      const _lst=old.slice(0,20).map(j=>"• ["+(j.type||"?")+"] "+String(j.title||"?").slice(0,48)).join("\n");
-      const _more=old.length>20?`\n…và ${old.length-20} video nữa`:"";
-      if(!confirm(`${old.length} BẢN CŨ sẽ xóa (đã hiện ở mục 🚩 Nghi lỗi/bản cũ để anh kiểm tận mắt):\n\n${_lst}${_more}\n\nGIỮ NGUYÊN bản mới nhất (${newest}). Đồng ý xóa?`)) return;
+      setTimeout(()=>{ const g=document.getElementById(_visible("stVault")?"stVault":"rsGallery"); if(g) g.scrollIntoView({behavior:"smooth",block:"start"}); },500);
+      try{toastMsg(`👀 Đã hiện ${flaw.length} video nghi lỗi/bản cũ — xem thumbnail/tiêu đề rồi bấm "🗑 Xóa hết" ở đầu danh sách.`);}catch(_){} };
+    // BƯỚC 2: XÓA hết mục nghi lỗi/bản cũ (sau khi đã review).
+    window.rsCleanOldExec=async(btn)=>{
+      const done=(window.__rsJobsData||[]).filter(j=>j.status==="done"&&(j.drive_id||j.preview));
+      const newest=done.reduce((m,j)=>{const p=j.pver||"";return p>m?p:m;},"");
+      const flaw=done.filter(j=>j.flagged||((j.pver||"")<newest)||(j.score&&Number(j.score)<90));
+      if(!flaw.length){ try{toastMsg("Không còn gì để xóa.");}catch(_){}; return; }
+      if(!confirm(`Xóa ${flaw.length} video nghi lỗi/bản cũ ĐANG HIỆN? Đưa vào thùng rác (khôi phục 30 ngày).`)) return;
       if(btn){ btn.disabled=true; } let ok=0;
-      for(let i=0;i<old.length;i++){ const j=old[i]; if(btn) btn.textContent=`⏳ ${i+1}/${old.length}`;
+      for(let i=0;i<flaw.length;i++){ const j=flaw[i]; if(btn) btn.textContent=`⏳ ${i+1}/${flaw.length}`;
         const fid=j.drive_id||((/\/d\/([^/]+)/.exec(j.preview||"")||[])[1]||""); if(!fid) continue;
         try{ let acc=j.drive_account||""; if(!acc) acc=await window.rsLocate(fid,j.id);
           await workerApi("/api/file-action",{method:"POST",body:{account:acc,action:"trash",fileId:fid}});
           if(j.id) await deleteDoc(doc(db,"render_jobs",j.id)); ok++; }catch(_){} }
-      if(btn){ btn.textContent="🧹 Dọn bản cũ"; btn.disabled=false; }
-      try{toastMsg(`🧹 Đã dọn ${ok}/${old.length} bản cũ · giữ nguyên bản ${newest}`);}catch(_){} };
+      if(btn){ btn.textContent="🗑 Xóa hết bản cũ"; btn.disabled=false; }
+      try{toastMsg(`🗑 Đã xóa ${ok}/${flaw.length} video`);}catch(_){} };
     // 🚩 ĐÁNH DẤU LỖI: gắn cờ vào video -> hiện trong mục "Nghi lỗi/bản cũ".
     window.rsMarkFlaw=async(jobId,flag)=>{ if(!jobId) return;
       try{ await setDoc(doc(db,"render_jobs",jobId),{flagged:!!flag},{merge:true}); try{toastMsg(flag?"🚩 Đã đánh dấu lỗi":"✓ Đã bỏ đánh dấu");}catch(_){} }catch(e){ try{toastMsg("Lỗi: "+e.message);}catch(_){} } };
