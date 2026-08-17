@@ -1885,11 +1885,12 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       const byCh={}; done.forEach(j=>{(byCh[j.channel||"?"]=byCh[j.channel||"?"]||[]).push(j);});
       const item=(j)=>{
         const pv=j.preview||`https://drive.google.com/file/d/${j.drive_id}/preview`;
+        const fid=j.drive_id||((/\/d\/([^/]+)/.exec(pv)||[])[1]||"");
         const pid="pl_"+(j.id||Math.random().toString(36).slice(2));
         const tall=(j.type!=="long")?1:0;
         return `<div style="background:#ffffff0d;border-radius:10px;padding:8px 11px;margin:5px 0">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-            <span style="cursor:pointer;font-weight:600" onclick="window.rsPlay('${pid}','${esc(j.drive_account||'')}','${esc(j.drive_id||'')}','${pv}',${tall})">▶ ${esc(j.title||j.type||"video")}</span>
+            <span style="cursor:pointer;font-weight:600" onclick="window.rsPlay('${pid}','${esc(j.drive_account||'')}','${esc(fid)}','${pv}',${tall})">▶ ${esc(j.title||j.type||"video")}</span>
             <span class="d" style="white-space:nowrap">${j.score?'QC '+esc(j.score)+' · ':''}${esc((j.created_at||'').slice(5,10))} · <a href="${esc(pv)}" target="_blank" style="color:#8b6cff">Drive ↗</a></span>
           </div><div id="${pid}"></div></div>`;
       };
@@ -1906,15 +1907,13 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     window.rsPlay=async(id,account,fileId,pv,tall)=>{ const el=document.getElementById(id); if(!el) return;
       if(el.innerHTML){ el.innerHTML=""; return; }   // bấm lần 2 = đóng
       const style=tall?"width:300px;max-width:100%;aspect-ratio:9/16":"width:100%;aspect-ratio:16/9";
-      if(account && fileId){                          // STREAM qua Worker -> xem inline 100% kể cả file CHƯA share
+      if(fileId){                                     // NHÚNG player stream qua Worker -> phát NGAY trên web (không nhảy Drive, không cần share)
         el.innerHTML=`<div class="d" style="margin-top:8px">⏳ Đang tải video…</div>`;
         let tk=""; try{ tk=await window.__getIdToken(); }catch(_){}
-        const su=`${WORKER_URL}/api/drive-stream?t=${encodeURIComponent(tk)}&account=${encodeURIComponent(account)}&fileId=${encodeURIComponent(fileId)}`;
-        el.innerHTML=`<video src="${su}" controls playsinline preload="metadata" style="${style};border-radius:8px;margin-top:8px;background:#000"></video>
-          <div class="d" style="font-size:12px;margin-top:3px"><a href="${pv}" target="_blank" style="color:#8b6cff">mở trên Drive ↗</a></div>`;
-      } else {                                         // video CŨ chưa lưu kho -> thử preview Drive (cần đã share)
-        el.innerHTML=`<iframe src="${pv}" style="${style};border:0;border-radius:8px;margin-top:8px;background:#000" allow="autoplay" allowfullscreen></iframe>
-          <div class="d" style="margin-top:4px;font-size:12px">Không xem được? Video cũ chưa gắn kho — bấm <a href="${pv}" target="_blank" style="color:#8b6cff">Drive ↗</a>.</div>`;
+        const su=`${WORKER_URL}/api/drive-stream?t=${encodeURIComponent(tk)}${account?`&account=${encodeURIComponent(account)}`:""}&fileId=${encodeURIComponent(fileId)}`;
+        el.innerHTML=`<video src="${su}" controls playsinline preload="metadata" style="${style};border-radius:8px;margin-top:8px;background:#000"></video>`;
+      } else {
+        el.innerHTML=`<div class="d" style="margin-top:8px">Video này chưa có file trên Drive.</div>`;
       } };
 
     // Gộp brand channel vào 1 Gmail thật (Google giấu Gmail của tài khoản thương hiệu)

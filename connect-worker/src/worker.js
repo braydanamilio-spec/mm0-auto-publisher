@@ -765,14 +765,38 @@ async function apiFileContent(request, url, env) {
 
 // GET /api/drive-stream?t=&account=&fileId= -> STREAM video từ Drive (dùng token của kho, Range để tua được).
 //   Nhờ vậy XEM INLINE trên dashboard kể cả file CHƯA mở chia sẻ. Token kho KHÔNG lộ ra browser.
+async function fsListStorageAccounts(env, at, uid) {
+  const u = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery`;
+  const body = { structuredQuery: { from: [{ collectionId: "storage_accounts" }],
+    where: { fieldFilter: { field: { fieldPath: "owner" }, op: "EQUAL", value: { stringValue: uid } } } } };
+  const res = await fetch(u, { method: "POST", headers: { Authorization: `Bearer ${at}`, "content-type": "application/json" }, body: JSON.stringify(body) });
+  if (!res.ok) return [];
+  const rows = await res.json();
+  const names = [];
+  for (const r of (rows || [])) { const nm = r.document && r.document.fields && r.document.fields.name; if (nm && nm.stringValue) names.push(nm.stringValue); }
+  return names;
+}
+
 async function apiDriveStream(request, url, env) {
-  const t = url.searchParams.get("t"), account = url.searchParams.get("account"), fileId = url.searchParams.get("fileId");
+  const t = url.searchParams.get("t"), account0 = url.searchParams.get("account"), fileId = url.searchParams.get("fileId");
   const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
   if (!uid) return new Response("unauthorized", { status: 401 });
-  if (!account || !fileId) return new Response("missing account/fileId", { status: 400 });
+  if (!fileId) return new Response("missing fileId", { status: 400 });
   let dat;
-  try { ({ dat } = await driveCtx(env, uid, account)); }
-  catch (e) { return new Response("drive auth error: " + (e && e.message || e), { status: 502 }); }
+  try {
+    if (account0) { ({ dat } = await driveCtx(env, uid, account0)); }
+    else {                                      // KHÔNG biết kho -> TỰ DÒ: thử từng kho tới khi mở được file
+      const at = await saAccessToken(env);
+      for (const nm of await fsListStorageAccounts(env, at, uid)) {
+        try {
+          const c = await driveCtx(env, uid, nm);
+          const chk = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${c.dat}` } });
+          if (chk.ok) { dat = c.dat; break; }
+        } catch (_) { }
+      }
+      if (!dat) return new Response("không tìm thấy file trong kho nào", { status: 404 });
+    }
+  } catch (e) { return new Response("drive auth error: " + (e && e.message || e), { status: 502 }); }
   const range = request.headers.get("Range");
   const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`,
     { headers: { Authorization: `Bearer ${dat}`, ...(range ? { Range: range } : {}) } });
