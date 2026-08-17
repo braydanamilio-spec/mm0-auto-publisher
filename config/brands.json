@@ -1,0 +1,152 @@
+{
+  "DATARACE": {
+    "display": "DATA RACE",
+    "niche": "US money & wealth (billionaires, tax, income gap)",
+    "hashtags": [
+      "#usdata",
+      "#datarace",
+      "#money"
+    ],
+    "category": "27",
+    "accent": "#F5B301",
+    "tagline": "Watch the numbers race.",
+    "handle": "@dataracehq",
+    "motif": "bars",
+    "layout": "center"
+  },
+  "STATEWARS": {
+    "display": "STATE WARS",
+    "niche": "US states compared (population, GDP, crime, housing)",
+    "hashtags": [
+      "#usa",
+      "#states",
+      "#statewars"
+    ],
+    "category": "27",
+    "accent": "#E4562B",
+    "tagline": "50 states. One winner.",
+    "handle": "@statewarsusa",
+    "motif": "map",
+    "layout": "left"
+  },
+  "MONEYMOVES": {
+    "display": "MONEY MOVES",
+    "niche": "US cost of living (rent, gas, groceries, prices)",
+    "hashtags": [
+      "#costofliving",
+      "#inflation",
+      "#money"
+    ],
+    "category": "27",
+    "accent": "#2FA84F",
+    "tagline": "Where your money goes.",
+    "handle": "@moneymovesusa",
+    "motif": "coins",
+    "layout": "center"
+  },
+  "POWERPLAY": {
+    "display": "POWER PLAY",
+    "niche": "US companies & brands (market cap, users, EVs)",
+    "hashtags": [
+      "#business",
+      "#brands",
+      "#stocks"
+    ],
+    "category": "28",
+    "accent": "#22D3EE",
+    "tagline": "Who owns America.",
+    "handle": "@powerplayhq",
+    "motif": "chip",
+    "layout": "left"
+  },
+  "GRIDIRON": {
+    "display": "GRID IRON",
+    "niche": "US sports money (NFL/NBA salaries, tickets, titles)",
+    "hashtags": [
+      "#nfl",
+      "#nba",
+      "#sports"
+    ],
+    "category": "17",
+    "accent": "#FB923C",
+    "tagline": "The money game.",
+    "handle": "@gridironusa",
+    "motif": "field",
+    "layout": "left"
+  },
+  "SCREENKINGS": {
+    "display": "SCREEN KINGS",
+    "niche": "US entertainment (box office, streaming, music)",
+    "hashtags": [
+      "#movies",
+      "#streaming",
+      "#music"
+    ],
+    "category": "24",
+    "accent": "#EC4899",
+    "tagline": "Who rules your screen.",
+    "handle": "@screenkingshq",
+    "motif": "film",
+    "layout": "center"
+  },
+  "PAYCHECK": {
+    "display": "PAYCHECK",
+    "niche": "US jobs & salaries (highest paying, unemployment)",
+    "hashtags": [
+      "#jobs",
+      "#salary",
+      "#career"
+    ],
+    "category": "27",
+    "accent": "#2DD4BF",
+    "tagline": "What America earns.",
+    "handle": "@paycheckusa",
+    "motif": "receipt",
+    "layout": "center"
+  },
+  "BODYUSA": {
+    "display": "BODY USA",
+    "niche": "US health & lifestyle (obesity, lifespan, spending)",
+    "hashtags": [
+      "#health",
+      "#usa",
+      "#fitness"
+    ],
+    "category": "27",
+    "accent": "#7C5CFF",
+    "tagline": "The American body.",
+    "handle": "@bodyusahq",
+    "motif": "pulse",
+    "layout": "left"
+  },
+  "RIDEUSA": {
+    "display": "RIDE USA",
+    "niche": "US cars & auto (brand sales, EV vs gas, trucks)",
+    "hashtags": [
+      "#cars",
+      "#ev",
+      "#auto"
+    ],
+    "category": "2",
+    "accent": "#38BDF8",
+    "tagline": "America on wheels.",
+    "handle": "@rideusahq",
+    "motif": "road",
+    "layout": "center"
+  },
+  "EATSUSA": {
+    "display": "EATS USA",
+    "niche": "US food & fast-food (chains, calories, prices)",
+    "hashtags": [
+      "#food",
+      "#fastfood",
+      "#usa"
+    ],
+    "category": "26",
+    "accent": "#A3E635",
+    "tagline": "How America eats.",
+    "handle": "@eatsusahq",
+    "motif": "plate",
+    "layout": "left"
+  }
+}

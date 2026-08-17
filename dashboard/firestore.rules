@@ -75,6 +75,34 @@ service cloud.firestore {
       allow delete: if owns(resource.data);
     }
 
+    // ---- RENDER STUDIO (dự án render GitHub) ----
+    match /render_config/{doc} {
+      allow read:  if canRead(resource.data.owner);
+      allow write: if canEdit(request.resource.data.owner) && doc == request.resource.data.owner;
+    }
+    match /render_channels/{doc} {
+      allow read:   if canRead(resource.data.owner);
+      allow create: if canEdit(request.resource.data.owner);
+      allow update: if owns(resource.data) && canEdit(request.resource.data.owner);
+      allow delete: if canEdit(resource.data.owner);
+    }
+    match /render_jobs/{doc} {
+      allow read:   if canRead(resource.data.owner);
+      allow create: if canEdit(request.resource.data.owner);
+      allow update, delete: if canEdit(resource.data.owner);   // GitHub/Worker ghi qua Admin (bỏ qua rules)
+    }
+    // Ngân hàng chủ đề (chống trùng) — pipeline ghi qua Admin; client chỉ đọc.
+    match /render_topics/{doc} {
+      allow read:  if canRead(resource.data.owner);
+      allow write: if false;
+    }
+    // API KEY Gemini — CHỈ chủ đọc (nhạy cảm); pipeline đọc qua Admin.
+    match /gemini_keys/{doc} {
+      allow read:   if owns(resource.data);
+      allow create: if canEdit(request.resource.data.owner);
+      allow delete: if owns(resource.data);
+    }
+
     // TOKEN kết nối — không client nào đọc/ghi (chỉ server/Worker qua Admin).
     match /connections/{doc}      { allow read, write: if false; }
 

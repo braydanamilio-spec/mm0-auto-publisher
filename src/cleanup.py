@@ -3,8 +3,13 @@ cleanup.py — DỌN DẸP file đã đăng trong hồ chứa (PER-USER / multi-
 
 Mỗi user có chính sách riêng (settings/overrides__<uid>.cleanup):
   keep    -> không xoá gì (Google One giữ tất cả).
-  delete  -> xoá file trong _POSTED cũ hơn keep_days (YouTube là backup; link đã lưu Firestore).
+  delete  -> xoá file trong _POSTED cũ hơn keep_days (mặc định 14 ngày).
   archive -> (tạm) giữ lại — backup kho lạnh per-user sẽ bổ sung sau.
+
+⚠️ RULE XOÁ (QUAN TRỌNG — _confirmed_posted):
+  Video CHỈ được xoá (khi mode=delete + đủ keep_days) NẾU đã đăng >=2 NỀN TẢNG:
+  YouTube VÀ (Facebook HOẶC Instagram). Nếu MỚI chỉ đăng YouTube -> GIỮ, KHÔNG xoá.
+  (Mục đích: không bao giờ mất bản gốc khi chưa có đủ nơi lưu/đăng khác.)
 
 Đọc tài khoản Drive của user từ connections (kết nối qua dashboard).
 
@@ -42,12 +47,16 @@ def _age_days(f: dict, now: datetime, posted_at: str | None = None) -> float:
 
 
 def _confirmed_posted(rec: dict | None) -> bool:
-    """True nếu Firestore XÁC NHẬN video đã đăng (có id kết quả) -> mới an toàn để xoá bản gốc."""
+    """ĐỦ ĐIỀU KIỆN XOÁ chỉ khi ĐÃ đăng >=2 NỀN TẢNG: YouTube VÀ (Facebook HOẶC Instagram).
+    Chỉ đăng YouTube -> KHÔNG xoá (giữ bản gốc). Tránh mất video khi chưa đủ nơi lưu."""
     if not rec:
         return False
     res = rec.get("results") or {}
-    has_result = any((res.get(p) or {}).get("id") for p in ("youtube", "facebook", "instagram"))
-    return rec.get("status") == "posted" or has_result
+    def _ok(p):
+        return bool((res.get(p) or {}).get("id"))
+    yt = _ok("youtube")
+    social = _ok("facebook") or _ok("instagram")
+    return yt and social
 
 
 def _companions(drv, parent_id: str, base: str) -> list[str]:
