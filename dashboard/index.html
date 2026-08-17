@@ -759,7 +759,10 @@
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
             <span id="rsPipeState" class="badge">⏸ Chưa bật</span>
             <button class="btn-conn" onclick="window.__rsToggle&&window.__rsToggle()">▶ Bật/Tắt cron đêm</button>
-            <button class="btn-conn" onclick="window.__rsRunNow&&window.__rsRunNow()">⚡ Render ngay 1 video</button>
+            <button class="btn-conn" onclick="window.__rsRunNow&&window.__rsRunNow()">⚡ Render ngay</button>
+            <button class="btn-conn" style="background:#ff5a5a22;border-color:#ff5a5a66;color:#ffb3b3" onclick="window.__rsStop&&window.__rsStop()">⛔ Dừng ngay</button>
+            <label class="d" style="display:flex;align-items:center;gap:5px">Tối đa/lần:
+              <input id="rsMaxRun" type="number" min="0" placeholder="0=∞" style="width:64px" onchange="window.__rsSetMax&&window.__rsSetMax()"/></label>
             <span class="d" id="rsGithubLink"></span>
           </div>
         </div>
@@ -775,6 +778,7 @@
             <button class="cmdtag" onclick="window.rsCmd&&rsCmd('status')">📊 Tình hình</button>
             <button class="cmdtag" onclick="window.rsCmd&&rsCmd('render_now')">⚡ Render ngay</button>
             <button class="cmdtag" onclick="window.rsCmd&&rsCmd('pause')">⏸ Tạm dừng</button>
+            <button class="cmdtag" style="border-color:#ff5a5a55;color:#ffb3b3" onclick="window.__rsStop&&window.__rsStop()">⛔ Dừng ngay</button>
             <button class="cmdtag" onclick="window.rsCmd&&rsCmd('resume')">▶️ Chạy tiếp</button>
             <button class="cmdtag" onclick="window.rsCmd&&rsCmd('retry_failed')">🔧 Thử lại lỗi</button>
             <button class="cmdtag" onclick="window.rsCmd&&rsCmd('clean_jobs')">🧹 Dọn job cũ</button>
@@ -836,6 +840,8 @@
               <option value="short_only">Chỉ short ×3</option>
               <option value="long_only">Chỉ long</option>
             </select>
+            <input id="rsChLongT" type="number" min="0" placeholder="mục tiêu long (0=∞)" title="Tổng long muốn có cho kênh này" style="width:150px"/>
+            <input id="rsChShortT" type="number" min="0" placeholder="mục tiêu short (0=∞)" title="Tổng short muốn có cho kênh này" style="width:150px"/>
             <button class="btn-conn" onclick="window.__rsAddChannel&&window.__rsAddChannel()">＋ Thêm kênh</button>
           </div>
           <div id="rsChList" class="list"><div class="d">Chưa cấu hình kênh render.</div></div>
@@ -1597,9 +1603,16 @@
         await setDoc(rsCfgDoc(), {owner:RSowner(), enabled:on}, {merge:true});
         toastMsg(on?"▶ Đã BẬT cron render đêm":"⏸ Đã TẮT"); } catch(e){ alert("Lỗi: "+e.message); } };
     window.__rsRunNow = async () => {
-      try { await addDoc(collection(db,"render_jobs"), {owner:RSowner(), status:"queued", channel:"(manual)",
-        step:"chờ GitHub nhận", created_at:new Date().toISOString()});
-        toastMsg("⚡ Đã xếp 1 job — GitHub Actions sẽ nhận ở lần cron tới"); } catch(e){ alert("Lỗi: "+e.message); } };
+      try { await setDoc(rsCfgDoc(), {owner:RSowner(), enabled:true, run_now:new Date().toISOString(), run_now_by:(window.__uEmail||"dashboard")}, {merge:true});
+        toastMsg("⚡ Đã đặt lệnh Render ngay — GitHub nhận ≤30 phút rồi tự chạy"); } catch(e){ alert("Lỗi: "+e.message); } };
+    window.__rsStop = async () => {
+      if(!confirm("Dừng nhà máy? Kênh còn lại sẽ không chạy (video đang render vẫn xong).")) return;
+      try { await setDoc(rsCfgDoc(), {owner:RSowner(), enabled:false, stop:true}, {merge:true});
+        toastMsg("⛔ Đã gửi lệnh DỪNG — pipeline ngưng các kênh còn lại"); } catch(e){ alert("Lỗi: "+e.message); } };
+    window.__rsSetMax = async () => {
+      const v=Math.max(0,Number((document.getElementById("rsMaxRun")||{}).value)||0);
+      try { await setDoc(rsCfgDoc(), {owner:RSowner(), max_per_run:v}, {merge:true});
+        toastMsg(v?`🎯 Tối đa ${v} video mỗi lần chạy`:"♾️ Bỏ giới hạn số video/lần"); } catch(e){ alert("Lỗi: "+e.message); } };
     window.__rsAddKey = async () => {
       const v=(document.getElementById("rsKeyManual").value||"").trim();
       const em=(document.getElementById("rsKeyEmail").value||"").trim();
@@ -1626,9 +1639,11 @@
       if(!name) return alert("Nhập tên kênh.");
       const mix=(document.getElementById("rsChMix")||{}).value||"1long_3short";
       const nShorts={"1long_3short":3,"1long_2short":2,"1long_1short":1,"short_only":3,"long_only":0}[mix];
+      const lt=Number((document.getElementById("rsChLongT")||{}).value)||0, stt=Number((document.getElementById("rsChShortT")||{}).value)||0;
       try { await addDoc(collection(db,"render_channels"), {owner:RSowner(), name,
         niche:(document.getElementById("rsChNiche").value||"").trim(), type:document.getElementById("rsChType").value,
-        img_source:document.getElementById("rsChImg").value, mix, n_shorts:nShorts, make_long:(mix!=="short_only"), created_at:new Date().toISOString()});
+        img_source:document.getElementById("rsChImg").value, mix, n_shorts:nShorts, make_long:(mix!=="short_only"),
+        long_target:lt, short_target:stt, created_at:new Date().toISOString()});
         document.getElementById("rsChName").value=""; document.getElementById("rsChNiche").value="";
         toastMsg("✔ Đã thêm kênh render"); } catch(e){ alert("Lỗi: "+e.message); } };
     window.__rsDelChannel = async (id) => { if(confirm("Xoá kênh render này?")) await deleteDoc(doc(db,"render_channels",id)); };
@@ -1637,8 +1652,9 @@
       if(rsInited) return; const o=RSowner(); if(!o){ setTimeout(rsInit,800); return; } rsInited=true;
       const q=(name)=>query(collection(db,name), where("owner","==",o));
       onSnapshot(rsCfgDoc(), d=>{ const c=d.exists()?d.data():{};
-        const st=document.getElementById("rsPipeState"); if(st) st.textContent=c.enabled?"▶ Đang bật":"⏸ Chưa bật";
+        const st=document.getElementById("rsPipeState"); if(st) st.textContent=c.stop?"⛔ Đang dừng":(c.run_now?"⚡ Chờ render ngay":(c.enabled?"▶ Đang bật":"⏸ Chưa bật"));
         if(c.qc_min) document.getElementById("rsQcMin").value=c.qc_min;
+        const mr=document.getElementById("rsMaxRun"); if(mr&&document.activeElement!==mr) mr.value=c.max_per_run||"";
         if(c.model) document.getElementById("rsModel").value=c.model; });
       onSnapshot(q("gemini_keys"), s=>{ const el=document.getElementById("rsKeyList"); if(!el) return;
         const ds=s.docs; window.__rsKeysData = ds.map(d=>d.data()); const mk=document.getElementById("rsTotKeys"); if(mk) mk.textContent=ds.length;
@@ -1667,12 +1683,17 @@
         const stt=document.getElementById("rsSumToday"); if(stt) stt.textContent=all.filter(j=>j.status==="done"&&(j.created_at||"").slice(0,10)===today).length;
         const byCh={}; all.forEach(j=>{const c=j.channel||"?";(byCh[c]=byCh[c]||[]).push(j);});
         const cp=document.getElementById("rsChanProg");
+        const chMeta={}; (window.__rsChannelsData||[]).forEach(c=>chMeta[(c.name||"").toUpperCase()]=c);
+        const bar=(done,target,color)=>{ if(!target) return ""; const pct=Math.min(100,Math.round(done/target*100));
+          return `<div style="height:6px;background:#ffffff14;border-radius:4px;margin-top:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${color}"></div></div>`; };
         if(cp){ const chans=Object.keys(byCh).sort(); cp.innerHTML = chans.length? chans.map(c=>{
           const js=byCh[c],lo=js.filter(j=>j.type==="long"),sh=js.filter(j=>j.type==="short");
           const ld=lo.filter(j=>j.status==="done").length,lf=lo.filter(j=>j.status==="failed").length,lr=lo.length-ld-lf;
           const shd=sh.filter(j=>j.status==="done").length,shf=sh.filter(j=>j.status==="failed").length;
           const bg=lr>0?"⚙️":((lf||shf)?"⚠️":"✅");
-          return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${bg} <b>${esc(c)}</b></span><span class="d">long ${ld}✅${lf?" "+lf+"❌":""} · short ${shd}/${sh.length}${shf?" "+shf+"❌":""}</span></div>`;
+          const m=chMeta[c.toUpperCase()]||{}; const lt=m.long_target||0, st=m.short_target||0;
+          const tgt=(lt||st)?`<span class="d"> · 🎯 ${lt?`long ${ld}/${lt}`:""}${lt&&st?" · ":""}${st?`short ${shd}/${st}`:""}</span>`:"";
+          return `<div class="row" style="display:block;padding:7px 0"><div style="display:flex;justify-content:space-between"><span>${bg} <b>${esc(c)}</b>${tgt}</span><span class="d">long ${ld}✅${lf?" "+lf+"❌":""} · short ${shd}/${sh.length}${shf?" "+shf+"❌":""}</span></div>${bar(ld,lt,"#8b6cff")}${bar(shd,st,"#4ea1ff")}</div>`;
         }).join("") : '<div class="d">Chưa có dữ liệu — chạy pipeline để thấy tiến trình từng kênh.</div>'; }
         const al=document.getElementById("rsAlert");
         if(al){ if(failed.length){ const lf=failed.slice().sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""))[0]; al.style.display="block"; al.textContent="⚠️ "+failed.length+" job lỗi. Gần nhất: "+esc(lf.channel||"")+" — "+esc(lf.step||"lỗi"); } else al.style.display="none"; }
