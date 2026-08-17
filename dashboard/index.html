@@ -324,6 +324,7 @@
       <div class="nav-label" data-i18n="nav_system">System</div>
       <div class="nav" data-view="connections"><span class="ic" data-i="plug"></span> <span data-i18n="connections">API Connections</span> <span class="dotwarn hide" id="connWarn"></span></div>
       <div class="nav" data-view="storage"><span class="ic" data-i="disk"></span> <span data-i18n="storage">Storage</span></div>
+      <div class="nav" data-view="render"><span class="ic" data-i="film"></span> 🎬 Render Studio <span class="badge" id="nvRender">0</span></div>
       <div class="nav" data-view="settings"><span class="ic" data-i="gear"></span> <span data-i18n="settings">Settings</span></div>
       <div class="nav-label" data-i18n="nav_channel">Channel</div>
       <div class="nav" data-view="channels"><span class="ic" data-i="stack"></span> <span data-i18n="channels_hub">My Channels</span> <span class="badge" id="nvChans">0</span></div>
@@ -744,10 +745,132 @@
         <div class="panel help">
           <div class="p-title">🧹 Dọn dẹp</div>
           <ol>
-            <li><b>keep</b> = giữ tất cả (Google One) · <b>delete</b> = xoá file đã đăng cũ · <b>archive</b> = chuyển sang kho lạnh.</li>
+            <li><b>keep</b> = giữ tất cả (Google One) · <b>delete</b> = xoá file đã đăng cũ (mặc định 14 ngày) · <b>archive</b> = chuyển sang kho lạnh.</li>
+            <li>⚠️ <b>RULE XOÁ an toàn:</b> chỉ xoá khi video ĐÃ đăng <b>≥2 nền tảng: YouTube VÀ (Facebook HOẶC Instagram)</b>. Mới đăng YouTube thôi → <b>GIỮ, không xoá</b> (tránh mất bản gốc).</li>
             <li>Chỉnh trong <code>config/storage.yaml</code> → <code>cleanup.mode</code> / <code>trigger</code> / <code>keep_days</code>.</li>
             <li>Thủ công: <code>python src/cleanup.py --now</code> hoặc Actions → MM0 Storage Cleanup.</li>
           </ol>
+        </div>
+      </section>
+
+      <section id="v-render" class="content hide">
+        <div class="panel" style="margin-bottom:14px">
+          <div class="p-head"><div class="p-title">🎬 Render Studio</div><div class="p-sub">Tạo video tự động trên GitHub (máy tắt, free) → đẩy Drive → tự đăng</div></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <span id="rsPipeState" class="badge">⏸ Chưa bật</span>
+            <button class="btn-conn" onclick="window.__rsToggle&&window.__rsToggle()">▶ Bật/Tắt cron đêm</button>
+            <button class="btn-conn" onclick="window.__rsRunNow&&window.__rsRunNow()">⚡ Render ngay 1 video</button>
+            <span class="d" id="rsGithubLink"></span>
+          </div>
+        </div>
+
+        <style>
+          .cmdtag{background:#8b6cff1f;border:1px solid #8b6cff55;color:#c9b8ff;border-radius:20px;padding:6px 13px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
+          .cmdtag:hover{background:#8b6cff33;border-color:#8b6cff}
+          #rsChatLog::-webkit-scrollbar{width:7px}#rsChatLog::-webkit-scrollbar-thumb{background:#ffffff22;border-radius:4px}
+        </style>
+        <div class="panel" style="margin-bottom:14px;border:1px solid #8b6cff44">
+          <div class="p-head"><div class="p-title">🤖 Bảng điều khiển Agent</div><div class="p-sub">Ra lệnh bằng câu chữ hoặc bấm thẻ · agent tự làm & báo cáo · realtime</div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+            <button class="cmdtag" onclick="window.rsCmd&&rsCmd('status')">📊 Tình hình</button>
+            <button class="cmdtag" onclick="window.rsCmd&&rsCmd('render_now')">⚡ Render ngay</button>
+            <button class="cmdtag" onclick="window.rsCmd&&rsCmd('pause')">⏸ Tạm dừng</button>
+            <button class="cmdtag" onclick="window.rsCmd&&rsCmd('resume')">▶️ Chạy tiếp</button>
+            <button class="cmdtag" onclick="window.rsCmd&&rsCmd('retry_failed')">🔧 Thử lại lỗi</button>
+            <button class="cmdtag" onclick="window.rsCmd&&rsCmd('clean_jobs')">🧹 Dọn job cũ</button>
+            <button class="cmdtag" onclick="window.rsCmd&&rsCmd('suggest_niche')">💡 Gợi ý kênh/niche</button>
+          </div>
+          <div id="rsChatLog" style="max-height:360px;overflow-y:auto;background:#00000026;border-radius:12px;padding:14px;margin-bottom:10px;font-size:14px;line-height:1.55">
+            <div class="d">Chào anh 👋 Em là <b>agent điều khiển nhà máy render</b>. Bấm thẻ trên, hoặc gõ lệnh tự nhiên:<br>• "render kênh DATARACE ngay" · "tạm dừng" · "báo cáo tình hình"<br>• "thêm kênh SPORTS niche US sports records dạng short" · "gợi ý 3 niche mới"</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <input id="rsChatInput" placeholder="Gõ lệnh cho agent… (Enter để gửi)" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter'){event.preventDefault();window.rsCmdSend&&rsCmdSend();}"/>
+            <button class="btn-conn" onclick="window.rsCmdSend&&rsCmdSend()">Gửi ▸</button>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:14px">
+          <div class="p-head"><div class="p-title">📊 Tổng quan tài nguyên</div></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px">
+            <div style="background:#ffffff0d;border-radius:10px;padding:12px 14px"><div class="d">🔑 Gemini keys</div><div style="font-size:26px;font-weight:800" id="rsTotKeys">0</div></div>
+            <div style="background:#ffffff0d;border-radius:10px;padding:12px 14px"><div class="d">💾 Drive lưu trữ</div><div style="font-size:26px;font-weight:800" id="rsTotDrive">0</div></div>
+            <div style="background:#ffffff0d;border-radius:10px;padding:12px 14px"><div class="d">📺 YouTube</div><div style="font-size:26px;font-weight:800" id="rsTotYT">0</div></div>
+            <div style="background:#ffffff0d;border-radius:10px;padding:12px 14px"><div class="d">📘 Facebook</div><div style="font-size:26px;font-weight:800" id="rsTotFB">0</div></div>
+          </div>
+          <div id="rsDrivePct" class="d" style="margin-top:8px"></div>
+          <div id="rsDriveWarn" style="display:none;margin-top:8px;background:#4a3a1a;border:1px solid #a80;border-radius:8px;padding:8px 12px;color:#ffd98a;font-size:13px;font-weight:600"></div>
+        </div>
+
+        <div class="panel" style="margin-bottom:14px">
+          <div class="p-head"><div class="p-title">🔑 Gemini API Keys</div><div class="p-sub">Nhiều key = quota free ×N, tự xoay vòng</div></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+            <button class="btn-conn" onclick="window.__rsGeminiConnect&&window.__rsGeminiConnect()" title="1-click sẽ tự lưu Gmail tạo key">🔗 Kết nối Gemini (1-click · auto Gmail)</button>
+            <input id="rsKeyEmail" type="email" placeholder="Gmail tạo key (vd you@gmail.com)" style="min-width:220px"/>
+            <input id="rsKeyManual" placeholder="dán API key (aistudio.google.com/apikey)" style="flex:1;min-width:240px"/>
+            <button class="btn-conn" onclick="window.__rsAddKey&&window.__rsAddKey()">＋ Thêm key</button>
+          </div>
+          <div id="rsKeyHealth" style="margin:6px 0;padding:8px 10px;background:#ffffff0d;border-radius:8px;font-size:13px">⚪ Chưa health-check lần nào.</div>
+          <div id="rsKeyList" class="list"><div class="d">Chưa có key nào.</div></div>
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn-conn" onclick="window.__rsExportKeys&&window.__rsExportKeys()">⬇ Backup keys (.txt)</button>
+            <span class="d">Tải về lưu offline phòng mất dữ liệu.</span>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-bottom:14px">
+          <div class="p-head"><div class="p-title">📋 Kế hoạch 10 kênh USA</div><div class="p-sub">Bấm 1 kênh → tự điền form → chọn template → Thêm. Phân nhóm theo tiến độ.</div></div>
+          <div id="rsPlan"><div class="d">Đang tải…</div></div>
+        </div>
+
+        <div class="panel" style="margin-bottom:14px">
+          <div class="p-head"><div class="p-title">📺 Kênh &amp; Chủ đề Render</div><div class="p-sub">Mỗi kênh 1 niche + long/short + nguồn ảnh</div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+            <input id="rsChName" placeholder="Tên kênh (khớp channels.yaml, vd DATARACE)" style="min-width:220px"/>
+            <input id="rsChNiche" placeholder="Niche/seed (vd: US data, rankings, money)" style="flex:1;min-width:220px"/>
+            <select id="rsChType"><option value="short">short 9:16</option><option value="long">long 16:9</option></select>
+            <select id="rsChImg"><option value="C">Ảnh: thật+AI (C)</option><option value="A">thật (A)</option><option value="B">AI (B)</option></select>
+            <select id="rsChMix" title="Bao nhiêu video mỗi lần chạy">
+              <option value="1long_3short">1 long + 3 short/ngày</option>
+              <option value="1long_2short">1 long + 2 short/ngày</option>
+              <option value="1long_1short">1 long + 1 short/ngày</option>
+              <option value="short_only">Chỉ short ×3</option>
+              <option value="long_only">Chỉ long</option>
+            </select>
+            <button class="btn-conn" onclick="window.__rsAddChannel&&window.__rsAddChannel()">＋ Thêm kênh</button>
+          </div>
+          <div id="rsChList" class="list"><div class="d">Chưa cấu hình kênh render.</div></div>
+        </div>
+
+        <div class="panel" style="margin-bottom:14px">
+          <div class="p-head"><div class="p-title">📊 Trạng thái Render (realtime)</div><div class="p-sub">Cập nhật live theo từng bước · free</div></div>
+          <div id="rsAlert" style="display:none;background:#4a1a1a;border:1px solid #a33;border-radius:10px;padding:10px 14px;margin-bottom:10px;color:#ffbcbc;font-weight:600"></div>
+          <div id="rsSummary" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:14px">
+            <span>📅 Hôm nay: <b id="rsSumToday">0</b></span>
+            <span>✅ Xong: <b id="rsSumDone">0</b></span>
+            <span>⚙️ Đang chạy: <b id="rsSumRun">0</b></span>
+            <span style="color:#ff8a8a">❌ Lỗi: <b id="rsSumFail">0</b></span>
+          </div>
+          <div style="font-weight:600;font-size:13px;margin-bottom:6px;opacity:.8">Tiến trình theo kênh</div>
+          <div id="rsChanProg" class="list" style="margin-bottom:12px"><div class="d">—</div></div>
+          <div style="font-weight:600;font-size:13px;margin-bottom:6px;opacity:.8">Nhật ký gần đây</div>
+          <div id="rsJobs" class="list"><div class="d">Chưa có job nào. Bấm “Render ngay” để thử.</div></div>
+        </div>
+
+        <div class="panel">
+          <div class="p-head"><div class="p-title">📐 Rule &amp; Tiêu chuẩn chất lượng</div><div class="p-sub">GitHub đọc theo cấu hình này</div></div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <label class="d">Ngưỡng QC (0-100):</label>
+            <input id="rsQcMin" type="number" min="50" max="100" value="90" style="width:90px"/>
+            <label class="d">Model viết:</label>
+            <select id="rsModel"><option value="auto" selected>Auto (tự chọn model tốt nhất của key — khuyên)</option><option value="gemini-3.5-flash">Gemini 3.5 Flash</option><option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (flagship)</option></select>
+            <button class="btn-conn" onclick="window.__rsSaveRules&&window.__rsSaveRules()">💾 Lưu</button>
+          </div>
+          <ul class="d" style="margin:0;padding-left:18px;line-height:1.8">
+            <li>Hook 3s: ảnh+chart+số NGAY, giọng từ frame 0, KHÔNG card chữ tĩnh</li>
+            <li>Voice + karaoke (short &amp; long) · ảnh nền thật + ảnh dẫn chứng theo lời</li>
+            <li>KHÔNG outro/CTA cuối · KHÔNG chồng chéo · 9:16 chuẩn</li>
+            <li>Chọn chủ đề: bất ngờ + data thật + 1 twist · &lt; ngưỡng = viết lại/bỏ</li>
+          </ul>
         </div>
       </section>
 
@@ -1460,6 +1583,245 @@
       await setDoc(ref,{owner:(window.__ownerUid||window.__uid),code,url:url.trim(),
         clicks:cur.exists()?(cur.data().clicks||0):0,created_at:new Date().toISOString()},{merge:true}); };
     window.__linkDelete = async (code) => { await deleteDoc(doc(db,"links",code)); };
+
+    // ===== RENDER STUDIO (dự án render GitHub) =====
+    const RSowner = () => window.__ownerUid || window.__uid;
+    const rsCfgDoc = () => doc(db, "render_config", RSowner());
+    const esc = (s) => String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+    window.__rsSaveRules = async () => {
+      try { await setDoc(rsCfgDoc(), { owner:RSowner(), qc_min:Number(document.getElementById("rsQcMin").value)||90,
+        model:document.getElementById("rsModel").value, updated_at:new Date().toISOString() }, {merge:true});
+        toastMsg("✔ Đã lưu rule (GitHub sẽ đọc theo)"); } catch(e){ alert("Lỗi: "+e.message); } };
+    window.__rsToggle = async () => {
+      try { const d=await getDoc(rsCfgDoc()); const on=!(d.exists()&&d.data().enabled);
+        await setDoc(rsCfgDoc(), {owner:RSowner(), enabled:on}, {merge:true});
+        toastMsg(on?"▶ Đã BẬT cron render đêm":"⏸ Đã TẮT"); } catch(e){ alert("Lỗi: "+e.message); } };
+    window.__rsRunNow = async () => {
+      try { await addDoc(collection(db,"render_jobs"), {owner:RSowner(), status:"queued", channel:"(manual)",
+        step:"chờ GitHub nhận", created_at:new Date().toISOString()});
+        toastMsg("⚡ Đã xếp 1 job — GitHub Actions sẽ nhận ở lần cron tới"); } catch(e){ alert("Lỗi: "+e.message); } };
+    window.__rsAddKey = async () => {
+      const v=(document.getElementById("rsKeyManual").value||"").trim();
+      const em=(document.getElementById("rsKeyEmail").value||"").trim();
+      if(v.length<20) return alert("Key không hợp lệ.");
+      if(!em) return alert("Nhập Gmail đã tạo key (để quản lý key theo tài khoản).");
+      try { await addDoc(collection(db,"gemini_keys"), {owner:RSowner(), key:v, last4:v.slice(-4),
+        email:em, source:"manual", created_at:new Date().toISOString()});
+        document.getElementById("rsKeyManual").value=""; document.getElementById("rsKeyEmail").value="";
+        toastMsg("✔ Đã thêm key cho "+em); } catch(e){ alert("Lỗi: "+e.message); } };
+    window.__rsGeminiConnect = () => {
+      // 1-click OAuth cần Worker (đang dựng). Tạm: mở trang tạo key để dán thủ công.
+      window.open("https://aistudio.google.com/apikey","_blank");
+      toastMsg("Tạo key rồi dán vào ô bên cạnh + Thêm key (1-click tự động đang được dựng)"); };
+    window.__rsDelKey = async (id) => { if(confirm("Xoá key này?")) await deleteDoc(doc(db,"gemini_keys",id)); };
+    window.__rsExportKeys = () => {
+      const ks=(window.__rsKeysData||[]); if(!ks.length) return alert("Chưa có key để backup.");
+      const txt="# MM0 Gemini API keys backup — "+new Date().toISOString()+"\n"+
+        ks.map(k=>`${k.email||"(no-gmail)"}\t${k.key||""}`).join("\n")+"\n";
+      const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([txt],{type:"text/plain"}));
+      a.download="mm0-gemini-keys.txt"; a.click(); URL.revokeObjectURL(a.href);
+      toastMsg(`⬇ Đã tải backup ${ks.length} key`); };
+    window.__rsAddChannel = async () => {
+      const name=(document.getElementById("rsChName").value||"").trim();
+      if(!name) return alert("Nhập tên kênh.");
+      const mix=(document.getElementById("rsChMix")||{}).value||"1long_3short";
+      const nShorts={"1long_3short":3,"1long_2short":2,"1long_1short":1,"short_only":3,"long_only":0}[mix];
+      try { await addDoc(collection(db,"render_channels"), {owner:RSowner(), name,
+        niche:(document.getElementById("rsChNiche").value||"").trim(), type:document.getElementById("rsChType").value,
+        img_source:document.getElementById("rsChImg").value, mix, n_shorts:nShorts, make_long:(mix!=="short_only"), created_at:new Date().toISOString()});
+        document.getElementById("rsChName").value=""; document.getElementById("rsChNiche").value="";
+        toastMsg("✔ Đã thêm kênh render"); } catch(e){ alert("Lỗi: "+e.message); } };
+    window.__rsDelChannel = async (id) => { if(confirm("Xoá kênh render này?")) await deleteDoc(doc(db,"render_channels",id)); };
+    let rsInited=false;
+    function rsInit(){
+      if(rsInited) return; const o=RSowner(); if(!o){ setTimeout(rsInit,800); return; } rsInited=true;
+      const q=(name)=>query(collection(db,name), where("owner","==",o));
+      onSnapshot(rsCfgDoc(), d=>{ const c=d.exists()?d.data():{};
+        const st=document.getElementById("rsPipeState"); if(st) st.textContent=c.enabled?"▶ Đang bật":"⏸ Chưa bật";
+        if(c.qc_min) document.getElementById("rsQcMin").value=c.qc_min;
+        if(c.model) document.getElementById("rsModel").value=c.model; });
+      onSnapshot(q("gemini_keys"), s=>{ const el=document.getElementById("rsKeyList"); if(!el) return;
+        const ds=s.docs; window.__rsKeysData = ds.map(d=>d.data()); const mk=document.getElementById("rsTotKeys"); if(mk) mk.textContent=ds.length;
+        const nowIso=new Date().toISOString(); let nDead=0;
+        el.innerHTML = ds.length? ds.map((d,ix)=>{const k=d.data();
+          const cooling=k.cooling_until&&k.cooling_until>nowIso;
+          const dot=k.alive===false?'🔴':(cooling?'😴':(k.alive===true?'🟢':'⚪'));
+          if(k.alive===false) nDead++;
+          const chk=k.last_checked?` · <span class="d">kiểm ${ago(k.last_checked)}</span>`:'';
+          const st=k.alive===false?' <span class="d" style="color:#ff5a5a">CHẾT</span>':(cooling?' <span class="d">nghỉ</span>':'');
+          return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${dot} <b style="color:#8b6cff">#${ix+1}</b> 🔑 •••• ${esc(k.last4||"")} · 📧 <b>${esc(k.email||"(chưa ghi Gmail)")}</b>${st} <span class="d">(${esc(k.source||"")})</span>${chk}</span><button class="btn-conn" onclick="window.__rsDelKey('${d.id}')">Xoá</button></div>`}).join("") : '<div class="d">Chưa có key nào.</div>';
+        const kb=document.getElementById("rsKeyHealth"); if(kb) kb.innerHTML = nDead? `🔴 <b style="color:#ff5a5a">${nDead} key CHẾT</b> — cần thay/xoá. Health-check tự chạy mỗi ngày lúc render.` : (ds.some(d=>d.data().last_checked)? '🟢 Tất cả key sống (kiểm mỗi ngày).' : '⚪ Chưa health-check lần nào (chạy tự động ở lần render tới).'); });
+      onSnapshot(q("render_channels"), s=>{ const el=document.getElementById("rsChList");
+        window.__rsChannelsData = s.docs.map(d=>({id:d.id,...d.data()})); window.__rsRenderPlan&&window.__rsRenderPlan(); if(!el) return;
+        const ds=s.docs; el.innerHTML = ds.length? ds.map(d=>{const c=d.data();return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>📺 <b>${esc(c.name)}</b> · ${esc(c.niche||"")} · ${esc(c.type)} · ảnh ${esc(c.img_source)}</span><button class="btn-conn" onclick="window.__rsDelChannel('${d.id}')">Xoá</button></div>`}).join("") : '<div class="d">Chưa cấu hình kênh render.</div>'; });
+      onSnapshot(q("render_jobs"), s=>{ const el=document.getElementById("rsJobs"); const bd=document.getElementById("nvRender");
+        const ds=s.docs.sort((a,b)=>(b.data().created_at||"").localeCompare(a.data().created_at||"")).slice(0,20);
+        const all=s.docs.map(d=>({id:d.id,...d.data()})); window.__rsJobsData = all; window.__rsRenderPlan&&window.__rsRenderPlan();
+        const active=all.filter(j=>["queued","running","writing","rendering","qc"].includes(j.status)).length;
+        const done=all.filter(j=>j.status==="done").length;
+        const failed=all.filter(j=>j.status==="failed");
+        if(bd) bd.textContent=active;
+        const sd=document.getElementById("rsSumDone"),sr=document.getElementById("rsSumRun"),sf=document.getElementById("rsSumFail");
+        if(sd)sd.textContent=done; if(sr)sr.textContent=active; if(sf)sf.textContent=failed.length;
+        const today=new Date().toISOString().slice(0,10);
+        const stt=document.getElementById("rsSumToday"); if(stt) stt.textContent=all.filter(j=>j.status==="done"&&(j.created_at||"").slice(0,10)===today).length;
+        const byCh={}; all.forEach(j=>{const c=j.channel||"?";(byCh[c]=byCh[c]||[]).push(j);});
+        const cp=document.getElementById("rsChanProg");
+        if(cp){ const chans=Object.keys(byCh).sort(); cp.innerHTML = chans.length? chans.map(c=>{
+          const js=byCh[c],lo=js.filter(j=>j.type==="long"),sh=js.filter(j=>j.type==="short");
+          const ld=lo.filter(j=>j.status==="done").length,lf=lo.filter(j=>j.status==="failed").length,lr=lo.length-ld-lf;
+          const shd=sh.filter(j=>j.status==="done").length,shf=sh.filter(j=>j.status==="failed").length;
+          const bg=lr>0?"⚙️":((lf||shf)?"⚠️":"✅");
+          return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${bg} <b>${esc(c)}</b></span><span class="d">long ${ld}✅${lf?" "+lf+"❌":""} · short ${shd}/${sh.length}${shf?" "+shf+"❌":""}</span></div>`;
+        }).join("") : '<div class="d">Chưa có dữ liệu — chạy pipeline để thấy tiến trình từng kênh.</div>'; }
+        const al=document.getElementById("rsAlert");
+        if(al){ if(failed.length){ const lf=failed.slice().sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""))[0]; al.style.display="block"; al.textContent="⚠️ "+failed.length+" job lỗi. Gần nhất: "+esc(lf.channel||"")+" — "+esc(lf.step||"lỗi"); } else al.style.display="none"; }
+        if(el) el.innerHTML = ds.length? ds.map(d=>{const j=d.data(); const ic={queued:"⏳",writing:"✍️",rendering:"🎞️",qc:"🔍",done:"✅",failed:"❌",running:"⚙️"}[j.status]||"•";
+          return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${ic} <b>${esc(j.channel||"")}</b> · ${esc(j.type||"")} · ${esc(j.step||j.status||"")} ${j.score?`· QC ${esc(j.score)}`:""} ${j.preview?`· <a href="${esc(j.preview)}" target="_blank" style="color:#8b6cff;font-weight:700">▶ Xem</a>`:""}</span><span class="d">${esc((j.created_at||"").slice(11,16))}</span></div>`}).join("") : '<div class="d">Chưa có job nào. Bấm “Render ngay” để thử.</div>'; });
+      // ĐẾM tổng tài nguyên (Drive lưu trữ / YouTube / Facebook)
+      const cnt=(coll,elid)=>onSnapshot(q(coll), s=>{const e=document.getElementById(elid); if(e) e.textContent=s.size;}, ()=>{});
+      onSnapshot(q("storage_accounts"), s=>{ const d=document.getElementById("rsTotDrive"); if(d)d.textContent=s.size;
+        let used=0,cap=0; s.docs.forEach(x=>{const a=x.data();used+=(a.used||0);cap+=(a.cap_gb||15)*1e9;});
+        const pct=cap?Math.round(used/cap*100):0;
+        const pe=document.getElementById("rsDrivePct"); if(pe)pe.textContent=`💾 Kho: ${(used/1e9).toFixed(1)}/${(cap/1e9).toFixed(0)} GB (${pct}% đầy) · ${s.size} tài khoản`;
+        const w=document.getElementById("rsDriveWarn"); if(w){ if(pct>=85){w.style.display="block";w.textContent=`⚠️ Kho Drive đã ${pct}% đầy! Thêm tài khoản Google (Storage → Connect) hoặc bật cleanup archive để tránh gián đoạn.`;} else w.style.display="none"; } }, ()=>{});
+      cnt("channels","rsTotYT"); cnt("fb_pages","rsTotFB");
+    }
+    rsInit();
+
+    // ===================== 🤖 COMMAND CONSOLE (agent điều khiển) =====================
+    function rsLog(html, who){
+      const el=document.getElementById("rsChatLog"); if(!el) return;
+      const d=document.createElement("div"); d.style.margin="10px 0";
+      if(who==="me") d.innerHTML=`<div style="text-align:right"><span style="display:inline-block;background:#8b6cff;color:#fff;padding:7px 12px;border-radius:12px;max-width:85%">${esc(html)}</span></div>`;
+      else d.innerHTML=`<div style="display:flex;gap:7px;align-items:flex-start"><span>🤖</span><div style="background:#ffffff12;padding:8px 12px;border-radius:12px;max-width:92%">${html}</div></div>`;
+      el.appendChild(d); el.scrollTop=el.scrollHeight;
+    }
+    function rsState(){
+      const jobs=(window.__rsJobsData||[]), chans=(window.__rsChannelsData||[]), keys=(window.__rsKeysData||[]);
+      const active=jobs.filter(j=>["queued","running","writing","rendering","qc"].includes(j.status));
+      const done=jobs.filter(j=>j.status==="done"), failed=jobs.filter(j=>j.status==="failed");
+      const dead=keys.filter(k=>k.alive===false).length;
+      return {jobs,chans,keys,active,done,failed,dead};
+    }
+    function rsReport(){
+      const s=rsState(); const today=new Date().toISOString().slice(0,10);
+      const doneToday=s.done.filter(j=>(j.created_at||"").slice(0,10)===today).length;
+      let h=`<b>📊 Tình hình nhà máy</b><br>`;
+      h+=`• Kênh: <b>${s.chans.length}</b>${s.chans.length?` — ${s.chans.map(c=>esc(c.name)).join(", ")}`:" (chưa có — thêm ở dưới)"}<br>`;
+      h+=`• Gemini key: <b>${s.keys.length}</b>${s.dead?` · <span style="color:#ff5a5a">${s.dead} chết</span>`:(s.keys.some(k=>k.last_checked)?" · tất cả sống 🟢":"")}<br>`;
+      h+=`• Job: ⚙️ <b>${s.active.length}</b> đang chạy · ✅ <b>${s.done.length}</b> xong (hôm nay ${doneToday}) · ❌ <b>${s.failed.length}</b> lỗi<br>`;
+      if(s.active.length) h+=`• Đang làm: ${s.active.slice(0,6).map(j=>`${esc(j.channel)}/${esc(j.type)} — ${esc(j.step||j.status)}`).join("; ")}<br>`;
+      if(s.failed.length){ const lf=s.failed.slice().sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""))[0];
+        h+=`• ⚠️ Lỗi gần nhất: <b>${esc(lf.channel)}</b> — ${esc((lf.step||"").slice(0,90))}<br><span class="d">Bấm 🔧 Thử lại lỗi để agent cho chạy lại + dọn báo lỗi.</span>`; }
+      else if(!s.active.length && !s.done.length) h+=`<span class="d">Chưa chạy mẻ nào. Bấm ⚡ Render ngay.</span>`;
+      rsLog(h);
+    }
+    async function rsExec(a){
+      const o=RSowner(); if(!o) return "❌ Chưa đăng nhập.";
+      try{
+        if(a.type==="status"){ rsReport(); return null; }
+        if(a.type==="render_now"){ await setDoc(rsCfgDoc(),{owner:o,enabled:true,run_now:new Date().toISOString(),run_now_by:(window.__uEmail||"dashboard")},{merge:true});
+          return `⚡ Đã đặt lệnh <b>Render ngay</b>. Nhà máy GitHub nhận trong nhịp kiểm gần nhất (≤30 phút) rồi tự chạy + đẩy Drive. Em sẽ hiện tiến trình realtime ở "Trạng thái Render".`; }
+        if(a.type==="pause"){ await setDoc(rsCfgDoc(),{owner:o,enabled:false},{merge:true}); return "⏸ Đã tạm dừng cron. Mẻ đang chạy vẫn hoàn tất."; }
+        if(a.type==="resume"){ await setDoc(rsCfgDoc(),{owner:o,enabled:true},{merge:true}); return "▶️ Đã bật lại. Mẻ đêm (01:00 VN) sẽ chạy tự động."; }
+        if(a.type==="retry_failed"){ const f=rsState().failed; for(const j of f){ if(j.id) await deleteDoc(doc(db,"render_jobs",j.id)); }
+          await setDoc(rsCfgDoc(),{owner:o,enabled:true,run_now:new Date().toISOString()},{merge:true});
+          return `🔧 Đã dọn ${f.length} báo lỗi + đặt lệnh chạy lại. Nhà máy sẽ làm lại (tự thử lại nhẹ hơn nếu render nặng).`; }
+        if(a.type==="clean_jobs"){ const day=new Date(Date.now()-864e5).toISOString(); let n=0;
+          for(const j of (window.__rsJobsData||[])){ if(["done","failed"].includes(j.status) && (j.created_at||"")<day && j.id){ await deleteDoc(doc(db,"render_jobs",j.id)); n++; } }
+          return `🧹 Đã dọn ${n} job cũ (>1 ngày). Job đang chạy giữ nguyên.`; }
+        if(a.type==="set_qc"){ const v=Math.max(0,Math.min(100,Number(a.value)||90)); await setDoc(rsCfgDoc(),{owner:o,qc_min:v},{merge:true}); return `🎯 Đã đặt ngưỡng QC = <b>${v}</b>/100.`; }
+        if(a.type==="add_channel"){ if(!a.name) return "❌ Thiếu tên kênh.";
+          await addDoc(collection(db,"render_channels"),{owner:o,name:String(a.name).trim().toUpperCase(),niche:(a.niche||"").trim(),type:(a.vtype==="long"?"long":"short"),img_source:(a.imgmode||"C"),created_at:new Date().toISOString()});
+          return `➕ Đã thêm kênh <b>${esc(String(a.name).toUpperCase())}</b> · ${esc(a.niche||"")} · ${a.vtype==="long"?"long":"short"}. Kênh vào hàng render ngay mẻ tới.`; }
+        return `⚠️ Chưa hỗ trợ hành động "${esc(a.type||"?")}".`;
+      }catch(e){ return "❌ Lỗi: "+esc(e.message||String(e)); }
+    }
+    async function rsRunActions(actions){ for(const a of (actions||[])){ const r=await rsExec(a); if(r) rsLog(r); } }
+    // Gọi Gemini bằng KEY của chính anh (owner-only, không rời máy anh) để hiểu lệnh tự nhiên
+    async function rsGemini(userText){
+      const keys=(window.__rsKeysData||[]).filter(k=>k.key && k.alive!==false);
+      if(!keys.length) return null;
+      const chans=(window.__rsChannelsData||[]).map(c=>c.name).join(", ")||"(chưa có)";
+      const sys=`Bạn là agent điều khiển nhà máy render video MM0. Người dùng ra lệnh tiếng Việt.
+Kênh hiện có: ${chans}.
+CHỈ trả JSON: {"reply":"<trả lời ngắn tiếng Việt>","actions":[...]}.
+Mỗi action là 1 trong: {"type":"render_now"}, {"type":"pause"}, {"type":"resume"}, {"type":"retry_failed"}, {"type":"clean_jobs"}, {"type":"status"}, {"type":"set_qc","value":90}, {"type":"add_channel","name":"TÊN","niche":"mô tả","vtype":"short|long","imgmode":"C"}.
+Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và trả lời trong reply. Nếu xin gợi ý niche/kênh: đưa 2-4 ý cụ thể (thị trường USA, viral, data-story) trong reply, actions=[].`;
+      const body={contents:[{parts:[{text:sys+"\n\nLỆNH: "+userText}]}],generationConfig:{temperature:0.4,responseMimeType:"application/json"}};
+      const models=["gemini-3.5-flash","gemini-flash-latest","gemini-2.5-flash","gemini-2.0-flash"];
+      for(const k of keys.slice(0,3)){ for(const m of models){
+        try{ const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(k.key)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+          if(!r.ok) continue; const j=await r.json(); const t=j?.candidates?.[0]?.content?.parts?.[0]?.text; if(!t) continue;
+          try{ return JSON.parse(t); }catch(_){ const mt=t.match(/\{[\s\S]*\}/); if(mt) return JSON.parse(mt[0]); }
+        }catch(_){}
+      }}
+      return null;
+    }
+    // Fallback không cần AI: khớp từ khoá
+    function rsKeyword(t){
+      const s=t.toLowerCase();
+      if(/tạm dừng|dừng|pause|tắt/.test(s)) return {reply:"",actions:[{type:"pause"}]};
+      if(/chạy tiếp|tiếp tục|bật|resume/.test(s)) return {reply:"",actions:[{type:"resume"}]};
+      if(/render ngay|chạy ngay|làm ngay|render now/.test(s)) return {reply:"",actions:[{type:"render_now"}]};
+      if(/thử lại|retry|chạy lại/.test(s)) return {reply:"",actions:[{type:"retry_failed"}]};
+      if(/dọn|clean|xoá job/.test(s)) return {reply:"",actions:[{type:"clean_jobs"}]};
+      if(/tình hình|báo cáo|status|report|thế nào/.test(s)) return {reply:"",actions:[{type:"status"}]};
+      return {reply:"Em chưa rõ lệnh. Anh thử: “render ngay”, “tạm dừng”, “thử lại lỗi”, “báo cáo”, hoặc bấm thẻ ở trên.",actions:[]};
+    }
+    window.rsCmd = async (tag)=>{ const labels={status:"Báo cáo tình hình",render_now:"Render ngay",pause:"Tạm dừng",resume:"Chạy tiếp",retry_failed:"Thử lại lỗi",clean_jobs:"Dọn job cũ",suggest_niche:"Gợi ý kênh/niche"};
+      rsLog(labels[tag]||tag,"me");
+      if(tag==="suggest_niche"){ rsLog("💭 Đang nghĩ…"); const g=await rsGemini("Gợi ý cho tôi 3 niche/kênh data-story mới cho thị trường USA, dễ viral, khó bị sao chép. Mỗi ý 1 dòng: TÊN — mô tả ngắn.");
+        rsLog(g&&g.reply?g.reply.replace(/\n/g,"<br>"):"Chưa gọi được Gemini (kiểm key). Vài ý sẵn: <b>DISASTERUSA</b> — thiên tai/thiệt hại theo bang; <b>STARTUPRACE</b> — kỳ lân/định giá; <b>CRIMESTATS</b> — an toàn theo thành phố."); return; }
+      await rsRunActions([{type:tag}]);
+    };
+    window.rsCmdSend = async ()=>{ const inp=document.getElementById("rsChatInput"); const t=(inp.value||"").trim(); if(!t) return;
+      inp.value=""; rsLog(t,"me"); rsLog("💭…");
+      let plan=await rsGemini(t); if(!plan) plan=rsKeyword(t);
+      // bỏ bong bóng "đang nghĩ"
+      const log=document.getElementById("rsChatLog"); if(log&&log.lastChild&&/💭/.test(log.lastChild.textContent)) log.removeChild(log.lastChild);
+      if(plan.reply) rsLog(plan.reply.replace(/\n/g,"<br>"));
+      await rsRunActions(plan.actions);
+      if(!plan.reply && !(plan.actions&&plan.actions.length)) rsLog("Em chưa rõ, anh nói cụ thể hơn nha.");
+    };
+
+    // ===== KẾ HOẠCH 10 KÊNH USA (preset + phân nhóm tiến độ) =====
+    const RS_PRESETS=[
+      {name:"DATARACE",niche:"US money & wealth (billionaires, tax, income gap)"},
+      {name:"STATEWARS",niche:"US states compared (population, GDP, crime, housing)"},
+      {name:"MONEYMOVES",niche:"US cost of living (rent, gas, groceries, prices)"},
+      {name:"POWERPLAY",niche:"US companies & brands (market cap, users, EVs)"},
+      {name:"GRIDIRON",niche:"US sports money (NFL/NBA salaries, tickets, titles)"},
+      {name:"SCREENKINGS",niche:"US entertainment (box office, streaming, music)"},
+      {name:"PAYCHECK",niche:"US jobs & salaries (highest paying, unemployment)"},
+      {name:"BODYUSA",niche:"US health & lifestyle (obesity, lifespan, spending)"},
+      {name:"RIDEUSA",niche:"US cars & auto (brand sales, EV vs gas, trucks)"},
+      {name:"EATSUSA",niche:"US food & fast-food (chains, calories, prices)"},
+    ];
+    window.rsPick=(name)=>{ const p=RS_PRESETS.find(x=>x.name===name); if(!p) return;
+      const el=document.getElementById("rsChName"), en=document.getElementById("rsChNiche");
+      if(el){ el.value=p.name; el.scrollIntoView({behavior:"smooth",block:"center"}); el.focus(); }
+      if(en) en.value=p.niche; try{toastMsg("Đã điền form ✍️ — chọn template rồi bấm ＋ Thêm kênh");}catch(_){} };
+    function rsRenderPlan(){
+      const host=document.getElementById("rsPlan"); if(!host) return;
+      const chans=(window.__rsChannelsData||[]), jobs=(window.__rsJobsData||[]);
+      const byName={}; chans.forEach(c=>byName[(c.name||"").toUpperCase()]=c);
+      const B={ideal:[],doing:[],done:[]};
+      RS_PRESETS.forEach(p=>{
+        const added=byName[p.name]; const js=jobs.filter(j=>(j.channel||"").toUpperCase()===p.name);
+        const d=js.filter(j=>j.status==="done").length, a=js.filter(j=>["queued","running","writing","rendering","qc"].includes(j.status)).length, f=js.filter(j=>j.status==="failed").length;
+        const info={...p,d,a,f,mix:added?(added.mix||""):""};
+        if(!added) B.ideal.push(info); else if(d>0) B.done.push(info); else B.doing.push(info);
+      });
+      const chip=(p,clickable)=>`<button class="cmdtag" style="margin:3px" ${clickable?`onclick="window.rsPick('${p.name}')"`:'disabled style="opacity:.85;margin:3px;cursor:default"'} title="${esc(p.niche)}${p.mix?' · '+esc(p.mix):''}">${esc(p.name)}${p.d?` ✅${p.d}`:""}${p.a?` ⚙️${p.a}`:""}${p.f?` ❌${p.f}`:""}</button>`;
+      const sec=(t,arr,hint,clickable)=>`<div style="margin-bottom:12px"><div class="d" style="margin-bottom:5px">${t} <span style="opacity:.55">(${arr.length})</span> — ${hint}</div><div style="display:flex;flex-wrap:wrap;gap:4px">${arr.length?arr.map(p=>chip(p,clickable)).join(""):'<span class="d">—</span>'}</div></div>`;
+      host.innerHTML = sec("💡 Sẵn sàng — chưa làm",B.ideal,"bấm để đưa vào form + thêm",true)
+        + sec("⚙️ Đang làm",B.doing,"đã thêm, chờ/đang render",false)
+        + sec("✅ Đã có video",B.done,"đã ra video — coi ở Trạng thái Render",false);
+    }
+    window.__rsRenderPlan=rsRenderPlan;
+
     // Gộp brand channel vào 1 Gmail thật (Google giấu Gmail của tài khoản thương hiệu)
     window.saveGmailGroup = async (channels, gmail, extra) => {
       const map={}; (channels||[]).forEach(c=>map[c]=gmail);
@@ -2697,7 +3059,7 @@
     function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
 
     function wireNav(){
-      const VIEWS=["overview","analytics","videos","schedule","publish","connections","storage","settings","channels","branding","comments","facebook"];
+      const VIEWS=["overview","analytics","videos","schedule","publish","connections","storage","render","settings","channels","branding","comments","facebook"];
       const setTitle=(v)=>{ window.__view=v; $("vTitle").textContent=t(v); $("vSub").textContent=t("sub_"+v);
         const ps=$("platSwitch"); if(ps) ps.style.display=["overview","videos","publish","analytics","schedule","comments"].includes(v)?"inline-flex":"none";
         if(window.__plat==="fb"){ if(v==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(v==="schedule"&&window.renderFbSchedule) renderFbSchedule(); if(v==="overview"&&window.renderFbOverview) renderFbOverview(); if(v==="comments"&&window.renderCmFb) renderCmFb(); }
