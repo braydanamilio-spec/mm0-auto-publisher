@@ -671,6 +671,11 @@
               <option value="channel">📺 Nhóm theo kênh</option>
               <option value="account">📦 Nhóm theo kho</option>
               <option value="flawed">🚩 Nghi lỗi / bản cũ (để xóa)</option>
+              <option value="unposted">📤 Chưa đăng</option>
+              <option value="scheduled">📅 Đã lên lịch</option>
+              <option value="youtube">▶️ Đã đăng YouTube</option>
+              <option value="fbig">📘 Đã đăng FB/IG</option>
+              <option value="both">🎯 Đã đăng cả 2 nền tảng</option>
             </select>
             <button class="btn-conn" onclick="window.rsLocateAll&&window.rsLocateAll(this)">🔍 Tìm kho cho video chưa rõ</button>
             <button class="btn-conn" style="background:#ef4444;border:1px solid #ef4444;color:#fff;font-weight:700" onclick="window.rsCleanOld&&window.rsCleanOld(this)" title="Chỉ xóa video phiên bản CŨ hơn bản mới nhất — giữ bản tốt">🧹 Dọn bản cũ</button>
@@ -889,6 +894,11 @@
               <option value="channel">📺 Nhóm theo kênh</option>
               <option value="account">📦 Nhóm theo kho</option>
               <option value="flawed">🚩 Nghi lỗi / bản cũ (để xóa)</option>
+              <option value="unposted">📤 Chưa đăng</option>
+              <option value="scheduled">📅 Đã lên lịch</option>
+              <option value="youtube">▶️ Đã đăng YouTube</option>
+              <option value="fbig">📘 Đã đăng FB/IG</option>
+              <option value="both">🎯 Đã đăng cả 2 nền tảng</option>
             </select>
             <button class="btn-conn" onclick="window.rsLocateAll&&window.rsLocateAll(this)">🔍 Tìm kho cho video chưa rõ</button>
             <button class="btn-conn" style="background:#ef4444;border:1px solid #ef4444;color:#fff;font-weight:700" onclick="window.rsCleanOld&&window.rsCleanOld(this)" title="Chỉ xóa video phiên bản CŨ hơn bản mới nhất — giữ bản tốt">🧹 Dọn bản cũ</button>
@@ -1757,6 +1767,8 @@
       // GIỚI HẠN 300 job MỚI NHẤT -> Firestore đọc luôn bị chặn dù có hàng chục nghìn video (vẫn free). Index chưa sẵn -> fallback không limit.
       onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(300)), _jobsCb,
                  ()=>{ onSnapshot(q("render_jobs"), _jobsCb); });
+      // Dữ liệu ĐĂNG (collection 'videos' keyed theo drive_id) -> chia trạng thái đã đăng/chưa/nền tảng.
+      onSnapshot(q("videos"), s=>{ const m={}; s.docs.forEach(d=>{ m[d.id]=d.data(); }); window.__pubByDrive=m; window.__rsRenderGallery&&window.__rsRenderGallery(); }, ()=>{});
       // ĐẾM tổng tài nguyên (Drive lưu trữ / YouTube / Facebook)
       const cnt=(coll,elid)=>onSnapshot(q(coll), s=>{const e=document.getElementById(elid); if(e) e.textContent=s.size;}, ()=>{});
       onSnapshot(q("storage_accounts"), s=>{ const d=document.getElementById("rsTotDrive"); if(d)d.textContent=s.size;
@@ -1928,12 +1940,15 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       const newestPver=done.reduce((m,j)=>{const p=j.pver||"";return p>m?p:m;},"");
       const isFlawed=j=>j.flagged||((j.pver||"")<newestPver)||(j.score&&Number(j.score)<90);   // có cờ lỗi HOẶC bản cũ HOẶC QC<90
       if(view==="flawed") done=done.filter(isFlawed);
+      if(["unposted","scheduled","youtube","fbig","both"].includes(view)) done=done.filter(j=>{ const st=rsPubStatus(j);
+        return view==="youtube"?(st==="youtube"||st==="both"):view==="fbig"?(st==="fbig"||st==="both"):st===view; });
       const tL=done.filter(j=>j.type==="long").length, tS=done.length-tL, unk=done.filter(j=>!j.drive_account).length;
       done.sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));
       const CAP=40, over=done.length>CAP && !q; const disp=over?done.slice(0,CAP):done;   // giới hạn hiển thị cho NHẸ (search thì hiện hết kết quả)
       const totMB=done.reduce((s,j)=>s+(Number(j.size_mb)||0),0), totStr=totMB>=1000?(totMB/1000).toFixed(1)+"GB":totMB.toFixed(0)+"MB";
       const cnt=document.getElementById(countId); if(cnt) cnt.textContent=`📤 ${done.length} video · ${tL} long · ${tS} short${totMB?` · 💾 ${totStr}`:""}${unk?` · 🔍 ${unk} chưa rõ kho`:""}${over?` · hiện ${CAP} mới nhất`:""}`;
-      if(!done.length){ host.innerHTML='<div class="d">'+(view==="flawed"?'✓ Không có video nghi lỗi/bản cũ — tất cả đều là bản mới nhất. (Sau khi có mẻ v2, đám cũ sẽ hiện ở đây để xóa.)':(q?`Không tìm thấy video khớp "${esc(q)}".`:'Chưa có video hoàn tất — render xong + đẩy Drive là hiện ở đây.'))+'</div>'; return; }
+      const _pubEmpty={unposted:"✓ Không có video chưa đăng.",scheduled:"Chưa có video đang lên lịch đăng.",youtube:"Chưa có video đã đăng YouTube (kết nối kênh + đăng thì hiện ở đây).",fbig:"Chưa có video đã đăng FB/IG.",both:"Chưa có video đã đăng cả 2 nền tảng."};
+      if(!done.length){ host.innerHTML='<div class="d">'+(_pubEmpty[view]||(view==="flawed"?'✓ Không có video nghi lỗi/bản cũ — tất cả đều là bản mới nhất.':(q?`Không tìm thấy video khớp "${esc(q)}".`:'Chưa có video hoàn tất — render xong + đẩy Drive là hiện ở đây.')))+'</div>'; return; }
       let tk=""; try{ tk=await window.__getIdToken(); }catch(_){}
       const item=(j)=>{
         const pv=j.preview||`https://drive.google.com/file/d/${j.drive_id}/preview`;
@@ -2079,6 +2094,17 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
         try{ await workerApi(`/api/empty-trash?account=${encodeURIComponent(accs[i])}`); ok++; }catch(_){} }
       if(btn){ btn.textContent=old; btn.disabled=false; }
       try{toastMsg(`🧹 Đã đổ rác ${ok}/${accs.length} kho — thu hồi dung lượng`);}catch(_){} };
+    // TRẠNG THÁI ĐĂNG của 1 video (nối với collection 'videos' theo drive_id). Chưa đăng nếu chưa vào pipeline đăng.
+    function rsPubStatus(j){
+      const p=(window.__pubByDrive||{})[j.drive_id]; if(!p) return "unposted";
+      const r=p.results||{};
+      const yt=!!(r.youtube||r.youtube_id||r.yt), fb=!!(r.facebook||r.fb), ig=!!(r.instagram||r.ig);
+      if(yt&&(fb||ig)) return "both";
+      if(yt) return "youtube"; if(fb||ig) return "fbig";
+      if((p.publish_at&&new Date(p.publish_at)>new Date())||["scheduled","uploading","pending"].includes(p.status)) return "scheduled";
+      return "unposted";
+    }
+    window.rsPubStatus=rsPubStatus;
     const rsFmtDur=s=>{ s=Math.round(Number(s)||0); if(!s) return ""; const m=Math.floor(s/60); return "⏱"+m+":"+String(s%60).padStart(2,"0"); };
     const rsResLabel=r=>{ const m=String(r||"").match(/(\d+)x(\d+)/); if(!m) return ""; const q=Math.min(+m[1],+m[2]); return q>=1080?"1080p":(q>=720?"720p":"HD"); };
     // XUẤT tất cả link video ra file .txt (title · kênh · kho · độ dài · dung lượng · link Drive) để lưu/kiểm.
