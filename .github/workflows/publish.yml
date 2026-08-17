@@ -10,8 +10,8 @@ name: MM0 Auto-Publisher
 # ============================================================================
 
 on:
-  schedule:
-    - cron: "*/30 * * * *"   # mỗi 30 phút
+  # ⛔ CRON ĐÃ CHUYỂN sang repo PUBLIC mq-vx-lab (phút Actions free vô hạn).
+  #    Ở repo private này chỉ giữ nút "Run workflow" để chạy tay khi cần.
   workflow_dispatch:
     inputs:
       dry_run:

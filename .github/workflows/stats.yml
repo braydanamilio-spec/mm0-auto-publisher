@@ -6,8 +6,7 @@ name: MM0 Stats Refresh
 # ============================================================================
 
 on:
-  schedule:
-    - cron: "30 */6 * * *"   # 00:30, 06:30, 12:30, 18:30 UTC
+  # ⛔ CRON ĐÃ CHUYỂN sang repo PUBLIC mq-vx-lab (free vô hạn). Ở đây chỉ chạy tay.
   workflow_dispatch:
 
 concurrency:

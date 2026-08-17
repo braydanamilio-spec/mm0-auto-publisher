@@ -8,8 +8,7 @@ name: MM0 Social Publisher (FB + Instagram)
 # ============================================================================
 
 on:
-  schedule:
-    - cron: "15,45 * * * *"   # lệch 15' so với YouTube để không chạy chồng
+  # ⛔ CRON ĐÃ CHUYỂN sang repo PUBLIC mq-vx-lab (free vô hạn). Ở đây chỉ chạy tay.
   workflow_dispatch:
     inputs:
       dry_run:

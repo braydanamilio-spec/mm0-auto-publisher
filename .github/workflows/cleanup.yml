@@ -9,8 +9,7 @@ name: MM0 Storage Cleanup
 # ============================================================================
 
 on:
-  schedule:
-    - cron: "0 3 * * *"        # 03:00 UTC mỗi ngày
+  # ⛔ CRON ĐÃ CHUYỂN sang repo PUBLIC mq-vx-lab (free vô hạn). Ở đây chỉ chạy tay.
   workflow_dispatch:
     inputs:
       dry_run:
