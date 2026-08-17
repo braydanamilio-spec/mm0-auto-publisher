@@ -2158,12 +2158,14 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       window.rsRenderBrand(hostId,selId); };
     RS_BRANDS.DATARACE.cat="27";RS_BRANDS.STATEWARS.cat="27";RS_BRANDS.MONEYMOVES.cat="27";RS_BRANDS.POWERPLAY.cat="28";RS_BRANDS.GRIDIRON.cat="17";RS_BRANDS.SCREENKINGS.cat="24";RS_BRANDS.PAYCHECK.cat="27";RS_BRANDS.BODYUSA.cat="27";RS_BRANDS.RIDEUSA.cat="2";RS_BRANDS.EATSUSA.cat="26";
     // Avatar data-URI cho 1 kênh: brand SVG nếu có, không thì avatar chữ-cái-đầu + màu hash (hợp hàng trăm kênh).
-    function rsAvatarUri(k,size){ size=size||44; const K=String(k||"").toUpperCase();
-      if(RS_BRANDS[K]) return "data:image/svg+xml;utf8,"+encodeURIComponent(rsBrandSvg(K,size,size,"avatar"));
+    const _avCache={};   // memo: khỏi sinh lại SVG mỗi lần render (nhẹ CPU khi nhiều kênh) — chỉ RAM, KHÔNG ghi Firestore/Drive
+    function rsAvatarUri(k,size){ size=size||44; const K=String(k||"").toUpperCase(); const ck=K+"@"+size;
+      if(_avCache[ck]) return _avCache[ck];
+      if(RS_BRANDS[K]) return _avCache[ck]="data:image/svg+xml;utf8,"+encodeURIComponent(rsBrandSvg(K,size,size,"avatar"));
       let h=0; for(const c of K) h=(h*31+c.charCodeAt(0))>>>0; const col="hsl("+(h%360)+",58%,46%)";
       const ini=K.replace(/[^A-Z0-9]/g,"").slice(0,2)||"?";
       const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><rect width="${size}" height="${size}" rx="${size*0.22}" fill="${col}"/><text x="50%" y="50%" font-family="Poppins,Arial" font-weight="900" font-size="${size*0.4}" fill="#fff" text-anchor="middle" dominant-baseline="central">${ini}</text></svg>`;
-      return "data:image/svg+xml;utf8,"+encodeURIComponent(svg); }
+      return _avCache[ck]="data:image/svg+xml;utf8,"+encodeURIComponent(svg); }
     // Bọc 1 <select> bằng dropdown có ẢNH avatar (giữ select ẩn làm kho giá trị -> logic cũ chạy nguyên).
     function rsSelectWithAvatars(sel){ if(!sel) return; let wrap=sel.__ddWrap;
       if(!wrap){ wrap=document.createElement("span"); wrap.style.cssText="position:relative;display:inline-block;vertical-align:middle"; sel.style.display="none"; sel.parentNode.insertBefore(wrap,sel.nextSibling); sel.__ddWrap=wrap; }
