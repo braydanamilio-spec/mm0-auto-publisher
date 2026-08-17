@@ -662,6 +662,18 @@
           </div>
           <div class="p-sub" style="margin-top:9px" data-i18n="st_hint">Click → sign in Drive account → grant → auto-creates store folder + saves token. Combine many = 150GB/1TB.</div>
         </div>
+        <div class="panel" style="margin-bottom:16px">
+          <div class="p-head"><div class="p-title">🎬 Kho tổng video (tất cả kênh &amp; kho)</div><div class="p-sub">Tìm nhanh video/kênh/kho · xem trực quan · bấm phát ngay · <span id="stVaultCount"></span></div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+            <input id="stVaultSearch" placeholder="🔎 Tìm: tên / kênh / kho / id…" style="flex:1;min-width:200px" oninput="window.__rsRenderGallery&&window.__rsRenderGallery()"/>
+            <select id="stVaultView" onchange="window.__rsRenderGallery&&window.__rsRenderGallery()">
+              <option value="channel">📺 Nhóm theo kênh</option>
+              <option value="account">📦 Nhóm theo kho</option>
+            </select>
+            <button class="btn-conn" onclick="window.rsLocateAll&&window.rsLocateAll(this)">🔍 Tìm kho cho video chưa rõ</button>
+          </div>
+          <div id="stVault"><div class="d">Chưa có video hoàn tất — render xong sẽ hiện ở đây để tra soát &amp; xem.</div></div>
+        </div>
         <div class="panel" style="margin-bottom:16px" id="uploadPanel">
           <div class="p-title">⬆️ Upload video từ máy tính</div>
           <div class="p-sub" style="margin:6px 0 12px;line-height:1.6">Đẩy <b>thẳng lên Google Drive kho</b> — <b>giữ nguyên chất lượng</b> (không nén), tốc độ tối ưu. Hệ <b>tự chia folder thông minh</b>: <code>_QUEUE/long</code> hoặc <code>_QUEUE/short</code> + gắn kênh (sidecar) để cron tự đăng.</div>
@@ -1888,14 +1900,14 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     window.__rsRenderPlan=rsRenderPlan;
 
     // ===== 🎬 THƯ VIỆN VIDEO — chia theo kênh, xem inline như mở Drive =====
-    async function rsRenderGallery(){
-      const host=document.getElementById("rsGallery"); if(!host) return;
+    async function rsGalInto(hostId, searchId, viewId, countId){
+      const host=document.getElementById(hostId); if(!host) return;
       let done=(window.__rsJobsData||[]).filter(j=>j.status==="done" && (j.drive_id||j.preview));
-      const q=(((document.getElementById("rsGalSearch")||{}).value)||"").trim().toLowerCase();
+      const q=(((document.getElementById(searchId)||{}).value)||"").trim().toLowerCase();
       if(q) done=done.filter(j=>((j.title||"")+" "+(j.channel||"")+" "+(j.drive_account||"")+" "+(j.drive_id||"")+" "+(j.type||"")).toLowerCase().includes(q));
-      const view=((document.getElementById("rsGalView")||{}).value)||"channel";
+      const view=((document.getElementById(viewId)||{}).value)||"channel";
       const tL=done.filter(j=>j.type==="long").length, tS=done.length-tL, unk=done.filter(j=>!j.drive_account).length;
-      const cnt=document.getElementById("rsGalCount"); if(cnt) cnt.textContent=`📤 ${done.length} video · ${tL} long · ${tS} short${unk?` · 🔍 ${unk} chưa rõ kho`:""}`;
+      const cnt=document.getElementById(countId); if(cnt) cnt.textContent=`📤 ${done.length} video · ${tL} long · ${tS} short${unk?` · 🔍 ${unk} chưa rõ kho`:""}`;
       if(!done.length){ host.innerHTML='<div class="d">'+(q?`Không tìm thấy video khớp "${esc(q)}".`:'Chưa có video hoàn tất — render xong + đẩy Drive là hiện ở đây.')+'</div>'; return; }
       let tk=""; try{ tk=await window.__getIdToken(); }catch(_){}
       const item=(j)=>{
@@ -1936,7 +1948,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
           ${grp("🎬","Long 16:9",longs)}${grp("📱","Short 9:16",shorts)}</div>`;
       }).join("");
     }
-    window.__rsRenderGallery=rsRenderGallery;
+    window.__rsRenderGallery=()=>{ rsGalInto("rsGallery","rsGalSearch","rsGalView","rsGalCount"); rsGalInto("stVault","stVaultSearch","stVaultView","stVaultCount"); };
     // Tự dò + gắn kho cho MỌI video chưa rõ (1 bấm) -> quản lý minh bạch, biết video ở kho nào.
     window.rsLocateAll=async(btn)=>{
       const list=(window.__rsJobsData||[]).filter(j=>j.status==="done" && (j.drive_id||j.preview) && !j.drive_account);
