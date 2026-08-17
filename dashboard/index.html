@@ -1467,7 +1467,7 @@
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
       signInWithEmailAndPassword, createUserWithEmailAndPassword }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query, where, doc, setDoc, addDoc, deleteDoc, getDocs, getDoc }
+    import { getFirestore, collection, onSnapshot, query, where, orderBy, limit, doc, setDoc, addDoc, deleteDoc, getDocs, getDoc }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -1698,7 +1698,7 @@
       onSnapshot(q("render_channels"), s=>{ const el=document.getElementById("rsChList");
         window.__rsChannelsData = s.docs.map(d=>({id:d.id,...d.data()})); window.__rsRenderPlan&&window.__rsRenderPlan(); if(!el) return;
         const ds=s.docs; el.innerHTML = ds.length? ds.map(d=>{const c=d.data();return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>📺 <b>${esc(c.name)}</b> · ${esc(c.niche||"")} · ${esc(c.type)} · ảnh ${esc(c.img_source)}</span><button class="btn-conn" onclick="window.__rsDelChannel('${d.id}')">Xoá</button></div>`}).join("") : '<div class="d">Chưa cấu hình kênh render.</div>'; });
-      onSnapshot(q("render_jobs"), s=>{ const el=document.getElementById("rsJobs"); const bd=document.getElementById("nvRender");
+      const _jobsCb=(s)=>{ const el=document.getElementById("rsJobs"); const bd=document.getElementById("nvRender");
         const ds=s.docs.sort((a,b)=>(b.data().created_at||"").localeCompare(a.data().created_at||"")).slice(0,20);
         const all=s.docs.map(d=>({id:d.id,...d.data()})); window.__rsJobsData = all; window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderGallery&&window.__rsRenderGallery();
         // TỰ DỌN job LỖI đã có bản thành công MỚI HƠN cùng kênh (video lỗi được thay -> xoá cho đỡ rối).
@@ -1745,7 +1745,10 @@
           } else al.style.display="none";
         }
         if(el) el.innerHTML = ds.length? ds.map(d=>{const j=d.data(); const ic={queued:"⏳",writing:"✍️",rendering:"🎞️",qc:"🔍",done:"✅",failed:"❌",running:"⚙️"}[j.status]||"•";
-          return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${ic} <b>${esc(j.channel||"")}</b> · ${esc(j.type||"")} · ${esc(j.step||j.status||"")} ${j.score?`· QC ${esc(j.score)}`:""} ${j.preview?`· <a href="${esc(j.preview)}" target="_blank" style="color:#8b6cff;font-weight:700">▶ Xem</a>`:""}</span><span class="d">${esc((j.created_at||"").slice(11,16))}</span></div>`}).join("") : '<div class="d">Chưa có job nào. Bấm “Render ngay” để thử.</div>'; });
+          return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${ic} <b>${esc(j.channel||"")}</b> · ${esc(j.type||"")} · ${esc(j.step||j.status||"")} ${j.score?`· QC ${esc(j.score)}`:""} ${j.preview?`· <a href="${esc(j.preview)}" target="_blank" style="color:#8b6cff;font-weight:700">▶ Xem</a>`:""}</span><span class="d">${esc((j.created_at||"").slice(11,16))}</span></div>`}).join("") : '<div class="d">Chưa có job nào. Bấm “Render ngay” để thử.</div>'; };
+      // GIỚI HẠN 300 job MỚI NHẤT -> Firestore đọc luôn bị chặn dù có hàng chục nghìn video (vẫn free). Index chưa sẵn -> fallback không limit.
+      onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(300)), _jobsCb,
+                 ()=>{ onSnapshot(q("render_jobs"), _jobsCb); });
       // ĐẾM tổng tài nguyên (Drive lưu trữ / YouTube / Facebook)
       const cnt=(coll,elid)=>onSnapshot(q(coll), s=>{const e=document.getElementById(elid); if(e) e.textContent=s.size;}, ()=>{});
       onSnapshot(q("storage_accounts"), s=>{ const d=document.getElementById("rsTotDrive"); if(d)d.textContent=s.size;

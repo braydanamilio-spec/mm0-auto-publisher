@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "render_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "owner", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
