@@ -34,6 +34,7 @@ export default {
       if (url.pathname === "/api/file-action") return corsResp(await apiFileAction(request, url, env));
       if (url.pathname === "/api/file-content") return corsResp(await apiFileContent(request, url, env));
       if (url.pathname === "/api/drive-stream") return await apiDriveStream(request, url, env);
+      if (url.pathname === "/api/drive-thumb") return await apiDriveThumb(request, url, env);
       if (url.pathname === "/api/token-check") return corsResp(await apiTokenCheck(request, url, env));
       if (url.pathname === "/api/upload-init") return corsResp(await apiUploadInit(request, url, env));
       if (url.pathname === "/api/upload-chunk") return corsResp(await apiUploadChunk(request, url, env));
@@ -807,6 +808,39 @@ async function apiDriveStream(request, url, env) {
   h.set("Access-Control-Allow-Origin", "*");
   h.set("Cache-Control", "private, max-age=60");
   return new Response(r.body, { status: r.status, headers: h });   // pass-through stream (Range để tua)
+}
+
+// Tìm token của kho MỞ ĐƯỢC fileId (biết account0 -> dùng luôn; không -> dò từng kho).
+async function resolveDriveDat(env, uid, account0, fileId) {
+  if (account0) { try { return (await driveCtx(env, uid, account0)).dat; } catch (_) { return null; } }
+  const at = await saAccessToken(env);
+  for (const nm of await fsListStorageAccounts(env, at, uid)) {
+    try {
+      const c = await driveCtx(env, uid, nm);
+      const chk = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${c.dat}` } });
+      if (chk.ok) return c.dat;
+    } catch (_) { }
+  }
+  return null;
+}
+
+// GET /api/drive-thumb?t=&fileId=[&account=] -> ẢNH THUMBNAIL video (Drive tự tạo) để xem lướt như Google Drive.
+async function apiDriveThumb(request, url, env) {
+  const t = url.searchParams.get("t"), account0 = url.searchParams.get("account"), fileId = url.searchParams.get("fileId");
+  const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
+  if (!uid || !fileId) return new Response("", { status: 400 });
+  const dat = await resolveDriveDat(env, uid, account0, fileId);
+  if (!dat) return new Response("", { status: 404 });
+  const m = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=thumbnailLink,hasThumbnail&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${dat}` } });
+  const mj = await m.json().catch(() => ({}));
+  if (!mj.thumbnailLink) return new Response("", { status: 404 });   // Drive chưa tạo thumb (video mới upload) -> để client dùng placeholder
+  const big = mj.thumbnailLink.replace(/=s\d+$/, "=s640");
+  const im = await fetch(big, { headers: { Authorization: `Bearer ${dat}` } });
+  const h = new Headers();
+  h.set("content-type", im.headers.get("content-type") || "image/jpeg");
+  h.set("Access-Control-Allow-Origin", "*");
+  h.set("Cache-Control", "private, max-age=1800");
+  return new Response(im.body, { status: im.status, headers: h });
 }
 
 // POST /api/upload-init {t,account,type(long|short),name,mimeType,size}
