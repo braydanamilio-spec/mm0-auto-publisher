@@ -1940,7 +1940,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       let all=(window.__rsJobsData||[]).filter(j=>j.status==="done" && (j.drive_id||j.preview));
       const chSel=document.getElementById(channelId);   // dropdown lọc kênh — liệt kê mọi kênh đã có video
       if(chSel){ const chans=[...new Set(all.map(j=>j.channel||"?"))].sort();
-        const opts='<option value="">📺 Tất cả kênh ('+all.length+')</option>'+chans.map(c=>{const b=(window.RS_BRANDS||{})[String(c).toUpperCase()];const ic=(b&&b.ic)||"📺";return `<option value="${esc(c)}">${ic} ${esc(c)} (${all.filter(j=>(j.channel||"?")===c).length})</option>`;}).join("");
+        const opts='<option value="">Tất cả kênh ('+all.length+')</option>'+chans.map(c=>`<option value="${esc(c)}">${esc(c)} (${all.filter(j=>(j.channel||"?")===c).length})</option>`).join("");
         if(chSel.getAttribute("data-opts")!==opts){ const cur=chSel.value; chSel.innerHTML=opts; chSel.setAttribute("data-opts",opts); if(chans.includes(cur)) chSel.value=cur; try{window.rsSelectWithAvatars(chSel);}catch(_){} } }
       const chF=(chSel&&chSel.value)||"";
       let done = chF ? all.filter(j=>(j.channel||"?")===chF) : all;
@@ -2154,7 +2154,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
         </div></div>`;
     };
     window.__rsBrandInit=(selId,hostId)=>{ const sel=document.getElementById(selId); if(!sel) return;
-      if(!sel.__init){ sel.__init=1; sel.innerHTML=Object.keys(RS_BRANDS).map(k=>`<option value="${k}">${RS_BRANDS[k].ic} ${esc(RS_BRANDS[k].d)}</option>`).join(""); sel.onchange=()=>window.rsRenderBrand(hostId,selId); try{window.rsSelectWithAvatars(sel);}catch(_){} }
+      if(!sel.__init){ sel.__init=1; sel.innerHTML=Object.keys(RS_BRANDS).map(k=>`<option value="${k}">${esc(RS_BRANDS[k].d)}</option>`).join(""); sel.onchange=()=>window.rsRenderBrand(hostId,selId); try{window.rsSelectWithAvatars(sel);}catch(_){} }
       window.rsRenderBrand(hostId,selId); };
     RS_BRANDS.DATARACE.cat="27";RS_BRANDS.STATEWARS.cat="27";RS_BRANDS.MONEYMOVES.cat="27";RS_BRANDS.POWERPLAY.cat="28";RS_BRANDS.GRIDIRON.cat="17";RS_BRANDS.SCREENKINGS.cat="24";RS_BRANDS.PAYCHECK.cat="27";RS_BRANDS.BODYUSA.cat="27";RS_BRANDS.RIDEUSA.cat="2";RS_BRANDS.EATSUSA.cat="26";
     // Avatar data-URI cho 1 kênh: brand SVG nếu có, không thì avatar chữ-cái-đầu + màu hash (hợp hàng trăm kênh).
@@ -2169,11 +2169,12 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       if(!wrap){ wrap=document.createElement("span"); wrap.style.cssText="position:relative;display:inline-block;vertical-align:middle"; sel.style.display="none"; sel.parentNode.insertBefore(wrap,sel.nextSibling); sel.__ddWrap=wrap; }
       const opt=[...sel.options]; const cur=opt.find(o=>o.value===sel.value)||opt[0]||{value:"",text:"—"};
       const av=v=>`<img src="${rsAvatarUri(v,44)}" style="width:22px;height:22px;border-radius:5px;flex:none;object-fit:cover"/>`;
-      wrap.innerHTML=`<button type="button" class="rsdd-btn" style="display:flex;align-items:center;gap:7px;background:#ffffff10;border:1px solid #ffffff22;border-radius:8px;padding:5px 10px;cursor:pointer;color:inherit;max-width:250px;font:inherit">${cur.value?av(cur.value):"📺"}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(cur.text)}</span><span style="opacity:.55">▾</span></button>
-        <div class="rsdd-menu" style="display:none;position:absolute;z-index:70;top:106%;left:0;min-width:250px;max-height:360px;overflow:auto;background:#171c2b;border:1px solid #ffffff22;border-radius:10px;box-shadow:0 14px 44px #000a;padding:5px">${opt.map(o=>`<div class="rsdd-item" data-v="${esc(o.value)}" style="display:flex;align-items:center;gap:9px;padding:6px 9px;border-radius:7px;cursor:pointer">${o.value?av(o.value):"📺"}<span>${esc(o.text)}</span></div>`).join("")}</div>`;
+      const lbl=t=>esc(String(t||"").replace(/^\s*\p{Emoji_Presentation}\s*/u,""));  // bỏ emoji đầu (avatar đã thay)
+      wrap.innerHTML=`<button type="button" class="rsdd-btn" style="display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 10px;cursor:pointer;max-width:250px;font:inherit">${cur.value?av(cur.value):"📺"}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${lbl(cur.text)}</span><span style="opacity:.55">▾</span></button>
+        <div class="rsdd-menu" style="display:none;position:absolute;z-index:70;top:106%;left:0;min-width:250px;max-height:360px;overflow:auto;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:10px;box-shadow:0 14px 44px rgba(0,0,0,.28);padding:5px">${opt.map(o=>`<div class="rsdd-item" data-v="${esc(o.value)}" style="display:flex;align-items:center;gap:9px;padding:6px 9px;border-radius:7px;cursor:pointer">${o.value?av(o.value):"📺"}<span>${lbl(o.text)}</span></div>`).join("")}</div>`;
       const btn=wrap.querySelector(".rsdd-btn"), menu=wrap.querySelector(".rsdd-menu");
       btn.onclick=e=>{ e.stopPropagation(); document.querySelectorAll(".rsdd-menu").forEach(m=>{if(m!==menu)m.style.display="none";}); menu.style.display=menu.style.display==="none"?"block":"none"; };
-      wrap.querySelectorAll(".rsdd-item").forEach(it=>{ it.onmouseenter=()=>it.style.background="#ffffff14"; it.onmouseleave=()=>it.style.background=""; it.onclick=()=>{ menu.style.display="none"; sel.value=it.getAttribute("data-v"); sel.dispatchEvent(new Event("change")); }; }); }
+      wrap.querySelectorAll(".rsdd-item").forEach(it=>{ it.onmouseenter=()=>it.style.background="var(--surface2)"; it.onmouseleave=()=>it.style.background=""; it.onclick=()=>{ menu.style.display="none"; if(sel.value!==it.getAttribute("data-v")){ sel.value=it.getAttribute("data-v"); sel.dispatchEvent(new Event("change")); } rsSelectWithAvatars(sel); }; }); }
     window.rsSelectWithAvatars=rsSelectWithAvatars;
     if(!window.__rsddClose){ window.__rsddClose=1; document.addEventListener("click",()=>document.querySelectorAll(".rsdd-menu").forEach(m=>m.style.display="none")); }
     window.RS_BRANDS=RS_BRANDS;
