@@ -673,6 +673,7 @@
             </select>
             <button class="btn-conn" onclick="window.rsLocateAll&&window.rsLocateAll(this)">🔍 Tìm kho cho video chưa rõ</button>
             <button class="btn-conn" style="background:#ff5a5a22;border-color:#ff5a5a55;color:#ffb3b3" onclick="window.rsCleanOld&&window.rsCleanOld(this)" title="Chỉ xóa video phiên bản CŨ hơn bản mới nhất — giữ bản tốt">🧹 Dọn bản cũ</button>
+            <button class="btn-conn" onclick="window.rsExportLinks&&window.rsExportLinks()" title="Xuất tất cả link video ra file .txt">📄 Xuất link</button>
           </div>
           <div id="stVault"><div class="d">Chưa có video hoàn tất — render xong sẽ hiện ở đây để tra soát &amp; xem.</div></div>
         </div>
@@ -888,6 +889,7 @@
             </select>
             <button class="btn-conn" onclick="window.rsLocateAll&&window.rsLocateAll(this)">🔍 Tìm kho cho video chưa rõ</button>
             <button class="btn-conn" style="background:#ff5a5a22;border-color:#ff5a5a55;color:#ffb3b3" onclick="window.rsCleanOld&&window.rsCleanOld(this)" title="Chỉ xóa video phiên bản CŨ hơn bản mới nhất — giữ bản tốt">🧹 Dọn bản cũ</button>
+            <button class="btn-conn" onclick="window.rsExportLinks&&window.rsExportLinks()" title="Xuất tất cả link video ra file .txt">📄 Xuất link</button>
           </div>
           <div id="rsGallery"><div class="d">Chưa có video hoàn tất — render xong + đẩy Drive là hiện ở đây.</div></div>
         </div>
@@ -1919,7 +1921,8 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       const tL=done.filter(j=>j.type==="long").length, tS=done.length-tL, unk=done.filter(j=>!j.drive_account).length;
       done.sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));
       const CAP=40, over=done.length>CAP && !q; const disp=over?done.slice(0,CAP):done;   // giới hạn hiển thị cho NHẸ (search thì hiện hết kết quả)
-      const cnt=document.getElementById(countId); if(cnt) cnt.textContent=`📤 ${done.length} video · ${tL} long · ${tS} short${unk?` · 🔍 ${unk} chưa rõ kho`:""}${over?` · hiện ${CAP} mới nhất (tìm để xem hết)`:""}`;
+      const totMB=done.reduce((s,j)=>s+(Number(j.size_mb)||0),0), totStr=totMB>=1000?(totMB/1000).toFixed(1)+"GB":totMB.toFixed(0)+"MB";
+      const cnt=document.getElementById(countId); if(cnt) cnt.textContent=`📤 ${done.length} video · ${tL} long · ${tS} short${totMB?` · 💾 ${totStr}`:""}${unk?` · 🔍 ${unk} chưa rõ kho`:""}${over?` · hiện ${CAP} mới nhất`:""}`;
       if(!done.length){ host.innerHTML='<div class="d">'+(view==="flawed"?'✓ Không có video nghi lỗi/bản cũ — tất cả đều là bản mới nhất. (Sau khi có mẻ v2, đám cũ sẽ hiện ở đây để xóa.)':(q?`Không tìm thấy video khớp "${esc(q)}".`:'Chưa có video hoàn tất — render xong + đẩy Drive là hiện ở đây.'))+'</div>'; return; }
       let tk=""; try{ tk=await window.__getIdToken(); }catch(_){}
       const item=(j)=>{
@@ -1938,7 +1941,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
             </div>
             <div style="min-width:0;flex:1">
               <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(j.title||j.type||"video")}</div>
-              <div class="d" style="font-size:12px">${j.type==="long"?"🎬 long":"📱 short"}${j.score?" · QC "+esc(j.score):""} · ${esc((j.created_at||'').slice(5,16).replace('T',' '))}${j.drive_account?" · 📁 "+esc(j.drive_account):" · 🔍 kho chưa rõ (bấm ▶)"}</div>
+              <div class="d" style="font-size:12px">${j.type==="long"?"🎬 long":"📱 short"}${[rsFmtDur(j.dur),(j.size_mb?j.size_mb+'MB':''),rsResLabel(j.res)].filter(Boolean).map(x=>" · "+x).join("")}${j.score?" · QC "+esc(j.score):""} · ${esc((j.created_at||'').slice(5,16).replace('T',' '))}${j.drive_account?" · 📁 "+esc(j.drive_account):" · 🔍 kho chưa rõ (bấm ▶)"}</div>
             </div>
             <span style="display:flex;gap:8px;white-space:nowrap;flex:none">
               <button class="d" onclick="event.stopPropagation();window.rsShareLink('${esc(fid)}','${esc(acc)}',this)" style="background:none;border:1px solid #8b6cff55;color:#8b6cff;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Copy link full quyền">🔗</button>
@@ -2027,6 +2030,23 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
           if(j.id) await deleteDoc(doc(db,"render_jobs",j.id)); ok++; }catch(_){} }
       if(btn){ btn.textContent="🧹 Dọn bản cũ"; btn.disabled=false; }
       try{toastMsg(`🧹 Đã dọn ${ok}/${old.length} bản cũ · giữ nguyên bản ${newest}`);}catch(_){} };
+    const rsFmtDur=s=>{ s=Math.round(Number(s)||0); if(!s) return ""; const m=Math.floor(s/60); return "⏱"+m+":"+String(s%60).padStart(2,"0"); };
+    const rsResLabel=r=>{ const m=String(r||"").match(/(\d+)x(\d+)/); if(!m) return ""; const q=Math.min(+m[1],+m[2]); return q>=1080?"1080p":(q>=720?"720p":"HD"); };
+    // XUẤT tất cả link video ra file .txt (title · kênh · kho · độ dài · dung lượng · link Drive) để lưu/kiểm.
+    window.rsExportLinks=()=>{
+      const done=(window.__rsJobsData||[]).filter(j=>j.status==="done"&&(j.drive_id||j.preview))
+        .sort((a,b)=>(a.channel||"").localeCompare(b.channel||"")||(b.created_at||"").localeCompare(a.created_at||""));
+      if(!done.length){ try{toastMsg("Chưa có video để xuất.");}catch(_){}; return; }
+      let tot=0; const lines=["# MM0 — DANH SÁCH VIDEO ("+done.length+") · "+new Date().toISOString(),""];
+      done.forEach(j=>{ const fid=j.drive_id||((/\/d\/([^/]+)/.exec(j.preview||"")||[])[1]||"");
+        const link=fid?("https://drive.google.com/file/d/"+fid+"/view"):(j.preview||"");
+        tot+=(Number(j.size_mb)||0);
+        lines.push([`[${j.type||"?"}]`,(j.channel||"?"),(j.title||""),`kho:${j.drive_account||"?"}`,
+          rsFmtDur(j.dur).replace("⏱",""),`${j.size_mb||0}MB`,rsResLabel(j.res),link].filter(Boolean).join(" | ")); });
+      lines.push("","Tổng dung lượng: "+(tot>=1000?(tot/1000).toFixed(2)+" GB":tot.toFixed(0)+" MB"));
+      const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/plain"}));
+      a.download="mm0-video-links.txt"; a.click(); URL.revokeObjectURL(a.href);
+      try{toastMsg("📄 Đã xuất "+done.length+" link");}catch(_){} };
     window.rsShareLink=async(fileId,account,btn)=>{ if(!fileId) return; const old=btn?btn.textContent:"";
       if(btn){ btn.textContent="⏳…"; btn.disabled=true; }
       try{ const d=await workerApi(`/api/drive-share?fileId=${encodeURIComponent(fileId)}${account?`&account=${encodeURIComponent(account)}`:""}`);
