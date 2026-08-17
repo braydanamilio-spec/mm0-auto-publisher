@@ -38,6 +38,7 @@ export default {
       if (url.pathname === "/api/drive-share") return corsResp(await apiDriveShare(request, url, env));
       if (url.pathname === "/api/drive-has") return corsResp(await apiDriveHas(request, url, env));
       if (url.pathname === "/api/empty-trash") return corsResp(await apiEmptyTrash(request, url, env));
+      if (url.pathname === "/api/drive-trash") return corsResp(await apiDriveTrash(request, url, env));
       if (url.pathname === "/api/token-check") return corsResp(await apiTokenCheck(request, url, env));
       if (url.pathname === "/api/upload-init") return corsResp(await apiUploadInit(request, url, env));
       if (url.pathname === "/api/upload-chunk") return corsResp(await apiUploadChunk(request, url, env));
@@ -852,6 +853,19 @@ async function apiDriveHas(request, url, env) {
     const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${dat}` } });
     return json({ ok: true, has: r.ok });
   } catch (_) { return json({ ok: true, has: false }); }
+}
+
+// GET /api/drive-trash?t=&account= -> LIỆT KÊ file đang trong THÙNG RÁC (review trước khi xóa vĩnh viễn).
+async function apiDriveTrash(request, url, env) {
+  const t = url.searchParams.get("t"), account = url.searchParams.get("account");
+  const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
+  if (!uid) throw new Error("Chưa đăng nhập.");
+  if (!account) throw new Error("Thiếu account.");
+  const { dat } = await driveCtx(env, uid, account);
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent("trashed=true")}&fields=files(id,name,size,mimeType)&pageSize=1000&supportsAllDrives=true`,
+    { headers: { Authorization: `Bearer ${dat}` } });
+  const j = await r.json().catch(() => ({}));
+  return json({ ok: r.ok, files: (j.files || []).map(f => ({ id: f.id, name: f.name, size: Number(f.size || 0), mime: f.mimeType })) });
 }
 
 // POST /api/empty-trash?t=&account= -> ĐỔ THÙNG RÁC kho (xóa vĩnh viễn file đã trash) -> THU HỒI dung lượng ngay.
