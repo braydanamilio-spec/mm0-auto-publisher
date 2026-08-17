@@ -1880,7 +1880,8 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     async function rsRenderGallery(){
       const host=document.getElementById("rsGallery"); if(!host) return;
       const done=(window.__rsJobsData||[]).filter(j=>j.status==="done" && (j.drive_id||j.preview));
-      const cnt=document.getElementById("rsGalCount"); if(cnt) cnt.textContent=done.length?`${done.length} video`:"";
+      const tL=done.filter(j=>j.type==="long").length, tS=done.length-tL;
+      const cnt=document.getElementById("rsGalCount"); if(cnt) cnt.textContent=done.length?`📤 ${done.length} video sẵn sàng đăng · ${tL} long · ${tS} short`:"";
       if(!done.length){ host.innerHTML='<div class="d">Chưa có video hoàn tất — render xong + đẩy Drive là hiện ở đây để anh xem/đánh giá.</div>'; return; }
       let tk=""; try{ tk=await window.__getIdToken(); }catch(_){}
       const byCh={}; done.forEach(j=>{(byCh[j.channel||"?"]=byCh[j.channel||"?"]||[]).push(j);});
@@ -1893,14 +1894,14 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
         const thumb=fid?`${WORKER_URL}/api/drive-thumb?t=${encodeURIComponent(tk)}${acc?`&account=${encodeURIComponent(acc)}`:""}&fileId=${encodeURIComponent(fid)}`:"";
         const tw=tall?68:120;
         return `<div style="border-bottom:1px solid #ffffff0f;padding:6px 0">
-          <div style="display:flex;gap:11px;align-items:center;cursor:pointer" onclick="window.rsPlay('${pid}','${esc(acc)}','${esc(fid)}','${pv}',${tall})">
+          <div style="display:flex;gap:11px;align-items:center;cursor:pointer" onclick="window.rsPlay('${pid}','${esc(acc)}','${esc(fid)}','${pv}',${tall},'${esc(j.id||'')}')">
             <div style="position:relative;width:${tw}px;height:68px;flex:none;border-radius:7px;overflow:hidden;background:linear-gradient(135deg,#8b6cff55,#4ea1ff33);display:flex;align-items:center;justify-content:center">
               ${thumb?`<img src="${thumb}" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.remove()">`:""}
               <span style="position:absolute;color:#fff;font-size:20px;text-shadow:0 1px 5px #000">▶</span>
             </div>
             <div style="min-width:0;flex:1">
               <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(j.title||j.type||"video")}</div>
-              <div class="d" style="font-size:12px">${j.type==="long"?"🎬 long":"📱 short"}${j.score?" · QC "+esc(j.score):""} · ${esc((j.created_at||'').slice(5,16).replace('T',' '))}</div>
+              <div class="d" style="font-size:12px">${j.type==="long"?"🎬 long":"📱 short"}${j.score?" · QC "+esc(j.score):""} · ${esc((j.created_at||'').slice(5,16).replace('T',' '))}${j.drive_account?" · 📁 "+esc(j.drive_account):" · 🔍 kho chưa rõ (bấm ▶)"}</div>
             </div>
             <span style="display:flex;gap:8px;white-space:nowrap;flex:none">
               <button class="d" onclick="event.stopPropagation();window.rsShareLink('${esc(fid)}','${esc(acc)}',this)" style="background:none;border:1px solid #8b6cff55;color:#8b6cff;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Đặt quyền ai-có-link-đều-xem + copy link">🔗 Link full quyền</button>
@@ -1918,6 +1919,18 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       }).join("");
     }
     window.__rsRenderGallery=rsRenderGallery;
+    // DÒ KHO phía client (không dính giới hạn 22 kho của Worker) + GHI LẠI kho vào job -> quản lý minh bạch.
+    window.rsLocate=async(fileId,jobId)=>{
+      const accs=((window.__STORAGE&&window.__STORAGE.accounts)||[]).map(a=>a.name).filter(Boolean);
+      if(!accs.length||!fileId) return "";
+      let tk=""; try{ tk=await window.__getIdToken(); }catch(_){}
+      const found=await new Promise(resolve=>{ let pending=accs.length, done=false;
+        accs.forEach(async a=>{ try{ const r=await fetch(`${WORKER_URL}/api/drive-has?t=${encodeURIComponent(tk)}&account=${encodeURIComponent(a)}&fileId=${encodeURIComponent(fileId)}`);
+            const j=await r.json(); if(j&&j.has&&!done){ done=true; resolve(a); return; } }catch(_){}
+          if(--pending===0&&!done) resolve(""); }); });
+      if(found&&jobId){ try{ await setDoc(doc(db,"render_jobs",jobId),{drive_account:found},{merge:true}); }catch(_){} }
+      return found;
+    };
     window.rsShareLink=async(fileId,account,btn)=>{ if(!fileId) return; const old=btn?btn.textContent:"";
       if(btn){ btn.textContent="⏳…"; btn.disabled=true; }
       try{ const d=await workerApi(`/api/drive-share?fileId=${encodeURIComponent(fileId)}${account?`&account=${encodeURIComponent(account)}`:""}`);
@@ -1926,17 +1939,19 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
           if(btn){ btn.textContent="✓ Đã copy link"; } window.prompt("Link Drive full quyền (Ctrl/Cmd+C để copy):", d.link); }
         else throw new Error("no link");
       }catch(e){ try{toastMsg("Lỗi tạo link: "+(e.message||e));}catch(_){}; if(btn){ btn.textContent=old; btn.disabled=false; } } };
-    window.rsPlay=async(id,account,fileId,pv,tall)=>{ const el=document.getElementById(id); if(!el) return;
+    window.rsPlay=async(id,account,fileId,pv,tall,jobId)=>{ const el=document.getElementById(id); if(!el) return;
       if(el.innerHTML){ el.innerHTML=""; return; }   // bấm lần 2 = đóng
       const style=tall?"width:300px;max-width:100%;aspect-ratio:9/16":"width:100%;aspect-ratio:16/9";
-      if(fileId){                                     // NHÚNG player stream qua Worker -> phát NGAY trên web (không nhảy Drive, không cần share)
-        el.innerHTML=`<div class="d" style="margin-top:8px">⏳ Đang tải video…</div>`;
-        let tk=""; try{ tk=await window.__getIdToken(); }catch(_){}
-        const su=`${WORKER_URL}/api/drive-stream?t=${encodeURIComponent(tk)}${account?`&account=${encodeURIComponent(account)}`:""}&fileId=${encodeURIComponent(fileId)}`;
-        el.innerHTML=`<video src="${su}" controls playsinline preload="metadata" style="${style};border-radius:8px;margin-top:8px;background:#000"></video>`;
-      } else {
-        el.innerHTML=`<div class="d" style="margin-top:8px">Video này chưa có file trên Drive.</div>`;
-      } };
+      if(!fileId){ el.innerHTML=`<div class="d" style="margin-top:8px">Video này chưa có file trên Drive.</div>`; return; }
+      if(!account){                                    // chưa biết kho -> DÒ (client, song song) + ghi lại vào job
+        el.innerHTML=`<div class="d" style="margin-top:8px">🔍 Đang tìm kho chứa video…</div>`;
+        account=await window.rsLocate(fileId,jobId);
+      }
+      el.innerHTML=`<div class="d" style="margin-top:8px">⏳ Đang tải video…</div>`;
+      let tk=""; try{ tk=await window.__getIdToken(); }catch(_){}
+      const su=`${WORKER_URL}/api/drive-stream?t=${encodeURIComponent(tk)}${account?`&account=${encodeURIComponent(account)}`:""}&fileId=${encodeURIComponent(fileId)}`;
+      el.innerHTML=`<video src="${su}" controls playsinline preload="metadata" style="${style};border-radius:8px;margin-top:8px;background:#000"></video>`
+        +(account?`<div class="d" style="font-size:12px;margin-top:3px">📁 kho: <b>${esc(account)}</b></div>`:`<div class="d" style="font-size:12px;margin-top:3px;color:#ffb3b3">⚠️ chưa tìm thấy kho — kiểm token kho (🩺)</div>`); };
 
     // Gộp brand channel vào 1 Gmail thật (Google giấu Gmail của tài khoản thương hiệu)
     window.saveGmailGroup = async (channels, gmail, extra) => {
@@ -2182,7 +2197,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     }
     let __V=[], __C={}, __K={}, __STORAGE=null, __SETTINGS=null, __OVERRIDES={};
     window.setData = (v,c,k) => { if(v)__V=v; if(c)__C=c; if(k)__K=k; renderAll(); };
-    window.setStorage = (s) => { __STORAGE=s; renderStorage(); };
+    window.setStorage = (s) => { __STORAGE=s; window.__STORAGE=s; renderStorage(); };
     let __FBP=[];
     window.setFbPages = (p) => { __FBP=p||[]; renderFacebook(); if(window.fillFbBulkPage) fillFbBulkPage(); };
     let __QUOTA=[];
