@@ -267,6 +267,11 @@ class Drive:
             body={"name": name, "parents": [folder]},
             media_body=media, fields="id,name",
         ).execute()
+        # LINK FULL QUYỀN MẶC ĐỊNH: ai có link đều XEM được -> mở link không cần "request access".
+        try:
+            self.svc.permissions().create(fileId=created["id"], body={"role": "reader", "type": "anyone"}, fields="id").execute()
+        except Exception:
+            pass
 
         if sidecar:
             blob = json.dumps(sidecar, ensure_ascii=False, indent=2).encode("utf-8")

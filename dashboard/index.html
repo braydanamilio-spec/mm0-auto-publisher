@@ -1931,8 +1931,9 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
               <div class="d" style="font-size:12px">${j.type==="long"?"🎬 long":"📱 short"}${j.score?" · QC "+esc(j.score):""} · ${esc((j.created_at||'').slice(5,16).replace('T',' '))}${j.drive_account?" · 📁 "+esc(j.drive_account):" · 🔍 kho chưa rõ (bấm ▶)"}</div>
             </div>
             <span style="display:flex;gap:8px;white-space:nowrap;flex:none">
-              <button class="d" onclick="event.stopPropagation();window.rsShareLink('${esc(fid)}','${esc(acc)}',this)" style="background:none;border:1px solid #8b6cff55;color:#8b6cff;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Đặt quyền ai-có-link-đều-xem + copy link">🔗 Link full quyền</button>
+              <button class="d" onclick="event.stopPropagation();window.rsShareLink('${esc(fid)}','${esc(acc)}',this)" style="background:none;border:1px solid #8b6cff55;color:#8b6cff;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Copy link full quyền">🔗</button>
               <a href="${esc(pv)}" target="_blank" onclick="event.stopPropagation()" class="d" style="color:#8b6cff;font-size:12px;align-self:center">Drive ↗</a>
+              <button class="d" onclick="event.stopPropagation();window.rsDeleteVideo('${esc(fid)}','${esc(acc)}','${esc(j.id||'')}',this)" style="background:none;border:1px solid #ff5a5a55;color:#ff8080;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Xóa video khỏi Drive">🗑</button>
             </span>
           </div><div id="${pid}"></div></div>`;
       };
@@ -1946,7 +1947,8 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
           ? `📦 ${esc(g)} <span class="d">· ${js.length} video (${longs.length}L · ${shorts.length}S)</span>`
           : `📺 ${esc(g)} <span class="d">· ${longs.length} long · ${shorts.length} short</span>`;
         return `<div style="margin-bottom:15px;border-left:3px solid #8b6cff;padding-left:13px">
-          <div style="font-weight:800;font-size:15px">${head}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="font-weight:800;font-size:15px">${head}</div>
+            <button class="d" onclick="window.rsDeleteGroup('${view}','${esc(String(g).replace(/'/g,''))}')" style="background:none;border:1px solid #ff5a5a44;color:#ff8080;border-radius:6px;padding:2px 9px;font-size:11px;cursor:pointer" title="Xóa tất cả video của nhóm này (dọn bản cũ/lỗi)">🗑 Xóa nhóm</button></div>
           ${grp("🎬","Long 16:9",longs)}${grp("📱","Short 9:16",shorts)}</div>`;
       }).join("");
     }
@@ -1980,6 +1982,25 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       if(found&&jobId){ try{ await setDoc(doc(db,"render_jobs",jobId),{drive_account:found},{merge:true}); }catch(_){} }
       return found;
     };
+    window.rsDeleteVideo=async(fileId,account,jobId,btn)=>{
+      if(!fileId) return;
+      if(!confirm("Xóa video này khỏi Drive? (đưa vào thùng rác, không hiện trên trang nữa)")) return;
+      if(btn){ btn.textContent="⏳"; btn.disabled=true; }
+      try{ let acc=account||""; if(!acc) acc=await window.rsLocate(fileId,jobId);
+        await workerApi("/api/file-action",{method:"POST",body:{account:acc,action:"trash",fileId}});
+        if(jobId){ try{ await deleteDoc(doc(db,"render_jobs",jobId)); }catch(_){} }
+        try{toastMsg("🗑 Đã xóa video");}catch(_){} }
+      catch(e){ try{toastMsg("Lỗi xóa: "+(e.message||e));}catch(_){}; if(btn){btn.textContent="🗑"; btn.disabled=false;} } };
+    window.rsDeleteGroup=async(view,key)=>{
+      const list=(window.__rsJobsData||[]).filter(j=>j.status==="done"&&(j.drive_id||j.preview)&&((view==="account"?(j.drive_account||"🔍 Chưa xác định kho"):(j.channel||"?"))===key));
+      if(!list.length) return;
+      if(!confirm(`Xóa TẤT CẢ ${list.length} video của "${key}" khỏi Drive? Dùng khi dọn bản cũ/lỗi. KHÔNG hoàn tác.`)) return;
+      let ok=0; try{toastMsg("⏳ Đang xóa "+list.length+" video…");}catch(_){}
+      for(const j of list){ const fid=j.drive_id||((/\/d\/([^/]+)/.exec(j.preview||"")||[])[1]||""); if(!fid) continue;
+        try{ let acc=j.drive_account||""; if(!acc) acc=await window.rsLocate(fid,j.id);
+          await workerApi("/api/file-action",{method:"POST",body:{account:acc,action:"trash",fileId:fid}});
+          if(j.id) await deleteDoc(doc(db,"render_jobs",j.id)); ok++; }catch(_){} }
+      try{toastMsg(`🗑 Đã xóa ${ok}/${list.length} video`);}catch(_){} };
     window.rsShareLink=async(fileId,account,btn)=>{ if(!fileId) return; const old=btn?btn.textContent:"";
       if(btn){ btn.textContent="⏳…"; btn.disabled=true; }
       try{ const d=await workerApi(`/api/drive-share?fileId=${encodeURIComponent(fileId)}${account?`&account=${encodeURIComponent(account)}`:""}`);
