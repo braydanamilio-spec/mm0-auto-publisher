@@ -2025,7 +2025,12 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       if(!newest){ try{toastMsg("Chưa có video phiên bản mới để so — chạy 1 mẻ render mới trước.");}catch(_){}; return; }
       const old=done.filter(j=>(j.pver||"")<newest);
       if(!old.length){ try{toastMsg("✓ Không có bản cũ (tất cả đã là bản mới nhất "+newest+").");}catch(_){}; return; }
-      if(!confirm(`Dọn ${old.length} video PHIÊN BẢN CŨ (cũ hơn ${newest})? GIỮ NGUYÊN các bản mới nhất — an toàn, không xóa nhầm bản tốt.`)) return;
+      // HIỆN danh sách bản cũ (chuyển sang mục 🚩) để anh KIỂM tận mắt trước khi xóa
+      ["rsGalView","stVaultView"].forEach(id=>{const s=document.getElementById(id); if(s) s.value="flawed";});
+      window.__rsRenderGallery&&window.__rsRenderGallery();
+      const _lst=old.slice(0,20).map(j=>"• ["+(j.type||"?")+"] "+String(j.title||"?").slice(0,48)).join("\n");
+      const _more=old.length>20?`\n…và ${old.length-20} video nữa`:"";
+      if(!confirm(`${old.length} BẢN CŨ sẽ xóa (đã hiện ở mục 🚩 Nghi lỗi/bản cũ để anh kiểm tận mắt):\n\n${_lst}${_more}\n\nGIỮ NGUYÊN bản mới nhất (${newest}). Đồng ý xóa?`)) return;
       if(btn){ btn.disabled=true; } let ok=0;
       for(let i=0;i<old.length;i++){ const j=old[i]; if(btn) btn.textContent=`⏳ ${i+1}/${old.length}`;
         const fid=j.drive_id||((/\/d\/([^/]+)/.exec(j.preview||"")||[])[1]||""); if(!fid) continue;
