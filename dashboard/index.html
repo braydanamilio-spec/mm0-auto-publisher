@@ -674,6 +674,7 @@
             <button class="btn-conn" onclick="window.rsLocateAll&&window.rsLocateAll(this)">🔍 Tìm kho cho video chưa rõ</button>
             <button class="btn-conn" style="background:#ef4444;border:1px solid #ef4444;color:#fff;font-weight:700" onclick="window.rsCleanOld&&window.rsCleanOld(this)" title="Chỉ xóa video phiên bản CŨ hơn bản mới nhất — giữ bản tốt">🧹 Dọn bản cũ</button>
             <button class="btn-conn" onclick="window.rsExportLinks&&window.rsExportLinks()" title="Xuất tất cả link video ra file .txt">📄 Xuất link</button>
+            <button class="btn-conn" onclick="window.rsEmptyTrash&&window.rsEmptyTrash(this)" title="Xóa vĩnh viễn file đã bỏ rác — thu hồi dung lượng ngay">🧹 Đổ thùng rác</button>
           </div>
           <div id="stVault"><div class="d">Chưa có video hoàn tất — render xong sẽ hiện ở đây để tra soát &amp; xem.</div></div>
         </div>
@@ -890,6 +891,7 @@
             <button class="btn-conn" onclick="window.rsLocateAll&&window.rsLocateAll(this)">🔍 Tìm kho cho video chưa rõ</button>
             <button class="btn-conn" style="background:#ef4444;border:1px solid #ef4444;color:#fff;font-weight:700" onclick="window.rsCleanOld&&window.rsCleanOld(this)" title="Chỉ xóa video phiên bản CŨ hơn bản mới nhất — giữ bản tốt">🧹 Dọn bản cũ</button>
             <button class="btn-conn" onclick="window.rsExportLinks&&window.rsExportLinks()" title="Xuất tất cả link video ra file .txt">📄 Xuất link</button>
+            <button class="btn-conn" onclick="window.rsEmptyTrash&&window.rsEmptyTrash(this)" title="Xóa vĩnh viễn file đã bỏ rác — thu hồi dung lượng ngay">🧹 Đổ thùng rác</button>
           </div>
           <div id="rsGallery"><div class="d">Chưa có video hoàn tất — render xong + đẩy Drive là hiện ở đây.</div></div>
         </div>
@@ -2048,6 +2050,16 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
         await setDoc(rsCfgDoc(),{owner:o,enabled:true,run_now:new Date().toISOString()},{merge:true});
         try{toastMsg("🔄 Đã yêu cầu render lại — chạy ≤30' rồi tự thay thế bản cũ");}catch(_){}
       }catch(e){ try{toastMsg("Lỗi: "+e.message);}catch(_){} } };
+    // 🧹 ĐỔ THÙNG RÁC: xóa VĨNH VIỄN file đã trash ở mọi kho -> thu hồi dung lượng ngay (không đợi 30 ngày).
+    window.rsEmptyTrash=async(btn)=>{
+      const accs=((window.__STORAGE&&window.__STORAGE.accounts)||[]).map(a=>a.name).filter(Boolean);
+      if(!accs.length){ try{toastMsg("Chưa có kho.");}catch(_){}; return; }
+      if(!confirm(`Đổ thùng rác TẤT CẢ ${accs.length} kho?\nXóa VĨNH VIỄN các video đã bỏ vào rác → thu hồi dung lượng ngay.\n(Sau bước này KHÔNG khôi phục được nữa.)`)) return;
+      const old=btn?btn.textContent:""; if(btn) btn.disabled=true; let ok=0;
+      for(let i=0;i<accs.length;i++){ if(btn) btn.textContent=`⏳ ${i+1}/${accs.length}`;
+        try{ await workerApi(`/api/empty-trash?account=${encodeURIComponent(accs[i])}`); ok++; }catch(_){} }
+      if(btn){ btn.textContent=old; btn.disabled=false; }
+      try{toastMsg(`🧹 Đã đổ rác ${ok}/${accs.length} kho — thu hồi dung lượng`);}catch(_){} };
     const rsFmtDur=s=>{ s=Math.round(Number(s)||0); if(!s) return ""; const m=Math.floor(s/60); return "⏱"+m+":"+String(s%60).padStart(2,"0"); };
     const rsResLabel=r=>{ const m=String(r||"").match(/(\d+)x(\d+)/); if(!m) return ""; const q=Math.min(+m[1],+m[2]); return q>=1080?"1080p":(q>=720?"720p":"HD"); };
     // XUẤT tất cả link video ra file .txt (title · kênh · kho · độ dài · dung lượng · link Drive) để lưu/kiểm.

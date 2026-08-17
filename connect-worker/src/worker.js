@@ -37,6 +37,7 @@ export default {
       if (url.pathname === "/api/drive-thumb") return await apiDriveThumb(request, url, env);
       if (url.pathname === "/api/drive-share") return corsResp(await apiDriveShare(request, url, env));
       if (url.pathname === "/api/drive-has") return corsResp(await apiDriveHas(request, url, env));
+      if (url.pathname === "/api/empty-trash") return corsResp(await apiEmptyTrash(request, url, env));
       if (url.pathname === "/api/token-check") return corsResp(await apiTokenCheck(request, url, env));
       if (url.pathname === "/api/upload-init") return corsResp(await apiUploadInit(request, url, env));
       if (url.pathname === "/api/upload-chunk") return corsResp(await apiUploadChunk(request, url, env));
@@ -837,6 +838,17 @@ async function apiDriveHas(request, url, env) {
     const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${dat}` } });
     return json({ ok: true, has: r.ok });
   } catch (_) { return json({ ok: true, has: false }); }
+}
+
+// POST /api/empty-trash?t=&account= -> ĐỔ THÙNG RÁC kho (xóa vĩnh viễn file đã trash) -> THU HỒI dung lượng ngay.
+async function apiEmptyTrash(request, url, env) {
+  const t = url.searchParams.get("t"), account = url.searchParams.get("account");
+  const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
+  if (!uid) throw new Error("Chưa đăng nhập.");
+  if (!account) throw new Error("Thiếu account.");
+  const { dat } = await driveCtx(env, uid, account);
+  const r = await fetch("https://www.googleapis.com/drive/v3/files/trash", { method: "DELETE", headers: { Authorization: `Bearer ${dat}` } });
+  return json({ ok: r.ok, status: r.status });
 }
 
 // GET /api/drive-share?t=&fileId=[&account=] -> đặt quyền "ai có link đều XEM được" + trả link chia sẻ.
