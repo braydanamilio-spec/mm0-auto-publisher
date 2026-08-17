@@ -1664,7 +1664,7 @@
           const dot=k.alive===false?'🔴':(cooling?'😴':(k.alive===true?'🟢':'⚪'));
           if(k.alive===false) nDead++;
           const chk=k.last_checked?` · <span class="d">kiểm ${ago(k.last_checked)}</span>`:'';
-          const st=k.alive===false?' <span class="d" style="color:#ff5a5a">CHẾT</span>':(cooling?' <span class="d">nghỉ</span>':'');
+          const st=k.alive===false?` <span class="d" style="color:#ff5a5a" title="${esc(k.dead_reason||"")}">CHẾT${k.dead_reason?" ("+esc(String(k.dead_reason).slice(0,40))+")":""}</span>`:(cooling?' <span class="d">nghỉ</span>':'');
           return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${dot} <b style="color:#8b6cff">#${ix+1}</b> 🔑 •••• ${esc(k.last4||"")} · 📧 <b>${esc(k.email||"(chưa ghi Gmail)")}</b>${st} <span class="d">(${esc(k.source||"")})</span>${chk}</span><button class="btn-conn" onclick="window.__rsDelKey('${d.id}')">Xoá</button></div>`}).join("") : '<div class="d">Chưa có key nào.</div>';
         const kb=document.getElementById("rsKeyHealth"); if(kb) kb.innerHTML = nDead? `🔴 <b style="color:#ff5a5a">${nDead} key CHẾT</b> — cần thay/xoá. Health-check tự chạy mỗi ngày lúc render.` : (ds.some(d=>d.data().last_checked)? '🟢 Tất cả key sống (kiểm mỗi ngày).' : '⚪ Chưa health-check lần nào (chạy tự động ở lần render tới).'); });
       onSnapshot(q("render_channels"), s=>{ const el=document.getElementById("rsChList");
