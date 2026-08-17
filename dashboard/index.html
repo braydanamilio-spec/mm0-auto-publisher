@@ -684,6 +684,11 @@
           </div>
           <div id="stVault"><div class="d">Chưa có video hoàn tất — render xong sẽ hiện ở đây để tra soát &amp; xem.</div></div>
         </div>
+        <div class="panel" style="margin-bottom:16px">
+          <div class="p-head"><div class="p-title">🎨 Brand kit kênh (profile · cover · mô tả · tag)</div><div class="p-sub">Đủ size YouTube/FB/Instagram · xem + tải PNG · copy mô tả/tag để tạo kênh</div></div>
+          <div style="margin-bottom:8px"><select id="stBrandSel"></select></div>
+          <div id="stBrandBox"><div class="d">Chọn kênh…</div></div>
+        </div>
         <div class="panel" style="margin-bottom:16px" id="uploadPanel">
           <div class="p-title">⬆️ Upload video từ máy tính</div>
           <div class="p-sub" style="margin:6px 0 12px;line-height:1.6">Đẩy <b>thẳng lên Google Drive kho</b> — <b>giữ nguyên chất lượng</b> (không nén), tốc độ tối ưu. Hệ <b>tự chia folder thông minh</b>: <code>_QUEUE/long</code> hoặc <code>_QUEUE/short</code> + gắn kênh (sidecar) để cron tự đăng.</div>
@@ -847,6 +852,11 @@
         <div class="panel" style="margin-bottom:14px">
           <div class="p-head"><div class="p-title">📋 Kế hoạch 10 kênh USA</div><div class="p-sub">Bấm 1 kênh → tự điền form → chọn template → Thêm. Phân nhóm theo tiến độ.</div></div>
           <div id="rsPlan"><div class="d">Đang tải…</div></div>
+          <div style="border-top:1px solid #ffffff14;margin-top:14px;padding-top:12px">
+            <div style="font-weight:800;margin-bottom:6px">🎨 Brand kit (profile · cover · mô tả · tag) — đủ size YT/FB/IG</div>
+            <div style="margin-bottom:8px"><select id="rsBrandSel"></select></div>
+            <div id="rsBrandBox"><div class="d">Chọn kênh…</div></div>
+          </div>
         </div>
 
         <div class="panel" style="margin-bottom:14px">
@@ -2084,6 +2094,60 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
         await setDoc(rsCfgDoc(),{owner:o,enabled:true,run_now:new Date().toISOString()},{merge:true});
         try{toastMsg("🔄 Đã yêu cầu render lại — chạy ≤30' rồi tự thay thế bản cũ");}catch(_){}
       }catch(e){ try{toastMsg("Lỗi: "+e.message);}catch(_){} } };
+    // ===== 🎨 BRAND KIT 10 KÊNH — tạo profile/cover NGAY trong web (SVG→PNG), view+tải, đúng size YT/FB/IG =====
+    const RS_BRANDS={
+      DATARACE:{d:"DATA RACE",a:"#F5B301",t:"Watch the numbers race.",h:"@dataracehq",ic:"📊",ht:"#usdata #datarace #money #economy",niche:"US money & wealth (billionaires, tax, income gap)"},
+      STATEWARS:{d:"STATE WARS",a:"#E4562B",t:"50 states. One winner.",h:"@statewarsusa",ic:"🗺️",ht:"#usa #states #statewars #geography",niche:"US states compared (population, GDP, crime, housing)"},
+      MONEYMOVES:{d:"MONEY MOVES",a:"#2FA84F",t:"Where your money goes.",h:"@moneymovesusa",ic:"💵",ht:"#costofliving #inflation #money #prices",niche:"US cost of living (rent, gas, groceries, prices)"},
+      POWERPLAY:{d:"POWER PLAY",a:"#22D3EE",t:"Who owns America.",h:"@powerplayhq",ic:"🏢",ht:"#business #brands #stocks #companies",niche:"US companies & brands (market cap, users, EVs)"},
+      GRIDIRON:{d:"GRID IRON",a:"#FB923C",t:"The money game.",h:"@gridironusa",ic:"🏈",ht:"#nfl #nba #sports #money",niche:"US sports money (NFL/NBA salaries, tickets, titles)"},
+      SCREENKINGS:{d:"SCREEN KINGS",a:"#EC4899",t:"Who rules your screen.",h:"@screenkingshq",ic:"🎬",ht:"#movies #streaming #music #boxoffice",niche:"US entertainment (box office, streaming, music)"},
+      PAYCHECK:{d:"PAYCHECK",a:"#2DD4BF",t:"What America earns.",h:"@paycheckusa",ic:"💼",ht:"#jobs #salary #career #income",niche:"US jobs & salaries (highest paying, unemployment)"},
+      BODYUSA:{d:"BODY USA",a:"#7C5CFF",t:"The American body.",h:"@bodyusahq",ic:"🫀",ht:"#health #usa #fitness #lifestyle",niche:"US health & lifestyle (obesity, lifespan, spending)"},
+      RIDEUSA:{d:"RIDE USA",a:"#38BDF8",t:"America on wheels.",h:"@rideusahq",ic:"🚗",ht:"#cars #ev #auto #trucks",niche:"US cars & auto (brand sales, EV vs gas, trucks)"},
+      EATSUSA:{d:"EATS USA",a:"#A3E635",t:"How America eats.",h:"@eatsusahq",ic:"🍔",ht:"#food #fastfood #usa #calories",niche:"US food & fast-food (chains, calories, prices)"},
+    };
+    const _dark="#0b1020";
+    function rsBrandSvg(k,W,H,kind){ const b=RS_BRANDS[k]; if(!b) return ""; const s=Math.min(W,H);
+      const nameFs=kind==="avatar"?Math.round(s*0.16):Math.round(H*0.22), icFs=kind==="avatar"?Math.round(s*0.34):Math.round(H*0.34);
+      const cx=kind==="avatar"?W/2:H*0.62, cy=kind==="avatar"?H*0.42:H*0.5;
+      const words=b.d.split(" ");
+      const nameSvg=kind==="avatar"
+        ? `<text x="${W/2}" y="${H*0.72}" font-family="Poppins,Arial" font-weight="900" font-size="${nameFs}" fill="#fff" text-anchor="middle">${b.d.replace("&","&amp;")}</text>`
+        : `<text x="${H*1.15}" y="${H*0.44}" font-family="Poppins,Arial" font-weight="900" font-size="${nameFs}" fill="#fff">${words[0]}</text><text x="${H*1.15}" y="${H*0.44+nameFs*0.95}" font-family="Poppins,Arial" font-weight="900" font-size="${nameFs}" fill="${b.a}">${words.slice(1).join(" ")||""}</text><text x="${H*1.15}" y="${H*0.44+nameFs*1.7}" font-family="Poppins,Arial" font-weight="600" font-size="${Math.round(nameFs*0.42)}" fill="#cbd5e1">${b.t}  ·  ${b.h}</text>`;
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${b.a}"/><stop offset="0.55" stop-color="${b.a}" stop-opacity="0.5"/><stop offset="1" stop-color="${_dark}"/></linearGradient></defs><rect width="${W}" height="${H}" fill="${_dark}"/><rect width="${W}" height="${H}" fill="url(#g)"/><circle cx="${kind==="avatar"?W/2:H*0.5}" cy="${cy}" r="${icFs*0.85}" fill="#00000033"/><text x="${kind==="avatar"?W/2:H*0.5}" y="${cy+icFs*0.35}" font-size="${icFs}" text-anchor="middle">${b.ic}</text>${nameSvg}</svg>`;
+    }
+    window.rsBrandDownload=(k,W,H,kind,label)=>{ const svg=rsBrandSvg(k,W,H,kind); const url=URL.createObjectURL(new Blob([svg],{type:"image/svg+xml;charset=utf-8"}));
+      const img=new Image(); img.onload=()=>{ const c=document.createElement("canvas"); c.width=W;c.height=H; const ctx=c.getContext("2d"); ctx.fillStyle=_dark; ctx.fillRect(0,0,W,H); ctx.drawImage(img,0,0,W,H);
+        c.toBlob(bl=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(bl); a.download=`${k}_${label}.png`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),3000); URL.revokeObjectURL(url); },"image/png"); };
+      img.onerror=()=>{ try{toastMsg("Lỗi tạo ảnh");}catch(_){}; URL.revokeObjectURL(url); }; img.src=url; };
+    window.rsBrandDesc=k=>{ const b=RS_BRANDS[k]; return `${b.t} Cinematic US data-story rankings on ${b.niche.replace(/\(.*?\)/,"").trim()}. Real numbers, animated, updated — new drops daily.\n\n${b.ht}`; };
+    window.rsBrandCopy=(k,what)=>{ const b=RS_BRANDS[k]; const txt=what==="desc"?rsBrandDesc(k):what==="tags"?b.niche.replace(/[(),]/g," ").split(/\s+/).filter(w=>w.length>2).join(", "):b.ht;
+      try{ navigator.clipboard.writeText(txt); }catch(_){}; try{toastMsg("📋 Đã copy "+(what==="desc"?"mô tả":what==="tags"?"keywords":"hashtags"));}catch(_){}; };
+    window.rsRenderBrand=(hostId,selId)=>{ const host=document.getElementById(hostId); if(!host) return;
+      const k=((document.getElementById(selId)||{}).value)||"DATARACE"; const b=RS_BRANDS[k]; if(!b) return;
+      const av=rsBrandSvg(k,800,800,"avatar"), cov=rsBrandSvg(k,1640,624,"cover");
+      const embed=svg=>"data:image/svg+xml;utf8,"+encodeURIComponent(svg);
+      host.innerHTML=`<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+        <div><div class="d" style="margin-bottom:4px">👤 Profile / Avatar</div><img src="${embed(av)}" style="width:130px;height:130px;border-radius:16px;border:2px solid ${b.a}"/><div style="margin-top:6px"><button class="btn-mini" onclick="window.rsBrandDownload('${k}',800,800,'avatar','avatar_800')">⬇ Avatar 800×800 (YT/FB/IG)</button></div></div>
+        <div style="flex:1;min-width:260px"><div class="d" style="margin-bottom:4px">🖼️ Cover / Banner</div><img src="${embed(cov)}" style="width:100%;max-width:420px;border-radius:12px;border:1px solid #ffffff22"/>
+          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn-mini" onclick="window.rsBrandDownload('${k}',2560,1440,'cover','yt_banner_2560x1440')">⬇ YouTube 2560×1440</button>
+            <button class="btn-mini" onclick="window.rsBrandDownload('${k}',1640,624,'cover','fb_cover_1640x624')">⬇ Facebook 1640×624</button>
+            <button class="btn-mini" onclick="window.rsBrandDownload('${k}',1080,1080,'avatar','ig_1080')">⬇ Instagram 1080×1080</button>
+          </div></div>
+        <div style="flex:1;min-width:240px">
+          <div><b style="color:${b.a}">${esc(b.d)}</b> · ${esc(b.h)} · 🎨 ${esc(b.a)} · <span class="d">danh mục YT ${esc(RS_BRANDS[k].cat||"")}</span></div>
+          <div style="margin:6px 0"><div class="d">📝 Mô tả</div><div style="white-space:pre-wrap;font-size:13px">${esc(rsBrandDesc(k))}</div><button class="btn-mini" style="margin-top:4px" onclick="window.rsBrandCopy('${k}','desc')">📋 Copy mô tả</button></div>
+          <div style="margin:6px 0"><div class="d">🏷️ Keywords/Tags</div><div style="font-size:13px">${esc(b.niche.replace(/[(),]/g," ").split(/\s+/).filter(w=>w.length>2).join(", "))}</div><button class="btn-mini" style="margin-top:4px" onclick="window.rsBrandCopy('${k}','tags')">📋 Copy keywords</button> <button class="btn-mini" onclick="window.rsBrandCopy('${k}','ht')">📋 Copy hashtags</button></div>
+        </div></div>`;
+    };
+    window.__rsBrandInit=(selId,hostId)=>{ const sel=document.getElementById(selId); if(!sel) return;
+      if(!sel.__init){ sel.__init=1; sel.innerHTML=Object.keys(RS_BRANDS).map(k=>`<option value="${k}">${esc(RS_BRANDS[k].d)}</option>`).join(""); sel.onchange=()=>window.rsRenderBrand(hostId,selId); }
+      window.rsRenderBrand(hostId,selId); };
+    RS_BRANDS.DATARACE.cat="27";RS_BRANDS.STATEWARS.cat="27";RS_BRANDS.MONEYMOVES.cat="27";RS_BRANDS.POWERPLAY.cat="28";RS_BRANDS.GRIDIRON.cat="17";RS_BRANDS.SCREENKINGS.cat="24";RS_BRANDS.PAYCHECK.cat="27";RS_BRANDS.BODYUSA.cat="27";RS_BRANDS.RIDEUSA.cat="2";RS_BRANDS.EATSUSA.cat="26";
+    setTimeout(()=>{ try{window.__rsBrandInit("rsBrandSel","rsBrandBox");}catch(_){}; try{window.__rsBrandInit("stBrandSel","stBrandBox");}catch(_){} },1500);
+
     // 🧹 ĐỔ THÙNG RÁC: xóa VĨNH VIỄN file đã trash ở mọi kho -> thu hồi dung lượng ngay (không đợi 30 ngày).
     window.rsEmptyTrash=async(btn)=>{
       const accs=((window.__STORAGE&&window.__STORAGE.accounts)||[]).map(a=>a.name).filter(Boolean);
