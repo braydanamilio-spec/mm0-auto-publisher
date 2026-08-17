@@ -1916,7 +1916,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       if(q) done=done.filter(j=>((j.title||"")+" "+(j.channel||"")+" "+(j.drive_account||"")+" "+(j.drive_id||"")+" "+(j.type||"")).toLowerCase().includes(q));
       const view=((document.getElementById(viewId)||{}).value)||"channel";
       const newestPver=done.reduce((m,j)=>{const p=j.pver||"";return p>m?p:m;},"");
-      const isFlawed=j=>((j.pver||"")<newestPver)||(j.score&&Number(j.score)<90);   // bản cũ hơn bản mới nhất HOẶC QC<90 = nghi lỗi
+      const isFlawed=j=>j.flagged||((j.pver||"")<newestPver)||(j.score&&Number(j.score)<90);   // có cờ lỗi HOẶC bản cũ HOẶC QC<90
       if(view==="flawed") done=done.filter(isFlawed);
       const tL=done.filter(j=>j.type==="long").length, tS=done.length-tL, unk=done.filter(j=>!j.drive_account).length;
       done.sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));
@@ -1946,6 +1946,8 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
             <span style="display:flex;gap:8px;white-space:nowrap;flex:none">
               <button class="d" onclick="event.stopPropagation();window.rsShareLink('${esc(fid)}','${esc(acc)}',this)" style="background:none;border:1px solid #8b6cff55;color:#8b6cff;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Copy link full quyền">🔗</button>
               <a href="${esc(pv)}" target="_blank" onclick="event.stopPropagation()" class="d" style="color:#8b6cff;font-size:12px;align-self:center">Drive ↗</a>
+              <button class="d" onclick="event.stopPropagation();window.rsMarkFlaw('${esc(j.id||'')}',${j.flagged?'false':'true'})" style="background:none;border:1px solid ${j.flagged?'#f59e0b':'#8b6cff44'};color:${j.flagged?'#f59e0b':'#9aa6c0'};border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Đánh dấu lỗi / bỏ dấu">${j.flagged?'🚩':'⚐'}</button>
+              <button class="d" onclick="event.stopPropagation();window.rsRerender('${esc(j.id||'')}')" style="background:none;border:1px solid #4ea1ff55;color:#4ea1ff;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Render lại + tự thay thế bản này">🔄</button>
               <button class="d" onclick="event.stopPropagation();window.rsDeleteVideo('${esc(fid)}','${esc(acc)}','${esc(j.id||'')}',this)" style="background:none;border:1px solid #ff5a5a55;color:#ff8080;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Xóa video khỏi Drive">🗑</button>
             </span>
           </div><div id="${pid}"></div></div>`;
@@ -2030,6 +2032,22 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
           if(j.id) await deleteDoc(doc(db,"render_jobs",j.id)); ok++; }catch(_){} }
       if(btn){ btn.textContent="🧹 Dọn bản cũ"; btn.disabled=false; }
       try{toastMsg(`🧹 Đã dọn ${ok}/${old.length} bản cũ · giữ nguyên bản ${newest}`);}catch(_){} };
+    // 🚩 ĐÁNH DẤU LỖI: gắn cờ vào video -> hiện trong mục "Nghi lỗi/bản cũ".
+    window.rsMarkFlaw=async(jobId,flag)=>{ if(!jobId) return;
+      try{ await setDoc(doc(db,"render_jobs",jobId),{flagged:!!flag},{merge:true}); try{toastMsg(flag?"🚩 Đã đánh dấu lỗi":"✓ Đã bỏ đánh dấu");}catch(_){} }catch(e){ try{toastMsg("Lỗi: "+e.message);}catch(_){} } };
+    // 🔄 RENDER LẠI: tạo yêu cầu render lại ĐÚNG video này (cùng chủ đề) -> bản mới đạt sẽ TỰ THAY THẾ bản cũ.
+    window.rsRerender=async(jobId)=>{
+      const j=(window.__rsJobsData||[]).find(x=>x.id===jobId); if(!j) return;
+      const fid=j.drive_id||((/\/d\/([^/]+)/.exec(j.preview||"")||[])[1]||"");
+      if(!confirm(`Render lại "${(j.title||j.type||"video").slice(0,50)}"?\nBản mới đạt chuẩn (≥90, không lỗi) sẽ TỰ THAY THẾ bản này.`)) return;
+      const o=RSowner();
+      try{
+        await addDoc(collection(db,"render_requests"),{owner:o,channel:j.channel||"",type:j.type||"short",seed:(j.title||""),
+          replace_id:fid,replace_account:(j.drive_account||""),status:"pending",created_at:new Date().toISOString()});
+        await setDoc(doc(db,"render_jobs",jobId),{flagged:true,rerender:"đã yêu cầu"},{merge:true});
+        await setDoc(rsCfgDoc(),{owner:o,enabled:true,run_now:new Date().toISOString()},{merge:true});
+        try{toastMsg("🔄 Đã yêu cầu render lại — chạy ≤30' rồi tự thay thế bản cũ");}catch(_){}
+      }catch(e){ try{toastMsg("Lỗi: "+e.message);}catch(_){} } };
     const rsFmtDur=s=>{ s=Math.round(Number(s)||0); if(!s) return ""; const m=Math.floor(s/60); return "⏱"+m+":"+String(s%60).padStart(2,"0"); };
     const rsResLabel=r=>{ const m=String(r||"").match(/(\d+)x(\d+)/); if(!m) return ""; const q=Math.min(+m[1],+m[2]); return q>=1080?"1080p":(q>=720?"720p":"HD"); };
     // XUẤT tất cả link video ra file .txt (title · kênh · kho · độ dài · dung lượng · link Drive) để lưu/kiểm.

@@ -91,6 +91,11 @@ service cloud.firestore {
       allow create: if canEdit(request.resource.data.owner);
       allow update, delete: if canEdit(resource.data.owner);   // GitHub/Worker ghi qua Admin (bỏ qua rules)
     }
+    match /render_requests/{doc} {   // yêu cầu render lại (nút 🔄)
+      allow read:   if canRead(resource.data.owner);
+      allow create: if canEdit(request.resource.data.owner);
+      allow update, delete: if canEdit(resource.data.owner);
+    }
     // Ngân hàng chủ đề (chống trùng) — pipeline ghi qua Admin; client chỉ đọc.
     match /render_topics/{doc} {
       allow read:  if canRead(resource.data.owner);
