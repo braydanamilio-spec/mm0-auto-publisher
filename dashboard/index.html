@@ -863,6 +863,11 @@
           <div id="rsJobs" class="list"><div class="d">Chưa có job nào. Bấm “Render ngay” để thử.</div></div>
         </div>
 
+        <div class="panel" style="margin-bottom:14px">
+          <div class="p-head"><div class="p-title">🎬 Thư viện video — xem &amp; đánh giá</div><div class="p-sub">Chia theo kênh · bấm tên để XEM NGAY tại chỗ (như mở Drive) · <span id="rsGalCount"></span></div></div>
+          <div id="rsGallery"><div class="d">Chưa có video hoàn tất — render xong + đẩy Drive là hiện ở đây.</div></div>
+        </div>
+
         <div class="panel">
           <div class="p-head"><div class="p-title">📐 Rule &amp; Tiêu chuẩn chất lượng</div><div class="p-sub">GitHub đọc theo cấu hình này</div></div>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
@@ -1673,7 +1678,7 @@
         const ds=s.docs; el.innerHTML = ds.length? ds.map(d=>{const c=d.data();return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>📺 <b>${esc(c.name)}</b> · ${esc(c.niche||"")} · ${esc(c.type)} · ảnh ${esc(c.img_source)}</span><button class="btn-conn" onclick="window.__rsDelChannel('${d.id}')">Xoá</button></div>`}).join("") : '<div class="d">Chưa cấu hình kênh render.</div>'; });
       onSnapshot(q("render_jobs"), s=>{ const el=document.getElementById("rsJobs"); const bd=document.getElementById("nvRender");
         const ds=s.docs.sort((a,b)=>(b.data().created_at||"").localeCompare(a.data().created_at||"")).slice(0,20);
-        const all=s.docs.map(d=>({id:d.id,...d.data()})); window.__rsJobsData = all; window.__rsRenderPlan&&window.__rsRenderPlan();
+        const all=s.docs.map(d=>({id:d.id,...d.data()})); window.__rsJobsData = all; window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderGallery&&window.__rsRenderGallery();
         const active=all.filter(j=>["queued","running","writing","rendering","qc"].includes(j.status)).length;
         const done=all.filter(j=>j.status==="done").length;
         const failed=all.filter(j=>j.status==="failed");
@@ -1850,6 +1855,39 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
         + sec("✅ Đã có video",B.done,"bấm để coi ở Trạng thái Render","window.rsScrollStatus");
     }
     window.__rsRenderPlan=rsRenderPlan;
+
+    // ===== 🎬 THƯ VIỆN VIDEO — chia theo kênh, xem inline như mở Drive =====
+    function rsRenderGallery(){
+      const host=document.getElementById("rsGallery"); if(!host) return;
+      const done=(window.__rsJobsData||[]).filter(j=>j.status==="done" && (j.drive_id||j.preview));
+      const cnt=document.getElementById("rsGalCount"); if(cnt) cnt.textContent=done.length?`${done.length} video`:"";
+      if(!done.length){ host.innerHTML='<div class="d">Chưa có video hoàn tất — render xong + đẩy Drive là hiện ở đây để anh xem/đánh giá.</div>'; return; }
+      const byCh={}; done.forEach(j=>{(byCh[j.channel||"?"]=byCh[j.channel||"?"]||[]).push(j);});
+      const item=(j)=>{
+        const pv=j.preview||`https://drive.google.com/file/d/${j.drive_id}/preview`;
+        const pid="pl_"+(j.id||Math.random().toString(36).slice(2));
+        const tall=(j.type!=="long")?1:0;
+        return `<div style="background:#ffffff0d;border-radius:10px;padding:8px 11px;margin:5px 0">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <span style="cursor:pointer;font-weight:600" onclick="window.rsPlay('${pid}','${pv}',${tall})">▶ ${esc(j.title||j.type||"video")}</span>
+            <span class="d" style="white-space:nowrap">${j.score?'QC '+esc(j.score)+' · ':''}${esc((j.created_at||'').slice(5,10))} · <a href="${esc(pv)}" target="_blank" style="color:#8b6cff">Drive ↗</a></span>
+          </div><div id="${pid}"></div></div>`;
+      };
+      const grp=(icon,label,arr)=> arr.length?`<div class="d" style="margin:7px 0 2px">${icon} ${label} (${arr.length})</div>${arr.map(item).join("")}`:"";
+      host.innerHTML = Object.keys(byCh).sort().map(ch=>{
+        const js=byCh[ch].sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));
+        const longs=js.filter(j=>j.type==="long"), shorts=js.filter(j=>j.type!=="long");
+        return `<div style="margin-bottom:15px;border-left:3px solid #8b6cff;padding-left:13px">
+          <div style="font-weight:800;font-size:15px">📺 ${esc(ch)} <span class="d">· ${longs.length} long · ${shorts.length} short</span></div>
+          ${grp("🎬","Long 16:9",longs)}${grp("📱","Short 9:16",shorts)}</div>`;
+      }).join("");
+    }
+    window.__rsRenderGallery=rsRenderGallery;
+    window.rsPlay=(id,url,tall)=>{ const el=document.getElementById(id); if(!el) return;
+      if(el.innerHTML){ el.innerHTML=""; return; }   // bấm lần 2 = đóng
+      const style=tall?"width:300px;max-width:100%;aspect-ratio:9/16":"width:100%;aspect-ratio:16/9";
+      el.innerHTML=`<iframe src="${url}" style="${style};border:0;border-radius:8px;margin-top:8px;background:#000" allow="autoplay" allowfullscreen></iframe>
+        <div class="d" style="margin-top:4px;font-size:12px">Không xem được? File chưa mở chia sẻ — bấm “Drive ↗” để mở bằng tài khoản của anh.</div>`; };
 
     // Gộp brand channel vào 1 Gmail thật (Google giấu Gmail của tài khoản thương hiệu)
     window.saveGmailGroup = async (channels, gmail, extra) => {
