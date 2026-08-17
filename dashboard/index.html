@@ -860,7 +860,8 @@
         </div>
 
         <div class="panel" style="margin-bottom:14px">
-          <div class="p-head"><div class="p-title">📺 Kênh &amp; Chủ đề Render</div><div class="p-sub">Mỗi kênh 1 niche + long/short + nguồn ảnh</div></div>
+          <div class="p-head"><div class="p-title">📺 Kênh &amp; Chủ đề Render</div><div class="p-sub">Render = làm DỰ TRỮ · 🛡️ = mức an toàn (chưa đặt target) · upload là pipeline riêng</div></div>
+          <div id="rsSafetyStop" style="display:none;margin-bottom:10px;background:#4a1a1a;border:1px solid #a33;border-radius:8px;padding:9px 12px;color:#ffbcbc;font-size:13px;font-weight:600"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
             <input id="rsChName" placeholder="Tên kênh (khớp channels.yaml, vd DATARACE)" style="min-width:220px"/>
             <input id="rsChNiche" placeholder="Niche/seed (vd: US data, rankings, money)" style="flex:1;min-width:220px"/>
@@ -873,8 +874,8 @@
               <option value="short_only">Chỉ short ×3</option>
               <option value="long_only">Chỉ long</option>
             </select>
-            <input id="rsChLongT" type="number" min="0" placeholder="mục tiêu long (0=∞)" title="Tổng long muốn có cho kênh này" style="width:150px"/>
-            <input id="rsChShortT" type="number" min="0" placeholder="mục tiêu short (0=∞)" title="Tổng short muốn có cho kênh này" style="width:150px"/>
+            <input id="rsChLongT" type="number" min="0" placeholder="target long (0=dự trữ)" title="Tổng long muốn giữ. 0 = mức dự trữ an toàn (mặc định 10)" style="width:160px"/>
+            <input id="rsChShortT" type="number" min="0" placeholder="target short (0=dự trữ)" title="Tổng short muốn giữ. 0 = mức dự trữ an toàn (mặc định 30)" style="width:160px"/>
             <button class="btn-conn" onclick="window.__rsAddChannel&&window.__rsAddChannel()">＋ Thêm kênh</button>
           </div>
           <div id="rsChList" class="list"><div class="d">Chưa cấu hình kênh render.</div></div>
@@ -1712,18 +1713,22 @@
       el.innerHTML = ds.length ? ds.map(c=>{ const C=(c.name||"").toUpperCase();
         const js=jobs.filter(j=>(j.channel||"").toUpperCase()===C && j.status==="done");
         const dl=js.filter(j=>j.type==="long").length, dsh=js.filter(j=>j.type==="short").length;
-        const lt=c.long_target||0, st=c.short_target||0; const hitL=lt&&dl>=lt, hitS=st&&dsh>=st;
-        const prog=`<span class="d">📽 long ${dl}${lt?"/"+lt+(hitL?" ✅":""):"/∞"} · short ${dsh}${st?"/"+st+(hitS?" ✅":""):"/∞"}</span>`;
-        const paused=(lt&&hitL&&(!st||hitS))?' <span class="d" style="color:#4ade80">· 🎯 đủ target, đã dừng</span>':'';
+        const rv=window.__rsReserve||{long:10,short:30};
+        const lt=c.long_target||rv.long, st=c.short_target||rv.short;   // target=0 -> dùng mức DỰ TRỮ an toàn
+        const uL=!c.long_target, uS=!c.short_target; const hitL=dl>=lt, hitS=dsh>=st;
+        const cap=(d,t,u,hit)=>`${d}/${t}${u?" 🛡️":""}${hit?" ✅":""}`;   // 🛡️ = mức dự trữ mặc định (chưa đặt target)
+        const prog=`<span class="d">📽 long ${cap(dl,lt,uL,hitL)} · short ${cap(dsh,st,uS,hitS)}</span>`;
+        const paused=(hitL&&hitS)?' <span class="d" style="color:#4ade80">· ⏸ đủ dự trữ, tạm ngừng</span>':'';
         return `<div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;gap:8px"><span>📺 <b>${esc(c.name)}</b> · <span class="d">${esc(c.niche||"")}</span> · ${prog}${paused}</span><span style="display:flex;gap:6px;flex:none"><button class="btn-conn" title="Đặt mục tiêu số video — đạt là tự dừng" onclick="window.__rsSetTarget('${c.id}')">🎯 Target</button><button class="btn-conn" onclick="window.__rsDelChannel('${c.id}')">Xoá</button></span></div>`;
       }).join("") : '<div class="d">Chưa cấu hình kênh render.</div>'; };
     // Đặt/sửa target cho 1 kênh — hiện đã làm bao nhiêu để điền cho khớp; đạt target pipeline tự bỏ qua loại đó.
     window.__rsSetTarget = async (id) => { const c=(window.__rsChannelsData||[]).find(x=>x.id===id); if(!c) return;
       const jobs=(window.__rsJobsData||[]).filter(j=>(j.channel||"").toUpperCase()===(c.name||"").toUpperCase()&&j.status==="done");
       const dl=jobs.filter(j=>j.type==="long").length, dsh=jobs.filter(j=>j.type==="short").length;
-      const lt=prompt(`🎯 ${c.name} — đã làm ${dl} LONG.\nMục tiêu LONG (0 = vô hạn, đạt là tự dừng long):`, c.long_target||0);
+      const rv=window.__rsReserve||{long:10,short:30};
+      const lt=prompt(`🎯 ${c.name} — đã làm ${dl} LONG (kho dự trữ).\nMục tiêu LONG cần giữ (0 = mức dự trữ an toàn ${rv.long}):`, c.long_target||0);
       if(lt===null) return;
-      const st=prompt(`🎯 ${c.name} — đã làm ${dsh} SHORT.\nMục tiêu SHORT (0 = vô hạn):`, c.short_target||0);
+      const st=prompt(`🎯 ${c.name} — đã làm ${dsh} SHORT.\nMục tiêu SHORT cần giữ (0 = mức dự trữ an toàn ${rv.short}):`, c.short_target||0);
       if(st===null) return;
       try{ await setDoc(doc(db,"render_channels",id), {long_target:Math.max(0,parseInt(lt)||0), short_target:Math.max(0,parseInt(st)||0)}, {merge:true});
         toastMsg(`✔ ${c.name}: target long ${Math.max(0,parseInt(lt)||0)} · short ${Math.max(0,parseInt(st)||0)}`); }catch(e){ alert("Lỗi: "+e.message); } };
@@ -1735,7 +1740,12 @@
         const st=document.getElementById("rsPipeState"); if(st) st.textContent=c.stop?"⛔ Đang dừng":(c.run_now?"⚡ Chờ render ngay":(c.enabled?"▶ Đang bật":"⏸ Chưa bật"));
         if(c.qc_min) document.getElementById("rsQcMin").value=c.qc_min;
         const mr=document.getElementById("rsMaxRun"); if(mr&&document.activeElement!==mr) mr.value=c.max_per_run||"";
-        if(c.model) document.getElementById("rsModel").value=c.model; }, ()=>{});
+        if(c.model) document.getElementById("rsModel").value=c.model;
+        window.__rsReserve={long:c.reserve_long||10, short:c.reserve_short||30};   // mức dự trữ an toàn (target=0)
+        window.__rsRenderChList&&window.__rsRenderChList();
+        // Cảnh báo AN TOÀN: pipeline tự dừng vì kho Drive gần đầy
+        const sb=document.getElementById("rsSafetyStop");
+        if(sb){ if(c.last_safety_stop){ sb.style.display="block"; sb.textContent="🛡️ "+c.last_safety_stop; } else sb.style.display="none"; } }, ()=>{});
       onSnapshot(q("gemini_keys"), s=>{ const el=document.getElementById("rsKeyList"); if(!el) return;
         const ds=s.docs; window.__rsKeysData = ds.map(d=>d.data()); const mk=document.getElementById("rsTotKeys"); if(mk) mk.textContent=ds.length;
         const nowIso=new Date().toISOString(); let nDead=0;
