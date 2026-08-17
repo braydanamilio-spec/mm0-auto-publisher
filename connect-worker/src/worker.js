@@ -715,8 +715,18 @@ async function apiTokenCheck(request, url, env) {
   const conn = await fsGet(env, at, path);
   if (!conn || !conn.refresh_token) return json({ ok: false, healthy: false, reason: "not_connected" });
   try {
-    await ytAccessToken(conn.client_id, conn.client_secret, conn.refresh_token);
-    return json({ ok: true, healthy: true });
+    const tok = await ytAccessToken(conn.client_id, conn.client_secret, conn.refresh_token);
+    // KIỂM QUYỀN (scope) cho kho DRIVE: đủ quyền = có scope 'auth/drive' (full: upload + share link + xóa).
+    let scopes = "", fullEdit = null;
+    if (account) {
+      try {
+        const ti = await fetch("https://oauth2.googleapis.com/tokeninfo?access_token=" + encodeURIComponent(tok));
+        const tj = await ti.json();
+        scopes = tj.scope || "";
+        fullEdit = /(^|\s)https:\/\/www\.googleapis\.com\/auth\/drive(\s|$)/.test(scopes);
+      } catch (_) { }
+    }
+    return json({ ok: true, healthy: true, scopes, fullEdit });
   } catch (e) {
     return json({ ok: true, healthy: false, invalid: !!e.tokenInvalid, reason: String(e && e.message || e) });
   }

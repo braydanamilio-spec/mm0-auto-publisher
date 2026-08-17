@@ -719,7 +719,7 @@
           <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive)</div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
-              <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm tra token</button>
+              <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
               <select id="stSort" class="set-sel" style="max-width:190px">
                 <option value="free">🟢 Còn trống nhiều nhất</option>
                 <option value="full">🔴 Đầy nhất</option>
@@ -768,8 +768,9 @@
         </div>
 
         <style>
-          .cmdtag{background:#8b6cff1f;border:1px solid #8b6cff55;color:#c9b8ff;border-radius:20px;padding:6px 13px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s}
-          .cmdtag:hover{background:#8b6cff33;border-color:#8b6cff}
+          .cmdtag{background:#8b6cff;border:none;color:#fff;border-radius:18px;padding:8px 15px;font-size:13px;font-weight:700;cursor:pointer;transition:.13s;box-shadow:0 1px 4px #8b6cff55}
+          .cmdtag:hover{background:#7546f0;transform:translateY(-1px);box-shadow:0 3px 11px #8b6cff88}
+          .cmdtag:active{transform:translateY(0);box-shadow:0 1px 3px #8b6cff55}
           #rsChatLog::-webkit-scrollbar{width:7px}#rsChatLog::-webkit-scrollbar-thumb{background:#ffffff22;border-radius:4px}
         </style>
         <div class="panel" style="margin-bottom:14px;border:1px solid #8b6cff44">
@@ -778,7 +779,7 @@
             <button class="cmdtag" onclick="window.rsCmd&&rsCmd('status')">📊 Tình hình</button>
             <button class="cmdtag" onclick="window.rsCmd&&rsCmd('render_now')">⚡ Render ngay</button>
             <button class="cmdtag" onclick="window.rsCmd&&rsCmd('pause')">⏸ Tạm dừng</button>
-            <button class="cmdtag" style="border-color:#ff5a5a55;color:#ffb3b3" onclick="window.__rsStop&&window.__rsStop()">⛔ Dừng ngay</button>
+            <button class="cmdtag" style="background:#ef4444;box-shadow:0 1px 4px #ef444455" onclick="window.__rsStop&&window.__rsStop()">⛔ Dừng ngay</button>
             <button class="cmdtag" onclick="window.rsCmd&&rsCmd('resume')">▶️ Chạy tiếp</button>
             <button class="cmdtag" onclick="window.rsCmd&&rsCmd('retry_failed')">🔧 Thử lại lỗi</button>
             <button class="cmdtag" onclick="window.rsCmd&&rsCmd('clean_jobs')">🧹 Dọn job cũ</button>
@@ -4239,13 +4240,19 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       if(!accs.length){ box.innerHTML=`<div class="p-sub">Chưa có kho nào.</div>`; return; }
       box.innerHTML=`<div class="p-sub">🩺 Đang kiểm tra ${accs.length} kho…</div>`;
       const rows=[];
-      for(const a of accs){ try{ const d=await workerApi(`/api/token-check?account=${encodeURIComponent(a)}`); rows.push({a,healthy:d.healthy,invalid:d.invalid}); }
+      for(const a of accs){ try{ const d=await workerApi(`/api/token-check?account=${encodeURIComponent(a)}`); rows.push({a,healthy:d.healthy,invalid:d.invalid,fullEdit:d.fullEdit}); }
         catch(e){ rows.push({a,healthy:false,invalid:/invalid_grant|TOKEN_INVALID/i.test(e.message)}); } }
       const bad=rows.filter(r=>!r.healthy);
-      box.innerHTML=`<div class="panel" style="border-color:${bad.length?'var(--warn)':'var(--good)'};padding:12px">
-        <b style="color:${bad.length?'var(--warn)':'var(--good)'}">${bad.length?`⚠️ ${bad.length}/${rows.length} kho token HỎNG`:`✅ Tất cả ${rows.length} kho token còn sống`}</b>
-        <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px">${rows.map(r=>`<span class="rw-chip ${r.healthy?'':'bad'}">${r.healthy?'✅':'⚠️'} ${esc(r.a)}${!r.healthy?` <button class="btn-mini" style="margin-left:4px" onclick="connectChannel('${esc(r.a)}','drive')">Kết nối lại</button>`:''}</span>`).join("")}</div>
-        ${bad.length?`<div class="p-sub" style="margin-top:8px;line-height:1.6">💡 Để token <b>không hết hạn lặp lại</b> (Testing = 7 ngày): <a href="https://console.cloud.google.com/apis/credentials/consent?project=377166959818" target="_blank" style="color:var(--accent)">publish OAuth consent screen sang Production →</a></div>`:''}</div>`; };
+      const noPerm=rows.filter(r=>r.healthy && r.fullEdit===false);   // token sống NHƯNG thiếu quyền full edit
+      const alert=bad.length||noPerm.length;
+      box.innerHTML=`<div class="panel" style="border-color:${alert?'var(--warn)':'var(--good)'};padding:12px">
+        <b style="color:${alert?'var(--warn)':'var(--good)'}">${bad.length?`⚠️ ${bad.length}/${rows.length} kho token HỎNG · `:''}${noPerm.length?`🔒 ${noPerm.length} kho THIẾU QUYỀN (không share/xóa được)`:(bad.length?'':`✅ Tất cả ${rows.length} kho token sống + đủ quyền full (upload · share link · xóa)`)}</b>
+        <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px">${rows.map(r=>{
+          const st = !r.healthy ? {ic:'⚠️',cls:'bad',t:'token hỏng'} : (r.fullEdit===false ? {ic:'🔒',cls:'bad',t:'THIẾU QUYỀN edit'} : (r.fullEdit===true ? {ic:'✅',cls:'',t:'đủ quyền full'} : {ic:'✅',cls:'',t:'token sống'}));
+          const needFix = !r.healthy || r.fullEdit===false;
+          return `<span class="rw-chip ${st.cls}" title="${st.t}">${st.ic} ${esc(r.a)}${needFix?` <button class="btn-mini" style="margin-left:4px" onclick="connectChannel('${esc(r.a)}','drive')">Kết nối lại</button>`:''}</span>`;}).join("")}</div>
+        ${noPerm.length?`<div class="p-sub" style="margin-top:8px;line-height:1.6">🔒 <b>${noPerm.length} kho thiếu quyền full Drive</b> — sẽ KHÔNG lấy được link share / đăng / xóa. Bấm <b>Kết nối lại</b> và ở màn hình Google <b>TÍCH ĐỦ các ô quyền</b> (đừng bỏ ô nào).</div>`:''}
+        ${bad.length?`<div class="p-sub" style="margin-top:8px;line-height:1.6">💡 Token hay hết hạn (Testing=7 ngày): <a href="https://console.cloud.google.com/apis/credentials/consent?project=377166959818" target="_blank" style="color:var(--accent)">publish OAuth consent screen sang Production →</a></div>`:''}</div>`; };
 
     /* ===== UPLOAD video từ máy tính -> Drive kho (relay chunk qua Worker, giữ nguyên chất lượng) ===== */
     window.__upQ=[]; window.__upBusy=false;
