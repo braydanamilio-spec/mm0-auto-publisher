@@ -4719,6 +4719,8 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       const rows=[];
       for(const a of accs){ try{ const d=await workerApi(`/api/token-check?account=${encodeURIComponent(a)}`); rows.push({a,healthy:d.healthy,invalid:d.invalid,fullEdit:d.fullEdit}); }
         catch(e){ rows.push({a,healthy:false,invalid:/invalid_grant|TOKEN_INVALID/i.test(e.message)}); } }
+      window.__driveTok={}; rows.forEach(r=>{ window.__driveTok[r.a]={healthy:r.healthy,fullEdit:r.fullEdit}; });   // lưu -> badge trong bảng kho
+      window.renderStorage&&window.renderStorage();
       const bad=rows.filter(r=>!r.healthy);
       const noPerm=rows.filter(r=>r.healthy && r.fullEdit===false);   // token sống NHƯNG thiếu quyền full edit
       const alert=bad.length||noPerm.length;
@@ -4923,8 +4925,10 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
         const col=pct>=95?"var(--bad)":pct>=80?"var(--warn)":"var(--good)";
         const capGB=(a.cap||0)/1e9; const tier=capGB>16?`☁️ One ${Math.round(capGB)}GB`:"🆓 Free 15GB";
         const idLine=a.root?`<div class="p-sub" style="font-size:11px;opacity:.7">🆔 ${esc(a.root)}</div>`:"";
+        const tk=(window.__driveTok||{})[a.name];
+        const perm=tk?(!tk.healthy?`<span style="color:var(--bad);font-weight:700" title="token hỏng — kết nối lại">⚠️ token hỏng</span>`:(tk.fullEdit===false?`<span style="color:var(--bad);font-weight:700" title="thiếu quyền full Drive — không share/xóa được">🔒 thiếu quyền</span>`:`<span style="color:var(--good);font-weight:700" title="đủ quyền: upload · share · xóa">✅ full quyền</span>`)):`<span class="d" title="bấm 🩺 Kiểm token + quyền để kiểm">⚪ chưa kiểm quyền</span>`;
         return `<div class="chan-item"><div class="ava" style="background:linear-gradient(145deg,var(--accent),var(--violet))">${esc((a.name||'?').slice(0,2).toUpperCase())}</div>
-          <div class="chan-mid"><div class="nm">${esc(a.name)} <span class="tier-badge">${tier}</span>${a.email?` <span class="p-sub">· ${esc(a.email)}</span>`:""}</div><div class="st">${fmtBytes(a.used||0)} / ${fmtBytes(a.cap||0)}</div>${idLine}
+          <div class="chan-mid"><div class="nm">${esc(a.name)} <span class="tier-badge">${tier}</span> ${perm}${a.email?` <span class="p-sub">· ${esc(a.email)}</span>`:""}</div><div class="st">${fmtBytes(a.used||0)} / ${fmtBytes(a.cap||0)}</div>${idLine}
           <div class="bar"><i style="width:${pct}%;background:${col}"></i></div></div>
           <div class="chan-right"><div class="big tnum" style="color:${col}">${pct}%</div><div class="cap">đã dùng</div>
           <button class="mini bad" style="margin-top:6px" onclick="disconnectChannel('${esc(a.name)}','drive','${esc(a.email||a.name)}')">🗑 ${esc(t('disconnect'))}</button></div></div>`;}).join(""):`<div class="p-sub" style="padding:10px 0">Không kho nào khớp "${esc(qA)}".</div>`);
