@@ -874,8 +874,8 @@
               <option value="short_only">Chỉ short ×3</option>
               <option value="long_only">Chỉ long</option>
             </select>
-            <input id="rsChLongT" type="number" min="0" placeholder="target long (0=dự trữ)" title="Tổng long muốn giữ. 0 = mức dự trữ an toàn (mặc định 10)" style="width:160px"/>
-            <input id="rsChShortT" type="number" min="0" placeholder="target short (0=dự trữ)" title="Tổng short muốn giữ. 0 = mức dự trữ an toàn (mặc định 30)" style="width:160px"/>
+            <input id="rsChLongT" type="number" min="0" placeholder="long (trống=100)" title="Tổng long muốn giữ. Trống = mặc định 100. Gõ 0 = mức dự trữ an toàn (10)" style="width:150px"/>
+            <input id="rsChShortT" type="number" min="0" placeholder="short (trống=300)" title="Tổng short muốn giữ. Trống = mặc định 300. Gõ 0 = mức dự trữ an toàn (30)" style="width:150px"/>
             <button class="btn-conn" onclick="window.__rsAddChannel&&window.__rsAddChannel()">＋ Thêm kênh</button>
           </div>
           <div id="rsChList" class="list"><div class="d">Chưa cấu hình kênh render.</div></div>
@@ -1696,7 +1696,8 @@
       if(!name) return alert("Nhập tên kênh.");
       const mix=(document.getElementById("rsChMix")||{}).value||"1long_3short";
       const nShorts={"1long_3short":3,"1long_2short":2,"1long_1short":1,"short_only":3,"long_only":0}[mix];
-      const lt=Number((document.getElementById("rsChLongT")||{}).value)||0, stt=Number((document.getElementById("rsChShortT")||{}).value)||0;
+      const _lr=(document.getElementById("rsChLongT")||{}).value, _sr=(document.getElementById("rsChShortT")||{}).value;   // trống -> mặc định 100/300; gõ 0 -> 0 (dùng dự trữ)
+      const lt=_lr===""?100:Math.max(0,parseInt(_lr)||0), stt=_sr===""?300:Math.max(0,parseInt(_sr)||0);
       try { await addDoc(collection(db,"render_channels"), {owner:RSowner(), name,
         niche:(document.getElementById("rsChNiche").value||"").trim(), type:document.getElementById("rsChType").value,
         img_source:document.getElementById("rsChImg").value, mix, n_shorts:nShorts, make_long:(mix!=="short_only"),
@@ -1707,10 +1708,18 @@
       const c=(window.__rsChannelsData||[]).find(x=>x.id===id)||{};
       if(confirm(`Xoá kênh render "${c.name||id}" khỏi hàng đợi?\n\n• CHỈ xoá cấu hình kênh — VIDEO đã làm KHÔNG bị xoá.\n• Kênh sẽ ngừng làm video mới ở mẻ sau.\n• Đang render dở thì clip đó vẫn xong bình thường (không lỗi).`))
         await deleteDoc(doc(db,"render_channels",id)); };
-    // Render danh sách kênh + ĐẾM đã làm long/short + trạng thái target (đạt target -> ✅ tự dừng loại đó).
+    // Render danh sách kênh + CHECKBOX chọn nhiều + ĐẾM đã làm long/short + trạng thái target.
+    window.__rsSelCh = window.__rsSelCh || new Set();
     window.__rsRenderChList = () => { const el=document.getElementById("rsChList"); if(!el) return;
       const ds=(window.__rsChannelsData||[]), jobs=(window.__rsJobsData||[]);
-      el.innerHTML = ds.length ? ds.map(c=>{ const C=(c.name||"").toUpperCase();
+      const valid=new Set(ds.map(c=>c.id)); [...window.__rsSelCh].forEach(i=>{ if(!valid.has(i)) window.__rsSelCh.delete(i); });  // dọn id đã xóa
+      if(!ds.length){ el.innerHTML='<div class="d">Chưa cấu hình kênh render.</div>'; return; }
+      const sel=window.__rsSelCh.size, allOn=sel===ds.length;
+      const bar=`<div class="row" style="display:flex;align-items:center;gap:10px;padding:6px 2px;border-bottom:1px solid var(--border);margin-bottom:4px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600"><input type="checkbox" ${allOn?"checked":""} onchange="window.__rsToggleAll(this.checked)"> Chọn tất cả (${ds.length})</label>
+        <span id="rsSelInfo" class="d">${sel?"✔ đã chọn "+sel:""}</span>
+        <span style="display:${sel?"flex":"none"};gap:6px;margin-left:auto"><button class="btn-conn" style="background:#8b6cff;color:#fff;border-color:#8b6cff" onclick="window.__rsBulkTarget()">🎯 Đặt target hàng loạt</button><button class="btn-conn" style="background:#ff5a5a22;border-color:#ff5a5a66;color:#ffb3b3" onclick="window.__rsBulkDelete()">🗑 Xoá đã chọn</button></span></div>`;
+      el.innerHTML = bar + ds.map(c=>{ const C=(c.name||"").toUpperCase();
         const js=jobs.filter(j=>(j.channel||"").toUpperCase()===C && j.status==="done");
         const dl=js.filter(j=>j.type==="long").length, dsh=js.filter(j=>j.type==="short").length;
         const rv=window.__rsReserve||{long:10,short:30};
@@ -1719,8 +1728,25 @@
         const cap=(d,t,u,hit)=>`${d}/${t}${u?" 🛡️":""}${hit?" ✅":""}`;   // 🛡️ = mức dự trữ mặc định (chưa đặt target)
         const prog=`<span class="d">📽 long ${cap(dl,lt,uL,hitL)} · short ${cap(dsh,st,uS,hitS)}</span>`;
         const paused=(hitL&&hitS)?' <span class="d" style="color:#4ade80">· ⏸ đủ dự trữ, tạm ngừng</span>':'';
-        return `<div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;gap:8px"><span>📺 <b>${esc(c.name)}</b> · <span class="d">${esc(c.niche||"")}</span> · ${prog}${paused}</span><span style="display:flex;gap:6px;flex:none"><button class="btn-conn" title="Đặt mục tiêu số video — đạt là tự dừng" onclick="window.__rsSetTarget('${c.id}')">🎯 Target</button><button class="btn-conn" onclick="window.__rsDelChannel('${c.id}')">Xoá</button></span></div>`;
-      }).join("") : '<div class="d">Chưa cấu hình kênh render.</div>'; };
+        const ck=window.__rsSelCh.has(c.id);
+        return `<div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;gap:8px${ck?';background:#8b6cff14;border-radius:6px':''}"><span style="display:flex;align-items:center;gap:8px"><input type="checkbox" ${ck?"checked":""} onchange="window.__rsToggleCh('${c.id}',this.checked)" style="cursor:pointer"><span>📺 <b>${esc(c.name)}</b> · <span class="d">${esc(c.niche||"")}</span> · ${prog}${paused}</span></span><span style="display:flex;gap:6px;flex:none"><button class="btn-conn" title="Đặt mục tiêu số video — đạt là tự dừng" onclick="window.__rsSetTarget('${c.id}')">🎯 Target</button><button class="btn-conn" onclick="window.__rsDelChannel('${c.id}')">Xoá</button></span></div>`;
+      }).join(""); };
+    window.__rsToggleAll = (on) => { if(on) (window.__rsChannelsData||[]).forEach(c=>window.__rsSelCh.add(c.id)); else window.__rsSelCh.clear(); window.__rsRenderChList(); };
+    window.__rsToggleCh = (id,on) => { if(on) window.__rsSelCh.add(id); else window.__rsSelCh.delete(id); window.__rsRenderChList(); };
+    // ĐẶT TARGET HÀNG LOẠT cho mọi kênh đã tích chọn.
+    window.__rsBulkTarget = async () => { const ids=[...window.__rsSelCh]; if(!ids.length) return alert("Chưa tích chọn kênh nào.");
+      const rv=window.__rsReserve||{long:10,short:30};
+      const lt=prompt(`🎯 Đặt mục tiêu LONG cho ${ids.length} kênh đã chọn\n(0 = mức dự trữ an toàn ${rv.long}):`, 100); if(lt===null) return;
+      const st=prompt(`🎯 Đặt mục tiêu SHORT cho ${ids.length} kênh đã chọn\n(0 = mức dự trữ an toàn ${rv.short}):`, 300); if(st===null) return;
+      const L=Math.max(0,parseInt(lt)||0), S=Math.max(0,parseInt(st)||0);
+      try{ await Promise.all(ids.map(id=>setDoc(doc(db,"render_channels",id),{long_target:L,short_target:S},{merge:true})));
+        toastMsg(`✔ Đã đặt ${ids.length} kênh: long ${L} · short ${S}`); }catch(e){ alert("Lỗi: "+e.message); } };
+    // XOÁ HÀNG LOẠT — chỉ xóa CONFIG kênh, video không đụng.
+    window.__rsBulkDelete = async () => { const ids=[...window.__rsSelCh]; if(!ids.length) return alert("Chưa tích chọn kênh nào.");
+      const names=ids.map(id=>((window.__rsChannelsData||[]).find(c=>c.id===id)||{}).name||id).join(", ");
+      if(!confirm(`Xoá ${ids.length} kênh khỏi hàng đợi?\n${names}\n\n• CHỈ xoá cấu hình kênh — VIDEO đã làm KHÔNG bị xoá.\n• Mẻ sau ngừng làm cho các kênh này.`)) return;
+      try{ await Promise.all(ids.map(id=>deleteDoc(doc(db,"render_channels",id)))); window.__rsSelCh.clear();
+        toastMsg(`✔ Đã xoá ${ids.length} kênh (video an toàn)`); }catch(e){ alert("Lỗi: "+e.message); } };
     // Đặt/sửa target cho 1 kênh — hiện đã làm bao nhiêu để điền cho khớp; đạt target pipeline tự bỏ qua loại đó.
     window.__rsSetTarget = async (id) => { const c=(window.__rsChannelsData||[]).find(x=>x.id===id); if(!c) return;
       const jobs=(window.__rsJobsData||[]).filter(j=>(j.channel||"").toUpperCase()===(c.name||"").toUpperCase()&&j.status==="done");
@@ -1945,7 +1971,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     window.rsQuickAdd=async(name)=>{ const p=RS_PRESETS.find(x=>x.name===name); if(!p) return;
       const o=RSowner(); if(!o) return alert("Chưa đăng nhập.");
       if((window.__rsChannelsData||[]).some(c=>(c.name||"").toUpperCase()===name)) { try{toastMsg("Kênh đã có rồi.");}catch(_){}; return; }
-      try{ await addDoc(collection(db,"render_channels"),{owner:o,name,niche:p.niche,type:"short",img_source:"C",mix:"1long_3short",n_shorts:3,make_long:true,long_target:0,short_target:0,created_at:new Date().toISOString()});
+      try{ await addDoc(collection(db,"render_channels"),{owner:o,name,niche:p.niche,type:"short",img_source:"C",mix:"1long_3short",n_shorts:3,make_long:true,long_target:100,short_target:300,created_at:new Date().toISOString()});  // MẶC ĐỊNH 100 long/300 short (anh tùy chỉnh sau)
         try{toastMsg("✅ Đã thêm "+name+" — vào mẻ render tới");}catch(_){} }catch(e){ alert("Lỗi: "+e.message); } };
     window.rsScrollStatus=()=>{ const el=document.getElementById("rsChanProg")||document.getElementById("rsJobs"); if(el) el.scrollIntoView({behavior:"smooth",block:"center"}); };
     function rsRenderPlan(){
