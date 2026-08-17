@@ -1700,8 +1700,8 @@
         const ds=s.docs.sort((a,b)=>(b.data().created_at||"").localeCompare(a.data().created_at||"")).slice(0,20);
         const all=s.docs.map(d=>({id:d.id,...d.data()})); window.__rsJobsData = all; window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderGallery&&window.__rsRenderGallery();
         // TỰ DỌN job LỖI đã có bản thành công MỚI HƠN cùng kênh (video lỗi được thay -> xoá cho đỡ rối).
-        (()=>{ const okAt={}; all.forEach(j=>{ if(j.status==="done"){ const c=j.channel||"?"; if((j.created_at||"")>(okAt[c]||"")) okAt[c]=j.created_at||""; }});
-          all.forEach(j=>{ if(j.status==="failed"){ const c=j.channel||"?"; if(okAt[c]&&(j.created_at||"")<okAt[c]&&j.id) deleteDoc(doc(db,"render_jobs",j.id)).catch(()=>{}); }}); })();
+        (()=>{ window.__cleaned=window.__cleaned||new Set(); const okAt={}; all.forEach(j=>{ if(j.status==="done"){ const c=j.channel||"?"; if((j.created_at||"")>(okAt[c]||"")) okAt[c]=j.created_at||""; }});
+          all.forEach(j=>{ if(j.status==="failed"){ const c=j.channel||"?"; if(okAt[c]&&(j.created_at||"")<okAt[c]&&j.id&&!window.__cleaned.has(j.id)){ window.__cleaned.add(j.id); deleteDoc(doc(db,"render_jobs",j.id)).catch(()=>{}); } }}); })();
         const active=all.filter(j=>["queued","running","writing","rendering","qc"].includes(j.status)).length;
         const done=all.filter(j=>j.status==="done");
         const failed=all.filter(j=>j.status==="failed");
@@ -1948,7 +1948,13 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
           ${grp("🎬","Long 16:9",longs)}${grp("📱","Short 9:16",shorts)}</div>`;
       }).join("");
     }
-    window.__rsRenderGallery=()=>{ rsGalInto("rsGallery","rsGalSearch","rsGalView","rsGalCount"); rsGalInto("stVault","stVaultSearch","stVaultView","stVaultCount"); };
+    // DEBOUNCE + chỉ render gallery ĐANG HIỆN (tránh treo trang khi job cập nhật dồn dập).
+    let _galT=null;
+    function _visible(id){ const el=document.getElementById(id); if(!el) return false; const sec=el.closest(".content"); return !(sec&&sec.classList.contains("hide")); }
+    window.__rsRenderGallery=()=>{ if(_galT) return; _galT=setTimeout(()=>{ _galT=null;
+      if(_visible("rsGallery")) rsGalInto("rsGallery","rsGalSearch","rsGalView","rsGalCount");
+      if(_visible("stVault"))  rsGalInto("stVault","stVaultSearch","stVaultView","stVaultCount");
+    }, 400); };
     // Tự dò + gắn kho cho MỌI video chưa rõ (1 bấm) -> quản lý minh bạch, biết video ở kho nào.
     window.rsLocateAll=async(btn)=>{
       const list=(window.__rsJobsData||[]).filter(j=>j.status==="done" && (j.drive_id||j.preview) && !j.drive_account);
