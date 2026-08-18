@@ -28,8 +28,9 @@ def run(dry_run: bool = False):
     owner = _owner()
     if not owner:
         return
-    ov = state.get_doc("settings", "overrides") or {}
-    auto = ov.get("auto_publish") or {}                     # {"<kênh>": true/false}
+    # dashboard ghi vào settings/overrides__<uid> (per-user); fallback 'overrides' (single-tenant cũ)
+    ov = state.get_doc("settings", "overrides__" + owner) or state.get_doc("settings", "overrides") or {}
+    auto = ov.get("auto_publish") or {}                     # {"<TÊN kênh>": true/false}
     on_channels = {k for k, v in auto.items() if v}
     if not on_channels:
         return                                              # KHÔNG kênh nào bật -> im lặng, không làm gì

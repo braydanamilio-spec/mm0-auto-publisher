@@ -1815,10 +1815,22 @@
         const prog=`<span class="d">📽 long ${cap(dl,lt,uL,hitL)} · short ${cap(dsh,st,uS,hitS)}</span>`;
         const paused=(hitL&&hitS)?' <span class="d" style="color:#4ade80">· ⏸ đủ dự trữ, tạm ngừng</span>':'';
         const ck=window.__rsSelCh.has(c.id);
-        return `<div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;gap:8px${ck?';background:#8b6cff14;border-radius:6px':''}"><span style="display:flex;align-items:center;gap:8px"><input type="checkbox" ${ck?"checked":""} onchange="window.__rsToggleCh('${c.id}',this.checked)" style="cursor:pointer"><span style="display:flex;align-items:center;gap:7px"><img src="${(window.rsAvatarUri?window.rsAvatarUri(c.name,44):'')}" style="width:22px;height:22px;border-radius:5px;flex:none;object-fit:cover"><span><b>${esc(c.name)}</b> · <span class="d">${esc(c.niche||"")}</span> · ${prog}${paused}</span></span></span><span style="display:flex;gap:6px;flex:none"><button class="btn-conn" title="Đặt mục tiêu số video — đạt là tự dừng" onclick="window.__rsSetTarget('${c.id}')">🎯 Target</button><button class="btn-conn" onclick="window.__rsDelChannel('${c.id}')">Xoá</button></span></div>`;
+        const apOn=!!((window.__autoPub||{})[c.name]);   // auto-đăng YouTube bật cho kênh này chưa
+        return `<div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;gap:8px${ck?';background:#8b6cff14;border-radius:6px':''}"><span style="display:flex;align-items:center;gap:8px"><input type="checkbox" ${ck?"checked":""} onchange="window.__rsToggleCh('${c.id}',this.checked)" style="cursor:pointer"><span style="display:flex;align-items:center;gap:7px"><img src="${(window.rsAvatarUri?window.rsAvatarUri(c.name,44):'')}" style="width:22px;height:22px;border-radius:5px;flex:none;object-fit:cover"><span><b>${esc(c.name)}</b> · <span class="d">${esc(c.niche||"")}</span> · ${prog}${paused}</span></span></span><span style="display:flex;gap:6px;flex:none"><button class="btn-conn" title="Tự động đăng YouTube khi render xong (cần đã Kết nối YouTube cho kênh). Bật/tắt riêng từng kênh." style="${apOn?'background:#16a34a;color:#fff;border-color:#16a34a':''}" onclick="window.__rsToggleAutoPub('${esc(c.name).replace(/'/g,'')}')">${apOn?'🟢 Auto-đăng':'⚪ Auto-đăng'}</button><button class="btn-conn" title="Đặt mục tiêu số video — đạt là tự dừng" onclick="window.__rsSetTarget('${c.id}')">🎯 Target</button><button class="btn-conn" onclick="window.__rsDelChannel('${c.id}')">Xoá</button></span></div>`;
       }).join(""); window.__collapseList&&window.__collapseList('rsChList',96); };
     window.__rsToggleAll = (on) => { if(on) (window.__rsChannelsData||[]).forEach(c=>window.__rsSelCh.add(c.id)); else window.__rsSelCh.clear(); window.__rsRenderChList(); };
     window.__rsToggleCh = (id,on) => { if(on) window.__rsSelCh.add(id); else window.__rsSelCh.delete(id); window.__rsRenderChList(); };
+    // BẬT/TẮT auto-đăng YouTube cho 1 kênh (ghi settings/overrides__uid .auto_publish[TÊN kênh]). Cần đã Kết nối YouTube kênh đó.
+    window.__rsToggleAutoPub = async (name) => {
+      window.__autoPub = window.__autoPub || {};
+      const on = !window.__autoPub[name];
+      window.__autoPub[name] = on;
+      window.__rsRenderChList && window.__rsRenderChList();
+      try {
+        await window.__setOverridesDoc({auto_publish: window.__autoPub});
+        try{ toastMsg(on ? ('🟢 Bật auto-đăng: '+name+' — nhớ đã Kết nối YouTube cho kênh này') : ('⚪ Tắt auto-đăng: '+name)); }catch(_){}
+      } catch(e){ window.__autoPub[name]=!on; window.__rsRenderChList&&window.__rsRenderChList(); try{ toastMsg('❌ Lỗi lưu auto-đăng: '+e); }catch(_){} }
+    };
     // ĐẶT TARGET HÀNG LOẠT cho mọi kênh đã tích chọn.
     window.__rsBulkTarget = async () => { const ids=[...window.__rsSelCh]; if(!ids.length) return alert("Chưa tích chọn kênh nào.");
       const rv=window.__rsReserve||{long:10,short:30};
@@ -3589,7 +3601,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       box.innerHTML=html;
     };
     window.setSettings = (s) => { __SETTINGS=s; renderSettings(); };
-    window.setOverrides = (o) => { __OVERRIDES=o||{}; renderSettings(); renderAll(); };
+    window.setOverrides = (o) => { __OVERRIDES=o||{}; window.__autoPub=(o&&o.auto_publish)||{}; renderSettings(); renderAll(); window.__rsRenderChList&&window.__rsRenderChList(); };
     // Catalog template (khớp config/posting_templates.yaml) — hiển thị ở trang Cài đặt
     const TEMPLATE_CATALOG = [
       {id:"balanced_1long_3short",name:"Cân bằng ⚖️",desc:"1 Long + 3 Short/ngày · 12:00·17:00·20:00 + 15:00 (ET)",star:true},
