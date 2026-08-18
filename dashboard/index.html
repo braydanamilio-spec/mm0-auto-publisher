@@ -1540,7 +1540,7 @@
     let __netT=null, __netOff=false;
     document.addEventListener("visibilitychange", ()=>{
       clearTimeout(__netT);
-      if(document.hidden){ __netT=setTimeout(()=>{ disableNetwork(db).then(()=>{__netOff=true;}).catch(()=>{}); }, 30000); }
+      if(document.hidden){ __netT=setTimeout(()=>{ disableNetwork(db).then(()=>{__netOff=true;}).catch(()=>{}); }, 5000); }   // ẩn tab >5s -> NGẮT đọc Firestore (tiết kiệm mạnh; hôm trước 30s)
       else if(__netOff){ enableNetwork(db).then(()=>{__netOff=false;}).catch(()=>{}); }
     });
 
@@ -1592,7 +1592,8 @@
 
     function sub(name, cb){ onSnapshot(query(collection(db,name), where("owner","==",(window.__ownerUid||window.__uid))), cb, () => setLive(false)); }
     function subscribe(){
-      sub("videos", s => { window.setData(s.docs.map(d=>({id:d.id,...d.data()})), null, null); setLive(true); });
+      sub("videos", s => { window.setData(s.docs.map(d=>({id:d.id,...d.data()})), null, null); setLive(true);
+        const m={}; s.docs.forEach(d=>{ m[d.id]=d.data(); }); window.__pubByDrive=m; window.__rsRenderGallery&&window.__rsRenderGallery(); });  // GỘP: khỏi 1 listener videos thứ 2 (cắt 1/2 read videos)
       sub("channels", s => { const c={}; s.docs.forEach(d=>{const v=d.data();c[v.channel||d.id]=v;}); window.setData(null,c,null); if(window.__maybeAutoEnableApis) setTimeout(window.__maybeAutoEnableApis,1500); });
       sub("counters", s => { const k={}; s.docs.forEach(d=>{const v=d.data();k[v.channel||d.id]=v;}); window.setData(null,null,k); });
       sub("storage_accounts", s => {
@@ -2006,7 +2007,7 @@
       onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(300)), _jobsCb,
                  ()=>{ onSnapshot(q("render_jobs"), _jobsCb, ()=>{}); });
       // Dữ liệu ĐĂNG (collection 'videos' keyed theo drive_id) -> chia trạng thái đã đăng/chưa/nền tảng.
-      onSnapshot(q("videos"), s=>{ const m={}; s.docs.forEach(d=>{ m[d.id]=d.data(); }); window.__pubByDrive=m; window.__rsRenderGallery&&window.__rsRenderGallery(); }, ()=>{});
+      /* listener videos thứ 2 ĐÃ GỘP vào sub("videos") ở trên -> khỏi đọc collection videos 2 lần (tiết kiệm Firestore) */
       // ĐẾM tổng tài nguyên (Drive lưu trữ / YouTube / Facebook)
       const cnt=(coll,elid)=>onSnapshot(q(coll), s=>{const e=document.getElementById(elid); if(e) e.textContent=s.size;}, ()=>{});
       onSnapshot(q("storage_accounts"), s=>{ const d=document.getElementById("rsTotDrive"); if(d)d.textContent=s.size;
