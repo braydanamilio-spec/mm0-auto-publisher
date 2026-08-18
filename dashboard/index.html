@@ -1814,7 +1814,8 @@
         +(list.length? list.map(k=>{ const cooling=k.cooling_until&&k.cooling_until>nowIso;
           const dot=(k._st==="dead"||k._st==="warn"||k._st==="replace")?'🔴':(cooling?'😴':(k.alive===true?'🟢':'⚪'));
           const chk=k.last_checked?` · <span class="d">kiểm ${ago(k.last_checked)}</span>`:'';
-          const stx=k.alive===false?` <span class="d" style="color:#ff5a5a" title="${esc(k.dead_reason||"")}">CHẾT${k.dead_reason?" ("+esc(String(k.dead_reason).slice(0,40))+")":""}</span>`:(cooling?' <span class="d">nghỉ</span>':'');
+          const perm=k.dead_kind==="permanent";
+          const stx=k.alive===false?` <span class="d" style="color:#ff5a5a" title="${esc(k.dead_reason||"")}">${perm?"🔒 CHẾT HẲN (thay key)":"CHẾT"}${(!perm&&k.dead_reason)?" ("+esc(String(k.dead_reason).slice(0,40))+")":""}</span>`:(cooling?' <span class="d">😴 nghỉ (tự hồi ~1′)</span>':'');
           let badge=''; if(k.dead_since&&(k._st==="warn"||k._st==="replace")){ const dys=Math.max(1,Math.floor((Date.now()-new Date(k.dead_since).getTime())/8.64e7));
             badge=k._st==="replace"?` <span style="color:#fff;background:#dc2626;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:800">🔴 THAY NGAY · ${dys}d</span>`:` <span style="color:#111;background:#f59e0b;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:800">⚠️ theo dõi · ${dys}d</span>`; }
           const rq=k.req_today?` · <span class="d" title="request hôm nay (reset mỗi ngày)">📊 ${k.req_today}</span>`:'';
