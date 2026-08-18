@@ -148,5 +148,155 @@
     "handle": "@eatsusahq",
     "motif": "plate",
     "layout": "left"
+  },
+  "GUESSUSA": {
+    "display": "GUESS",
+    "niche": "US cities, world landmarks, famous scientists, history",
+    "category": "24",
+    "accent": "#F5B301",
+    "tagline": "Can you get them all?",
+    "handle": "@guessdaily",
+    "hashtags": [
+      "#guess",
+      "#quiz",
+      "#trivia"
+    ],
+    "motif": "guess",
+    "layout": "center"
+  },
+  "MAPPEDUSA": {
+    "display": "MAPPED",
+    "niche": "US demographics, cost of living, health by state",
+    "category": "27",
+    "accent": "#22D3EE",
+    "tagline": "The US, one map at a time.",
+    "handle": "@mappedusa",
+    "hashtags": [
+      "#mapped",
+      "#usa",
+      "#maps"
+    ],
+    "motif": "mapped",
+    "layout": "center"
+  },
+  "RANKEDUSA": {
+    "display": "RANKED",
+    "niche": "US fast food, streaming, cars, brands ranked",
+    "category": "24",
+    "accent": "#7C5CFF",
+    "tagline": "S-tier to trash.",
+    "handle": "@rankedusa",
+    "hashtags": [
+      "#ranked",
+      "#tierlist",
+      "#ranking"
+    ],
+    "motif": "ranked",
+    "layout": "center"
+  },
+  "SCALEDUSA": {
+    "display": "SCALED",
+    "niche": "ocean animals, tallest buildings, planets, sizes",
+    "category": "28",
+    "accent": "#2FA84F",
+    "tagline": "See the real size.",
+    "handle": "@scaledusa",
+    "hashtags": [
+      "#sizecomparison",
+      "#scale",
+      "#science"
+    ],
+    "motif": "scaled",
+    "layout": "center"
+  },
+  "THENNOWUSA": {
+    "display": "THEN NOW",
+    "niche": "cost of living, tech, salaries 1970 vs now",
+    "category": "27",
+    "accent": "#EC4899",
+    "tagline": "How much has changed?",
+    "handle": "@thennowusa",
+    "hashtags": [
+      "#thenvsnow",
+      "#nostalgia",
+      "#history"
+    ],
+    "motif": "thennow",
+    "layout": "center"
+  },
+  "COSMOS": {
+    "display": "COSMOS",
+    "niche": "space, galaxies, black holes, planets, the universe",
+    "category": "28",
+    "accent": "#7C5CFF",
+    "tagline": "The universe, explained.",
+    "handle": "@cosmosdaily",
+    "hashtags": [
+      "#space",
+      "#cosmos",
+      "#universe"
+    ],
+    "motif": "doc",
+    "layout": "center"
+  },
+  "THEDEEP": {
+    "display": "THE DEEP",
+    "niche": "deep sea creatures, ocean mysteries, marine life",
+    "category": "28",
+    "accent": "#0EA5E9",
+    "tagline": "The ocean's darkest secrets.",
+    "handle": "@thedeepdaily",
+    "hashtags": [
+      "#ocean",
+      "#deepsea",
+      "#nature"
+    ],
+    "motif": "doc",
+    "layout": "center"
+  },
+  "WHYUSA": {
+    "display": "WHY",
+    "niche": "why natural phenomena happen, science explainers",
+    "category": "28",
+    "accent": "#F59E0B",
+    "tagline": "Why everything is the way it is.",
+    "handle": "@whydaily",
+    "hashtags": [
+      "#science",
+      "#why",
+      "#explained"
+    ],
+    "motif": "doc",
+    "layout": "center"
+  },
+  "EMPIREUSA": {
+    "display": "EMPIRE",
+    "niche": "how famous entrepreneurs built their empires",
+    "category": "27",
+    "accent": "#EAB308",
+    "tagline": "How they built it all.",
+    "handle": "@empiredaily",
+    "hashtags": [
+      "#business",
+      "#entrepreneur",
+      "#success"
+    ],
+    "motif": "doc",
+    "layout": "center"
+  },
+  "UNSOLVED": {
+    "display": "UNSOLVED",
+    "niche": "unsolved mysteries, ancient enigmas, unexplained phenomena",
+    "category": "27",
+    "accent": "#EF4444",
+    "tagline": "Mysteries with no answer.",
+    "handle": "@unsolveddaily",
+    "hashtags": [
+      "#mystery",
+      "#unsolved",
+      "#unexplained"
+    ],
+    "motif": "doc",
+    "layout": "center"
   }
 }
