@@ -1863,7 +1863,7 @@
       const bar=`<div class="row" style="display:flex;align-items:center;gap:10px;padding:6px 2px;border-bottom:1px solid var(--border);margin-bottom:4px">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600"><input type="checkbox" ${allOn?"checked":""} onchange="window.__rsToggleAll(this.checked)"> Chọn tất cả (${ds.length})</label>
         <span id="rsSelInfo" class="d">${sel?"✔ đã chọn "+sel:""}</span>
-        <span style="display:${sel?"flex":"none"};gap:6px;margin-left:auto"><button class="btn-conn" style="background:#8b6cff;color:#fff;border-color:#8b6cff" onclick="window.__rsBulkTarget()">🎯 Đặt target hàng loạt</button><button class="btn-conn" style="background:#ff5a5a22;border-color:#ff5a5a66;color:#ffb3b3" onclick="window.__rsBulkDelete()">🗑 Xoá đã chọn</button></span></div>`;
+        <span style="margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="btn-conn" title="Tạm dừng TẤT CẢ kênh — làm nốt clip đang dở rồi dừng (không cắt ngang)" onclick="window.__rsPauseAll(true)">⏸ Pause tất cả</button><button class="btn-conn" style="background:#16a34a;color:#fff;border-color:#16a34a" title="Cho TẤT CẢ kênh chạy lại" onclick="window.__rsPauseAll(false)">▶ Chạy tất cả</button><span style="display:${sel?"flex":"none"};gap:6px"><button class="btn-conn" style="background:#8b6cff;color:#fff;border-color:#8b6cff" onclick="window.__rsBulkTarget()">🎯 Đặt target hàng loạt</button><button class="btn-conn" style="background:#ff5a5a22;border-color:#ff5a5a66;color:#ffb3b3" onclick="window.__rsBulkDelete()">🗑 Xoá đã chọn</button></span></span></div>`;
       const MAXP=18; const warn=ds.length>MAXP?`<div style="margin-bottom:8px;background:#4a3a1a;border:1px solid #a80;border-radius:8px;padding:8px 11px;color:#ffd98a;font-size:12.5px;font-weight:600">⚠️ ${ds.length} kênh > ${MAXP} luồng song song (trần GitHub free 20) → ${ds.length-MAXP} kênh sẽ XẾP HÀNG mỗi mẻ (không lỗi, chỉ chậm hơn). Muốn nhanh: bớt kênh hoặc chia mẻ.</div>`:"";
       el.innerHTML = warn + bar + ds.map(c=>{ const C=(c.name||"").toUpperCase();
         const js=jobs.filter(j=>(j.channel||"").toUpperCase()===C && j.status==="done");
@@ -1882,6 +1882,13 @@
     window.__rsToggleAll = (on) => { if(on) (window.__rsChannelsData||[]).forEach(c=>window.__rsSelCh.add(c.id)); else window.__rsSelCh.clear(); window.__rsRenderChList(); };
     window.__rsToggleCh = (id,on) => { if(on) window.__rsSelCh.add(id); else window.__rsSelCh.delete(id); window.__rsRenderChList(); };
     // BẬT/TẮT auto-đăng YouTube cho 1 kênh (ghi settings/overrides__uid .auto_publish[TÊN kênh]). Cần đã Kết nối YouTube kênh đó.
+    // ⏸/▶ Pause/Chạy TẤT CẢ kênh (hàng loạt).
+    window.__rsPauseAll = async (on) => {
+      const ds=(window.__rsChannelsData||[]); if(!ds.length) return alert("Chưa có kênh nào.");
+      if(!confirm(on?`Tạm dừng TẤT CẢ ${ds.length} kênh?\n(mỗi kênh làm NỐT clip đang dở + upload rồi mới dừng — không cắt ngang, giữ tiến độ)`:`Cho TẤT CẢ ${ds.length} kênh chạy lại?`)) return;
+      try{ await Promise.all(ds.map(c=>setDoc(doc(db,"render_channels",c.id),{paused:on},{merge:true})));
+        try{ toastMsg(on?`⏸ Đã pause ${ds.length} kênh`:`▶ Đã cho ${ds.length} kênh chạy lại — vào mẻ tới`); }catch(_){}
+      }catch(e){ alert("Lỗi: "+e.message); } };
     // ⏸/▶ Tạm dừng / Chạy tiếp 1 kênh. Pause = làm nốt clip đang dở rồi dừng (pipeline check giữa clip, không cắt ngang).
     window.__rsTogglePause = async (id) => {
       const c=(window.__rsChannelsData||[]).find(x=>x.id===id)||{}; const on=!c.paused;
