@@ -11,12 +11,14 @@ AN TOÀN:
 from __future__ import annotations
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 sys.path.insert(0, os.path.dirname(__file__))
 from firestore_state import State
 
-SCAN_LIMIT = 40   # chỉ soi 40 job mới nhất/kênh mỗi lần -> chặn đọc phình (job cũ đã 'queued')
+SCAN_LIMIT = 40      # chỉ soi 40 job mới nhất/kênh mỗi lần -> chặn đọc phình (job cũ đã 'queued')
+DEFAULT_PPD = 1      # SỐ BÀI/NGÀY/KÊNH mặc định -> rải bài, KHÔNG dồn 1 ngày (chống chồng chéo)
+POST_HOURS = [14, 17, 20]   # giờ UTC đăng trong ngày (nếu >1 bài/ngày thì giãn ra)
 
 
 def _owner() -> str:
@@ -42,17 +44,47 @@ def run(dry_run: bool = False):
     if not ready:
         print("  ⏸ auto-enqueue: có kênh bật nhưng CHƯA kết nối YouTube -> bỏ qua."); return
 
-    # tập drive_file_id đã có trong yt_queue (mọi trạng thái) -> dedup
+    ppd_map = ov.get("posts_per_day") or {}                 # {"<kênh>": số} — tuỳ chỉnh/kênh
+    ppd_def = int(ov.get("posts_per_day_default", DEFAULT_PPD) or DEFAULT_PPD)
+
+    # 1 lần đọc yt_queue: vừa dedup (drive_file_id) VỪA dựng LỊCH đã có theo ngày (chống trùng ngày)
     queued_ids = set()
+    sched: dict[str, dict[str, int]] = {}                   # {kênh: {ngày-iso: số bài đã xếp}}
     try:
         for d in db.collection("yt_queue").where("owner", "==", owner).stream():
-            fid = d.to_dict().get("drive_file_id")
+            data = d.to_dict()
+            fid = data.get("drive_file_id")
             if fid:
                 queued_ids.add(fid)
+            if data.get("status") in ("pending", "processing", "scheduled", "posted"):
+                pa, ch2 = data.get("publish_at"), data.get("channel")
+                if pa and ch2:
+                    try:
+                        day = datetime.fromisoformat(str(pa).replace("Z", "+00:00")).date().isoformat()
+                        sched.setdefault(ch2, {})[day] = sched.setdefault(ch2, {}).get(day, 0) + 1
+                    except Exception:
+                        pass
     except Exception as e:
         print(f"  ⚠️ auto-enqueue đọc yt_queue lỗi: {e}")
 
     now = datetime.now(timezone.utc)
+
+    def next_slot(ch: str, ppd: int) -> str:
+        """Ngày TRỐNG kế tiếp cho kênh (đã đủ ppd bài thì nhảy sang ngày sau) -> KHÔNG dồn/chồng 1 ngày."""
+        day = now.date()
+        for _ in range(400):                                # tối đa ~1 năm tới
+            diso = day.isoformat()
+            used = sched.setdefault(ch, {}).get(diso, 0)
+            if used < ppd:
+                sched[ch][diso] = used + 1
+                hour = POST_HOURS[used % len(POST_HOURS)]
+                dt = datetime(day.year, day.month, day.day, hour, 0, tzinfo=timezone.utc)
+                if dt <= now:                               # slot hôm nay đã qua giờ -> +5' cho đăng sớm
+                    dt = now + timedelta(minutes=5)
+                return dt.isoformat()
+            day = day + timedelta(days=1)
+        return (now + timedelta(minutes=5)).isoformat()
+
     added = 0
     for ch in ready:
         try:
@@ -75,15 +107,17 @@ def run(dry_run: bool = False):
                 if fid and not j.get("queued") and not dry_run:
                     db.collection("render_jobs").document(d.id).set({"queued": True}, merge=True)   # đã có trong queue -> đánh dấu
                 continue
+            ppd = int(ppd_map.get(ch, ppd_def) or ppd_def)
+            when = next_slot(ch, ppd)                        # RẢI theo ngày trống -> không trùng/chồng ngày
             item = {"owner": owner, "channel": ch, "drive_file_id": fid,
                     "drive_account": j.get("drive_account", ""), "type": j.get("type", "short"),
                     "title": j.get("title", ""),
                     "drive_name": j.get("drive_name") or ((j.get("title") or fid) + ".mp4"),
                     "description": j.get("description", ""), "hashtags": j.get("hashtags") or [],
                     "tags": j.get("tags") or [], "status": "pending", "attempts": 0,
-                    "created_at": now.isoformat(), "publish_at": ""}
+                    "created_at": now.isoformat(), "publish_at": when}
             if dry_run:
-                print(f"  (dry) auto-enqueue {ch}: {(item['title'] or fid)[:44]}"); added += 1; continue
+                print(f"  (dry) auto-enqueue {ch}: {when[:10]} · {(item['title'] or fid)[:40]}"); added += 1; continue
             db.collection("yt_queue").add(item)
             db.collection("render_jobs").document(d.id).set({"queued": True}, merge=True)
             queued_ids.add(fid); added += 1
