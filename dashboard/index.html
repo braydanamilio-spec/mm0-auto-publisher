@@ -1710,6 +1710,19 @@
       const c=(window.__rsChannelsData||[]).find(x=>x.id===id)||{};
       if(confirm(`Xoá kênh render "${c.name||id}" khỏi hàng đợi?\n\n• CHỈ xoá cấu hình kênh — VIDEO đã làm KHÔNG bị xoá.\n• Kênh sẽ ngừng làm video mới ở mẻ sau.\n• Đang render dở thì clip đó vẫn xong bình thường (không lỗi).`))
         await deleteDoc(doc(db,"render_channels",id)); };
+    // TRẠNG THÁI THỰC: ĐANG RENDER (có luồng chạy) vs NGHỈ (chờ mẻ kế) vs DỪNG — để anh biết bấm Render ngay hay Dừng.
+    function __nextBatchTime(){ const hrs=((window.__rsCfg||{}).batch_hours)||[0,6,12,18]; const now=new Date(); const uh=now.getUTCHours();
+      let nh=hrs.find(h=>h>uh), d=new Date(now); if(nh==null){ nh=hrs[0]; d.setUTCDate(d.getUTCDate()+1); } d.setUTCHours(nh,0,0,0);
+      return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+    window.__rsPipeState=()=>{ const el=document.getElementById("rsPipeState"); if(!el) return; const c=window.__rsCfg||{};
+      const active=(window.__rsJobsData||[]).filter(j=>["queued","running","writing","rendering","qc"].includes(j.status)).length;
+      let t,col;
+      if(active>0){ t=`⚙️ ĐANG RENDER · ${active} luồng`; col="#4ade80"; }
+      else if(c.stop){ t="⛔ Đã dừng"; col="#ff8080"; }
+      else if(c.run_now){ t="⚡ Chờ khởi động…"; col="#f5b301"; }
+      else if(c.enabled){ t=`⏸ Đang NGHỈ · chờ mẻ ~${__nextBatchTime()}`; col="#9aa6c0"; }
+      else { t="⏸ Tắt (bật cron đêm để tự chạy)"; col="#9aa6c0"; }
+      el.textContent=t; el.style.color=col; };
     // Render danh sách kênh + CHECKBOX chọn nhiều + ĐẾM đã làm long/short + trạng thái target.
     window.__rsSelCh = window.__rsSelCh || new Set();
     window.__rsRenderChList = () => { const el=document.getElementById("rsChList"); if(!el) return;
@@ -1764,8 +1777,7 @@
     function rsInit(){
       if(rsInited) return; const o=RSowner(); if(!o){ setTimeout(rsInit,800); return; } rsInited=true;
       const q=(name)=>query(collection(db,name), where("owner","==",o));
-      onSnapshot(rsCfgDoc(), d=>{ const c=d.exists()?d.data():{};
-        const st=document.getElementById("rsPipeState"); if(st) st.textContent=c.stop?"⛔ Đang dừng":(c.run_now?"⚡ Chờ render ngay":(c.enabled?"▶ Đang bật":"⏸ Chưa bật"));
+      onSnapshot(rsCfgDoc(), d=>{ const c=d.exists()?d.data():{}; window.__rsCfg=c; window.__rsPipeState&&window.__rsPipeState();
         if(c.qc_min) document.getElementById("rsQcMin").value=c.qc_min;
         const mr=document.getElementById("rsMaxRun"); if(mr&&document.activeElement!==mr) mr.value=c.max_per_run||"";
         if(c.model) document.getElementById("rsModel").value=c.model;
@@ -1799,7 +1811,7 @@
         window.__rsChannelsData = s.docs.map(d=>({id:d.id,...d.data()})); window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderChList&&window.__rsRenderChList(); }, ()=>{});
       const _jobsCb=(s)=>{ const el=document.getElementById("rsJobs"); const bd=document.getElementById("nvRender");
         const ds=s.docs.sort((a,b)=>(b.data().created_at||"").localeCompare(a.data().created_at||"")).slice(0,20);
-        const all=s.docs.map(d=>({id:d.id,...d.data()})); window.__rsJobsData = all; window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderGallery&&window.__rsRenderGallery(); window.__rsRenderChList&&window.__rsRenderChList();
+        const all=s.docs.map(d=>({id:d.id,...d.data()})); window.__rsJobsData = all; window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderGallery&&window.__rsRenderGallery(); window.__rsRenderChList&&window.__rsRenderChList(); window.__rsPipeState&&window.__rsPipeState();
         // TỰ DỌN job MA (orphan): active nhưng quá 6h (> timeout workflow 350') -> tiến trình đã chết -> đánh dấu failed (rồi bị dọn nếu có bản mới).
         (()=>{ window.__staleClean=window.__staleClean||new Set(); const cut=Date.now()-6*3.6e6;
           all.forEach(j=>{ if(["queued","running","writing","rendering","qc"].includes(j.status) && j.created_at && new Date(j.created_at).getTime()<cut && j.id && !window.__staleClean.has(j.id)){
