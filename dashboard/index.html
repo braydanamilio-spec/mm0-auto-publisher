@@ -1733,7 +1733,7 @@
       if(confirm(`Xoá kênh render "${c.name||id}" khỏi hàng đợi?\n\n• CHỈ xoá cấu hình kênh — VIDEO đã làm KHÔNG bị xoá.\n• Kênh sẽ ngừng làm video mới ở mẻ sau.\n• Đang render dở thì clip đó vẫn xong bình thường (không lỗi).`))
         await deleteDoc(doc(db,"render_channels",id)); };
     // TRẠNG THÁI THỰC: ĐANG RENDER (có luồng chạy) vs NGHỈ (chờ mẻ kế) vs DỪNG — để anh biết bấm Render ngay hay Dừng.
-    function __nextBatchTime(){ const hrs=((window.__rsCfg||{}).batch_hours)||[0,6,12,18]; const now=new Date(); const uh=now.getUTCHours();
+    function __nextBatchTime(){ const hrs=((window.__rsCfg||{}).batch_hours)||[0,4,8,12,16,20]; const now=new Date(); const uh=now.getUTCHours();
       let nh=hrs.find(h=>h>uh), d=new Date(now); if(nh==null){ nh=hrs[0]; d.setUTCDate(d.getUTCDate()+1); } d.setUTCHours(nh,0,0,0);
       return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
     window.__rsPipeState=()=>{ const el=document.getElementById("rsPipeState"); if(!el) return; const c=window.__rsCfg||{};
