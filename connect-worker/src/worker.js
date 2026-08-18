@@ -790,8 +790,14 @@ async function apiDriveStream(request, url, env) {
   if (!fileId) return new Response("missing fileId", { status: 400 });
   let dat;
   try {
-    if (account0) { ({ dat } = await driveCtx(env, uid, account0)); }
-    else {                                      // KHÔNG biết kho -> TỰ DÒ: thử từng kho tới khi mở được file
+    if (account0) {                             // thử kho đã ghi + VERIFY file có ở đó không (bản ghi có thể lệch)
+      try {
+        const c = await driveCtx(env, uid, account0);
+        const chk = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${c.dat}` } });
+        if (chk.ok) dat = c.dat;
+      } catch (_) { }
+    }
+    if (!dat) {                                 // KHÔNG có / ghi lệch -> TỰ DÒ mọi kho tới khi mở được file
       const at = await saAccessToken(env);
       for (const nm of await fsListStorageAccounts(env, at, uid)) {
         try {
@@ -815,9 +821,16 @@ async function apiDriveStream(request, url, env) {
   return new Response(r.body, { status: r.status, headers: h });   // pass-through stream (Range để tua)
 }
 
-// Tìm token của kho MỞ ĐƯỢC fileId (biết account0 -> dùng luôn; không -> dò từng kho).
+// Tìm token của kho MỞ ĐƯỢC fileId. account0: thử trước + VERIFY (bản ghi có thể lệch); mở được -> dùng, không -> DÒ mọi kho.
 async function resolveDriveDat(env, uid, account0, fileId) {
-  if (account0) { try { return (await driveCtx(env, uid, account0)).dat; } catch (_) { return null; } }
+  if (account0) {
+    try {
+      const c = await driveCtx(env, uid, account0);
+      if (!fileId) return c.dat;                // không có fileId để verify -> dùng luôn
+      const chk = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${c.dat}` } });
+      if (chk.ok) return c.dat;                 // kho ghi sẵn ĐÚNG -> dùng
+    } catch (_) { }                             // sai/lỗi -> rơi xuống DÒ mọi kho
+  }
   const at = await saAccessToken(env);
   for (const nm of await fsListStorageAccounts(env, at, uid)) {
     try {
