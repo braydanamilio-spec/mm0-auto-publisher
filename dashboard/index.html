@@ -747,6 +747,7 @@
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
+              <button class="btn-mini" onclick="window.rsSyncUsage&&window.rsSyncUsage(this)" title="Đọc dung lượng THẬT của mọi kho ngay (render upload không tự cập nhật số này)">🔄 Đồng bộ dung lượng</button>
               <select id="stSort" class="set-sel" style="max-width:190px">
                 <option value="free">🟢 Còn trống nhiều nhất</option>
                 <option value="full">🔴 Đầy nhất</option>
@@ -4747,6 +4748,16 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
           return `<span class="rw-chip ${st.cls}" title="${st.t}">${st.ic} ${esc(r.a)}${needFix?` <button class="btn-mini" style="margin-left:4px" onclick="connectChannel('${esc(r.a)}','drive')">Kết nối lại</button>`:''}</span>`;}).join("")}</div>
         ${noPerm.length?`<div class="p-sub" style="margin-top:8px;line-height:1.6">🔒 <b>${noPerm.length} kho thiếu quyền full Drive</b> — sẽ KHÔNG lấy được link share / đăng / xóa. Bấm <b>Kết nối lại</b> và ở màn hình Google <b>TÍCH ĐỦ các ô quyền</b> (đừng bỏ ô nào).</div>`:''}
         ${bad.length?`<div class="p-sub" style="margin-top:8px;line-height:1.6">💡 Token hay hết hạn (Testing=7 ngày): <a href="https://console.cloud.google.com/apis/credentials/consent?project=377166959818" target="_blank" style="color:var(--accent)">publish OAuth consent screen sang Production →</a></div>`:''}</div>`; };
+
+    // Đồng bộ dung lượng THẬT mọi kho NGAY (render upload không tự cập nhật storage_accounts.used).
+    window.rsSyncUsage=async(btn)=>{
+      const accs=((window.__STORAGE&&window.__STORAGE.accounts)||[]).map(a=>a.name).filter(Boolean);
+      if(!accs.length){ try{toastMsg("Chưa có kho.");}catch(_){}; return; }
+      const old=btn?btn.textContent:""; if(btn) btn.disabled=true; let ok=0;
+      for(let i=0;i<accs.length;i++){ if(btn) btn.textContent=`⏳ ${i+1}/${accs.length}`;
+        try{ await workerApi(`/api/drive-usage?account=${encodeURIComponent(accs[i])}`); ok++; }catch(_){} }
+      if(btn){ btn.textContent=old; btn.disabled=false; }
+      try{toastMsg(`🔄 Đã đồng bộ dung lượng ${ok}/${accs.length} kho — số sẽ tự cập nhật`);}catch(_){} };
 
     /* ===== UPLOAD video từ máy tính -> Drive kho (relay chunk qua Worker, giữ nguyên chất lượng) ===== */
     window.__upQ=[]; window.__upBusy=false;

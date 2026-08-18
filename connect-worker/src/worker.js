@@ -39,6 +39,7 @@ export default {
       if (url.pathname === "/api/drive-has") return corsResp(await apiDriveHas(request, url, env));
       if (url.pathname === "/api/empty-trash") return corsResp(await apiEmptyTrash(request, url, env));
       if (url.pathname === "/api/drive-trash") return corsResp(await apiDriveTrash(request, url, env));
+      if (url.pathname === "/api/drive-usage") return corsResp(await apiDriveUsage(request, url, env));
       if (url.pathname === "/api/token-check") return corsResp(await apiTokenCheck(request, url, env));
       if (url.pathname === "/api/upload-init") return corsResp(await apiUploadInit(request, url, env));
       if (url.pathname === "/api/upload-chunk") return corsResp(await apiUploadChunk(request, url, env));
@@ -853,6 +854,21 @@ async function apiDriveHas(request, url, env) {
     const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${dat}` } });
     return json({ ok: true, has: r.ok });
   } catch (_) { return json({ ok: true, has: false }); }
+}
+
+// GET /api/drive-usage?t=&account= -> đọc dung lượng THẬT + GHI vào storage_accounts.used -> display cập nhật ngay (render upload không tự cập nhật số này).
+async function apiDriveUsage(request, url, env) {
+  const t = url.searchParams.get("t"), account = url.searchParams.get("account");
+  const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
+  if (!uid) throw new Error("Chưa đăng nhập.");
+  if (!account) throw new Error("Thiếu account.");
+  const { dat } = await driveCtx(env, uid, account);
+  const r = await fetch("https://www.googleapis.com/drive/v3/about?fields=storageQuota", { headers: { Authorization: `Bearer ${dat}` } });
+  const j = await r.json().catch(() => ({}));
+  const q = j.storageQuota || {};
+  const used = Number(q.usage || 0), limit = Number(q.limit || 0);
+  try { const at = await saAccessToken(env); await fsPatch(env, at, `storage_accounts/${uid}__${account}`, { used }, ["used"]); } catch (_) { }
+  return json({ ok: r.ok, used, limit });
 }
 
 // GET /api/drive-trash?t=&account= -> LIỆT KÊ file đang trong THÙNG RÁC (review trước khi xóa vĩnh viễn).
