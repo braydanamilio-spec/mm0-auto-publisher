@@ -31,9 +31,16 @@ def _state():
     return _STATE
 
 
+# CHIA SẺ reservation qua Firestore: TẮT mặc định để TIẾT KIỆM Firestore (100% free) — Drive mới 2% đầy + đã
+# chia đều theo kênh nên gần như không có 2 luồng cùng nhét 1 kho gần đầy. Bật lại (SHARED_RESERVATION=1) khi kho gần đầy.
+_SHARE_RES = os.environ.get("SHARED_RESERVATION") == "1"
+
+
 def reserve(root: str, nbytes: int) -> None:
-    """GIỮ CHỖ (local + CHIA SẺ qua Firestore) -> 10 luồng render SONG SONG thấy nhau, không cùng nhét 1 kho gần đầy."""
+    """GIỮ CHỖ tạm (local trong phiên; chia sẻ Firestore chỉ khi bật _SHARE_RES)."""
     _RESERVED[root] = _RESERVED.get(root, 0) + int(nbytes)
+    if not _SHARE_RES:
+        return
     try:
         from datetime import datetime, timezone
         from google.cloud import firestore as _fs
@@ -44,8 +51,9 @@ def reserve(root: str, nbytes: int) -> None:
 
 
 def release(root: str, nbytes: int) -> None:
-    """TRẢ CHỖ khi upload lỗi/nhảy kho khác (khỏi giữ oan)."""
     _RESERVED[root] = max(0, _RESERVED.get(root, 0) - int(nbytes))
+    if not _SHARE_RES:
+        return
     try:
         from datetime import datetime, timezone
         from google.cloud import firestore as _fs
@@ -56,14 +64,16 @@ def release(root: str, nbytes: int) -> None:
 
 
 def _shared_reservations() -> dict:
-    """Reservation ĐANG TREO của MỌI luồng song song (Firestore) -> tính free trừ luôn phần đang bay tới kho đó."""
+    """Reservation treo của các luồng khác (Firestore). TẮT -> {} (tiết kiệm read); ranked_accounts vẫn dùng live-usage + local."""
+    if not _SHARE_RES:
+        return {}
     try:
         from datetime import datetime, timezone, timedelta
         cutoff = (datetime.now(timezone.utc) - timedelta(minutes=_RES_TTL_MIN)).isoformat()
         out = {}
         for d in _state().db.collection("storage_reservations").stream():
             x = d.to_dict() or {}
-            if (x.get("at") or "") >= cutoff:      # bỏ reservation cũ (crash) -> không kẹt chỗ
+            if (x.get("at") or "") >= cutoff:
                 out[d.id] = max(0, x.get("bytes", 0) or 0)
         return out
     except Exception:
