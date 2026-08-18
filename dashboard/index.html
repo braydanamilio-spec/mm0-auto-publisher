@@ -2294,6 +2294,18 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       BODYUSA:{d:"BODY USA",a:"#7C5CFF",t:"The American body.",h:"@bodyusahq",ic:"🫀",ht:"#health #usa #fitness #lifestyle",niche:"US health & lifestyle (obesity, lifespan, spending)"},
       RIDEUSA:{d:"RIDE USA",a:"#38BDF8",t:"America on wheels.",h:"@rideusahq",ic:"🚗",ht:"#cars #ev #auto #trucks",niche:"US cars & auto (brand sales, EV vs gas, trucks)"},
       EATSUSA:{d:"EATS USA",a:"#A3E635",t:"How America eats.",h:"@eatsusahq",ic:"🍔",ht:"#food #fastfood #usa #calories",niche:"US food & fast-food (chains, calories, prices)"},
+      // ── WAVE 1 (motif đồ hoạ) ──
+      GUESSUSA:{d:"GUESS",a:"#F5B301",t:"Can you get them all?",h:"@guessdaily",ic:"🤔",ht:"#guess #quiz #usa #trivia",niche:"US cities, world landmarks, famous scientists, history"},
+      MAPPEDUSA:{d:"MAPPED",a:"#22D3EE",t:"The US, one map at a time.",h:"@mappedusa",ic:"🗺️",ht:"#mapped #usa #maps #data",niche:"US demographics, cost of living, health by state"},
+      RANKEDUSA:{d:"RANKED",a:"#7C5CFF",t:"S-tier to trash.",h:"@rankedusa",ic:"🏆",ht:"#ranked #tierlist #usa #ranking",niche:"US fast food, streaming, cars, brands ranked"},
+      SCALEDUSA:{d:"SCALED",a:"#2FA84F",t:"See the real size.",h:"@scaledusa",ic:"📏",ht:"#sizecomparison #scale #science #howbig",niche:"ocean animals, tallest buildings, planets, sizes"},
+      THENNOWUSA:{d:"THEN NOW",a:"#EC4899",t:"How much has changed?",h:"@thennowusa",ic:"⏳",ht:"#thenvsnow #nostalgia #usa #history",niche:"cost of living, tech, salaries — 1970 vs now"},
+      // ── WAVE 2 (tài liệu điện ảnh) ──
+      COSMOS:{d:"COSMOS",a:"#7C5CFF",t:"The universe, explained.",h:"@cosmosdaily",ic:"🌌",ht:"#space #cosmos #universe #nasa",niche:"space, galaxies, black holes, planets, the universe"},
+      THEDEEP:{d:"THE DEEP",a:"#0EA5E9",t:"The ocean's darkest secrets.",h:"@thedeepdaily",ic:"🌊",ht:"#ocean #deepsea #nature #creatures",niche:"deep sea creatures, ocean mysteries, marine life"},
+      WHYUSA:{d:"WHY",a:"#F59E0B",t:"Why everything is the way it is.",h:"@whydaily",ic:"🔬",ht:"#science #why #explained #facts",niche:"why natural phenomena happen — science explainers"},
+      EMPIREUSA:{d:"EMPIRE",a:"#EAB308",t:"How they built it all.",h:"@empiredaily",ic:"👑",ht:"#business #entrepreneur #success #empire",niche:"how famous entrepreneurs built their empires"},
+      UNSOLVED:{d:"UNSOLVED",a:"#EF4444",t:"Mysteries with no answer.",h:"@unsolveddaily",ic:"🌍",ht:"#mystery #unsolved #unexplained #enigma",niche:"unsolved mysteries, ancient enigmas, unexplained phenomena"},
     };
     const _dark="#0b1020";
     function rsBrandSvg(k,W,H,kind){ const b=RS_BRANDS[k]; if(!b) return ""; const s=Math.min(W,H);
@@ -2309,7 +2321,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       const img=new Image(); img.onload=()=>{ const c=document.createElement("canvas"); c.width=W;c.height=H; const ctx=c.getContext("2d"); ctx.fillStyle=_dark; ctx.fillRect(0,0,W,H); ctx.drawImage(img,0,0,W,H);
         c.toBlob(bl=>{ const a=document.createElement("a"); a.href=URL.createObjectURL(bl); a.download=`${k}_${label}.png`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),3000); URL.revokeObjectURL(url); },"image/png"); };
       img.onerror=()=>{ try{toastMsg("Lỗi tạo ảnh");}catch(_){}; URL.revokeObjectURL(url); }; img.src=url; };
-    window.rsBrandDesc=k=>{ const b=RS_BRANDS[k]; return `${b.t} Cinematic US data-story rankings on ${b.niche.replace(/\(.*?\)/,"").trim()}. Real numbers, animated, updated — new drops daily.\n\n${b.ht}`; };
+    window.rsBrandDesc=k=>{ const b=RS_BRANDS[k]; return `${b.t} Cinematic US shorts about ${b.niche.replace(/\(.*?\)/,"").trim()}. Fresh videos every day — hit subscribe so you don't miss a drop.\n\n${b.ht}`; };
     window.rsBrandCopy=(k,what)=>{ const b=RS_BRANDS[k]; const txt=what==="desc"?rsBrandDesc(k):what==="tags"?b.niche.replace(/[(),]/g," ").split(/\s+/).filter(w=>w.length>2).join(", "):b.ht;
       try{ navigator.clipboard.writeText(txt); }catch(_){}; try{toastMsg("📋 Đã copy "+(what==="desc"?"mô tả":what==="tags"?"keywords":"hashtags"));}catch(_){}; };
     window.rsRenderBrand=(hostId,selId)=>{ const host=document.getElementById(hostId); if(!host) return;
@@ -2331,9 +2343,10 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
         </div></div>`;
     };
     window.__rsBrandInit=(selId,hostId)=>{ const sel=document.getElementById(selId); if(!sel) return;
-      if(!sel.__init){ sel.__init=1; sel.innerHTML=Object.keys(RS_BRANDS).map(k=>`<option value="${k}">${esc(RS_BRANDS[k].d)}</option>`).join(""); sel.onchange=()=>window.rsRenderBrand(hostId,selId); try{window.rsSelectWithAvatars(sel);}catch(_){} }
+      if(!sel.__init){ sel.__init=1; sel.innerHTML=Object.keys(RS_BRANDS).map((k,i)=>`<option value="${k}">${String(i+1).padStart(2,"0")}. ${esc(RS_BRANDS[k].d)}</option>`).join(""); sel.onchange=()=>window.rsRenderBrand(hostId,selId); try{window.rsSelectWithAvatars(sel);}catch(_){} }
       window.rsRenderBrand(hostId,selId); };
     RS_BRANDS.DATARACE.cat="27";RS_BRANDS.STATEWARS.cat="27";RS_BRANDS.MONEYMOVES.cat="27";RS_BRANDS.POWERPLAY.cat="28";RS_BRANDS.GRIDIRON.cat="17";RS_BRANDS.SCREENKINGS.cat="24";RS_BRANDS.PAYCHECK.cat="27";RS_BRANDS.BODYUSA.cat="27";RS_BRANDS.RIDEUSA.cat="2";RS_BRANDS.EATSUSA.cat="26";
+    RS_BRANDS.GUESSUSA.cat="24";RS_BRANDS.MAPPEDUSA.cat="27";RS_BRANDS.RANKEDUSA.cat="24";RS_BRANDS.SCALEDUSA.cat="28";RS_BRANDS.THENNOWUSA.cat="27";RS_BRANDS.COSMOS.cat="28";RS_BRANDS.THEDEEP.cat="28";RS_BRANDS.WHYUSA.cat="28";RS_BRANDS.EMPIREUSA.cat="27";RS_BRANDS.UNSOLVED.cat="27";
     // Avatar data-URI cho 1 kênh: brand SVG nếu có, không thì avatar chữ-cái-đầu + màu hash (hợp hàng trăm kênh).
     const _avCache={};   // memo: khỏi sinh lại SVG mỗi lần render (nhẹ CPU khi nhiều kênh) — chỉ RAM, KHÔNG ghi Firestore/Drive
     function rsAvatarUri(k,size){ size=size||44; const K=String(k||"").toUpperCase(); const ck=K+"@"+size;
