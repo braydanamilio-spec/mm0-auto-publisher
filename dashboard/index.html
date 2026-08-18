@@ -1520,7 +1520,7 @@
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
       signInWithEmailAndPassword, createUserWithEmailAndPassword }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query, where, orderBy, limit, doc, setDoc, addDoc, deleteDoc, getDocs, getDoc }
+    import { getFirestore, collection, onSnapshot, query, where, orderBy, limit, doc, setDoc, addDoc, deleteDoc, getDocs, getDoc, disableNetwork, enableNetwork }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -1533,6 +1533,13 @@
     const appFb = initializeApp(firebaseConfig);
     const auth = getAuth(appFb);
     const db = getFirestore(appFb);
+    // TIẾT KIỆM ĐỌC Firestore (100% free): tab ẨN >30s -> TẮT network (listener ngừng đọc); HIỆN lại -> BẬT (sync tươi).
+    let __netT=null, __netOff=false;
+    document.addEventListener("visibilitychange", ()=>{
+      clearTimeout(__netT);
+      if(document.hidden){ __netT=setTimeout(()=>{ disableNetwork(db).then(()=>{__netOff=true;}).catch(()=>{}); }, 30000); }
+      else if(__netOff){ enableNetwork(db).then(()=>{__netOff=false;}).catch(()=>{}); }
+    });
 
     document.getElementById("signin").onclick = () =>
       signInWithPopup(auth, new GoogleAuthProvider()).catch(e => alert(e.message));
