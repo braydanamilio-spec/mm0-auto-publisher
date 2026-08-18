@@ -679,11 +679,16 @@ async function apiDisconnect(request, url, env) {
 }
 
 // Lấy access token của 1 tài khoản KHO (Drive) thuộc uid — dùng chung cho files/file-action
+let _dctxCache = {};   // CACHE {uid__account: {conn, dat, exp}} ~45' -> thumb/stream/check lặp KHỎI đọc Firestore + đổi token mỗi lần (tiết kiệm read, chống cạn quota).
 async function driveCtx(env, uid, account) {
+  const key = `${uid}__${account}`;
+  const c = _dctxCache[key];
+  if (c && c.exp > Date.now()) return { conn: c.conn, dat: c.dat };
   const at = await saAccessToken(env);
   const conn = await fsGet(env, at, `connections/${uid}__${account}__drive`);
   if (!conn || !conn.refresh_token) throw new Error("Tài khoản kho chưa kết nối.");
   const dat = await ytAccessToken(conn.client_id, conn.client_secret, conn.refresh_token);
+  _dctxCache[key] = { conn, dat, exp: Date.now() + 45 * 60 * 1000 };   // access token sống 1h -> cache 45' an toàn
   return { conn, dat };
 }
 
