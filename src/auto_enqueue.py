@@ -1,12 +1,15 @@
 """
-auto_enqueue.py — TỰ ĐẨY video render xong vào yt_queue để ĐĂNG TỰ ĐỘNG.
+auto_enqueue.py — TỰ ĐẨY video render xong vào yt_queue để ĐĂNG TỰ ĐỘNG, RẢI LỊCH THEO TEMPLATE.
 
 AN TOÀN:
-  - Mặc định TẮT. Chỉ chạy cho kênh có cờ auto_publish=true (settings/overrides.auto_publish[<kênh>]).
+  - Mặc định TẮT. Chỉ chạy kênh có cờ auto_publish=true (settings/overrides__<uid>.auto_publish[<TÊN kênh>]).
   - Kênh phải ĐÃ kết nối YouTube (connections/<owner>__<kênh>__youtube có refresh_token) -> chưa kết nối thì bỏ qua.
   - Dedup theo drive_file_id + cờ 'queued' trên render_jobs -> KHÔNG đăng trùng.
-  - KHÔNG tự đặt giờ dồn: để publish_yt_queue lo trần (~6/ngày/kênh, 2/lần chạy) -> không spam.
-Đọc render_jobs (video render xong, kèm drive_id/drive_account/type/title...) -> tạo item yt_queue 'pending'.
+
+LỊCH (chống chồng chéo ngày):
+  - Mỗi kênh gắn 1 TEMPLATE (posting_templates.yaml) quy định MIX/ngày: short_per_day + long (~long_per_week).
+  - Rải video vào ngày TRỐNG: ngày nào đã đủ mix template thì NHẢY sang ngày sau. Không dồn quá mix.
+  - Đăng đúng GIỜ VÀNG US (best_times theo timezone template -> quy đổi UTC).
 """
 from __future__ import annotations
 import os
@@ -16,13 +19,40 @@ from datetime import datetime, timezone, timedelta
 sys.path.insert(0, os.path.dirname(__file__))
 from firestore_state import State
 
-SCAN_LIMIT = 40      # chỉ soi 40 job mới nhất/kênh mỗi lần -> chặn đọc phình (job cũ đã 'queued')
-DEFAULT_PPD = 1      # SỐ BÀI/NGÀY/KÊNH mặc định -> rải bài, KHÔNG dồn 1 ngày (chống chồng chéo)
-POST_HOURS = [14, 17, 20]   # giờ UTC đăng trong ngày (nếu >1 bài/ngày thì giãn ra)
+try:
+    import yaml
+except Exception:
+    yaml = None
+try:
+    from zoneinfo import ZoneInfo
+except Exception:
+    ZoneInfo = None
+
+SCAN_LIMIT = 40
+DEFAULT_TMPL = os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short")
 
 
 def _owner() -> str:
     return os.environ.get("OWNER_UID", "") or os.environ.get("OWNER", "")
+
+
+def _load_templates() -> dict:
+    if not yaml:
+        return {}
+    p = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config", "posting_templates.yaml")
+    try:
+        return (yaml.safe_load(open(p)) or {}).get("templates", {}) or {}
+    except Exception:
+        return {}
+
+
+def _tz(name: str):
+    if ZoneInfo:
+        try:
+            return ZoneInfo(name or "America/New_York")
+        except Exception:
+            pass
+    return timezone(timedelta(hours=-4))   # fallback ~EDT nếu thiếu tzdata
 
 
 def run(dry_run: bool = False):
@@ -30,12 +60,11 @@ def run(dry_run: bool = False):
     owner = _owner()
     if not owner:
         return
-    # dashboard ghi vào settings/overrides__<uid> (per-user); fallback 'overrides' (single-tenant cũ)
     ov = state.get_doc("settings", "overrides__" + owner) or state.get_doc("settings", "overrides") or {}
-    auto = ov.get("auto_publish") or {}                     # {"<TÊN kênh>": true/false}
+    auto = ov.get("auto_publish") or {}
     on_channels = {k for k, v in auto.items() if v}
     if not on_channels:
-        return                                              # KHÔNG kênh nào bật -> im lặng, không làm gì
+        return
 
     def yt_ok(ch: str) -> bool:
         c = state.get_doc("connections", f"{owner}__{ch}__youtube")
@@ -44,12 +73,25 @@ def run(dry_run: bool = False):
     if not ready:
         print("  ⏸ auto-enqueue: có kênh bật nhưng CHƯA kết nối YouTube -> bỏ qua."); return
 
-    ppd_map = ov.get("posts_per_day") or {}                 # {"<kênh>": số} — tuỳ chỉnh/kênh
-    ppd_def = int(ov.get("posts_per_day_default", DEFAULT_PPD) or DEFAULT_PPD)
+    templates = _load_templates()
+    ov_ch = ov.get("channels") or {}                        # {kênh: tên_template}
 
-    # 1 lần đọc yt_queue: vừa dedup (drive_file_id) VỪA dựng LỊCH đã có theo ngày (chống trùng ngày)
+    def tmpl_of(ch: str) -> dict:
+        name = ov_ch.get(ch) or DEFAULT_TMPL
+        t = templates.get(name) or templates.get("balanced_1long_3short") or {}
+        cad = t.get("cadence", {}) or {}; bt = t.get("best_times", {}) or {}
+        return {"tz": _tz(t.get("timezone", "America/New_York")),
+                "short_pd": int(cad.get("short_per_day", 3) or 3),
+                "long_pw": int(cad.get("long_per_week", 7) or 7),
+                "t_short": [str(x) for x in (bt.get("short") or ["12:00", "17:00", "20:00"])],
+                "t_long": [str(x) for x in (bt.get("long") or ["15:00"])]}
+
+    tcache = {ch: tmpl_of(ch) for ch in ready}
+
+    # 1 lần đọc yt_queue: dedup + dựng LỊCH đã có (theo NGÀY địa phương template + theo LOẠI + tuần cho long)
     queued_ids = set()
-    sched: dict[str, dict[str, int]] = {}                   # {kênh: {ngày-iso: số bài đã xếp}}
+    day_cnt: dict[str, dict[str, dict[str, int]]] = {}      # {kênh: {ngày-ET: {"short":n,"long":n}}}
+    wk_long: dict[str, dict[str, int]] = {}                 # {kênh: {tuần-ISO: số long}}
     try:
         for d in db.collection("yt_queue").where("owner", "==", owner).stream():
             data = d.to_dict()
@@ -57,11 +99,16 @@ def run(dry_run: bool = False):
             if fid:
                 queued_ids.add(fid)
             if data.get("status") in ("pending", "processing", "scheduled", "posted"):
-                pa, ch2 = data.get("publish_at"), data.get("channel")
-                if pa and ch2:
+                pa, ch2, ty = data.get("publish_at"), data.get("channel"), (data.get("type") or "short")
+                if pa and ch2 in tcache:
                     try:
-                        day = datetime.fromisoformat(str(pa).replace("Z", "+00:00")).date().isoformat()
-                        sched.setdefault(ch2, {})[day] = sched.setdefault(ch2, {}).get(day, 0) + 1
+                        loc = datetime.fromisoformat(str(pa).replace("Z", "+00:00")).astimezone(tcache[ch2]["tz"])
+                        diso = loc.date().isoformat()
+                        dd = day_cnt.setdefault(ch2, {}).setdefault(diso, {"short": 0, "long": 0})
+                        dd[ty] = dd.get(ty, 0) + 1
+                        if ty == "long":
+                            wiso = f"{loc.isocalendar().year}-W{loc.isocalendar().week:02d}"
+                            wk_long.setdefault(ch2, {})[wiso] = wk_long.setdefault(ch2, {}).get(wiso, 0) + 1
                     except Exception:
                         pass
     except Exception as e:
@@ -69,19 +116,36 @@ def run(dry_run: bool = False):
 
     now = datetime.now(timezone.utc)
 
-    def next_slot(ch: str, ppd: int) -> str:
-        """Ngày TRỐNG kế tiếp cho kênh (đã đủ ppd bài thì nhảy sang ngày sau) -> KHÔNG dồn/chồng 1 ngày."""
-        day = now.date()
-        for _ in range(400):                                # tối đa ~1 năm tới
+    def next_slot(ch: str, vtype: str) -> str:
+        """Ngày TRỐNG kế tiếp theo MIX template: short<short_pd/ngày; long<=1/ngày & <=long_pw/tuần. Giờ = best_times US."""
+        t = tcache[ch]; tz = t["tz"]
+        times = t["t_short"] if vtype == "short" else t["t_long"]
+        cap_day = t["short_pd"] if vtype == "short" else 1
+        day = now.astimezone(tz).date()
+        for _ in range(400):
             diso = day.isoformat()
-            used = sched.setdefault(ch, {}).get(diso, 0)
-            if used < ppd:
-                sched[ch][diso] = used + 1
-                hour = POST_HOURS[used % len(POST_HOURS)]
-                dt = datetime(day.year, day.month, day.day, hour, 0, tzinfo=timezone.utc)
-                if dt <= now:                               # slot hôm nay đã qua giờ -> +5' cho đăng sớm
-                    dt = now + timedelta(minutes=5)
-                return dt.isoformat()
+            dd = day_cnt.setdefault(ch, {}).setdefault(diso, {"short": 0, "long": 0})
+            ok = dd.get(vtype, 0) < cap_day
+            wiso = None
+            if vtype == "long":
+                ic = day.isocalendar(); wiso = f"{ic[0]}-W{ic[1]:02d}"
+                if wk_long.setdefault(ch, {}).get(wiso, 0) >= t["long_pw"]:
+                    ok = False                              # đủ long/tuần -> sang tuần sau
+            if ok:
+                idx = dd.get(vtype, 0)
+                hhmm = times[idx % len(times)]
+                try:
+                    hh, mm = [int(x) for x in hhmm.split(":")[:2]]
+                except Exception:
+                    hh, mm = (15, 0) if vtype == "long" else (17, 0)
+                loc = datetime(day.year, day.month, day.day, hh, mm, tzinfo=tz)
+                utc = loc.astimezone(timezone.utc)
+                if utc <= now:
+                    utc = now + timedelta(minutes=5)
+                dd[vtype] = idx + 1
+                if vtype == "long" and wiso:
+                    wk_long[ch][wiso] = wk_long[ch].get(wiso, 0) + 1
+                return utc.isoformat()
             day = day + timedelta(days=1)
         return (now + timedelta(minutes=5)).isoformat()
 
@@ -92,9 +156,9 @@ def run(dry_run: bool = False):
                  .where("channel", "==", ch).where("status", "==", "done"))
             try:
                 from google.cloud.firestore_v1 import Query
-                docs = list(q.order_by("created_at", direction=Query.DESCENDING).limit(SCAN_LIMIT).stream())
+                docs = list(q.order_by("created_at", direction=Query.ASCENDING).limit(SCAN_LIMIT).stream())
             except Exception:
-                docs = list(q.limit(SCAN_LIMIT).stream())    # thiếu index -> vẫn chạy (không sắp xếp)
+                docs = list(q.limit(SCAN_LIMIT).stream())
         except Exception as e:
             print(f"  ⚠️ auto-enqueue đọc render_jobs {ch} lỗi: {e}"); continue
 
@@ -104,25 +168,25 @@ def run(dry_run: bool = False):
                 continue
             fid = j.get("drive_id")
             if not fid or fid in queued_ids:
-                if fid and not j.get("queued") and not dry_run:
-                    db.collection("render_jobs").document(d.id).set({"queued": True}, merge=True)   # đã có trong queue -> đánh dấu
+                if fid and not dry_run:
+                    db.collection("render_jobs").document(d.id).set({"queued": True}, merge=True)
                 continue
-            ppd = int(ppd_map.get(ch, ppd_def) or ppd_def)
-            when = next_slot(ch, ppd)                        # RẢI theo ngày trống -> không trùng/chồng ngày
+            vtype = "long" if (j.get("type") == "long") else "short"
+            when = next_slot(ch, vtype)                     # RẢI theo MIX template -> không quá mix/ngày
             item = {"owner": owner, "channel": ch, "drive_file_id": fid,
-                    "drive_account": j.get("drive_account", ""), "type": j.get("type", "short"),
+                    "drive_account": j.get("drive_account", ""), "type": vtype,
                     "title": j.get("title", ""),
                     "drive_name": j.get("drive_name") or ((j.get("title") or fid) + ".mp4"),
                     "description": j.get("description", ""), "hashtags": j.get("hashtags") or [],
                     "tags": j.get("tags") or [], "status": "pending", "attempts": 0,
                     "created_at": now.isoformat(), "publish_at": when}
             if dry_run:
-                print(f"  (dry) auto-enqueue {ch}: {when[:10]} · {(item['title'] or fid)[:40]}"); added += 1; continue
+                print(f"  (dry) {ch} [{vtype}] -> {when[:16]} · {(item['title'] or fid)[:38]}"); added += 1; continue
             db.collection("yt_queue").add(item)
             db.collection("render_jobs").document(d.id).set({"queued": True}, merge=True)
             queued_ids.add(fid); added += 1
 
-    print(f"✔ auto-enqueue: thêm {added} video vào hàng đợi." if added else "✔ auto-enqueue: không có video mới.")
+    print(f"✔ auto-enqueue: xếp lịch {added} video (theo template)." if added else "✔ auto-enqueue: không có video mới.")
 
 
 if __name__ == "__main__":
