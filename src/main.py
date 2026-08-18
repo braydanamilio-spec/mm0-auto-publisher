@@ -591,7 +591,16 @@ def main():
             print(f"  ❌ Per-user lỗi tổng: {e}")
             traceback.print_exc()
 
-    # CONTENT HUB: đăng YouTube từ hàng đợi cloud (user chọn video Drive trên dashboard)
+    # AUTO-ENQUEUE: tự đẩy video render xong vào hàng đợi (CHỈ kênh bật auto_publish + đã kết nối YouTube).
+    if not args.only:
+        try:
+            import auto_enqueue
+            auto_enqueue.run(dry_run=args.dry_run)
+        except Exception as e:
+            print(f"  ❌ auto-enqueue lỗi tổng: {e}")
+            traceback.print_exc()
+
+    # CONTENT HUB: đăng YouTube từ hàng đợi cloud (user chọn video Drive trên dashboard HOẶC auto-enqueue ở trên)
     if not args.only:
         try:
             import publish_yt_queue
