@@ -1726,11 +1726,13 @@
       a.download="mm0-gemini-keys.txt"; a.click(); URL.revokeObjectURL(a.href);
       toastMsg(`⬇ Đã tải backup ${ks.length} key`); };
     // Đổ 20 kênh preset vào dropdown (đánh số + badge format). Gọi khi load.
-    window.__rsFillPicker=()=>{ const sel=document.getElementById("rsChPick"); if(!sel||sel.__f) return; sel.__f=1;
-      const P=window.RS_PRESETS||[];
-      sel.innerHTML='<option value="">— Chọn kênh —</option>'
-        + P.map((p,i)=>`<option value="${p.name}">${String(i+1).padStart(2,"0")}. ${p.name}${p.fmt?" · "+p.fmt:""}</option>`).join("")
-        + '<option value="__custom">✏️ Kênh tùy chỉnh (gõ tên)</option>'; };
+    window.__rsFillPicker=()=>{ const sel=document.getElementById("rsChPick"); if(!sel) return;
+      if(!sel.__f){ sel.__f=1; const P=window.RS_PRESETS||[];
+        sel.innerHTML='<option value="">— Chọn kênh —</option>'
+          + P.map((p,i)=>`<option value="${p.name}">${String(i+1).padStart(2,"0")}. ${p.name}${p.fmt?" · "+p.fmt:""}</option>`).join("")
+          + '<option value="__custom">✏️ Kênh tùy chỉnh (gõ tên)</option>'; }
+      try{ window.rsSelectWithAvatars(sel); }catch(_){}   // bọc avatar (gọi lại lúc RS_BRANDS đã có -> avatar brand đúng)
+    };
     // Chọn 1 kênh -> tự điền niche + (motif/doc thì set short-only). Custom -> hiện ô gõ tên.
     window.__rsPickChannel=()=>{ const v=(document.getElementById("rsChPick")||{}).value;
       const custom=document.getElementById("rsChName"), niche=document.getElementById("rsChNiche");
