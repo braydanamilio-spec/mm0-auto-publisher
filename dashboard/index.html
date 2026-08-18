@@ -2168,7 +2168,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       let all=(window.__rsJobsData||[]).filter(j=>j.status==="done" && (j.drive_id||j.preview));
       const chSel=document.getElementById(channelId);   // dropdown lọc kênh — liệt kê mọi kênh đã có video
       if(chSel){ const chans=[...new Set(all.map(j=>j.channel||"?"))].sort();
-        const opts='<option value="">Tất cả kênh ('+all.length+')</option>'+chans.map(c=>`<option value="${esc(c)}">${esc(c)} (${all.filter(j=>(j.channel||"?")===c).length})</option>`).join("");
+        const opts='<option value="">Tất cả kênh ('+all.length+')</option>'+chans.map((c,i)=>`<option value="${esc(c)}">${String(i+1).padStart(2,"0")}. ${esc(c)} (${all.filter(j=>(j.channel||"?")===c).length})</option>`).join("");
         if(chSel.getAttribute("data-opts")!==opts){ const cur=chSel.value; chSel.innerHTML=opts; chSel.setAttribute("data-opts",opts); if(chans.includes(cur)) chSel.value=cur; try{window.rsSelectWithAvatars(chSel);}catch(_){} } }
       const chF=(chSel&&chSel.value)||"";
       let done = chF ? all.filter(j=>(j.channel||"?")===chF) : all;
