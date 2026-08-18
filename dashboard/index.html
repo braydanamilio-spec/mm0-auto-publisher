@@ -755,7 +755,17 @@
                 <option value="name">🔤 Tên A→Z</option>
               </select></div></div>
           <div id="stTokenHealth" style="margin-bottom:10px"></div>
-          <input id="stAccSearch" placeholder="🔎 Tìm kho theo email / tên / Drive ID…" oninput="window.renderStorage&&window.renderStorage()" style="width:100%;margin-bottom:10px"/>
+          <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+            <input id="stAccSearch" placeholder="🔎 Tìm kho theo email / tên / Drive ID…" oninput="window.renderStorage&&window.renderStorage()" style="flex:1;min-width:200px"/>
+            <select id="stStatus" onchange="window.renderStorage&&window.renderStorage()" style="max-width:190px">
+              <option value="">Tất cả trạng thái</option>
+              <option value="full">✅ Full quyền</option>
+              <option value="noperm">🔒 Thiếu quyền</option>
+              <option value="bad">⚠️ Token hỏng</option>
+              <option value="unchecked">⚪ Chưa kiểm quyền</option>
+              <option value="nearfull">🟠 Gần đầy (≥80%)</option>
+            </select>
+          </div>
           <div id="stAccounts"></div>
         </div>
         <div class="panel" style="margin-bottom:16px">
@@ -844,6 +854,18 @@
             <button class="btn-conn" onclick="window.__rsAddKey&&window.__rsAddKey()">＋ Thêm key</button>
           </div>
           <div id="rsKeyHealth" style="margin:6px 0;padding:8px 10px;background:#ffffff0d;border-radius:8px;font-size:13px">⚪ Chưa health-check lần nào.</div>
+          <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+            <input id="rsKeySearch" placeholder="🔎 Tìm key theo Gmail…" oninput="window.__rsRenderKeys&&window.__rsRenderKeys()" style="flex:1;min-width:180px"/>
+            <select id="rsKeyStatus" onchange="window.__rsRenderKeys&&window.__rsRenderKeys()" style="max-width:190px">
+              <option value="">Tất cả trạng thái</option>
+              <option value="alive">🟢 Sống</option>
+              <option value="cooling">😴 Đang nghỉ (cooldown)</option>
+              <option value="deadall">🔴 Chết (tất cả)</option>
+              <option value="warn">⚠️ Theo dõi &gt;72h</option>
+              <option value="replace">🔴 Thay ngay &gt;7 ngày</option>
+              <option value="unknown">⚪ Chưa kiểm</option>
+            </select>
+          </div>
           <div id="rsKeyList" class="list"><div class="d">Chưa có key nào.</div></div>
           <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn-conn" onclick="window.__rsExportKeys&&window.__rsExportKeys()">⬇ Backup keys (.txt)</button>
@@ -1723,6 +1745,31 @@
       else if(c.enabled){ t=`⏸ Đang NGHỈ · chờ mẻ ~${__nextBatchTime()}`; col="#9aa6c0"; }
       else { t="⏸ Tắt (bật cron đêm để tự chạy)"; col="#9aa6c0"; }
       el.textContent=t; el.style.color=col; };
+    // KEY Gemini: render + LỌC trạng thái + TÌM theo Gmail.
+    window.__rsKeyStatus=(k)=>{ const nowIso=new Date().toISOString(); const _dt=window.__deadThresh||{warn:72,repl:168};
+      const cooling=k.cooling_until&&k.cooling_until>nowIso;
+      if(k.alive===false){ if(k.dead_since){ const hrs=(Date.now()-new Date(k.dead_since).getTime())/3.6e6; if(hrs>=_dt.repl) return "replace"; if(hrs>=_dt.warn) return "warn"; } return "dead"; }
+      if(cooling) return "cooling"; if(k.alive===true) return "alive"; return "unknown"; };
+    window.__rsRenderKeys=()=>{ const el=document.getElementById("rsKeyList"); if(!el) return;
+      const ks=window.__rsKeysData||[]; const q=((document.getElementById("rsKeySearch")||{}).value||"").trim().toLowerCase();
+      const sf=((document.getElementById("rsKeyStatus")||{}).value||"");
+      let nDead=0,nWarn=0,nRepl=0; ks.forEach(k=>{const st=window.__rsKeyStatus(k); if(st==="dead")nDead++; if(st==="warn"){nWarn++;nDead++;} if(st==="replace"){nRepl++;nDead++;}});
+      let list=ks.map((k,i)=>({...k,_i:i,_st:window.__rsKeyStatus(k)}));
+      if(q) list=list.filter(k=>[k.email,k.last4,k.source].some(v=>String(v||"").toLowerCase().includes(q)));
+      if(sf) list=list.filter(k=> sf==="deadall"?(k._st==="dead"||k._st==="warn"||k._st==="replace") : k._st===sf);
+      const nowIso=new Date().toISOString();
+      el.innerHTML=(q||sf?`<div class="p-sub" style="margin-bottom:6px">🔎 ${list.length}/${ks.length} key khớp</div>`:"")
+        +(list.length? list.map(k=>{ const cooling=k.cooling_until&&k.cooling_until>nowIso;
+          const dot=(k._st==="dead"||k._st==="warn"||k._st==="replace")?'🔴':(cooling?'😴':(k.alive===true?'🟢':'⚪'));
+          const chk=k.last_checked?` · <span class="d">kiểm ${ago(k.last_checked)}</span>`:'';
+          const stx=k.alive===false?` <span class="d" style="color:#ff5a5a" title="${esc(k.dead_reason||"")}">CHẾT${k.dead_reason?" ("+esc(String(k.dead_reason).slice(0,40))+")":""}</span>`:(cooling?' <span class="d">nghỉ</span>':'');
+          let badge=''; if(k.dead_since&&(k._st==="warn"||k._st==="replace")){ const dys=Math.max(1,Math.floor((Date.now()-new Date(k.dead_since).getTime())/8.64e7));
+            badge=k._st==="replace"?` <span style="color:#fff;background:#dc2626;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:800">🔴 THAY NGAY · ${dys}d</span>`:` <span style="color:#111;background:#f59e0b;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:800">⚠️ theo dõi · ${dys}d</span>`; }
+          return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${dot} <b style="color:#8b6cff">#${k._i+1}</b> 🔑 •••• ${esc(k.last4||"")} · 📧 <b>${esc(k.email||"(chưa ghi Gmail)")}</b>${stx}${badge} <span class="d">(${esc(k.source||"")})</span>${chk}</span><button class="btn-conn" onclick="window.__rsDelKey('${k.id}')">Xoá</button></div>`; }).join("") : '<div class="d">Không key nào khớp.</div>');
+      const _dt=window.__deadThresh||{warn:72,repl:168}; const kb=document.getElementById("rsKeyHealth"); if(kb) kb.innerHTML =
+        (nRepl?`<div>🔴 <b style="color:#fff;background:#dc2626;padding:2px 7px;border-radius:6px">${nRepl} key chết >${Math.round(_dt.repl/24)} ngày — THAY NGAY</b></div>`:'')
+        +(nWarn?`<div style="margin-top:4px">⚠️ <b style="color:#111;background:#f59e0b;padding:2px 7px;border-radius:6px">${nWarn} key chết >${_dt.warn}h — theo dõi</b></div>`:'')
+        +((!nRepl&&!nWarn)?(nDead? `🔴 <b style="color:#ff5a5a">${nDead} key chết</b> — health-check tự mở lại nếu Google bỏ chặn.` : (ks.some(k=>k.last_checked)? '🟢 Tất cả key sống (kiểm mỗi ngày).' : '⚪ Chưa health-check lần nào.')):''); };
     // Render danh sách kênh + CHECKBOX chọn nhiều + ĐẾM đã làm long/short + trạng thái target.
     window.__rsSelCh = window.__rsSelCh || new Set();
     window.__rsRenderChList = () => { const el=document.getElementById("rsChList"); if(!el) return;
@@ -1787,26 +1834,7 @@
         // Cảnh báo AN TOÀN: pipeline tự dừng vì kho Drive gần đầy
         const sb=document.getElementById("rsSafetyStop");
         if(sb){ if(c.last_safety_stop){ sb.style.display="block"; sb.textContent="🛡️ "+c.last_safety_stop; } else sb.style.display="none"; } }, ()=>{});
-      onSnapshot(q("gemini_keys"), s=>{ const el=document.getElementById("rsKeyList"); if(!el) return;
-        const ds=s.docs; window.__rsKeysData = ds.map(d=>d.data()); const mk=document.getElementById("rsTotKeys"); if(mk) mk.textContent=ds.length;
-        const nowIso=new Date().toISOString(); let nDead=0, nWarn=0, nRepl=0;
-        const _dt=window.__deadThresh||{warn:72,repl:168};
-        el.innerHTML = ds.length? ds.map((d,ix)=>{const k=d.data();
-          const cooling=k.cooling_until&&k.cooling_until>nowIso;
-          const dot=k.alive===false?'🔴':(cooling?'😴':(k.alive===true?'🟢':'⚪'));
-          if(k.alive===false) nDead++;
-          const chk=k.last_checked?` · <span class="d">kiểm ${ago(k.last_checked)}</span>`:'';
-          const st=k.alive===false?` <span class="d" style="color:#ff5a5a" title="${esc(k.dead_reason||"")}">CHẾT${k.dead_reason?" ("+esc(String(k.dead_reason).slice(0,40))+")":""}</span>`:(cooling?' <span class="d">nghỉ</span>':'');
-          // 2 MỨC: 🔴 >repl (7 ngày, THAY NGAY) · ⚠️ >warn (72h, theo dõi).
-          let stale='';
-          if(k.alive===false && k.dead_since){ const hrs=(Date.now()-new Date(k.dead_since).getTime())/3.6e6; const dys=Math.max(1,Math.floor(hrs/24));
-            if(hrs>=_dt.repl){ nRepl++; stale=` <span style="color:#fff;background:#dc2626;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:800" title="chết từ ${esc(k.dead_since)} — project chết hẳn, thay ngay">🔴 THAY NGAY · chết ${dys}d</span>`; }
-            else if(hrs>=_dt.warn){ nWarn++; stale=` <span style="color:#111;background:#f59e0b;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:800" title="chết từ ${esc(k.dead_since)} — theo dõi, có thể còn tự mở">⚠️ theo dõi · chết ${dys}d</span>`; } }
-          return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${dot} <b style="color:#8b6cff">#${ix+1}</b> 🔑 •••• ${esc(k.last4||"")} · 📧 <b>${esc(k.email||"(chưa ghi Gmail)")}</b>${st}${stale} <span class="d">(${esc(k.source||"")})</span>${chk}</span><button class="btn-conn" onclick="window.__rsDelKey('${d.id}')">Xoá</button></div>`}).join("") : '<div class="d">Chưa có key nào.</div>';
-        const kb=document.getElementById("rsKeyHealth"); if(kb) kb.innerHTML =
-          (nRepl?`<div>🔴 <b style="color:#fff;background:#dc2626;padding:2px 7px;border-radius:6px">${nRepl} key chết >${Math.round(_dt.repl/24)} ngày — THAY NGAY</b> <span class="d">(project chết hẳn)</span></div>`:'')
-          +(nWarn?`<div style="margin-top:4px">⚠️ <b style="color:#111;background:#f59e0b;padding:2px 7px;border-radius:6px">${nWarn} key chết >${_dt.warn}h — theo dõi</b> <span class="d">(có thể còn tự mở lại)</span></div>`:'')
-          +((!nRepl&&!nWarn)?(nDead? `🔴 <b style="color:#ff5a5a">${nDead} key chết</b> — health-check tự mở lại nếu Google bỏ chặn; quá 72h/7ngày sẽ báo 2 mức.` : (ds.some(d=>d.data().last_checked)? '🟢 Tất cả key sống (kiểm mỗi ngày).' : '⚪ Chưa health-check lần nào (chạy tự động ở lần render tới).')):''); }, ()=>{});
+      onSnapshot(q("gemini_keys"), s=>{ window.__rsKeysData=s.docs.map(d=>({id:d.id,...d.data()})); const mk=document.getElementById("rsTotKeys"); if(mk) mk.textContent=s.docs.length; window.__rsRenderKeys&&window.__rsRenderKeys(); }, ()=>{});
       onSnapshot(q("render_channels"), s=>{
         window.__rsChannelsData = s.docs.map(d=>({id:d.id,...d.data()})); window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderChList&&window.__rsRenderChList(); }, ()=>{});
       const _jobsCb=(s)=>{ const el=document.getElementById("rsJobs"); const bd=document.getElementById("nvRender");
@@ -4951,14 +4979,23 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       const sortBy=($("stSort")&&$("stSort").value)||"free";
       const freeOf=a=>Math.max(0,(a.cap||0)-(a.used||0));
       const qA=(($("stAccSearch")||{}).value||"").trim().toLowerCase();
+      const sfA=(($("stStatus")||{}).value||"");
       let list=[...accs];
       if(qA) list=list.filter(a=>[a.name,a.email,a.root].some(v=>String(v||"").toLowerCase().includes(qA)));
+      if(sfA) list=list.filter(a=>{ const tk=(window.__driveTok||{})[a.name]; const pct=a.cap?(a.used||0)/a.cap*100:0;
+        if(sfA==="nearfull") return pct>=80;
+        if(sfA==="unchecked") return !tk;
+        if(!tk) return false;
+        if(sfA==="bad") return !tk.healthy;
+        if(sfA==="noperm") return tk.healthy&&tk.fullEdit===false;
+        if(sfA==="full") return tk.healthy&&tk.fullEdit!==false;
+        return true; });
       const sortedAccs=list.sort((a,b)=>
         sortBy==="full" ? ((b.used||0)/(b.cap||1))-((a.used||0)/(a.cap||1))
         : sortBy==="cap" ? (b.cap||0)-(a.cap||0)
         : sortBy==="name" ? String(a.name).localeCompare(b.name)
         : freeOf(b)-freeOf(a));   // free (mặc định)
-      $("stAccounts").innerHTML=(qA?`<div class="p-sub" style="margin-bottom:8px">🔎 ${sortedAccs.length}/${accs.length} kho khớp "${esc(qA)}"</div>`:"")
+      $("stAccounts").innerHTML=((qA||sfA)?`<div class="p-sub" style="margin-bottom:8px">🔎 ${sortedAccs.length}/${accs.length} kho khớp${qA?` "${esc(qA)}"`:""}${sfA?" · lọc trạng thái":""}</div>`:"")
         +(sortedAccs.length?sortedAccs.map(a=>{const pct=a.cap?Math.min(100,Math.round((a.used||0)/a.cap*100)):0;
         const col=pct>=95?"var(--bad)":pct>=80?"var(--warn)":"var(--good)";
         const capGB=(a.cap||0)/1e9; const tier=capGB>16?`☁️ One ${Math.round(capGB)}GB`:"🆓 Free 15GB";
