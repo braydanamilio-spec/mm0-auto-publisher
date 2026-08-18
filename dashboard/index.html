@@ -1745,6 +1745,18 @@
       else if(c.enabled){ t=`⏸ Đang NGHỈ · chờ mẻ ~${__nextBatchTime()}`; col="#9aa6c0"; }
       else { t="⏸ Tắt (bật cron đêm để tự chạy)"; col="#9aa6c0"; }
       el.textContent=t; el.style.color=col; };
+    // THU GỌN list dài -> mặc định chỉ show ~1 hàng, có nút "Xem thêm" (đỡ kéo trang khi coi phần khác).
+    window.__collapseList=(elId,rowPx)=>{ const el=document.getElementById(elId); if(!el) return;
+      const cnt=[...el.children].filter(c=>c.nodeType===1 && !(c.classList&&c.classList.contains('p-sub'))).length;
+      let btn=el.nextElementSibling; const hasBtn=btn&&btn.classList&&btn.classList.contains('rs-morebtn');
+      const need=el.scrollHeight>(rowPx+24);
+      if(!need){ el.style.maxHeight=''; el.style.overflow=''; if(hasBtn) btn.style.display='none'; return; }
+      if(!hasBtn){ btn=document.createElement('button'); btn.className='rs-morebtn';
+        btn.style.cssText='margin:4px 0 12px;width:100%;padding:6px;font-size:12px;background:#8b6cff1f;border:1px solid #8b6cff55;border-radius:8px;color:#8b6cff;cursor:pointer;font-weight:700';
+        el.parentNode.insertBefore(btn,el.nextSibling); btn.onclick=()=>{ el.__open=!el.__open; window.__collapseList(elId,rowPx); }; }
+      btn.style.display='';
+      if(el.__open){ el.style.maxHeight=''; el.style.overflow=''; btn.textContent='⌃ Thu gọn'; }
+      else { el.style.maxHeight=rowPx+'px'; el.style.overflow='hidden'; btn.textContent=`⌄ Xem thêm (${cnt})`; } };
     // KEY Gemini: render + LỌC trạng thái + TÌM theo Gmail.
     window.__rsKeyStatus=(k)=>{ const nowIso=new Date().toISOString(); const _dt=window.__deadThresh||{warn:72,repl:168};
       const cooling=k.cooling_until&&k.cooling_until>nowIso;
@@ -1773,7 +1785,7 @@
       if(kb) kb.innerHTML = quotaLine +
         (nRepl?`<div>🔴 <b style="color:#fff;background:#dc2626;padding:2px 7px;border-radius:6px">${nRepl} key chết >${Math.round(_dt.repl/24)} ngày — THAY NGAY</b></div>`:'')
         +(nWarn?`<div style="margin-top:4px">⚠️ <b style="color:#111;background:#f59e0b;padding:2px 7px;border-radius:6px">${nWarn} key chết >${_dt.warn}h — theo dõi</b></div>`:'')
-        +((!nRepl&&!nWarn)?(nDead? `🔴 <b style="color:#ff5a5a">${nDead} key chết</b> — health-check tự mở lại nếu Google bỏ chặn.` : (ks.some(k=>k.last_checked)? '🟢 Tất cả key sống (kiểm mỗi ngày).' : '⚪ Chưa health-check lần nào.')):''); };
+        +((!nRepl&&!nWarn)?(nDead? `🔴 <b style="color:#ff5a5a">${nDead} key chết</b> — health-check tự mở lại nếu Google bỏ chặn.` : (ks.some(k=>k.last_checked)? '🟢 Tất cả key sống (kiểm mỗi ngày).' : '⚪ Chưa health-check lần nào.')):''); window.__collapseList&&window.__collapseList('rsKeyList',46); };
     // Render danh sách kênh + CHECKBOX chọn nhiều + ĐẾM đã làm long/short + trạng thái target.
     window.__rsSelCh = window.__rsSelCh || new Set();
     window.__rsRenderChList = () => { const el=document.getElementById("rsChList"); if(!el) return;
@@ -1796,7 +1808,7 @@
         const paused=(hitL&&hitS)?' <span class="d" style="color:#4ade80">· ⏸ đủ dự trữ, tạm ngừng</span>':'';
         const ck=window.__rsSelCh.has(c.id);
         return `<div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;gap:8px${ck?';background:#8b6cff14;border-radius:6px':''}"><span style="display:flex;align-items:center;gap:8px"><input type="checkbox" ${ck?"checked":""} onchange="window.__rsToggleCh('${c.id}',this.checked)" style="cursor:pointer"><span>📺 <b>${esc(c.name)}</b> · <span class="d">${esc(c.niche||"")}</span> · ${prog}${paused}</span></span><span style="display:flex;gap:6px;flex:none"><button class="btn-conn" title="Đặt mục tiêu số video — đạt là tự dừng" onclick="window.__rsSetTarget('${c.id}')">🎯 Target</button><button class="btn-conn" onclick="window.__rsDelChannel('${c.id}')">Xoá</button></span></div>`;
-      }).join(""); };
+      }).join(""); window.__collapseList&&window.__collapseList('rsChList',96); };
     window.__rsToggleAll = (on) => { if(on) (window.__rsChannelsData||[]).forEach(c=>window.__rsSelCh.add(c.id)); else window.__rsSelCh.clear(); window.__rsRenderChList(); };
     window.__rsToggleCh = (id,on) => { if(on) window.__rsSelCh.add(id); else window.__rsSelCh.delete(id); window.__rsRenderChList(); };
     // ĐẶT TARGET HÀNG LOẠT cho mọi kênh đã tích chọn.
@@ -2122,6 +2134,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
             <button class="d" onclick="window.rsDeleteGroup('${view}','${esc(String(g).replace(/'/g,''))}')" style="background:none;border:1px solid #ff5a5a44;color:#ff8080;border-radius:6px;padding:2px 9px;font-size:11px;cursor:pointer" title="Xóa tất cả video của nhóm này (dọn bản cũ/lỗi)">🗑 Xóa nhóm</button></div>
           ${grp("🎬","Long 16:9",longs)}${grp("📱","Short 9:16",shorts)}</div>`;
       }).join("");
+      window.__collapseList&&window.__collapseList(hostId,150);   // thu gọn kho tổng còn ~1 nhóm, có "Xem thêm"
     }
     // DEBOUNCE + chỉ render gallery ĐANG HIỆN (tránh treo trang khi job cập nhật dồn dập).
     let _galT=null;
@@ -5011,6 +5024,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
           <div class="bar"><i style="width:${pct}%;background:${col}"></i></div></div>
           <div class="chan-right"><div class="big tnum" style="color:${col}">${pct}%</div><div class="cap">đã dùng</div>
           <button class="mini bad" style="margin-top:6px" onclick="disconnectChannel('${esc(a.name)}','drive','${esc(a.email||a.name)}')">🗑 ${esc(t('disconnect'))}</button></div></div>`;}).join(""):`<div class="p-sub" style="padding:10px 0">Không kho nào khớp "${esc(qA)}".</div>`);
+      window.__collapseList&&window.__collapseList('stAccounts',84);
     }
     window.renderStorage=renderStorage;
 
