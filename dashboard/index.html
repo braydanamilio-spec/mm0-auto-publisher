@@ -1889,7 +1889,7 @@
           const bg=lr>0?"⚙️":((lf||shf)?"⚠️":"✅");
           const m=chMeta[c.toUpperCase()]||{}; const lt=m.long_target||0, st=m.short_target||0;
           const tgt=(lt||st)?`<span class="d"> · 🎯 ${lt?`long ${ld}/${lt}`:""}${lt&&st?" · ":""}${st?`short ${shd}/${st}`:""}</span>`:"";
-          return `<div class="row" style="display:block;padding:7px 0"><div style="display:flex;justify-content:space-between"><span>${bg} <b>${esc(c)}</b>${tgt}</span><span class="d">long ${ld}✅${lf?" "+lf+"❌":""} · short ${shd}/${sh.length}${shf?" "+shf+"❌":""}</span></div>${bar(ld,lt,"#8b6cff")}${bar(shd,st,"#4ea1ff")}</div>`;
+          return `<div class="row" style="display:block;padding:7px 0"><div style="display:flex;justify-content:space-between"><span>${bg} <img src="${window.rsAvatarUri?window.rsAvatarUri(c,44):''}" style="width:18px;height:18px;border-radius:4px;vertical-align:middle;margin:0 2px"> <b>${esc(c)}</b>${tgt}</span><span class="d">long ${ld}✅${lf?" "+lf+"❌":""} · short ${shd}/${sh.length}${shf?" "+shf+"❌":""}</span></div>${bar(ld,lt,"#8b6cff")}${bar(shd,st,"#4ea1ff")}</div>`;
         }).join("") : '<div class="d">Chưa có dữ liệu — chạy pipeline để thấy tiến trình từng kênh.</div>'; }
         const al=document.getElementById("rsAlert");
         if(al){
@@ -1905,7 +1905,7 @@
           } else al.style.display="none";
         }
         if(el) el.innerHTML = ds.length? ds.map(d=>{const j=d.data(); const ic={queued:"⏳",writing:"✍️",rendering:"🎞️",qc:"🔍",done:"✅",failed:"❌",running:"⚙️"}[j.status]||"•";
-          return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${ic} <b>${esc(j.channel||"")}</b> · ${esc(j.type||"")} · ${esc(j.step||j.status||"")} ${j.score?`· QC ${esc(j.score)}`:""} ${j.preview?`· <a href="${esc(j.preview)}" target="_blank" style="color:#8b6cff;font-weight:700">▶ Xem</a>`:""}</span><span class="d">${esc((j.created_at||"").slice(11,16))}</span></div>`}).join("") : '<div class="d">Chưa có job nào. Bấm “Render ngay” để thử.</div>'; };
+          return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${ic} <img src="${window.rsAvatarUri?window.rsAvatarUri(j.channel||"",44):''}" style="width:18px;height:18px;border-radius:4px;vertical-align:middle;margin:0 2px"> <b>${esc(j.channel||"")}</b> · ${esc(j.type||"")} · ${esc(j.step||j.status||"")} ${j.score?`· QC ${esc(j.score)}`:""} ${j.preview?`· <a href="${esc(j.preview)}" target="_blank" style="color:#8b6cff;font-weight:700">▶ Xem</a>`:""}</span><span class="d">${esc((j.created_at||"").slice(11,16))}</span></div>`}).join("") : '<div class="d">Chưa có job nào. Bấm “Render ngay” để thử.</div>'; };
       // GIỚI HẠN 300 job MỚI NHẤT -> Firestore đọc luôn bị chặn dù có hàng chục nghìn video (vẫn free). Index chưa sẵn -> fallback không limit.
       onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(300)), _jobsCb,
                  ()=>{ onSnapshot(q("render_jobs"), _jobsCb, ()=>{}); });
