@@ -104,12 +104,13 @@ def _checks(sidecar: dict, meta: dict) -> dict:
 
 
 def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now, overrides=None, review_mode=False):
-    print(f"\n=== KÊNH: {ch['display_name']} ({key}) ===")
+    # ĐƯỜNG CŨ (folder-secret theo kênh) đã bị thay bằng kho POOL + hàng đợi yt_queue (pool-aware).
+    # Kênh không set folder-secret -> bỏ qua LẶNG LẼ (không phải lỗi), tránh spam log + "failure" giả.
     resolved = resolve_channel_env(ch, state, key)
     root = resolved["drive_folder_id"]
     if not root:
-        print("  ⚠️  Thiếu Drive folder id (secret chưa set) -> bỏ qua.")
-        return
+        return                                   # dùng kho pool + yt_queue thay thế -> không cần folder-secret
+    print(f"\n=== KÊNH: {ch['display_name']} ({key}) ===")
 
     # Ưu tiên template chọn trên dashboard (Firestore overrides) -> active_template -> env default
     tmpl_name = (overrides or {}).get(key) or ch.get("active_template",
