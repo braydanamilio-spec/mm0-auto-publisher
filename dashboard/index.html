@@ -865,6 +865,7 @@
               <option value="replace">🔴 Thay ngay &gt;7 ngày</option>
               <option value="unknown">⚪ Chưa kiểm</option>
             </select>
+            <button class="btn-conn" title="Test lại TẤT CẢ key ngay (bỏ qua giới hạn 20h) — key chết sẽ hiện trong lọc 🔴" onclick="window.__rsForceHealth&&window.__rsForceHealth()">🩺 Kiểm key ngay</button>
           </div>
           <div id="rsKeyList" class="list"><div class="d">Chưa có key nào.</div></div>
           <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
@@ -1792,6 +1793,10 @@
       const cooling=k.cooling_until&&k.cooling_until>nowIso;
       if(k.alive===false){ if(k.dead_since){ const hrs=(Date.now()-new Date(k.dead_since).getTime())/3.6e6; if(hrs>=_dt.repl) return "replace"; if(hrs>=_dt.warn) return "warn"; } return "dead"; }
       if(cooling) return "cooling"; if(k.alive===true) return "alive"; return "unknown"; };
+    // 🩺 Kiểm TẤT CẢ key ngay: đặt force_health + run_now -> mẻ render tới (≤10') health-check bỏ qua giới hạn 20h.
+    window.__rsForceHealth=async()=>{ const o=RSowner(); if(!o) return alert("Chưa đăng nhập.");
+      try{ await setDoc(rsCfgDoc(), {owner:o, enabled:true, force_health:true, run_now:new Date().toISOString(), run_now_by:(window.__uEmail||"dashboard")}, {merge:true});
+        try{toastMsg("🩺 Đã yêu cầu — test lại TẤT CẢ key ở mẻ tới (≤10'). Xong thì lọc 🔴 Chết để thấy email + số thứ tự key hỏng.");}catch(_){} }catch(e){ alert("Lỗi: "+e.message); } };
     window.__rsRenderKeys=()=>{ const el=document.getElementById("rsKeyList"); if(!el) return;
       const ks=window.__rsKeysData||[]; const q=((document.getElementById("rsKeySearch")||{}).value||"").trim().toLowerCase();
       const sf=((document.getElementById("rsKeyStatus")||{}).value||"");
