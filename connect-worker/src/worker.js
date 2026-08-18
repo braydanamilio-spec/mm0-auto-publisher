@@ -1385,7 +1385,11 @@ function fsVal(v) {
 // Đọc 1 document Firestore -> object phẳng (chỉ các kiểu ta dùng)
 async function fsGet(env, accessToken, path) {
   const u = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/${path}`;
-  const res = await fetch(u, { headers: { Authorization: `Bearer ${accessToken}` } });
+  let res = await fetch(u, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (res.status === 429) {                 // Firestore rate-limit (kiểm nhiều kho dồn) -> chờ ngắn rồi thử lại 1 lần
+    await new Promise(r => setTimeout(r, 500));
+    res = await fetch(u, { headers: { Authorization: `Bearer ${accessToken}` } });
+  }
   if (res.status === 404) return null;
   if (!res.ok) throw new Error("Firestore read fail: " + res.status);
   const doc = await res.json();

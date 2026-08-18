@@ -4794,21 +4794,32 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       if(!accs.length){ box.innerHTML=`<div class="p-sub">Chưa có kho nào.</div>`; return; }
       box.innerHTML=`<div class="p-sub">🩺 Đang kiểm tra ${accs.length} kho…</div>`;
       const rows=[];
-      for(const a of accs){ try{ const d=await workerApi(`/api/token-check?account=${encodeURIComponent(a)}`); rows.push({a,healthy:d.healthy,invalid:d.invalid,fullEdit:d.fullEdit}); }
-        catch(e){ rows.push({a,healthy:false,invalid:/invalid_grant|TOKEN_INVALID/i.test(e.message)}); } }
-      window.__driveTok={}; rows.forEach(r=>{ window.__driveTok[r.a]={healthy:r.healthy,fullEdit:r.fullEdit}; });   // lưu -> badge trong bảng kho
+      for(let i=0;i<accs.length;i++){ const a=accs[i];
+        if(i) await new Promise(r=>setTimeout(r,140));   // GIÃN NHỊP -> tránh Firestore/OAuth rate-limit (kiểm nhiều kho dồn)
+        let done=false;
+        for(let att=0; att<2 && !done; att++){
+          try{ const d=await workerApi(`/api/token-check?account=${encodeURIComponent(a)}`); rows.push({a,healthy:d.healthy,invalid:d.invalid,fullEdit:d.fullEdit}); done=true; }
+          catch(e){ const m=String(e.message||e);
+            if(/429|rate|Firestore read fail|timeout|Failed to fetch/i.test(m)){ if(att===0){ await new Promise(r=>setTimeout(r,700)); continue; } rows.push({a,unknown:true}); done=true; }   // check LỖI TẠM -> CHƯA KIỂM ĐƯỢC (KHÔNG phải hỏng)
+            else { rows.push({a,healthy:false,invalid:/invalid_grant|TOKEN_INVALID/i.test(m)}); done=true; } }   // lỗi token THẬT -> hỏng
+        }
+        box.innerHTML=`<div class="p-sub">🩺 Đang kiểm tra ${i+1}/${accs.length} kho…</div>`;
+      }
+      window.__driveTok={}; rows.forEach(r=>{ window.__driveTok[r.a]={healthy:r.healthy,fullEdit:r.fullEdit,unknown:r.unknown}; });
       window.renderStorage&&window.renderStorage();
-      const bad=rows.filter(r=>!r.healthy);
-      const noPerm=rows.filter(r=>r.healthy && r.fullEdit===false);   // token sống NHƯNG thiếu quyền full edit
+      const bad=rows.filter(r=>r.healthy===false);           // HỎNG THẬT (explicit false; unknown KHÔNG tính)
+      const unknown=rows.filter(r=>r.unknown);
+      const noPerm=rows.filter(r=>r.healthy && r.fullEdit===false);
       const alert=bad.length||noPerm.length;
-      box.innerHTML=`<div class="panel" style="border-color:${alert?'var(--warn)':'var(--good)'};padding:12px">
-        <b style="color:${alert?'var(--warn)':'var(--good)'}">${bad.length?`⚠️ ${bad.length}/${rows.length} kho token HỎNG · `:''}${noPerm.length?`🔒 ${noPerm.length} kho THIẾU QUYỀN (không share/xóa được)`:(bad.length?'':`✅ Tất cả ${rows.length} kho token sống + đủ quyền full (upload · share link · xóa)`)}</b>
+      box.innerHTML=`<div class="panel" style="border-color:${alert?'var(--warn)':(unknown.length?'var(--muted)':'var(--good)')};padding:12px">
+        <b style="color:${alert?'var(--warn)':(unknown.length?'var(--muted)':'var(--good)')}">${bad.length?`⚠️ ${bad.length}/${rows.length} kho token HỎNG · `:''}${noPerm.length?`🔒 ${noPerm.length} kho THIẾU QUYỀN · `:''}${unknown.length?`⏳ ${unknown.length} kho chưa kiểm được (rate-limit, bấm kiểm lại) · `:''}${(!bad.length&&!noPerm.length&&!unknown.length)?`✅ Tất cả ${rows.length} kho token sống + đủ quyền full`:''}</b>
         <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px">${rows.map(r=>{
-          const st = !r.healthy ? {ic:'⚠️',cls:'bad',t:'token hỏng'} : (r.fullEdit===false ? {ic:'🔒',cls:'bad',t:'THIẾU QUYỀN edit'} : (r.fullEdit===true ? {ic:'✅',cls:'',t:'đủ quyền full'} : {ic:'✅',cls:'',t:'token sống'}));
-          const needFix = !r.healthy || r.fullEdit===false;
+          const st = r.unknown ? {ic:'⏳',cls:'',t:'chưa kiểm được (rate-limit) — bấm kiểm lại'} : (r.healthy===false ? {ic:'⚠️',cls:'bad',t:'token hỏng'} : (r.fullEdit===false ? {ic:'🔒',cls:'bad',t:'THIẾU QUYỀN edit'} : {ic:'✅',cls:'',t:'đủ quyền full'}));
+          const needFix = r.healthy===false || (r.healthy && r.fullEdit===false);
           return `<span class="rw-chip ${st.cls}" title="${st.t}">${st.ic} ${esc(r.a)}${needFix?` <button class="btn-mini" style="margin-left:4px" onclick="connectChannel('${esc(r.a)}','drive')">Kết nối lại</button>`:''}</span>`;}).join("")}</div>
-        ${noPerm.length?`<div class="p-sub" style="margin-top:8px;line-height:1.6">🔒 <b>${noPerm.length} kho thiếu quyền full Drive</b> — sẽ KHÔNG lấy được link share / đăng / xóa. Bấm <b>Kết nối lại</b> và ở màn hình Google <b>TÍCH ĐỦ các ô quyền</b> (đừng bỏ ô nào).</div>`:''}
-        ${bad.length?`<div class="p-sub" style="margin-top:8px;line-height:1.6">💡 Token hay hết hạn (Testing=7 ngày): <a href="https://console.cloud.google.com/apis/credentials/consent?project=377166959818" target="_blank" style="color:var(--accent)">publish OAuth consent screen sang Production →</a></div>`:''}</div>`; };
+        ${unknown.length?`<div class="p-sub" style="margin-top:8px">⏳ ${unknown.length} kho <b>chưa kiểm được</b> do rate-limit tạm (KHÔNG phải hỏng — video vẫn upload). Bấm 🩺 lại sau vài giây.</div>`:''}
+        ${noPerm.length?`<div class="p-sub" style="margin-top:8px;line-height:1.6">🔒 <b>${noPerm.length} kho thiếu quyền full Drive</b> — Kết nối lại + ở Google TÍCH ĐỦ ô quyền.</div>`:''}
+        ${bad.length?`<div class="p-sub" style="margin-top:8px;line-height:1.6">💡 Token hết hạn (Testing=7 ngày): <a href="https://console.cloud.google.com/apis/credentials/consent?project=377166959818" target="_blank" style="color:var(--accent)">publish OAuth consent → Production</a></div>`:''}</div>`; };
 
     // Đồng bộ dung lượng THẬT mọi kho NGAY (render upload không tự cập nhật storage_accounts.used).
     window.rsSyncUsage=async(btn)=>{
@@ -5022,7 +5033,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
         const capGB=(a.cap||0)/1e9; const tier=capGB>16?`☁️ One ${Math.round(capGB)}GB`:"🆓 Free 15GB";
         const idLine=a.root?`<div class="p-sub" style="font-size:11px;opacity:.7">🆔 ${esc(a.root)}</div>`:"";
         const tk=(window.__driveTok||{})[a.name];
-        const perm=tk?(!tk.healthy?`<span style="color:var(--bad);font-weight:700" title="token hỏng — kết nối lại">⚠️ token hỏng</span>`:(tk.fullEdit===false?`<span style="color:var(--bad);font-weight:700" title="thiếu quyền full Drive — không share/xóa được">🔒 thiếu quyền</span>`:`<span style="color:var(--good);font-weight:700" title="đủ quyền: upload · share · xóa">✅ full quyền</span>`)):`<span class="d" title="bấm 🩺 Kiểm token + quyền để kiểm">⚪ chưa kiểm quyền</span>`;
+        const perm=tk?(tk.unknown?`<span class="d" title="chưa kiểm được (rate-limit) — bấm 🩺 lại">⏳ chưa kiểm được</span>`:(tk.healthy===false?`<span style="color:var(--bad);font-weight:700" title="token hỏng — kết nối lại">⚠️ token hỏng</span>`:(tk.fullEdit===false?`<span style="color:var(--bad);font-weight:700" title="thiếu quyền full Drive — không share/xóa được">🔒 thiếu quyền</span>`:`<span style="color:var(--good);font-weight:700" title="đủ quyền: upload · share · xóa">✅ full quyền</span>`))):`<span class="d" title="bấm 🩺 Kiểm token + quyền để kiểm">⚪ chưa kiểm quyền</span>`;
         return `<div class="chan-item"><div class="ava" style="background:linear-gradient(145deg,var(--accent),var(--violet))">${esc((a.name||'?').slice(0,2).toUpperCase())}</div>
           <div class="chan-mid"><div class="nm">${esc(a.name)} <span class="tier-badge">${tier}</span> ${perm}${a.email?` <span class="p-sub">· ${esc(a.email)}</span>`:""}</div><div class="st">${fmtBytes(a.used||0)} / ${fmtBytes(a.cap||0)}</div>${idLine}
           <div class="bar"><i style="width:${pct}%;background:${col}"></i></div></div>
