@@ -1534,14 +1534,18 @@
       appId: "1:377166959818:web:eabe7e170d02cc8eaa5033"
     };
     const appFb = initializeApp(firebaseConfig);
+    // 🔀 SHARD: render_jobs (nặng nhất) đọc từ Project B -> giảm tải quota project A. Rules B public (job = metadata không nhạy cảm) nên khỏi auth.
+    const firebaseConfigB = { apiKey:"AIzaSyDTIlSNoApulSCCozwKTCbAelu5gYaoRFs", authDomain:"mm0-shard-b.firebaseapp.com", projectId:"mm0-shard-b", storageBucket:"mm0-shard-b.firebasestorage.app", messagingSenderId:"893314701198", appId:"1:893314701198:web:f261226c5be8e57b14f6df" };
     const auth = getAuth(appFb);
     const db = getFirestore(appFb);
+    let dbJobs = db;   // Firestore cho render_jobs -> Project B (shard); lỗi init thì fallback A
+    try { const appB = initializeApp(firebaseConfigB, "shardB"); dbJobs = getFirestore(appB); } catch(e){ dbJobs = db; }
     // TIẾT KIỆM ĐỌC Firestore (100% free): tab ẨN >30s -> TẮT network (listener ngừng đọc); HIỆN lại -> BẬT (sync tươi).
     let __netT=null, __netOff=false;
     document.addEventListener("visibilitychange", ()=>{
       clearTimeout(__netT);
-      if(document.hidden){ __netT=setTimeout(()=>{ disableNetwork(db).then(()=>{__netOff=true;}).catch(()=>{}); }, 5000); }   // ẩn tab >5s -> NGẮT đọc Firestore (tiết kiệm mạnh; hôm trước 30s)
-      else if(__netOff){ enableNetwork(db).then(()=>{__netOff=false;}).catch(()=>{}); }
+      if(document.hidden){ __netT=setTimeout(()=>{ disableNetwork(db).catch(()=>{}); if(dbJobs!==db) disableNetwork(dbJobs).catch(()=>{}); __netOff=true; }, 5000); }   // ẩn tab >5s -> NGẮT đọc Firestore CẢ A+B (tiết kiệm mạnh)
+      else if(__netOff){ enableNetwork(db).catch(()=>{}); if(dbJobs!==db) enableNetwork(dbJobs).catch(()=>{}); __netOff=false; }
     });
 
     document.getElementById("signin").onclick = () =>
@@ -1955,12 +1959,12 @@
         (()=>{ window.__staleClean=window.__staleClean||new Set(); const cut=Date.now()-6*3.6e6;
           all.forEach(j=>{ if(["queued","running","writing","rendering","qc"].includes(j.status) && j.created_at && new Date(j.created_at).getTime()<cut && j.id && !window.__staleClean.has(j.id)){
             window.__staleClean.add(j.id);
-            setDoc(doc(db,"render_jobs",j.id),{status:"failed",step:"⏱ Quá 6h — tiến trình đã dừng (job ma, tự dọn)"},{merge:true}).catch(()=>{}); }
+            setDoc(doc(dbJobs,"render_jobs",j.id),{status:"failed",step:"⏱ Quá 6h — tiến trình đã dừng (job ma, tự dọn)"},{merge:true}).catch(()=>{}); }
             // job "ratelimited" = hết quota tạm (KHÔNG phải lỗi) -> dọn cho gọn, video sẽ tự render lại
-            if(j.status==="ratelimited" && j.id && !window.__staleClean.has(j.id)){ window.__staleClean.add(j.id); deleteDoc(doc(db,"render_jobs",j.id)).catch(()=>{}); } }); })();
+            if(j.status==="ratelimited" && j.id && !window.__staleClean.has(j.id)){ window.__staleClean.add(j.id); deleteDoc(doc(dbJobs,"render_jobs",j.id)).catch(()=>{}); } }); })();
         // TỰ DỌN job LỖI đã có bản thành công MỚI HƠN cùng kênh (video lỗi được thay -> xoá cho đỡ rối).
         (()=>{ window.__cleaned=window.__cleaned||new Set(); const okAt={}; all.forEach(j=>{ if(j.status==="done"){ const c=j.channel||"?"; if((j.created_at||"")>(okAt[c]||"")) okAt[c]=j.created_at||""; }});
-          all.forEach(j=>{ if(j.status==="failed"){ const c=j.channel||"?"; if(okAt[c]&&(j.created_at||"")<okAt[c]&&j.id&&!window.__cleaned.has(j.id)){ window.__cleaned.add(j.id); deleteDoc(doc(db,"render_jobs",j.id)).catch(()=>{}); } }}); })();
+          all.forEach(j=>{ if(j.status==="failed"){ const c=j.channel||"?"; if(okAt[c]&&(j.created_at||"")<okAt[c]&&j.id&&!window.__cleaned.has(j.id)){ window.__cleaned.add(j.id); deleteDoc(doc(dbJobs,"render_jobs",j.id)).catch(()=>{}); } }}); })();
         const active=all.filter(j=>["queued","running","writing","rendering","qc"].includes(j.status)).length;
         const done=all.filter(j=>j.status==="done");
         const failed=all.filter(j=>j.status==="failed");
@@ -2004,8 +2008,14 @@
         if(el) el.innerHTML = ds.length? ds.map(d=>{const j=d.data(); const ic={queued:"⏳",writing:"✍️",rendering:"🎞️",qc:"🔍",done:"✅",failed:"❌",running:"⚙️"}[j.status]||"•";
           return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${ic} <img src="${window.rsAvatarUri?window.rsAvatarUri(j.channel||"",44):''}" style="width:18px;height:18px;border-radius:4px;vertical-align:middle;margin:0 2px"> <b>${esc(j.channel||"")}</b> · ${esc(j.type||"")} · ${esc(j.step||j.status||"")} ${j.score?`· QC ${esc(j.score)}`:""} ${j.preview?`· <a href="${esc(j.preview)}" target="_blank" style="color:#8b6cff;font-weight:700">▶ Xem</a>`:""}</span><span class="d">${esc((j.created_at||"").slice(11,16))}</span></div>`}).join("") : '<div class="d">Chưa có job nào. Bấm “Render ngay” để thử.</div>'; };
       // GIỚI HẠN 300 job MỚI NHẤT -> Firestore đọc luôn bị chặn dù có hàng chục nghìn video (vẫn free). Index chưa sẵn -> fallback không limit.
-      onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(300)), _jobsCb,
-                 ()=>{ onSnapshot(q("render_jobs"), _jobsCb, ()=>{}); });
+      // SHARD: đọc render_jobs từ CẢ A (video CŨ, tĩnh) + B (video MỚI, đang chạy) rồi GỘP -> không mất video cũ, khỏi migrate.
+      let __jA={}, __jB={};
+      const _mapJ=s=>{ const m={}; s.docs.forEach(d=>{ m[d.id]={id:d.id,...d.data()}; }); return m; };
+      const _mergeJobs=()=>{ const byId={...__jA, ...__jB}; _jobsCb({ docs: Object.values(byId).map(o=>({id:o.id, data:()=>o})) }); };
+      onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(300)), s=>{ __jA=_mapJ(s); _mergeJobs(); },
+                 ()=>{ onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o)), s=>{__jA=_mapJ(s);_mergeJobs();}, ()=>{}); });
+      if(dbJobs!==db) onSnapshot(query(collection(dbJobs,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(300)), s=>{ __jB=_mapJ(s); _mergeJobs(); },
+                 ()=>{ onSnapshot(query(collection(dbJobs,"render_jobs"), where("owner","==",o)), s=>{__jB=_mapJ(s);_mergeJobs();}, ()=>{}); });
       // Dữ liệu ĐĂNG (collection 'videos' keyed theo drive_id) -> chia trạng thái đã đăng/chưa/nền tảng.
       /* listener videos thứ 2 ĐÃ GỘP vào sub("videos") ở trên -> khỏi đọc collection videos 2 lần (tiết kiệm Firestore) */
       // ĐẾM tổng tài nguyên (Drive lưu trữ / YouTube / Facebook)
@@ -2059,11 +2069,11 @@
           return `⚡ Đã đặt lệnh <b>Render ngay</b>. Nhà máy GitHub nhận trong nhịp kiểm gần nhất (≤30 phút) rồi tự chạy + đẩy Drive. Em sẽ hiện tiến trình realtime ở "Trạng thái Render".`; }
         if(a.type==="pause"){ await setDoc(rsCfgDoc(),{owner:o,enabled:false},{merge:true}); return "⏸ Đã tạm dừng cron. Mẻ đang chạy vẫn hoàn tất."; }
         if(a.type==="resume"){ await setDoc(rsCfgDoc(),{owner:o,enabled:true},{merge:true}); return "▶️ Đã bật lại. Mẻ đêm (01:00 VN) sẽ chạy tự động."; }
-        if(a.type==="retry_failed"){ const f=rsState().failed; for(const j of f){ if(j.id) await deleteDoc(doc(db,"render_jobs",j.id)); }
+        if(a.type==="retry_failed"){ const f=rsState().failed; for(const j of f){ if(j.id) await deleteDoc(doc(dbJobs,"render_jobs",j.id)); }
           await setDoc(rsCfgDoc(),{owner:o,enabled:true,run_now:new Date().toISOString()},{merge:true});
           return `🔧 Đã dọn ${f.length} báo lỗi + đặt lệnh chạy lại. Nhà máy sẽ làm lại (tự thử lại nhẹ hơn nếu render nặng).`; }
         if(a.type==="clean_jobs"){ const day=new Date(Date.now()-864e5).toISOString(); let n=0;
-          for(const j of (window.__rsJobsData||[])){ if(["done","failed"].includes(j.status) && (j.created_at||"")<day && j.id){ await deleteDoc(doc(db,"render_jobs",j.id)); n++; } }
+          for(const j of (window.__rsJobsData||[])){ if(["done","failed"].includes(j.status) && (j.created_at||"")<day && j.id){ await deleteDoc(doc(dbJobs,"render_jobs",j.id)); n++; } }
           return `🧹 Đã dọn ${n} job cũ (>1 ngày). Job đang chạy giữ nguyên.`; }
         if(a.type==="set_qc"){ const v=Math.max(0,Math.min(100,Number(a.value)||90)); await setDoc(rsCfgDoc(),{owner:o,qc_min:v},{merge:true}); return `🎯 Đã đặt ngưỡng QC = <b>${v}</b>/100.`; }
         if(a.type==="add_channel"){ if(!a.name) return "❌ Thiếu tên kênh.";
@@ -2277,7 +2287,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
         accs.forEach(async a=>{ try{ const r=await fetch(`${WORKER_URL}/api/drive-has?t=${encodeURIComponent(tk)}&account=${encodeURIComponent(a)}&fileId=${encodeURIComponent(fileId)}`);
             const j=await r.json(); if(j&&j.has&&!done){ done=true; resolve(a); return; } }catch(_){}
           if(--pending===0&&!done) resolve(""); }); });
-      if(found&&jobId){ try{ await setDoc(doc(db,"render_jobs",jobId),{drive_account:found},{merge:true}); }catch(_){} }
+      if(found&&jobId){ try{ await setDoc(doc(dbJobs,"render_jobs",jobId),{drive_account:found},{merge:true}); }catch(_){} }
       return found;
     };
     window.rsDeleteVideo=async(fileId,account,jobId,btn)=>{
@@ -2286,7 +2296,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       if(btn){ btn.textContent="⏳"; btn.disabled=true; }
       try{ let acc=account||""; if(!acc) acc=await window.rsLocate(fileId,jobId);
         await workerApi("/api/file-action",{method:"POST",body:{account:acc,action:"trash",fileId}});
-        if(jobId){ try{ await deleteDoc(doc(db,"render_jobs",jobId)); }catch(_){} }
+        if(jobId){ try{ await deleteDoc(doc(dbJobs,"render_jobs",jobId)); }catch(_){} }
         try{toastMsg("🗑 Đã xóa video");}catch(_){} }
       catch(e){ const m=String(e.message||e); const perm=/quyền|permission|insufficient|forbidden|403/i.test(m);
         if(perm){ const em=window.rsAccEmail&&window.rsAccEmail(account); alert(`❌ Kho "${account}"${em?" ("+em+")":""} chưa đủ quyền xóa file này.\n\n👉 Cách sửa: vào tab Storage → tìm kho "${account}"${em?" / "+em:""} → 🗑 Ngắt kết nối rồi KẾT NỐI LẠI, ở màn hình Google TICK ĐỦ QUYỀN (full Drive).\n\n(Chi tiết: ${m})`); }
@@ -2302,7 +2312,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       for(const j of list){ const fid=j.drive_id||((/\/d\/([^/]+)/.exec(j.preview||"")||[])[1]||""); if(!fid) continue;
         try{ let acc=j.drive_account||""; if(!acc) acc=await window.rsLocate(fid,j.id);
           await workerApi("/api/file-action",{method:"POST",body:{account:acc,action:"trash",fileId:fid}});
-          if(j.id) await deleteDoc(doc(db,"render_jobs",j.id)); ok++; }catch(_){} }
+          if(j.id) await deleteDoc(doc(dbJobs,"render_jobs",j.id)); ok++; }catch(_){} }
       try{toastMsg(`🗑 Đã xóa ${ok}/${list.length} video`);}catch(_){} };
     // DỌN THÔNG MINH: chỉ xóa video PHIÊN BẢN CŨ hơn bản mới nhất (pver) -> KHÔNG BAO GIỜ xóa nhầm bản tốt hiện tại.
     // BƯỚC 1: chỉ HIỆN mục 🚩 (thumbnail + chi tiết) để REVIEW trực quan — KHÔNG xóa ngay.
@@ -2327,12 +2337,12 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
         const fid=j.drive_id||((/\/d\/([^/]+)/.exec(j.preview||"")||[])[1]||""); if(!fid) continue;
         try{ let acc=j.drive_account||""; if(!acc) acc=await window.rsLocate(fid,j.id);
           await workerApi("/api/file-action",{method:"POST",body:{account:acc,action:"trash",fileId:fid}});
-          if(j.id) await deleteDoc(doc(db,"render_jobs",j.id)); ok++; }catch(_){} }
+          if(j.id) await deleteDoc(doc(dbJobs,"render_jobs",j.id)); ok++; }catch(_){} }
       if(btn){ btn.textContent="🗑 Xóa hết bản cũ"; btn.disabled=false; }
       try{toastMsg(`🗑 Đã xóa ${ok}/${flaw.length} video`);}catch(_){} };
     // 🚩 ĐÁNH DẤU LỖI: gắn cờ vào video -> hiện trong mục "Nghi lỗi/bản cũ".
     window.rsMarkFlaw=async(jobId,flag)=>{ if(!jobId) return;
-      try{ await setDoc(doc(db,"render_jobs",jobId),{flagged:!!flag},{merge:true}); try{toastMsg(flag?"🚩 Đã đánh dấu lỗi":"✓ Đã bỏ đánh dấu");}catch(_){} }catch(e){ try{toastMsg("Lỗi: "+e.message);}catch(_){} } };
+      try{ await setDoc(doc(dbJobs,"render_jobs",jobId),{flagged:!!flag},{merge:true}); try{toastMsg(flag?"🚩 Đã đánh dấu lỗi":"✓ Đã bỏ đánh dấu");}catch(_){} }catch(e){ try{toastMsg("Lỗi: "+e.message);}catch(_){} } };
     // 🔄 RENDER LẠI: tạo yêu cầu render lại ĐÚNG video này (cùng chủ đề) -> bản mới đạt sẽ TỰ THAY THẾ bản cũ.
     window.rsRerender=async(jobId)=>{
       const j=(window.__rsJobsData||[]).find(x=>x.id===jobId); if(!j) return;
@@ -2343,7 +2353,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       try{
         const ref=await addDoc(collection(db,"render_requests"),{owner:o,channel:j.channel||"",type:j.type||"short",seed:(j.title||""),
           replace_id:fid,replace_account:(j.drive_account||""),status:"pending",created_at:new Date().toISOString()});
-        await setDoc(doc(db,"render_jobs",jobId),{flagged:true,rerender:"chờ render lại",rerender_req:ref.id},{merge:true});
+        await setDoc(doc(dbJobs,"render_jobs",jobId),{flagged:true,rerender:"chờ render lại",rerender_req:ref.id},{merge:true});
         await setDoc(rsCfgDoc(),{owner:o,enabled:true,run_now:new Date().toISOString()},{merge:true});
         try{toastMsg("🔄 Đã yêu cầu render lại — chờ chạy (≤30'). Chưa chạy thì bấm ⏹ để hủy.");}catch(_){}
       }catch(e){ try{toastMsg("Lỗi: "+e.message);}catch(_){} } };
@@ -2354,7 +2364,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
         if(st!=="pending"){ try{toastMsg("⚠️ Đang render lại hoặc đã xong — KHÔNG hủy được nữa.");}catch(_){}; return; }
         if(!confirm("Hủy yêu cầu render lại video này?")) return;
         await deleteDoc(doc(db,"render_requests",j.rerender_req));
-        await setDoc(doc(db,"render_jobs",jobId),{rerender:null,rerender_req:null},{merge:true});
+        await setDoc(doc(dbJobs,"render_jobs",jobId),{rerender:null,rerender_req:null},{merge:true});
         try{toastMsg("⏹ Đã hủy render lại");}catch(_){}
       }catch(e){ try{toastMsg("Lỗi: "+e.message);}catch(_){} } };
     // ===== 🎨 BRAND KIT 10 KÊNH — tạo profile/cover NGAY trong web (SVG→PNG), view+tải, đúng size YT/FB/IG =====
