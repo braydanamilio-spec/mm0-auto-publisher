@@ -2126,9 +2126,10 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       host.innerHTML = _flawBanner + Object.keys(groups).sort().map(g=>{
         const js=groups[g].sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));
         const longs=js.filter(j=>j.type==="long"), shorts=js.filter(j=>j.type!=="long");
+        const _av=window.rsAvatarUri?`<img src="${window.rsAvatarUri(g,64)}" style="width:22px;height:22px;border-radius:5px;vertical-align:middle;margin-right:6px;object-fit:cover">`:"";
         const head = view==="account"
           ? `📦 ${esc(g)} <span class="d">· ${js.length} video (${longs.length}L · ${shorts.length}S)</span>`
-          : `📺 ${esc(g)} <span class="d">· ${longs.length} long · ${shorts.length} short</span>`;
+          : `${_av}${esc(g)} <span class="d">· ${longs.length} long · ${shorts.length} short</span>`;
         return `<div style="margin-bottom:15px;border-left:3px solid #8b6cff;padding-left:13px">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="font-weight:800;font-size:15px">${head}</div>
             <button class="d" onclick="window.rsDeleteGroup('${view}','${esc(String(g).replace(/'/g,''))}')" style="background:none;border:1px solid #ff5a5a44;color:#ff8080;border-radius:6px;padding:2px 9px;font-size:11px;cursor:pointer" title="Xóa tất cả video của nhóm này (dọn bản cũ/lỗi)">🗑 Xóa nhóm</button></div>
