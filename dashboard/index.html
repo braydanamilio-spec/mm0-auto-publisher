@@ -1797,6 +1797,11 @@
       const sf=((document.getElementById("rsKeyStatus")||{}).value||"");
       let nDead=0,nWarn=0,nRepl=0; ks.forEach(k=>{const st=window.__rsKeyStatus(k); if(st==="dead")nDead++; if(st==="warn"){nWarn++;nDead++;} if(st==="replace"){nRepl++;nDead++;}});
       let list=ks.map((k,i)=>({...k,_i:i,_st:window.__rsKeyStatus(k)}));
+      // ĐẾM mỗi loại -> gắn số vào dropdown lọc trạng thái (trực quan)
+      const _cnt={alive:0,cooling:0,dead:0,warn:0,replace:0,unknown:0}; list.forEach(k=>{_cnt[k._st]=(_cnt[k._st]||0)+1;});
+      const _deadAll=_cnt.dead+_cnt.warn+_cnt.replace, _sel=document.getElementById("rsKeyStatus");
+      if(_sel){ const _lbl={"":`Tất cả trạng thái (${ks.length})`,alive:`🟢 Sống (${_cnt.alive})`,cooling:`😴 Đang nghỉ (${_cnt.cooling})`,deadall:`🔴 Chết — tất cả (${_deadAll})`,warn:`⚠️ Theo dõi >72h (${_cnt.warn})`,replace:`🔴 Thay ngay >7 ngày (${_cnt.replace})`,unknown:`⚪ Chưa kiểm (${_cnt.unknown})`};
+        [..._sel.options].forEach(o=>{ if(_lbl[o.value]!=null) o.textContent=_lbl[o.value]; }); }
       if(q) list=list.filter(k=>[k.email,k.last4,k.source].some(v=>String(v||"").toLowerCase().includes(q)));
       if(sf) list=list.filter(k=> sf==="deadall"?(k._st==="dead"||k._st==="warn"||k._st==="replace") : k._st===sf);
       const nowIso=new Date().toISOString();
