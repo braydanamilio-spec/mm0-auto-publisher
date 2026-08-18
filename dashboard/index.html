@@ -549,7 +549,7 @@
             <label class="fld"><span>Nền tảng</span><select id="stBulkPlat"><option value="fb">📘 Facebook</option><option value="ig">📷 Instagram (Reels)</option><option value="both">📘+📷 Cả hai</option></select></label>
             <div class="fld2">
               <label class="fld"><span>Số bài / ngày</span><input type="number" id="stBulkPerDay" value="3" min="1" max="20" oninput="stBulkPreview()"></label>
-              <label class="fld"><span>Ngày bắt đầu</span><input type="date" id="stBulkStart" oninput="stBulkPreview()"></label>
+              <label class="fld"><span>Ngày bắt đầu <span class="p-sub">(mặc định: ngày trống kế — chưa có bài)</span></span><input type="date" id="stBulkStart" title="Tự điền ngày ĐẦU TIÊN chưa có bài nào (lịch/đã đăng) để không dồn. Anh đổi được." oninput="stBulkPreview()"></label>
             </div>
             <label class="fld"><span>🎲 Lệch ngẫu nhiên ± phút</span><input type="number" id="stBulkJitter" value="15" min="0" max="120" title="Mỗi Page/bài lệch giờ ngẫu nhiên -> tránh dồn cùng 1 phút, chống nghẽn cron"></label>
             <label class="fld"><span>Khung giờ (giờ VN, cách nhau dấu phẩy)</span><input id="stBulkTimes" value="09:00, 12:00, 20:00" oninput="stBulkPreview()"></label>
@@ -3466,8 +3466,14 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       $("stBulkCount").textContent=window.__stSel.size;
       $("stBulkPages").innerHTML=pages.map((p,i)=>`<label class="stbulk-pg"><input type="checkbox" value="${esc(p.name)}" ${i===0?'checked':''}> ${esc(p.page_name||p.name)}${p.ig_user_id?' <span class="p-sub">+IG</span>':''}</label>`).join("");
       if(window.renderTimePacks) renderTimePacks("stTimePacks","stBulkTimes","stBulkPreview");
-      $("stBulkStart").value=new Date().toISOString().slice(0,10); $("stBulkMsg").textContent=""; $("stBulkModal").classList.remove("hide"); stBulkPreview();
+      $("stBulkStart").value=window.__nextFreeDay((window.__socQueue||[]).concat(window.__ytQueue||[])); $("stBulkMsg").textContent=""; $("stBulkModal").classList.remove("hide"); stBulkPreview();
     };
+    // Ngày ĐẦU TIÊN chưa có bài nào (lịch/đã đăng) — tính từ hôm nay -> default lên lịch = ngày trống, KHÔNG dồn vào ngày đã có bài.
+    window.__nextFreeDay=(queue)=>{ const used=new Set();
+      (queue||[]).forEach(q=>{ if(q&&q.publish_at){ try{ used.add(new Date(q.publish_at).toISOString().slice(0,10)); }catch(_){} } });
+      let d=new Date(); d.setHours(0,0,0,0);
+      for(let i=0;i<400;i++){ const iso=d.toISOString().slice(0,10); if(!used.has(iso)) return iso; d=new Date(d.getTime()+86400000); }
+      return new Date().toISOString().slice(0,10); };
     window.stBulkClose=()=>{ $("stBulkModal").classList.add("hide"); };
     window.stBulkPreview=()=>{ const n=window.__stSel.size, per=Math.max(1,+($("stBulkPerDay")||{}).value||3);
       const times=(($("stBulkTimes")||{}).value||"").split(",").map(s=>s.trim()).filter(Boolean); const days=Math.ceil(n/per);
