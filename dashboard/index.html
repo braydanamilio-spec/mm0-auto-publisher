@@ -874,7 +874,7 @@
         </div>
 
         <div class="panel" style="margin-bottom:14px">
-          <div class="p-head"><div class="p-title">📋 Kế hoạch 10 kênh USA</div><div class="p-sub">Bấm 1 kênh → tự điền form → chọn template → Thêm. Phân nhóm theo tiến độ.</div></div>
+          <div class="p-head"><div class="p-title">📋 Kế hoạch kênh USA (20)</div><div class="p-sub">10 data-race · 5 motif đồ hoạ · 5 tài liệu điện ảnh. Bấm 1 kênh = thêm ngay, sẵn sàng render.</div></div>
           <div id="rsPlan"><div class="d">Đang tải…</div></div>
           <div style="border-top:1px solid #ffffff14;margin-top:14px;padding-top:12px">
             <div style="font-weight:800;margin-bottom:6px">🎨 Brand kit (profile · cover · mô tả · tag) — đủ size YT/FB/IG</div>
@@ -2057,6 +2057,18 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       {name:"BODYUSA",niche:"US health & lifestyle (obesity, lifespan, spending)"},
       {name:"RIDEUSA",niche:"US cars & auto (brand sales, EV vs gas, trucks)"},
       {name:"EATSUSA",niche:"US food & fast-food (chains, calories, prices)"},
+      // ── WAVE 1 (motif đồ hoạ, short-only) ──
+      {name:"GUESSUSA",fmt:"guess",accent:"#F5B301",niche:"US cities, world landmarks, famous scientists & inventors, history"},
+      {name:"MAPPEDUSA",fmt:"mapped",accent:"#22D3EE",niche:"US demographics, cost of living, health & economy by state"},
+      {name:"RANKEDUSA",fmt:"ranked",accent:"#7C5CFF",niche:"US fast food, streaming, cars, brands, cities ranked"},
+      {name:"SCALEDUSA",fmt:"scaled",accent:"#2FA84F",niche:"ocean animals, tallest buildings, planets, dinosaurs sizes"},
+      {name:"THENNOWUSA",fmt:"thennow",accent:"#EC4899",niche:"cost of living, tech, salaries, prices — 1970 vs now"},
+      // ── WAVE 2 (tài liệu điện ảnh, format=doc) ──
+      {name:"COSMOS",fmt:"doc",accent:"#7C5CFF",accent2:"#22D3EE",style:"awe, cosmic wonder",niche:"space, galaxies, black holes, planets, the universe"},
+      {name:"THEDEEP",fmt:"doc",accent:"#0EA5E9",accent2:"#22D3EE",style:"eerie, mysterious, deep",niche:"deep sea creatures, ocean mysteries, marine life"},
+      {name:"WHYUSA",fmt:"doc",accent:"#F59E0B",accent2:"#F5B301",style:"curious, clear, fascinating",niche:"why natural phenomena happen — science explainers"},
+      {name:"EMPIREUSA",fmt:"doc",accent:"#EAB308",accent2:"#F5B301",style:"ambitious, dramatic",niche:"how famous entrepreneurs built their empires (faceless)"},
+      {name:"UNSOLVED",fmt:"doc",accent:"#EF4444",accent2:"#F59E0B",style:"suspenseful, mysterious",niche:"unsolved mysteries, ancient enigmas, unexplained phenomena"},
     ];
     window.rsPick=(name)=>{ const p=RS_PRESETS.find(x=>x.name===name); if(!p) return;
       const el=document.getElementById("rsChName"), en=document.getElementById("rsChNiche");
@@ -2066,8 +2078,12 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     window.rsQuickAdd=async(name)=>{ const p=RS_PRESETS.find(x=>x.name===name); if(!p) return;
       const o=RSowner(); if(!o) return alert("Chưa đăng nhập.");
       if((window.__rsChannelsData||[]).some(c=>(c.name||"").toUpperCase()===name)) { try{toastMsg("Kênh đã có rồi.");}catch(_){}; return; }
-      try{ await addDoc(collection(db,"render_channels"),{owner:o,name,niche:p.niche,type:"short",img_source:"C",mix:"1long_3short",n_shorts:3,make_long:true,long_target:100,short_target:300,created_at:new Date().toISOString()});  // MẶC ĐỊNH 100 long/300 short (anh tùy chỉnh sau)
-        try{toastMsg("✅ Đã thêm "+name+" — vào mẻ render tới");}catch(_){} }catch(e){ alert("Lỗi: "+e.message); } };
+      // kênh mới (motif/doc) = short-only + format riêng; kênh cũ = data-race 1 long + 3 short.
+      const base={owner:o,name,niche:p.niche,type:"short",img_source:"C",n_shorts:3,short_target:300,created_at:new Date().toISOString()};
+      if(p.fmt){ base.format=p.fmt; base.make_long=false; base.long_target=0; if(p.accent)base.accent=p.accent; if(p.accent2)base.accent2=p.accent2; if(p.style)base.style=p.style; }
+      else { base.mix="1long_3short"; base.make_long=true; base.long_target=100; }   // MẶC ĐỊNH 100 long/300 short (tùy chỉnh sau)
+      try{ await addDoc(collection(db,"render_channels"),base);
+        try{toastMsg("✅ Đã thêm "+name+(p.fmt?(" ["+p.fmt+"]"):"")+" — sẵn sàng render");}catch(_){} }catch(e){ alert("Lỗi: "+e.message); } };
     window.rsScrollStatus=()=>{ const el=document.getElementById("rsChanProg")||document.getElementById("rsJobs"); if(el) el.scrollIntoView({behavior:"smooth",block:"center"}); };
     function rsRenderPlan(){
       const host=document.getElementById("rsPlan"); if(!host) return;
@@ -2080,7 +2096,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
         const info={...p,d,a,f,mix:added?(added.mix||""):""};
         if(!added) B.ideal.push(info); else if(d>0) B.done.push(info); else B.doing.push(info);
       });
-      const chip=(p,act)=>`<button class="cmdtag" style="margin:3px" onclick="${act}('${p.name}')" title="${esc(p.niche)}${p.mix?' · '+esc(p.mix):''}">${esc(p.name)}${p.d?` ✅${p.d}`:""}${p.a?` ⚙️${p.a}`:""}${p.f?` ❌${p.f}`:""}</button>`;
+      const chip=(p,act)=>`<button class="cmdtag" style="margin:3px" onclick="${act}('${p.name}')" title="${esc(p.niche)}${p.fmt?' · format: '+esc(p.fmt):''}${p.mix?' · '+esc(p.mix):''}">${esc(p.name)}${p.fmt?` <span style="opacity:.55;font-size:11px">${esc(p.fmt)}</span>`:""}${p.d?` ✅${p.d}`:""}${p.a?` ⚙️${p.a}`:""}${p.f?` ❌${p.f}`:""}</button>`;
       const sec=(t,arr,hint,act)=>`<div style="margin-bottom:12px"><div class="d" style="margin-bottom:5px">${t} <span style="opacity:.55">(${arr.length})</span> — ${hint}</div><div style="display:flex;flex-wrap:wrap;gap:4px">${arr.length?arr.map(p=>chip(p,act)).join(""):'<span class="d">—</span>'}</div></div>`;
       host.innerHTML = sec("💡 Sẵn sàng — bấm để THÊM NGAY",B.ideal,"1 chạm = thêm kênh (mặc định 1 long + 3 short). Muốn tuỳ chỉnh template → form ngay dưới.","window.rsQuickAdd")
         + sec("⚙️ Đang làm",B.doing,"bấm để xem tiến trình","window.rsScrollStatus")
