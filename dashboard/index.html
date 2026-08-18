@@ -1807,7 +1807,7 @@
         const prog=`<span class="d">📽 long ${cap(dl,lt,uL,hitL)} · short ${cap(dsh,st,uS,hitS)}</span>`;
         const paused=(hitL&&hitS)?' <span class="d" style="color:#4ade80">· ⏸ đủ dự trữ, tạm ngừng</span>':'';
         const ck=window.__rsSelCh.has(c.id);
-        return `<div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;gap:8px${ck?';background:#8b6cff14;border-radius:6px':''}"><span style="display:flex;align-items:center;gap:8px"><input type="checkbox" ${ck?"checked":""} onchange="window.__rsToggleCh('${c.id}',this.checked)" style="cursor:pointer"><span>📺 <b>${esc(c.name)}</b> · <span class="d">${esc(c.niche||"")}</span> · ${prog}${paused}</span></span><span style="display:flex;gap:6px;flex:none"><button class="btn-conn" title="Đặt mục tiêu số video — đạt là tự dừng" onclick="window.__rsSetTarget('${c.id}')">🎯 Target</button><button class="btn-conn" onclick="window.__rsDelChannel('${c.id}')">Xoá</button></span></div>`;
+        return `<div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;gap:8px${ck?';background:#8b6cff14;border-radius:6px':''}"><span style="display:flex;align-items:center;gap:8px"><input type="checkbox" ${ck?"checked":""} onchange="window.__rsToggleCh('${c.id}',this.checked)" style="cursor:pointer"><span style="display:flex;align-items:center;gap:7px"><img src="${(window.rsAvatarUri?window.rsAvatarUri(c.name,44):'')}" style="width:22px;height:22px;border-radius:5px;flex:none;object-fit:cover"><span><b>${esc(c.name)}</b> · <span class="d">${esc(c.niche||"")}</span> · ${prog}${paused}</span></span></span><span style="display:flex;gap:6px;flex:none"><button class="btn-conn" title="Đặt mục tiêu số video — đạt là tự dừng" onclick="window.__rsSetTarget('${c.id}')">🎯 Target</button><button class="btn-conn" onclick="window.__rsDelChannel('${c.id}')">Xoá</button></span></div>`;
       }).join(""); window.__collapseList&&window.__collapseList('rsChList',96); };
     window.__rsToggleAll = (on) => { if(on) (window.__rsChannelsData||[]).forEach(c=>window.__rsSelCh.add(c.id)); else window.__rsSelCh.clear(); window.__rsRenderChList(); };
     window.__rsToggleCh = (id,on) => { if(on) window.__rsSelCh.add(id); else window.__rsSelCh.delete(id); window.__rsRenderChList(); };
@@ -2317,7 +2317,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       wrap.querySelectorAll(".rsdd-item").forEach(it=>{ it.onmouseenter=()=>it.style.background="var(--surface2)"; it.onmouseleave=()=>it.style.background=""; it.onclick=()=>{ menu.style.display="none"; if(sel.value!==it.getAttribute("data-v")){ sel.value=it.getAttribute("data-v"); sel.dispatchEvent(new Event("change")); } rsSelectWithAvatars(sel); }; }); }
     window.rsSelectWithAvatars=rsSelectWithAvatars;
     if(!window.__rsddClose){ window.__rsddClose=1; document.addEventListener("click",()=>document.querySelectorAll(".rsdd-menu").forEach(m=>m.style.display="none")); }
-    window.RS_BRANDS=RS_BRANDS;
+    window.RS_BRANDS=RS_BRANDS; window.rsAvatarUri=rsAvatarUri;
     setTimeout(()=>{ try{window.__rsBrandInit("rsBrandSel","rsBrandBox");}catch(_){}; try{window.__rsBrandInit("stBrandSel","stBrandBox");}catch(_){} },1500);
 
     // 🧹 ĐỔ THÙNG RÁC: xóa VĨNH VIỄN file đã trash ở mọi kho -> thu hồi dung lượng ngay (không đợi 30 ngày).
