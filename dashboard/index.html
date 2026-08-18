@@ -884,11 +884,12 @@
         </div>
 
         <div class="panel" style="margin-bottom:14px">
-          <div class="p-head"><div class="p-title">📺 Kênh &amp; Chủ đề Render</div><div class="p-sub">Render = làm DỰ TRỮ · 🛡️ = mức an toàn (chưa đặt target) · upload là pipeline riêng</div></div>
+          <div class="p-head"><div class="p-title">📺 Kênh &amp; Chủ đề Render</div><div class="p-sub">Chọn kênh từ danh sách (tự điền niche + kiểu) → chỉnh target → ＋ Thêm. Render = làm DỰ TRỮ · 🛡️ = mức an toàn · upload là pipeline riêng.</div></div>
           <div id="rsSafetyStop" style="display:none;margin-bottom:10px;background:#4a1a1a;border:1px solid #a33;border-radius:8px;padding:9px 12px;color:#ffbcbc;font-size:13px;font-weight:600"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-            <input id="rsChName" placeholder="Tên kênh (khớp channels.yaml, vd DATARACE)" style="min-width:220px"/>
-            <input id="rsChNiche" placeholder="Niche/seed (vd: US data, rankings, money)" style="flex:1;min-width:220px"/>
+            <select id="rsChPick" onchange="window.__rsPickChannel&&window.__rsPickChannel()" style="min-width:230px" title="Chọn 1 trong 20 kênh có sẵn — tự điền niche + kiểu"><option value="">— Chọn kênh —</option></select>
+            <input id="rsChName" placeholder="Tên kênh tùy chỉnh" style="min-width:190px;display:none"/>
+            <input id="rsChNiche" placeholder="Niche/seed (tự điền khi chọn kênh)" style="flex:1;min-width:200px"/>
             <select id="rsChType"><option value="short">short 9:16</option><option value="long">long 16:9</option></select>
             <select id="rsChImg"><option value="C">Ảnh: thật+AI (C)</option><option value="A">thật (A)</option><option value="B">AI (B)</option></select>
             <select id="rsChMix" title="Bao nhiêu video mỗi lần chạy">
@@ -1722,19 +1723,41 @@
       const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([txt],{type:"text/plain"}));
       a.download="mm0-gemini-keys.txt"; a.click(); URL.revokeObjectURL(a.href);
       toastMsg(`⬇ Đã tải backup ${ks.length} key`); };
+    // Đổ 20 kênh preset vào dropdown (đánh số + badge format). Gọi khi load.
+    window.__rsFillPicker=()=>{ const sel=document.getElementById("rsChPick"); if(!sel||sel.__f) return; sel.__f=1;
+      const P=window.RS_PRESETS||[];
+      sel.innerHTML='<option value="">— Chọn kênh —</option>'
+        + P.map((p,i)=>`<option value="${p.name}">${String(i+1).padStart(2,"0")}. ${p.name}${p.fmt?" · "+p.fmt:""}</option>`).join("")
+        + '<option value="__custom">✏️ Kênh tùy chỉnh (gõ tên)</option>'; };
+    // Chọn 1 kênh -> tự điền niche + (motif/doc thì set short-only). Custom -> hiện ô gõ tên.
+    window.__rsPickChannel=()=>{ const v=(document.getElementById("rsChPick")||{}).value;
+      const custom=document.getElementById("rsChName"), niche=document.getElementById("rsChNiche");
+      const mix=document.getElementById("rsChMix"), typ=document.getElementById("rsChType");
+      if(v==="__custom"){ if(custom){custom.style.display="";custom.focus();} return; }
+      if(custom) custom.style.display="none";
+      const p=(window.RS_PRESETS||[]).find(x=>x.name===v);
+      if(p){ if(niche) niche.value=p.niche||"";
+        if(p.fmt){ if(mix) mix.value="short_only"; if(typ) typ.value="short"; }   // motif/doc = short-only
+      } };
     window.__rsAddChannel = async () => {
-      const name=(document.getElementById("rsChName").value||"").trim();
-      if(!name) return alert("Nhập tên kênh.");
+      const pick=(document.getElementById("rsChPick")||{}).value;
+      const preset=(pick && pick!=="__custom") ? (window.RS_PRESETS||[]).find(x=>x.name===pick) : null;
+      const name = preset ? preset.name : ((document.getElementById("rsChName").value||"").trim());
+      if(!name) return alert("Chọn kênh từ danh sách, hoặc chọn 'Tùy chỉnh' rồi gõ tên.");
+      if((window.__rsChannelsData||[]).some(c=>(c.name||"").toUpperCase()===name.toUpperCase())) return alert("Kênh này đã có trong danh sách rồi.");
       const mix=(document.getElementById("rsChMix")||{}).value||"1long_3short";
       const nShorts={"1long_3short":3,"1long_2short":2,"1long_1short":1,"short_only":3,"long_only":0}[mix];
-      const _lr=(document.getElementById("rsChLongT")||{}).value, _sr=(document.getElementById("rsChShortT")||{}).value;   // trống -> mặc định 100/300; gõ 0 -> 0 (dùng dự trữ)
+      const _lr=(document.getElementById("rsChLongT")||{}).value, _sr=(document.getElementById("rsChShortT")||{}).value;   // trống -> mặc định 100/300; gõ 0 -> dự trữ
       const lt=_lr===""?100:Math.max(0,parseInt(_lr)||0), stt=_sr===""?300:Math.max(0,parseInt(_sr)||0);
-      try { await addDoc(collection(db,"render_channels"), {owner:RSowner(), name,
+      const base={owner:RSowner(), name,
         niche:(document.getElementById("rsChNiche").value||"").trim(), type:document.getElementById("rsChType").value,
         img_source:document.getElementById("rsChImg").value, mix, n_shorts:nShorts, make_long:(mix!=="short_only"),
-        long_target:lt, short_target:stt, created_at:new Date().toISOString()});
-        document.getElementById("rsChName").value=""; document.getElementById("rsChNiche").value="";
-        toastMsg("✔ Đã thêm kênh render"); } catch(e){ alert("Lỗi: "+e.message); } };
+        long_target:lt, short_target:stt, created_at:new Date().toISOString()};
+      if(preset && preset.fmt){ base.format=preset.fmt; base.make_long=false; base.long_target=0; base.type="short";  // kênh motif/doc = short-only + format riêng
+        if(preset.accent)base.accent=preset.accent; if(preset.accent2)base.accent2=preset.accent2; if(preset.style)base.style=preset.style; }
+      try { await addDoc(collection(db,"render_channels"), base);
+        const cp=document.getElementById("rsChPick"); if(cp)cp.value=""; const cn=document.getElementById("rsChName"); if(cn){cn.value="";cn.style.display="none";} document.getElementById("rsChNiche").value="";
+        toastMsg("✔ Đã thêm kênh "+name+(preset&&preset.fmt?" ["+preset.fmt+"]":"")); } catch(e){ alert("Lỗi: "+e.message); } };
     window.__rsDelChannel = async (id) => {
       const c=(window.__rsChannelsData||[]).find(x=>x.id===id)||{};
       if(confirm(`Xoá kênh render "${c.name||id}" khỏi hàng đợi?\n\n• CHỈ xoá cấu hình kênh — VIDEO đã làm KHÔNG bị xoá.\n• Kênh sẽ ngừng làm video mới ở mẻ sau.\n• Đang render dở thì clip đó vẫn xong bình thường (không lỗi).`))
@@ -2070,10 +2093,10 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       {name:"EMPIREUSA",fmt:"doc",accent:"#EAB308",accent2:"#F5B301",style:"ambitious, dramatic",niche:"how famous entrepreneurs built their empires (faceless)"},
       {name:"UNSOLVED",fmt:"doc",accent:"#EF4444",accent2:"#F59E0B",style:"suspenseful, mysterious",niche:"unsolved mysteries, ancient enigmas, unexplained phenomena"},
     ];
-    window.rsPick=(name)=>{ const p=RS_PRESETS.find(x=>x.name===name); if(!p) return;
-      const el=document.getElementById("rsChName"), en=document.getElementById("rsChNiche");
-      if(el){ el.value=p.name; el.scrollIntoView({behavior:"smooth",block:"center"}); el.focus(); }
-      if(en) en.value=p.niche; try{toastMsg("Đã điền form ✍️ — chọn template rồi bấm ＋ Thêm kênh");}catch(_){} };
+    window.RS_PRESETS=RS_PRESETS; try{ window.__rsFillPicker&&window.__rsFillPicker(); }catch(_){}   // đổ dropdown chọn kênh
+    window.rsPick=(name)=>{ const sel=document.getElementById("rsChPick");
+      if(sel && [...sel.options].some(o=>o.value===name)){ sel.value=name; window.__rsPickChannel&&window.__rsPickChannel(); sel.scrollIntoView({behavior:"smooth",block:"center"}); try{toastMsg("Đã chọn "+name+" — chỉnh target rồi bấm ＋ Thêm kênh");}catch(_){}; return; }
+      const p=(window.RS_PRESETS||[]).find(x=>x.name===name), en=document.getElementById("rsChNiche"); if(en&&p) en.value=p.niche; };
     // 1 CHẠM = thêm kênh ngay (template mặc định) — phản hồi tức thì, chip nhảy sang "Đang làm".
     window.rsQuickAdd=async(name)=>{ const p=RS_PRESETS.find(x=>x.name===name); if(!p) return;
       const o=RSowner(); if(!o) return alert("Chưa đăng nhập.");
@@ -2370,7 +2393,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     window.rsSelectWithAvatars=rsSelectWithAvatars;
     if(!window.__rsddClose){ window.__rsddClose=1; document.addEventListener("click",()=>document.querySelectorAll(".rsdd-menu").forEach(m=>m.style.display="none")); }
     window.RS_BRANDS=RS_BRANDS; window.rsAvatarUri=rsAvatarUri;
-    setTimeout(()=>{ try{window.__rsBrandInit("rsBrandSel","rsBrandBox");}catch(_){}; try{window.__rsBrandInit("stBrandSel","stBrandBox");}catch(_){} },1500);
+    setTimeout(()=>{ try{window.__rsBrandInit("rsBrandSel","rsBrandBox");}catch(_){}; try{window.__rsBrandInit("stBrandSel","stBrandBox");}catch(_){}; try{window.__rsFillPicker&&window.__rsFillPicker();}catch(_){} },1500);
 
     // 🧹 ĐỔ THÙNG RÁC: xóa VĨNH VIỄN file đã trash ở mọi kho -> thu hồi dung lượng ngay (không đợi 30 ngày).
     // BƯỚC 1: ĐỌC thùng rác mọi kho -> HIỆN danh sách trực quan (tên · kho · size) để anh REVIEW trước.
