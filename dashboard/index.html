@@ -666,6 +666,9 @@
           <div class="p-head"><div class="p-title">🎬 Kho tổng video (tất cả kênh &amp; kho)</div><div class="p-sub">Tìm nhanh video/kênh/kho · xem trực quan · bấm phát ngay · <span id="stVaultCount"></span></div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
             <select id="stVaultChannel" onchange="window.__rsRenderGallery&&window.__rsRenderGallery()"><option value="">📺 Tất cả kênh</option></select>
+            <select id="stVaultDate" onchange="window.__rsRenderGallery&&window.__rsRenderGallery()">
+              <option value="">📅 Mọi lúc</option><option value="today">Hôm nay</option><option value="7">7 ngày</option><option value="30">30 ngày</option>
+            </select>
             <input id="stVaultSearch" placeholder="🔎 Tìm: tên / id…" style="flex:1;min-width:160px" oninput="window.__rsRenderGallery&&window.__rsRenderGallery()"/>
             <select id="stVaultView" onchange="window.__rsRenderGallery&&window.__rsRenderGallery()">
               <option value="channel">📺 Nhóm theo kênh</option>
@@ -927,6 +930,9 @@
           <div class="p-head"><div class="p-title">🎬 Kho tổng video — xem, tìm &amp; quản lý</div><div class="p-sub">Gộp tất cả kho Drive · tìm kiếm · biết video ở kho nào · <span id="rsGalCount"></span></div></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
             <select id="rsGalChannel" onchange="window.__rsRenderGallery&&window.__rsRenderGallery()"><option value="">📺 Tất cả kênh</option></select>
+            <select id="rsGalDate" onchange="window.__rsRenderGallery&&window.__rsRenderGallery()">
+              <option value="">📅 Mọi lúc</option><option value="today">Hôm nay</option><option value="7">7 ngày</option><option value="30">30 ngày</option>
+            </select>
             <input id="rsGalSearch" placeholder="🔎 Tìm video: tên / id…" style="flex:1;min-width:160px" oninput="window.__rsRenderGallery&&window.__rsRenderGallery()"/>
             <select id="rsGalView" onchange="window.__rsRenderGallery&&window.__rsRenderGallery()">
               <option value="channel">📺 Nhóm theo kênh</option>
@@ -1543,14 +1549,18 @@
     // 🔀 3-PROJECT ROUTER: render META (config/channels/keys/storage/topics/requests) -> B (khớp pipeline SHARD_META).
     //    publish (videos/counters/quota/queues) TẠM giữ A cho tới khi mở rules C (dbPub). Shared -> A (mặc định).
     const dbMeta = dbJobs;  // B
+    const firebaseConfigC = { apiKey:"AIzaSyAVEj7RUMx5jRtxN0o2eOzh4r7Pjjm-zBk", authDomain:"mm0-shard-c.firebaseapp.com", projectId:"mm0-shard-c", storageBucket:"mm0-shard-c.firebasestorage.app", messagingSenderId:"443486296227", appId:"1:443486296227:web:e5607766466c3bf6cd8716" };
+    let dbPub = db;  // C: publish (videos/counters/quota/queues); lỗi init -> fallback A
+    try { const appC = initializeApp(firebaseConfigC, "shardC"); dbPub = getFirestore(appC); } catch(e){ dbPub = db; }
     const META_B = new Set(["render_config","render_channels","storage_accounts","render_topics","render_requests"]);  // gemini_keys GIỮ ở A (chứa API key -> cần auth, KHÔNG public trên B)
-    const _appFor = (name) => META_B.has(name) ? dbMeta : db;
+    const PUB_C  = new Set(["videos","counters","quota","social_queue","yt_queue"]);   // publish -> C
+    const _appFor = (name) => PUB_C.has(name) ? dbPub : (META_B.has(name) ? dbMeta : db);
     // TIẾT KIỆM ĐỌC Firestore (100% free): tab ẨN >30s -> TẮT network (listener ngừng đọc); HIỆN lại -> BẬT (sync tươi).
     let __netT=null, __netOff=false;
     document.addEventListener("visibilitychange", ()=>{
       clearTimeout(__netT);
-      if(document.hidden){ __netT=setTimeout(()=>{ disableNetwork(db).catch(()=>{}); if(dbJobs!==db) disableNetwork(dbJobs).catch(()=>{}); __netOff=true; }, 5000); }   // ẩn tab >5s -> NGẮT đọc Firestore CẢ A+B (tiết kiệm mạnh)
-      else if(__netOff){ enableNetwork(db).catch(()=>{}); if(dbJobs!==db) enableNetwork(dbJobs).catch(()=>{}); __netOff=false; }
+      if(document.hidden){ __netT=setTimeout(()=>{ disableNetwork(db).catch(()=>{}); if(dbJobs!==db) disableNetwork(dbJobs).catch(()=>{}); if(dbPub!==db) disableNetwork(dbPub).catch(()=>{}); __netOff=true; }, 5000); }   // ẩn tab >5s -> NGẮT đọc Firestore CẢ A+B+C (tiết kiệm mạnh)
+      else if(__netOff){ enableNetwork(db).catch(()=>{}); if(dbJobs!==db) enableNetwork(dbJobs).catch(()=>{}); if(dbPub!==db) enableNetwork(dbPub).catch(()=>{}); __netOff=false; }
     });
 
     document.getElementById("signin").onclick = () =>
@@ -1642,12 +1652,12 @@
     window.__wsMembers = async () => { const s=await getDocs(query(collection(db,"team_members"), where("owner","==",(window.__ownerUid||window.__uid)))); return s.docs.map(d=>d.data()); };
     window.__switchWorkspace = (ownerUid) => { try{ localStorage.mm0ws=ownerUid||""; }catch(_){} location.reload(); };
     // Ghi/xoá hàng đợi đăng FB/IG độc lập (client tự tạo item của mình)
-    window.__socQueueAdd = async (data) => { await addDoc(collection(db,"social_queue"), {owner:(window.__ownerUid||window.__uid), status:"pending", attempts:0, created_at:new Date().toISOString(), ...data}); };
-    window.__socQueueDel = async (id) => { await deleteDoc(doc(db,"social_queue",id)); };
-    window.__socQueueUpd = async (id, data) => { await setDoc(doc(db,"social_queue",id), {owner:(window.__ownerUid||window.__uid), ...data}, {merge:true}); };
+    window.__socQueueAdd = async (data) => { await addDoc(collection(dbPub,"social_queue"), {owner:(window.__ownerUid||window.__uid), status:"pending", attempts:0, created_at:new Date().toISOString(), ...data}); };
+    window.__socQueueDel = async (id) => { await deleteDoc(doc(dbPub,"social_queue",id)); };
+    window.__socQueueUpd = async (id, data) => { await setDoc(doc(dbPub,"social_queue",id), {owner:(window.__ownerUid||window.__uid), ...data}, {merge:true}); };
     // Content Hub: hàng đợi đăng YouTube từ Drive
-    window.__ytQueueAdd = async (data) => { await addDoc(collection(db,"yt_queue"), {owner:(window.__ownerUid||window.__uid), status:"pending", attempts:0, created_at:new Date().toISOString(), ...data}); };
-    window.__ytQueueDel = async (id) => { await deleteDoc(doc(db,"yt_queue",id)); };
+    window.__ytQueueAdd = async (data) => { await addDoc(collection(dbPub,"yt_queue"), {owner:(window.__ownerUid||window.__uid), status:"pending", attempts:0, created_at:new Date().toISOString(), ...data}); };
+    window.__ytQueueDel = async (id) => { await deleteDoc(doc(dbPub,"yt_queue",id)); };
     // Cập nhật item hàng đợi (retry: đặt lại pending) — coll = yt_queue | social_queue
     window.__qUpdate = async (coll, id, patch) => { await setDoc(doc(db,coll,id), {owner:(window.__ownerUid||window.__uid), ...patch}, {merge:true}); };
     function setLive(ok){
@@ -1670,7 +1680,7 @@
       catch(e){ alert("Lỗi: "+e.message); }
     };
     window.approveVideo = async (id) => {
-      try { await setDoc(doc(db,"videos",id), {status:"approved", reviewed_at:new Date().toISOString()}, {merge:true});
+      try { await setDoc(doc(dbPub,"videos",id), {status:"approved", reviewed_at:new Date().toISOString()}, {merge:true});
         toastMsg("✔ Đã duyệt — sẽ lên lịch đăng"); }
       catch(e){ alert("Duyệt lỗi: "+e.message); }
     };
@@ -2213,9 +2223,13 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     window.__rsRenderPlan=rsRenderPlan;
 
     // ===== 🎬 THƯ VIỆN VIDEO — chia theo kênh, xem inline như mở Drive =====
-    async function rsGalInto(hostId, searchId, viewId, countId, channelId){
+    async function rsGalInto(hostId, searchId, viewId, countId, channelId, dateId){
       const host=document.getElementById(hostId); if(!host) return;
       let all=(window.__rsJobsData||[]).filter(j=>j.status==="done" && (j.drive_id||j.preview));
+      // LỌC THEO NGÀY (theo created_at): "" mọi lúc · today hôm nay · 7/30 ngày gần nhất
+      const dv=((document.getElementById(dateId)||{}).value)||"";
+      if(dv){ if(dv==="today"){ const t=new Date().toISOString().slice(0,10); all=all.filter(j=>(j.created_at||"").slice(0,10)===t); }
+        else { const cut=new Date(Date.now()-Number(dv)*86400000).toISOString(); all=all.filter(j=>(j.created_at||"")>=cut); } }
       const chSel=document.getElementById(channelId);   // dropdown lọc kênh — liệt kê mọi kênh đã có video
       if(chSel){ const chans=[...new Set(all.map(j=>j.channel||"?"))].sort();
         const opts='<option value="">Tất cả kênh ('+all.length+')</option>'+chans.map((c,i)=>`<option value="${esc(c)}">${String(i+1).padStart(2,"0")}. ${esc(c)} (${all.filter(j=>(j.channel||"?")===c).length})</option>`).join("");
@@ -2287,8 +2301,8 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     let _galT=null;
     function _visible(id){ const el=document.getElementById(id); if(!el) return false; const sec=el.closest(".content"); return !(sec&&sec.classList.contains("hide")); }
     window.__rsRenderGallery=()=>{ if(_galT) return; _galT=setTimeout(()=>{ _galT=null;
-      if(_visible("rsGallery")) rsGalInto("rsGallery","rsGalSearch","rsGalView","rsGalCount","rsGalChannel");
-      if(_visible("stVault"))  rsGalInto("stVault","stVaultSearch","stVaultView","stVaultCount","stVaultChannel");
+      if(_visible("rsGallery")) rsGalInto("rsGallery","rsGalSearch","rsGalView","rsGalCount","rsGalChannel","rsGalDate");
+      if(_visible("stVault"))  rsGalInto("stVault","stVaultSearch","stVaultView","stVaultCount","stVaultChannel","stVaultDate");
     }, 400); };
     // Tự dò + gắn kho cho MỌI video chưa rõ (1 bấm) -> quản lý minh bạch, biết video ở kho nào.
     window.rsLocateAll=async(btn)=>{
@@ -2589,15 +2603,15 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     };
     // Cập nhật 1 video (chỉ field được rules cho phép: status/publish_at/reviewed_at)
     window.__updateVideo = async (id, data) => {
-      await setDoc(doc(db,"videos",id), data, {merge:true});
+      await setDoc(doc(dbPub,"videos",id), data, {merge:true});
     };
     // Cập nhật hàng loạt: list = [{id, data}]
     window.__bulkUpdateVideos = async (list) => {
-      let ok=0; for(const it of list){ try{ await setDoc(doc(db,"videos",it.id), it.data, {merge:true}); ok++; }catch(e){} }
+      let ok=0; for(const it of list){ try{ await setDoc(doc(dbPub,"videos",it.id), it.data, {merge:true}); ok++; }catch(e){} }
       return ok;
     };
-    window.__deleteVideo = async (id) => { await deleteDoc(doc(db,"videos",id)); };
-    window.__deleteVideos = async (ids) => { let ok=0; for(const id of ids){ try{ await deleteDoc(doc(db,"videos",id)); ok++; }catch(e){} } return ok; };
+    window.__deleteVideo = async (id) => { await deleteDoc(doc(dbPub,"videos",id)); };
+    window.__deleteVideos = async (ids) => { let ok=0; for(const id of ids){ try{ await deleteDoc(doc(dbPub,"videos",id)); ok++; }catch(e){} } return ok; };
     window.initTheme(); window.wireNav(); window.paintIcons(); window.paintBrand();
   </script>
 
