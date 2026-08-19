@@ -44,17 +44,23 @@ def _retry(fn, tries: int = 5):
 
 def _sa_client(key_env: str, proj_env: str):
     """Tạo client từ 1 cặp secret (key file + project id). None nếu chưa cấu hình đủ / file rỗng / hỏng
-    -> caller fallback A, KHÔNG crash publisher (an toàn khi secret chưa set)."""
+    -> caller fallback A, KHÔNG crash publisher (an toàn khi secret chưa set).
+    19/8: TRƯỚC ĐÂY fallback HOÀN TOÀN IM LẶNG — không log gì -> nếu Project C cấu hình sai (key hỏng/
+    thiếu Firestore database) thì auto-fallback về A ÂM THẦM MÃI MÃI, không ai biết, tới khi A cạn quota
+    mới lộ ra (đúng sự cố 19/8: Shard C = 0 hoạt động, A bị 53K reads). Giờ LUÔN in cảnh báo khi fallback."""
     key = os.environ.get(key_env)
     project = os.environ.get(proj_env)
     if not (key and project and os.path.exists(key)):
-        return None
+        print(f"⚠️ {proj_env}: thiếu {key_env}/{proj_env} -> fallback Project A"); return None
     try:
         if os.path.getsize(key) < 10:       # file rỗng (secret chưa set) -> bỏ qua
-            return None
+            print(f"⚠️ {key_env}: file rỗng (secret chưa set) -> fallback Project A"); return None
         creds = service_account.Credentials.from_service_account_file(key)
-        return firestore.Client(project=project, credentials=creds)
-    except Exception:
+        c = firestore.Client(project=project, credentials=creds)
+        next(c.collection("_ping").limit(1).stream(), None)   # ép kiểm database TỒN TẠI ngay (Client() không tự validate) -> lộ lỗi sớm, không đợi tới lúc dùng thật mới vỡ
+        return c
+    except Exception as e:
+        print(f"⚠️ {proj_env} ({project}) lỗi kết nối thật ({e}) -> fallback Project A — KIỂM: key đúng project chưa? Firestore database đã tạo trong project này chưa?")
         return None
 
 
