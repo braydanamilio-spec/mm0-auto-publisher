@@ -2,6 +2,11 @@
 
 > Đọc file này + `PROGRESS.md` + `SETUP.md` là nắm toàn bộ. Đây là "bản đồ" để sửa/nâng cấp mà không cần hỏi lại từ đầu.
 
+> ⚠️ **CẬP NHẬT 19/8/2026 — đọc trước phần dưới (viết 15/8, mô tả kiến trúc 1-Firestore CŨ):**
+> - Firestore giờ là **3 project độc lập** (A=repo này, B=render, C=publish), không còn 1 project như mô tả bên dưới. `firestore_state.py`'s `State` giờ có `self.db`(A, shared config) VÀ `self.pub`(C, owned: videos/counters/quota/queues) — không chỉ 1 `self.db` nữa.
+> - **Cron đăng bài THẬT không chạy ở repo này nữa** — đã tắt (chỉ còn `workflow_dispatch` test tay). Bản LIVE nằm ở `mq-vx-lab/.github/workflows/{publish,cleanup,publish_social,stats}.yml` (checkout code repo này lúc chạy, chạy trên public runner).
+> - Đọc đầy đủ + chi tiết mới nhất: **`../HANDOFF.md`** (root mq-vx-lab) + **`../render-pipeline/CHANNEL_METHODS.md`** (phần "Kiến trúc 3-project Firestore") + **`../render-pipeline/PIPELINE_RULES.md`** §7 (bug-log, có cả lỗi từng gặp khi sharding).
+
 ---
 
 ## 🔗 Tài nguyên đã tạo (2026-08-15)
