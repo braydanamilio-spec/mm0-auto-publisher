@@ -2145,9 +2145,13 @@
         if(a.type==="retry_failed"){ const f=rsState().failed; for(const j of f){ if(j.id) await deleteDoc(doc(dbJobs,"render_jobs",j.id)); }
           await setDoc(rsCfgDoc(),{owner:o,enabled:true,run_now:new Date().toISOString()},{merge:true});
           return `🔧 Đã dọn ${f.length} báo lỗi + đặt lệnh chạy lại. Nhà máy sẽ làm lại (tự thử lại nhẹ hơn nếu render nặng).`; }
-        if(a.type==="clean_jobs"){ const day=new Date(Date.now()-864e5).toISOString(); let n=0;
-          for(const j of (window.__rsJobsData||[])){ if(["done","failed"].includes(j.status) && (j.created_at||"")<day && j.id){ await deleteDoc(doc(dbJobs,"render_jobs",j.id)); n++; } }
-          return `🧹 Đã dọn ${n} job cũ (>1 ngày). Job đang chạy giữ nguyên.`; }
+        if(a.type==="clean_jobs"){ const day=new Date(Date.now()-864e5).toISOString(); let n=0,skip=0;
+          // AN TOÀN: job "done" còn field 'script' (kịch bản, để render lại nếu Drive gặp sự cố) -> KHÔNG xoá thẳng ở đây,
+          // để cron cleanup.yml (chạy đêm) tự đăng-thì-xoá / cũ-quá-thì-backup Drive trước rồi mới xoá -> tránh mất dữ liệu.
+          for(const j of (window.__rsJobsData||[])){ if(["done","failed"].includes(j.status) && (j.created_at||"")<day && j.id){
+            if(j.status==="done" && j.script){ skip++; continue; }
+            await deleteDoc(doc(dbJobs,"render_jobs",j.id)); n++; } }
+          return `🧹 Đã dọn ${n} job cũ (>1 ngày).${skip?` Giữ lại ${skip} job còn kịch bản (cron riêng sẽ tự đăng-thì-xoá/cũ-thì-backup Drive).`:""} Job đang chạy giữ nguyên.`; }
         if(a.type==="set_qc"){ const v=Math.max(0,Math.min(100,Number(a.value)||90)); await setDoc(rsCfgDoc(),{owner:o,qc_min:v},{merge:true}); return `🎯 Đã đặt ngưỡng QC = <b>${v}</b>/100.`; }
         if(a.type==="add_channel"){ if(!a.name) return "❌ Thiếu tên kênh.";
           await addDoc(collection(dbMeta,"render_channels"),{owner:o,name:String(a.name).trim().toUpperCase(),niche:(a.niche||"").trim(),type:(a.vtype==="long"?"long":"short"),img_source:(a.imgmode||"C"),created_at:new Date().toISOString()});
