@@ -69,37 +69,74 @@ def _companions(drv, parent_id: str, base: str) -> list[str]:
     return ids
 
 
-def _prune_scripts(state, uid: str, dry_run: bool) -> int:
-    """Xoá field 'script' (kịch bản chi tiết, lưu ở render_jobs/Project B) khỏi các video ĐÃ ĐĂNG YouTube.
-    Lý do: script chỉ để RENDER LẠI khi Drive gặp sự cố TRƯỚC LÚC ĐĂNG -> đăng rồi thì YouTube đã giữ bản
-    chính thức, script hết tác dụng -> xoá để Firestore (free 1GiB) KHÔNG phình theo thời gian dù render
-    hàng chục nghìn video. Video CHƯA đăng -> giữ nguyên script (còn cần để lỡ có sự cố)."""
-    n = 0
+def _manage_scripts(state, uid: str, accts: list, dry_run: bool, archive_days: int = 30) -> tuple[int, int]:
+    """Giữ Firestore (free 1GiB) KHÔNG phình theo số video, dù render hàng chục nghìn video:
+      - Video ĐÃ ĐĂNG YouTube -> script hết tác dụng (YouTube đã giữ bản chính) -> xoá field.
+      - Video CHƯA đăng nhưng render đã lâu (>=archive_days, ví dụ auto-đăng chưa bật/kênh bị bỏ quên)
+        -> ĐẨY SANG DRIVE (_SCRIPTS_ARCHIVE, kho free lớn hơn Firestore nhiều) rồi mới xoá khỏi Firestore
+        -> KHÔNG MẤT DỮ LIỆU, hoàn toàn tự động, không cần bấm gì.
+      - Video chưa đăng + còn mới (< archive_days) -> giữ nguyên trong Firestore (còn cần, đọc nhanh).
+    Trả (số đã xoá vì đã đăng, số đã đẩy Drive vì cũ)."""
+    import json, tempfile
+    n_posted = n_archived = 0
     try:
         rj = client_render_jobs()
-        q = rj.collection("render_jobs").where("owner", "==", uid).where("script", "!=", "")
-        docs = list(q.stream())
+        docs = list(rj.collection("render_jobs").where("owner", "==", uid).where("script", "!=", "").stream())
     except Exception as e:
-        print(f"  ⚠️ prune_scripts đọc render_jobs lỗi ({e}) — bỏ qua, thử lại ngày sau"); return 0
+        print(f"  ⚠️ manage_scripts đọc render_jobs lỗi ({e}) — bỏ qua, thử lại ngày sau"); return 0, 0
+    if not docs:
+        return 0, 0
+    now = datetime.now(timezone.utc)
+    drv = accts[0][1] if accts else None   # dùng tài khoản Drive đầu tiên của user -> script vài KB, acc nào cũng đủ chỗ
+    archive_folder = None
     for d in docs:
         job = d.to_dict() or {}
         did = job.get("drive_id")
-        if not did:
-            continue
-        try:
-            rec = state.get_video(did)
-        except Exception:
-            rec = None
+        rec = None
+        if did:
+            try: rec = state.get_video(did)
+            except Exception: rec = None
         posted_yt = bool(((rec or {}).get("results") or {}).get("youtube", {}).get("id"))
-        if not posted_yt:
-            continue   # chưa đăng -> còn cần script, giữ nguyên
-        if dry_run:
-            print(f"     • [prune script] {job.get('title', did)[:40]}"); n += 1; continue
+        if posted_yt:
+            if dry_run:
+                print(f"     • [prune script — đã đăng] {job.get('title', did)[:40]}"); n_posted += 1; continue
+            try:
+                d.reference.set({"script": ""}, merge=True); n_posted += 1
+            except Exception as e:
+                print(f"     ❌ prune script {did}: {e}")
+            continue
+        # chưa đăng -> còn mới thì giữ nguyên, cũ quá thì đẩy Drive backup
         try:
-            d.reference.set({"script": ""}, merge=True); n += 1
+            dt = datetime.fromisoformat(str(job.get("created_at")).replace("Z", "+00:00"))
+            if dt.tzinfo is None: dt = dt.replace(tzinfo=timezone.utc)
+            age_days = (now - dt).total_seconds() / 86400
+        except Exception:
+            age_days = 0
+        if age_days < archive_days:
+            continue
+        if dry_run:
+            print(f"     • [archive->Drive] {job.get('title', d.id)[:40]} ({age_days:.0f} ngày, chưa đăng)"); n_archived += 1; continue
+        if not drv:
+            continue   # không có Drive nào -> AN TOÀN: giữ nguyên trong Firestore, không xoá khi chưa backup được
+        try:
+            if archive_folder is None:
+                archive_folder = drv.child_folder(accts[0][2], "_SCRIPTS_ARCHIVE", create=True)
+            tmp = os.path.join(tempfile.gettempdir(), f"script_{d.id}.json")
+            try:
+                script_obj = json.loads(job.get("script") or "null")
+            except Exception:
+                script_obj = job.get("script")   # không parse được (bị cắt do quá dài) -> lưu nguyên chuỗi, vẫn đọc được
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump({"job_id": d.id, "channel": job.get("channel"), "type": job.get("type"),
+                          "title": job.get("title"), "drive_id": did, "created_at": job.get("created_at"),
+                          "script": script_obj}, f, ensure_ascii=False)
+            drv.upload_file(archive_folder, tmp, name=f"{job.get('channel', 'ch')}_{d.id}.json")
+            os.remove(tmp)
+            d.reference.set({"script": ""}, merge=True)
+            n_archived += 1
         except Exception as e:
-            print(f"     ❌ prune script {did}: {e}")
-    return n
+            print(f"     ❌ archive script {d.id}: {e}")   # lỗi -> KHÔNG xoá field (an toàn), thử lại ngày sau
+    return n_posted, n_archived
 
 
 def run(dry_run=False, force_now=False):
@@ -154,14 +191,17 @@ def run(dry_run=False, force_now=False):
         print(f"🧹 user {uid[:8]}: mode={mode} keep_days={keep_days}"
               f"{' | DRY' if dry_run else ''}{' | NGAY' if force_now else ''}")
 
-        # Dọn field 'script' (kịch bản) của video ĐÃ ĐĂNG -> chạy LUÔN, không phụ thuộc mode Drive
-        # (mode chỉ quyết định có xoá FILE video hay không; script ở Firestore B là mối lo riêng, luôn dọn).
+        # Dọn field 'script' (kịch bản) -> chạy LUÔN, không phụ thuộc mode Drive (đó là chính sách riêng
+        # cho FILE video; script ở Firestore B là mối lo dung lượng riêng, luôn dọn tự động).
         try:
-            n_pruned = _prune_scripts(state, uid, dry_run)
-            if n_pruned:
-                print(f"  📄 script đã đăng -> dọn {n_pruned} bản (Firestore B)")
+            n_posted, n_archived = _manage_scripts(state, uid, accts, dry_run,
+                                                    archive_days=pol.get("script_archive_days", 30))
+            if n_posted:
+                print(f"  📄 script đã đăng -> xoá {n_posted} bản (Firestore B)")
+            if n_archived:
+                print(f"  💾 script cũ chưa đăng -> đã đẩy Drive (_SCRIPTS_ARCHIVE) + xoá khỏi Firestore: {n_archived} bản")
         except Exception as e:
-            print(f"  ⚠️ prune_scripts {uid[:8]}: {e}")
+            print(f"  ⚠️ manage_scripts {uid[:8]}: {e}")
 
         if mode == "keep":
             continue
