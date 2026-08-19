@@ -1540,6 +1540,11 @@
     const db = getFirestore(appFb);
     let dbJobs = db;   // Firestore cho render_jobs -> Project B (shard); lỗi init thì fallback A
     try { const appB = initializeApp(firebaseConfigB, "shardB"); dbJobs = getFirestore(appB); } catch(e){ dbJobs = db; }
+    // 🔀 3-PROJECT ROUTER: render META (config/channels/keys/storage/topics/requests) -> B (khớp pipeline SHARD_META).
+    //    publish (videos/counters/quota/queues) TẠM giữ A cho tới khi mở rules C (dbPub). Shared -> A (mặc định).
+    const dbMeta = dbJobs;  // B
+    const META_B = new Set(["render_config","render_channels","storage_accounts","render_topics","render_requests"]);  // gemini_keys GIỮ ở A (chứa API key -> cần auth, KHÔNG public trên B)
+    const _appFor = (name) => META_B.has(name) ? dbMeta : db;
     // TIẾT KIỆM ĐỌC Firestore (100% free): tab ẨN >30s -> TẮT network (listener ngừng đọc); HIỆN lại -> BẬT (sync tươi).
     let __netT=null, __netOff=false;
     document.addEventListener("visibilitychange", ()=>{
@@ -1594,7 +1599,7 @@
     setTimeout(() => { if (!resolved){ document.getElementById("splash").classList.add("hide");
       document.getElementById("login").classList.remove("hide"); } }, 6000);
 
-    function sub(name, cb){ onSnapshot(query(collection(db,name), where("owner","==",(window.__ownerUid||window.__uid))), cb, () => setLive(false)); }
+    function sub(name, cb){ onSnapshot(query(collection(_appFor(name),name), where("owner","==",(window.__ownerUid||window.__uid))), cb, () => setLive(false)); }
     function subscribe(){
       sub("videos", s => { window.setData(s.docs.map(d=>({id:d.id,...d.data()})), null, null); setLive(true);
         const m={}; s.docs.forEach(d=>{ m[d.id]=d.data(); }); window.__pubByDrive=m; window.__rsRenderGallery&&window.__rsRenderGallery(); });  // GỘP: khỏi 1 listener videos thứ 2 (cắt 1/2 read videos)
@@ -1688,7 +1693,7 @@
 
     // ===== RENDER STUDIO (dự án render GitHub) =====
     const RSowner = () => window.__ownerUid || window.__uid;
-    const rsCfgDoc = () => doc(db, "render_config", RSowner());
+    const rsCfgDoc = () => doc(dbMeta, "render_config", RSowner());
     const esc = (s) => String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
     window.__rsSaveRules = async () => {
       try { await setDoc(rsCfgDoc(), { owner:RSowner(), qc_min:Number(document.getElementById("rsQcMin").value)||90,
@@ -1764,13 +1769,13 @@
         long_target:lt, short_target:stt, created_at:new Date().toISOString()};
       if(preset && preset.fmt){ base.format=preset.fmt; base.make_long=false; base.long_target=0; base.type="short";  // kênh motif/doc = short-only + format riêng
         if(preset.accent)base.accent=preset.accent; if(preset.accent2)base.accent2=preset.accent2; if(preset.style)base.style=preset.style; }
-      try { await addDoc(collection(db,"render_channels"), base);
+      try { await addDoc(collection(dbMeta,"render_channels"), base);
         const cp=document.getElementById("rsChPick"); if(cp)cp.value=""; const cn=document.getElementById("rsChName"); if(cn){cn.value="";cn.style.display="none";} document.getElementById("rsChNiche").value="";
         toastMsg("✔ Đã thêm kênh "+name+(preset&&preset.fmt?" ["+preset.fmt+"]":"")); } catch(e){ alert("Lỗi: "+e.message); } };
     window.__rsDelChannel = async (id) => {
       const c=(window.__rsChannelsData||[]).find(x=>x.id===id)||{};
       if(confirm(`Xoá kênh render "${c.name||id}" khỏi hàng đợi?\n\n• CHỈ xoá cấu hình kênh — VIDEO đã làm KHÔNG bị xoá.\n• Kênh sẽ ngừng làm video mới ở mẻ sau.\n• Đang render dở thì clip đó vẫn xong bình thường (không lỗi).`))
-        await deleteDoc(doc(db,"render_channels",id)); };
+        await deleteDoc(doc(dbMeta,"render_channels",id)); };
     // TRẠNG THÁI THỰC: ĐANG RENDER (có luồng chạy) vs NGHỈ (chờ mẻ kế) vs DỪNG — để anh biết bấm Render ngay hay Dừng.
     function __nextBatchTime(){ const hrs=((window.__rsCfg||{}).batch_hours)||[0,4,8,12,16,20]; const now=new Date(); const uh=now.getUTCHours();
       let nh=hrs.find(h=>h>uh), d=new Date(now); if(nh==null){ nh=hrs[0]; d.setUTCDate(d.getUTCDate()+1); } d.setUTCHours(nh,0,0,0);
@@ -1891,13 +1896,13 @@
     window.__rsPauseAll = async (on) => {
       const ds=(window.__rsChannelsData||[]); if(!ds.length) return alert("Chưa có kênh nào.");
       if(!confirm(on?`Tạm dừng TẤT CẢ ${ds.length} kênh?\n(mỗi kênh làm NỐT clip đang dở + upload rồi mới dừng — không cắt ngang, giữ tiến độ)`:`Cho TẤT CẢ ${ds.length} kênh chạy lại?`)) return;
-      try{ await Promise.all(ds.map(c=>setDoc(doc(db,"render_channels",c.id),{paused:on},{merge:true})));
+      try{ await Promise.all(ds.map(c=>setDoc(doc(dbMeta,"render_channels",c.id),{paused:on},{merge:true})));
         try{ toastMsg(on?`⏸ Đã pause ${ds.length} kênh`:`▶ Đã cho ${ds.length} kênh chạy lại — vào mẻ tới`); }catch(_){}
       }catch(e){ alert("Lỗi: "+e.message); } };
     // ⏸/▶ Tạm dừng / Chạy tiếp 1 kênh. Pause = làm nốt clip đang dở rồi dừng (pipeline check giữa clip, không cắt ngang).
     window.__rsTogglePause = async (id) => {
       const c=(window.__rsChannelsData||[]).find(x=>x.id===id)||{}; const on=!c.paused;
-      try{ await setDoc(doc(db,"render_channels",id),{paused:on},{merge:true});
+      try{ await setDoc(doc(dbMeta,"render_channels",id),{paused:on},{merge:true});
         try{ toastMsg(on?('⏸ Pause '+(c.name||'')+' — làm nốt clip đang dở + upload rồi dừng, giữ nguyên tiến độ'):('▶ Chạy tiếp '+(c.name||'')+' — vào mẻ render tới')); }catch(_){}
       }catch(e){ alert("Lỗi: "+e.message); } };
     window.__rsToggleAutoPub = async (name) => {
@@ -1916,13 +1921,13 @@
       const lt=prompt(`🎯 Đặt mục tiêu LONG cho ${ids.length} kênh đã chọn\n(0 = mức dự trữ an toàn ${rv.long}):`, 100); if(lt===null) return;
       const st=prompt(`🎯 Đặt mục tiêu SHORT cho ${ids.length} kênh đã chọn\n(0 = mức dự trữ an toàn ${rv.short}):`, 300); if(st===null) return;
       const L=Math.max(0,parseInt(lt)||0), S=Math.max(0,parseInt(st)||0);
-      try{ await Promise.all(ids.map(id=>setDoc(doc(db,"render_channels",id),{long_target:L,short_target:S},{merge:true})));
+      try{ await Promise.all(ids.map(id=>setDoc(doc(dbMeta,"render_channels",id),{long_target:L,short_target:S},{merge:true})));
         toastMsg(`✔ Đã đặt ${ids.length} kênh: long ${L} · short ${S}`); }catch(e){ alert("Lỗi: "+e.message); } };
     // XOÁ HÀNG LOẠT — chỉ xóa CONFIG kênh, video không đụng.
     window.__rsBulkDelete = async () => { const ids=[...window.__rsSelCh]; if(!ids.length) return alert("Chưa tích chọn kênh nào.");
       const names=ids.map(id=>((window.__rsChannelsData||[]).find(c=>c.id===id)||{}).name||id).join(", ");
       if(!confirm(`Xoá ${ids.length} kênh khỏi hàng đợi?\n${names}\n\n• CHỈ xoá cấu hình kênh — VIDEO đã làm KHÔNG bị xoá.\n• Mẻ sau ngừng làm cho các kênh này.`)) return;
-      try{ await Promise.all(ids.map(id=>deleteDoc(doc(db,"render_channels",id)))); window.__rsSelCh.clear();
+      try{ await Promise.all(ids.map(id=>deleteDoc(doc(dbMeta,"render_channels",id)))); window.__rsSelCh.clear();
         toastMsg(`✔ Đã xoá ${ids.length} kênh (video an toàn)`); }catch(e){ alert("Lỗi: "+e.message); } };
     // Đặt/sửa target cho 1 kênh — hiện đã làm bao nhiêu để điền cho khớp; đạt target pipeline tự bỏ qua loại đó.
     window.__rsSetTarget = async (id) => { const c=(window.__rsChannelsData||[]).find(x=>x.id===id); if(!c) return;
@@ -1933,12 +1938,12 @@
       if(lt===null) return;
       const st=prompt(`🎯 ${c.name} — đã làm ${dsh} SHORT.\nMục tiêu SHORT cần giữ (0 = mức dự trữ an toàn ${rv.short}):`, c.short_target||0);
       if(st===null) return;
-      try{ await setDoc(doc(db,"render_channels",id), {long_target:Math.max(0,parseInt(lt)||0), short_target:Math.max(0,parseInt(st)||0)}, {merge:true});
+      try{ await setDoc(doc(dbMeta,"render_channels",id), {long_target:Math.max(0,parseInt(lt)||0), short_target:Math.max(0,parseInt(st)||0)}, {merge:true});
         toastMsg(`✔ ${c.name}: target long ${Math.max(0,parseInt(lt)||0)} · short ${Math.max(0,parseInt(st)||0)}`); }catch(e){ alert("Lỗi: "+e.message); } };
     let rsInited=false;
     function rsInit(){
       if(rsInited) return; const o=RSowner(); if(!o){ setTimeout(rsInit,800); return; } rsInited=true;
-      const q=(name)=>query(collection(db,name), where("owner","==",o));
+      const q=(name)=>query(collection(_appFor(name),name), where("owner","==",o));
       onSnapshot(rsCfgDoc(), d=>{ const c=d.exists()?d.data():{}; window.__rsCfg=c; window.__rsPipeState&&window.__rsPipeState();
         if(c.qc_min) document.getElementById("rsQcMin").value=c.qc_min;
         const mr=document.getElementById("rsMaxRun"); if(mr&&document.activeElement!==mr) mr.value=c.max_per_run||"";
@@ -2079,7 +2084,7 @@
           return `🧹 Đã dọn ${n} job cũ (>1 ngày). Job đang chạy giữ nguyên.`; }
         if(a.type==="set_qc"){ const v=Math.max(0,Math.min(100,Number(a.value)||90)); await setDoc(rsCfgDoc(),{owner:o,qc_min:v},{merge:true}); return `🎯 Đã đặt ngưỡng QC = <b>${v}</b>/100.`; }
         if(a.type==="add_channel"){ if(!a.name) return "❌ Thiếu tên kênh.";
-          await addDoc(collection(db,"render_channels"),{owner:o,name:String(a.name).trim().toUpperCase(),niche:(a.niche||"").trim(),type:(a.vtype==="long"?"long":"short"),img_source:(a.imgmode||"C"),created_at:new Date().toISOString()});
+          await addDoc(collection(dbMeta,"render_channels"),{owner:o,name:String(a.name).trim().toUpperCase(),niche:(a.niche||"").trim(),type:(a.vtype==="long"?"long":"short"),img_source:(a.imgmode||"C"),created_at:new Date().toISOString()});
           return `➕ Đã thêm kênh <b>${esc(String(a.name).toUpperCase())}</b> · ${esc(a.niche||"")} · ${a.vtype==="long"?"long":"short"}. Kênh vào hàng render ngay mẻ tới.`; }
         return `⚠️ Chưa hỗ trợ hành động "${esc(a.type||"?")}".`;
       }catch(e){ return "❌ Lỗi: "+esc(e.message||String(e)); }
@@ -2169,8 +2174,24 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       const base={owner:o,name,niche:p.niche,type:"short",img_source:"C",n_shorts:3,short_target:300,created_at:new Date().toISOString()};
       if(p.fmt){ base.format=p.fmt; base.make_long=false; base.long_target=0; if(p.accent)base.accent=p.accent; if(p.accent2)base.accent2=p.accent2; if(p.style)base.style=p.style; }
       else { base.mix="1long_3short"; base.make_long=true; base.long_target=100; }   // MẶC ĐỊNH 100 long/300 short (tùy chỉnh sau)
-      try{ await addDoc(collection(db,"render_channels"),base);
+      try{ await addDoc(collection(dbMeta,"render_channels"),base);
         try{toastMsg("✅ Đã thêm "+name+(p.fmt?(" ["+p.fmt+"]"):"")+" — sẵn sàng render");}catch(_){} }catch(e){ alert("Lỗi: "+e.message); } };
+    // THÊM TẤT CẢ kênh còn thiếu 1 lần (dedup + set ĐÚNG format cho từng kênh -> dispatch chuẩn engine).
+    window.rsQuickAddAll=async()=>{
+      const o=RSowner(); if(!o) return alert("Chưa đăng nhập.");
+      const have=new Set((window.__rsChannelsData||[]).map(c=>(c.name||"").toUpperCase()));
+      const todo=RS_PRESETS.filter(p=>!have.has(p.name.toUpperCase()));
+      if(!todo.length){ try{toastMsg("Tất cả kênh đã có rồi.");}catch(_){}; return; }
+      if(!confirm(`Thêm ${todo.length} kênh còn thiếu?\n(kênh motif/doc = short-only đúng format; kênh data-race = 100 long/300 short)`)) return;
+      let ok=0;
+      for(const p of todo){
+        const base={owner:o,name:p.name,niche:p.niche,type:"short",img_source:"C",n_shorts:3,short_target:300,created_at:new Date().toISOString()};
+        if(p.fmt){ base.format=p.fmt; base.make_long=false; base.long_target=0; if(p.accent)base.accent=p.accent; if(p.accent2)base.accent2=p.accent2; if(p.style)base.style=p.style; }
+        else { base.mix="1long_3short"; base.make_long=true; base.long_target=100; }
+        try{ await addDoc(collection(dbMeta,"render_channels"),base); ok++; }catch(e){}
+      }
+      try{toastMsg(`✅ Đã thêm ${ok}/${todo.length} kênh — sẵn sàng render`);}catch(_){}
+    };
     window.rsScrollStatus=()=>{ const el=document.getElementById("rsChanProg")||document.getElementById("rsJobs"); if(el) el.scrollIntoView({behavior:"smooth",block:"center"}); };
     function rsRenderPlan(){
       const host=document.getElementById("rsPlan"); if(!host) return;
@@ -2185,7 +2206,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       });
       const chip=(p,act)=>`<button class="cmdtag" style="margin:3px" onclick="${act}('${p.name}')" title="${esc(p.niche)}${p.fmt?' · format: '+esc(p.fmt):''}${p.mix?' · '+esc(p.mix):''}">${esc(p.name)}${p.fmt?` <span style="opacity:.55;font-size:11px">${esc(p.fmt)}</span>`:""}${p.d?` ✅${p.d}`:""}${p.a?` ⚙️${p.a}`:""}${p.f?` ❌${p.f}`:""}</button>`;
       const sec=(t,arr,hint,act)=>`<div style="margin-bottom:12px"><div class="d" style="margin-bottom:5px">${t} <span style="opacity:.55">(${arr.length})</span> — ${hint}</div><div style="display:flex;flex-wrap:wrap;gap:4px">${arr.length?arr.map(p=>chip(p,act)).join(""):'<span class="d">—</span>'}</div></div>`;
-      host.innerHTML = sec("💡 Sẵn sàng — bấm để THÊM NGAY",B.ideal,"1 chạm = thêm kênh (mặc định 1 long + 3 short). Muốn tuỳ chỉnh template → form ngay dưới.","window.rsQuickAdd")
+      host.innerHTML = sec("💡 Sẵn sàng — bấm để THÊM NGAY",B.ideal,`1 chạm = thêm 1 kênh (đúng format). ${B.ideal.length?`<button class="btn-mini" style="margin-left:4px" onclick="window.rsQuickAddAll()">➕ THÊM TẤT CẢ (${B.ideal.length})</button>`:""} Muốn tuỳ chỉnh → form dưới.`,"window.rsQuickAdd")
         + sec("⚙️ Đang làm",B.doing,"bấm để xem tiến trình","window.rsScrollStatus")
         + sec("✅ Đã có video",B.done,"bấm để coi ở Trạng thái Render","window.rsScrollStatus");
     }
@@ -2353,7 +2374,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       if(!confirm(`⚠️ RENDER LẠI video này?\n\n"${(j.title||j.type||"video").slice(0,60)}"\n\nBản mới (≥90, không lỗi) sẽ TỰ THAY THẾ bản này (bản cũ vào thùng rác).\nNhấn OK để xác nhận, hoặc Cancel để thoát.`)) return;
       const o=RSowner();
       try{
-        const ref=await addDoc(collection(db,"render_requests"),{owner:o,channel:j.channel||"",type:j.type||"short",seed:(j.title||""),
+        const ref=await addDoc(collection(dbMeta,"render_requests"),{owner:o,channel:j.channel||"",type:j.type||"short",seed:(j.title||""),
           replace_id:fid,replace_account:(j.drive_account||""),status:"pending",created_at:new Date().toISOString()});
         await setDoc(doc(dbJobs,"render_jobs",jobId),{flagged:true,rerender:"chờ render lại",rerender_req:ref.id},{merge:true});
         await setDoc(rsCfgDoc(),{owner:o,enabled:true,run_now:new Date().toISOString()},{merge:true});
@@ -2362,10 +2383,10 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     // HỦY render lại — chỉ khi CHƯA bắt đầu (status còn 'pending').
     window.rsCancelRerender=async(jobId)=>{
       const j=(window.__rsJobsData||[]).find(x=>x.id===jobId); if(!j||!j.rerender_req){ try{toastMsg("Không có yêu cầu để hủy.");}catch(_){}; return; }
-      try{ const rd=await getDoc(doc(db,"render_requests",j.rerender_req)); const st=rd.exists()?(rd.data().status||""):"";
+      try{ const rd=await getDoc(doc(dbMeta,"render_requests",j.rerender_req)); const st=rd.exists()?(rd.data().status||""):"";
         if(st!=="pending"){ try{toastMsg("⚠️ Đang render lại hoặc đã xong — KHÔNG hủy được nữa.");}catch(_){}; return; }
         if(!confirm("Hủy yêu cầu render lại video này?")) return;
-        await deleteDoc(doc(db,"render_requests",j.rerender_req));
+        await deleteDoc(doc(dbMeta,"render_requests",j.rerender_req));
         await setDoc(doc(dbJobs,"render_jobs",jobId),{rerender:null,rerender_req:null},{merge:true});
         try{toastMsg("⏹ Đã hủy render lại");}catch(_){}
       }catch(e){ try{toastMsg("Lỗi: "+e.message);}catch(_){} } };
