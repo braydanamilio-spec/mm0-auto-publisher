@@ -2091,14 +2091,19 @@
                  ()=>{ onSnapshot(query(collection(dbJobs,"render_jobs"), where("owner","==",o)), s=>{__jB=_mapJ(s);_mergeJobs();}, ()=>{}); });
       // Dữ liệu ĐĂNG (collection 'videos' keyed theo drive_id) -> chia trạng thái đã đăng/chưa/nền tảng.
       /* listener videos thứ 2 ĐÃ GỘP vào sub("videos") ở trên -> khỏi đọc collection videos 2 lần (tiết kiệm Firestore) */
-      // ĐẾM tổng tài nguyên (Drive lưu trữ / YouTube / Facebook)
-      const cnt=(coll,elid)=>onSnapshot(q(coll), s=>{const e=document.getElementById(elid); if(e) e.textContent=s.size;}, ()=>{});
-      onSnapshot(q("storage_accounts"), s=>{ const d=document.getElementById("rsTotDrive"); if(d)d.textContent=s.size;
+      // ĐẾM tổng tài nguyên (Drive lưu trữ / YouTube / Facebook) — 19/8: PHÁT HIỆN lặp lại đúng lỗi đã fix
+      // ở Content-Hub (onSnapshot realtime cho storage_accounts/channels đổi CHẬM, không cần realtime) —
+      // đoạn NÀY thêm sau nên bị sót, âm thầm mở thêm listener y hệt, đốt quota gấp đôi mỗi ngày dashboard
+      // mở tab Render Studio. FIX: load-once (getDocs) + refresh khi quay lại tab, giống hệt pattern đã có.
+      const cntOnce=async(coll,elid)=>{ try{ const s=await getDocs(q(coll)); const e=document.getElementById(elid); if(e)e.textContent=s.size; return s; }catch(_){ return null; } };
+      const loadDriveTotal=async()=>{ const s=await getDocs(q("storage_accounts")); const d=document.getElementById("rsTotDrive"); if(d)d.textContent=s.size;
         let used=0,cap=0; s.docs.forEach(x=>{const a=x.data();used+=(a.used||0);cap+=(a.cap_gb||15)*1e9;});
         const pct=cap?Math.round(used/cap*100):0;
         const pe=document.getElementById("rsDrivePct"); if(pe)pe.textContent=`💾 Kho: ${(used/1e9).toFixed(1)}/${(cap/1e9).toFixed(0)} GB (${pct}% đầy) · ${s.size} tài khoản`;
-        const w=document.getElementById("rsDriveWarn"); if(w){ if(pct>=85){w.style.display="block";w.textContent=`⚠️ Kho Drive đã ${pct}% đầy! Thêm tài khoản Google (Storage → Connect) hoặc bật cleanup archive để tránh gián đoạn.`;} else w.style.display="none"; } }, ()=>{});
-      cnt("channels","rsTotYT"); cnt("fb_pages","rsTotFB");
+        const w=document.getElementById("rsDriveWarn"); if(w){ if(pct>=85){w.style.display="block";w.textContent=`⚠️ Kho Drive đã ${pct}% đầy! Thêm tài khoản Google (Storage → Connect) hoặc bật cleanup archive để tránh gián đoạn.`;} else w.style.display="none"; } };
+      const _rsResRefresh=()=>{ loadDriveTotal().catch(()=>{}); cntOnce("channels","rsTotYT"); cntOnce("fb_pages","rsTotFB"); };
+      _rsResRefresh();
+      window.addEventListener("focus", _rsResRefresh);
     }
     rsInit();
 
