@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
 import storage as ST
+from firestore_state import client_render_jobs
 
 IMG_EXT = (".jpg", ".jpeg", ".png")
 CAP_EXT = (".srt", ".vtt")          # phụ đề đi kèm -> dọn luôn, tránh file mồ côi chiếm dung lượng
@@ -66,6 +67,39 @@ def _companions(drv, parent_id: str, base: str) -> list[str]:
         if cid:
             ids.append(cid)
     return ids
+
+
+def _prune_scripts(state, uid: str, dry_run: bool) -> int:
+    """Xoá field 'script' (kịch bản chi tiết, lưu ở render_jobs/Project B) khỏi các video ĐÃ ĐĂNG YouTube.
+    Lý do: script chỉ để RENDER LẠI khi Drive gặp sự cố TRƯỚC LÚC ĐĂNG -> đăng rồi thì YouTube đã giữ bản
+    chính thức, script hết tác dụng -> xoá để Firestore (free 1GiB) KHÔNG phình theo thời gian dù render
+    hàng chục nghìn video. Video CHƯA đăng -> giữ nguyên script (còn cần để lỡ có sự cố)."""
+    n = 0
+    try:
+        rj = client_render_jobs()
+        q = rj.collection("render_jobs").where("owner", "==", uid).where("script", "!=", "")
+        docs = list(q.stream())
+    except Exception as e:
+        print(f"  ⚠️ prune_scripts đọc render_jobs lỗi ({e}) — bỏ qua, thử lại ngày sau"); return 0
+    for d in docs:
+        job = d.to_dict() or {}
+        did = job.get("drive_id")
+        if not did:
+            continue
+        try:
+            rec = state.get_video(did)
+        except Exception:
+            rec = None
+        posted_yt = bool(((rec or {}).get("results") or {}).get("youtube", {}).get("id"))
+        if not posted_yt:
+            continue   # chưa đăng -> còn cần script, giữ nguyên
+        if dry_run:
+            print(f"     • [prune script] {job.get('title', did)[:40]}"); n += 1; continue
+        try:
+            d.reference.set({"script": ""}, merge=True); n += 1
+        except Exception as e:
+            print(f"     ❌ prune script {did}: {e}")
+    return n
 
 
 def run(dry_run=False, force_now=False):
@@ -119,6 +153,16 @@ def run(dry_run=False, force_now=False):
 
         print(f"🧹 user {uid[:8]}: mode={mode} keep_days={keep_days}"
               f"{' | DRY' if dry_run else ''}{' | NGAY' if force_now else ''}")
+
+        # Dọn field 'script' (kịch bản) của video ĐÃ ĐĂNG -> chạy LUÔN, không phụ thuộc mode Drive
+        # (mode chỉ quyết định có xoá FILE video hay không; script ở Firestore B là mối lo riêng, luôn dọn).
+        try:
+            n_pruned = _prune_scripts(state, uid, dry_run)
+            if n_pruned:
+                print(f"  📄 script đã đăng -> dọn {n_pruned} bản (Firestore B)")
+        except Exception as e:
+            print(f"  ⚠️ prune_scripts {uid[:8]}: {e}")
+
         if mode == "keep":
             continue
         if mode == "archive":
