@@ -1640,10 +1640,14 @@
         const m={}; s.docs.forEach(d=>{ m[d.id]=d.data(); }); window.__pubByDrive=m; window.__rsRenderGallery&&window.__rsRenderGallery(); });  // GỘP: khỏi 1 listener videos thứ 2 (cắt 1/2 read videos)
       sub("channels", s => { const c={}; s.docs.forEach(d=>{const v=d.data();c[v.channel||d.id]=v;}); window.setData(null,c,null); if(window.__maybeAutoEnableApis) setTimeout(window.__maybeAutoEnableApis,1500); });
       sub("counters", s => { const k={}; s.docs.forEach(d=>{const v=d.data();k[v.channel||d.id]=v;}); window.setData(null,null,k); });
-      sub("storage_accounts", s => {
-        const accounts = s.docs.map(d=>{const v=d.data();return {name:v.name, email:v.email, root:v.root||v.folder_id||"", used:v.used||0, cap:(v.cap_gb||14)*1e9, connected_at:v.connected_at||""};});
-        window.setStorage(accounts.length ? {accounts} : null);
-      });
+      // storage_accounts ĐỔI SANG load-once (67 tài khoản, đổi chậm) + tự refresh khi quay lại tab
+      // (đúng lúc kết nối kho mới xong ở tab popup rồi quay về) -> khỏi cần realtime, tiết kiệm đọc Firestore.
+      window.__loadStorage = async () => {
+        try { const snap = await getDocs(query(collection(_appFor("storage_accounts"),"storage_accounts"), where("owner","==",(window.__ownerUid||window.__uid))));
+          const accounts = snap.docs.map(d=>{const v=d.data();return {name:v.name, email:v.email, root:v.root||v.folder_id||"", used:v.used||0, cap:(v.cap_gb||14)*1e9, connected_at:v.connected_at||""};});
+          window.setStorage(accounts.length ? {accounts} : null); } catch(e){} };
+      window.__loadStorage();
+      window.addEventListener("focus", () => { window.__loadStorage&&window.__loadStorage(); });
       sub("settings", s => {
         const d=s.docs.find(x=>x.id.startsWith("config")); window.setSettings(d?d.data():null);
         const o=s.docs.find(x=>x.id.startsWith("overrides")); window.setOverrides(o?o.data():{});
@@ -2584,7 +2588,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       for(let i=0;i<accs.length;i++){ btn.textContent=`⏳ Đang dọn kho ${i+1}/${accs.length}…`;
         try{ await workerApi(`/api/empty-trash?account=${encodeURIComponent(accs[i])}`); ok++; }catch(_){} }
       const ov=document.getElementById("rsTrashModal"); if(ov) ov.remove();
-      try{toastMsg(`🧹 Đã đổ rác ${ok}/${accs.length} kho — thu hồi dung lượng`);}catch(_){} };
+      try{toastMsg(`🧹 Đã đổ rác ${ok}/${accs.length} kho — thu hồi dung lượng`);}catch(_){} window.__loadStorage&&window.__loadStorage(); };
     // TRẠNG THÁI ĐĂNG của 1 video (nối với collection 'videos' theo drive_id). Chưa đăng nếu chưa vào pipeline đăng.
     function rsPubStatus(j){
       const p=(window.__pubByDrive||{})[j.drive_id]; if(!p) return "unposted";
@@ -5084,7 +5088,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       for(let i=0;i<accs.length;i++){ if(btn) btn.textContent=`⏳ ${i+1}/${accs.length}`;
         try{ await workerApi(`/api/drive-usage?account=${encodeURIComponent(accs[i])}`); ok++; }catch(_){} }
       if(btn){ btn.textContent=old; btn.disabled=false; }
-      try{toastMsg(`🔄 Đã đồng bộ dung lượng ${ok}/${accs.length} kho — số sẽ tự cập nhật`);}catch(_){} };
+      try{toastMsg(`🔄 Đã đồng bộ dung lượng ${ok}/${accs.length} kho`);}catch(_){} window.__loadStorage&&window.__loadStorage(); };
 
     /* ===== UPLOAD video từ máy tính -> Drive kho (relay chunk qua Worker, giữ nguyên chất lượng) ===== */
     window.__upQ=[]; window.__upBusy=false;
