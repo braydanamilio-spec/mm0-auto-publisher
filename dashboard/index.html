@@ -775,7 +775,21 @@
           <div class="p-head"><div class="p-title">📂 Duyệt file trong kho <span class="sd">(xem · đổi tên · xoá tay)</span></div>
             <div class="chpick" id="stAccPick">
               <button class="chpick-btn" id="stAccBtn" onclick="stAccToggle()" style="min-width:250px"><span class="chpick-all" id="stAccLbl">Chọn tài khoản kho…</span><span class="chpick-caret">▾</span></button>
-              <div class="chpick-menu hide" id="stAccMenu" style="min-width:290px"></div>
+              <div class="chpick-menu hide" id="stAccMenu" style="min-width:320px">
+                <div style="display:flex;gap:6px;padding:8px 8px 6px;position:sticky;top:0;background:var(--surface);z-index:1;border-bottom:1px solid var(--border2)">
+                  <input id="stAccSearch" type="search" placeholder="🔍 Tên / gmail…" oninput="buildStAccPicker()"
+                    style="flex:1;min-width:0;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 9px;font-size:12.5px">
+                  <select id="stAccYear" onchange="buildStAccPicker()" style="width:78px;font-size:12px;border-radius:8px"><option value="">Mọi năm</option></select>
+                  <select id="stAccSort" onchange="buildStAccPicker()" style="width:120px;font-size:12px;border-radius:8px">
+                    <option value="name">Tên A-Z</option>
+                    <option value="used_desc">Dung lượng ↓</option>
+                    <option value="used_asc">Dung lượng ↑</option>
+                    <option value="new">Mới kết nối</option>
+                    <option value="old">Cũ kết nối</option>
+                  </select>
+                </div>
+                <div id="stAccRows"></div>
+              </div>
             </div>
             <select id="fbAccount" style="display:none"></select></div>
           <input type="search" id="fbSearch" placeholder="🔍 Tìm file/thư mục trên TẤT CẢ tài khoản kho…"
@@ -1627,7 +1641,7 @@
       sub("channels", s => { const c={}; s.docs.forEach(d=>{const v=d.data();c[v.channel||d.id]=v;}); window.setData(null,c,null); if(window.__maybeAutoEnableApis) setTimeout(window.__maybeAutoEnableApis,1500); });
       sub("counters", s => { const k={}; s.docs.forEach(d=>{const v=d.data();k[v.channel||d.id]=v;}); window.setData(null,null,k); });
       sub("storage_accounts", s => {
-        const accounts = s.docs.map(d=>{const v=d.data();return {name:v.name, email:v.email, root:v.root||v.folder_id||"", used:v.used||0, cap:(v.cap_gb||14)*1e9};});
+        const accounts = s.docs.map(d=>{const v=d.data();return {name:v.name, email:v.email, root:v.root||v.folder_id||"", used:v.used||0, cap:(v.cap_gb||14)*1e9, connected_at:v.connected_at||""};});
         window.setStorage(accounts.length ? {accounts} : null);
       });
       sub("settings", s => {
@@ -4065,13 +4079,32 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     // Dropdown chọn tài khoản kho có avatar + email + % đã dùng (đồng bộ hidden #fbAccount)
     const stAva=(nm,cls)=>`<div class="${cls}" style="background:linear-gradient(145deg,var(--accent),var(--violet))">${esc((nm||'?').slice(0,2).toUpperCase())}</div>`;
     function buildStAccPicker(){
-      const menu=$("stAccMenu"), lbl=$("stAccLbl"); if(!menu) return;
+      const menu=$("stAccMenu"), rows=$("stAccRows"); if(!menu||!rows) return;
       const accs=(__STORAGE&&__STORAGE.accounts)||[]; const cur=($("fbAccount")||{}).value||"";
-      menu.innerHTML=accs.length?accs.map(a=>{ const pct=a.cap?Math.min(100,Math.round((a.used||0)/a.cap*100)):0;
+      // Đổ dropdown NĂM (chỉ hiện năm thực có, giữ nguyên lựa chọn hiện tại khi rebuild)
+      const yrSel=$("stAccYear");
+      if(yrSel){
+        const years=[...new Set(accs.map(a=>(a.connected_at||"").slice(0,4)).filter(Boolean))].sort().reverse();
+        const opts='<option value="">Mọi năm</option>'+years.map(y=>`<option value="${y}">${y}</option>`).join("");
+        if(yrSel.innerHTML!==opts){ const keepY=yrSel.value; yrSel.innerHTML=opts; if(years.includes(keepY)) yrSel.value=keepY; }
+      }
+      const q=((($("stAccSearch")||{}).value)||"").trim().toLowerCase();
+      const yr=(($("stAccYear")||{}).value)||"";
+      const sortBy=(($("stAccSort")||{}).value)||"name";
+      let filtered=accs.filter(a=>{
+        if(q && !((a.name||"").toLowerCase().includes(q) || (a.email||"").toLowerCase().includes(q))) return false;
+        if(yr && (a.connected_at||"").slice(0,4)!==yr) return false;
+        return true;
+      });
+      const by={name:(a,b)=>(a.name||"").localeCompare(b.name||""),
+                used_desc:(a,b)=>(b.used||0)-(a.used||0), used_asc:(a,b)=>(a.used||0)-(b.used||0),
+                new:(a,b)=>(b.connected_at||"").localeCompare(a.connected_at||""), old:(a,b)=>(a.connected_at||"").localeCompare(b.connected_at||"")};
+      filtered.sort(by[sortBy]||by.name);
+      rows.innerHTML=filtered.length?filtered.map(a=>{ const pct=a.cap?Math.min(100,Math.round((a.used||0)/a.cap*100)):0;
         return `<div class="chpick-item ${cur===a.name?'on':''}" onclick="stAccPick('${esc(a.name)}')" style="align-items:flex-start">${stAva(a.name,'chpick-ava')}
           <span style="flex:1;min-width:0"><span class="chpick-nm" style="display:block">${esc(a.name)}</span>
-          <span class="p-sub" style="display:block;font-size:11.5px">${a.email?esc(a.email)+' · ':''}${fmtBytes(a.used||0)}/${fmtBytes(a.cap||0)} · ${pct}%</span></span></div>`;
-      }).join(""):`<div class="p-sub" style="padding:10px">Chưa có tài khoản kho — kết nối Google Drive trước.</div>`;
+          <span class="p-sub" style="display:block;font-size:11.5px">${a.email?esc(a.email)+' · ':''}${fmtBytes(a.used||0)}/${fmtBytes(a.cap||0)} · ${pct}%${a.connected_at?' · '+esc(a.connected_at.slice(0,10)):''}</span></span></div>`;
+      }).join(""):`<div class="p-sub" style="padding:10px">${accs.length?'Không khớp bộ lọc.':'Chưa có tài khoản kho — kết nối Google Drive trước.'}</div>`;
       const a=accs.find(x=>x.name===cur);
       const btn=$("stAccBtn");
       if(btn){ btn.innerHTML=(a?`${stAva(a.name,'chpick-ava')}<span class="chpick-nm">${esc(a.name)}${a.email?` · ${esc(a.email)}`:''}</span>`:`<span class="chpick-all">Chọn tài khoản kho…</span>`)+`<span class="chpick-caret">▾</span>`; }
