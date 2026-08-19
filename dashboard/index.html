@@ -2171,6 +2171,13 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       {name:"WHYUSA",fmt:"doc",accent:"#F59E0B",accent2:"#F5B301",style:"curious, clear, fascinating",niche:"why natural phenomena happen — science explainers"},
       {name:"EMPIREUSA",fmt:"doc",accent:"#EAB308",accent2:"#F5B301",style:"ambitious, dramatic",niche:"how famous entrepreneurs built their empires (faceless)"},
       {name:"UNSOLVED",fmt:"doc",accent:"#EF4444",accent2:"#F59E0B",style:"suspenseful, mysterious",niche:"unsolved mysteries, ancient enigmas, unexplained phenomena"},
+      // ── WAVE 3 (tài liệu điện ảnh — cảm hứng epistemic-grammar, tự động hoàn toàn) ──
+      {name:"GRIDUSA",fmt:"doc",accent:"#64748B",accent2:"#94A3B8",style:"technical, tense, systems-thinking",niche:"the invisible systems that run America — power grid, data centers, supply chains, water — how they work and what happens when they fail"},
+      {name:"RULEDUSA",fmt:"doc",accent:"#E11D48",accent2:"#FB7185",style:"dry, deadpan, matter-of-fact",niche:"real classification rulings that go the surprising way — a tomato ruled a vegetable, a burrito ruled not a sandwich, what legally counts as milk or organic"},
+      {name:"VAULTUSA",fmt:"doc",accent:"#B45309",accent2:"#F2A93B",style:"precise, investigative",niche:"how experts really catch fakes and fraud — art authentication, forensic accounting, appraisal, verification"},
+      {name:"LEDGERUSA",fmt:"doc",accent:"#15803D",accent2:"#86EFAC",style:"sharp, procedural",niche:"how a bill, tax, or fee is actually computed line by line — hidden charges, the real math behind the number"},
+      {name:"SIGNALUSA",fmt:"doc",accent:"#A21CAF",accent2:"#E879F9",style:"cool, technical, slightly ominous",niche:"how algorithms decide what to trust — spam filters, credit scores, recommendation engines, fraud detection"},
+      {name:"MARGINUSA",fmt:"doc",accent:"#1E40AF",accent2:"#60A5FA",style:"tight, technical, meticulous",niche:"precision manufacturing and measurement — why 'exact' specs always hide a tolerance, from aerospace bolts to microchips"},
     ];
     window.RS_PRESETS=RS_PRESETS; try{ window.__rsFillPicker&&window.__rsFillPicker(); }catch(_){}   // đổ dropdown chọn kênh
     window.rsPick=(name)=>{ const sel=document.getElementById("rsChPick");
@@ -2428,6 +2435,13 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       WHYUSA:{d:"WHY",a:"#F59E0B",t:"Why everything is the way it is.",h:"@whydaily",ic:"🔬",ht:"#science #why #explained #facts",niche:"why natural phenomena happen — science explainers"},
       EMPIREUSA:{d:"EMPIRE",a:"#EAB308",t:"How they built it all.",h:"@empiredaily",ic:"👑",ht:"#business #entrepreneur #success #empire",niche:"how famous entrepreneurs built their empires"},
       UNSOLVED:{d:"UNSOLVED",a:"#EF4444",t:"Mysteries with no answer.",h:"@unsolveddaily",ic:"🌍",ht:"#mystery #unsolved #unexplained #enigma",niche:"unsolved mysteries, ancient enigmas, unexplained phenomena"},
+      // ── WAVE 3 ──
+      GRIDUSA:{d:"GRID USA",a:"#64748B",t:"The systems that never sleep.",h:"@gridusadaily",ic:"⚡",ht:"#infrastructure #powergrid #systems #usa",niche:"the invisible systems that run America — power grid, data centers, supply chains, water"},
+      RULEDUSA:{d:"RULED",a:"#E11D48",t:"By the letter of the law.",h:"@ruledusa",ic:"⚖️",ht:"#classification #law #facts #usa",niche:"real classification rulings that go the surprising way — tomato as vegetable, burrito not a sandwich"},
+      VAULTUSA:{d:"VAULT",a:"#B45309",t:"What experts see that you don't.",h:"@vaultusa",ic:"🔍",ht:"#forensics #experts #investigation #usa",niche:"how experts really catch fakes and fraud — art authentication, forensic accounting, appraisal"},
+      LEDGERUSA:{d:"LEDGER",a:"#15803D",t:"Where every dollar actually goes.",h:"@ledgerusa",ic:"🧾",ht:"#money #fees #tax #usa",niche:"how a bill, tax, or fee is actually computed line by line — hidden charges"},
+      SIGNALUSA:{d:"SIGNAL",a:"#A21CAF",t:"What the machine believes about you.",h:"@signalusa",ic:"📡",ht:"#algorithm #tech #privacy #usa",niche:"how algorithms decide what to trust — spam filters, credit scores, recommendation engines"},
+      MARGINUSA:{d:"MARGIN",a:"#1E40AF",t:"How exact is 'exact'?",h:"@marginusa",ic:"📐",ht:"#precision #engineering #manufacturing #usa",niche:"precision manufacturing and measurement — why 'exact' specs always hide a tolerance"},
     };
     const _dark="#0b1020";
     function rsBrandSvg(k,W,H,kind){ const b=RS_BRANDS[k]; if(!b) return ""; const s=Math.min(W,H);
@@ -2469,6 +2483,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       window.rsRenderBrand(hostId,selId); };
     RS_BRANDS.DATARACE.cat="27";RS_BRANDS.STATEWARS.cat="27";RS_BRANDS.MONEYMOVES.cat="27";RS_BRANDS.POWERPLAY.cat="28";RS_BRANDS.GRIDIRON.cat="17";RS_BRANDS.SCREENKINGS.cat="24";RS_BRANDS.PAYCHECK.cat="27";RS_BRANDS.BODYUSA.cat="27";RS_BRANDS.RIDEUSA.cat="2";RS_BRANDS.EATSUSA.cat="26";
     RS_BRANDS.GUESSUSA.cat="24";RS_BRANDS.MAPPEDUSA.cat="27";RS_BRANDS.RANKEDUSA.cat="24";RS_BRANDS.SCALEDUSA.cat="28";RS_BRANDS.THENNOWUSA.cat="27";RS_BRANDS.COSMOS.cat="28";RS_BRANDS.THEDEEP.cat="28";RS_BRANDS.WHYUSA.cat="28";RS_BRANDS.EMPIREUSA.cat="27";RS_BRANDS.UNSOLVED.cat="27";
+    RS_BRANDS.GRIDUSA.cat="28";RS_BRANDS.RULEDUSA.cat="27";RS_BRANDS.VAULTUSA.cat="27";RS_BRANDS.LEDGERUSA.cat="27";RS_BRANDS.SIGNALUSA.cat="28";RS_BRANDS.MARGINUSA.cat="28";
     // Avatar data-URI cho 1 kênh: brand SVG nếu có, không thì avatar chữ-cái-đầu + màu hash (hợp hàng trăm kênh).
     const _avCache={};   // memo: khỏi sinh lại SVG mỗi lần render (nhẹ CPU khi nhiều kênh) — chỉ RAM, KHÔNG ghi Firestore/Drive
     function rsAvatarUri(k,size){ size=size||44; const K=String(k||"").toUpperCase(); const ck=K+"@"+size;
