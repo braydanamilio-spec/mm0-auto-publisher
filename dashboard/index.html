@@ -1636,8 +1636,13 @@
 
     function sub(name, cb){ onSnapshot(query(collection(_appFor(name),name), where("owner","==",(window.__ownerUid||window.__uid))), cb, () => setLive(false)); }
     function subscribe(){
-      sub("videos", s => { window.setData(s.docs.map(d=>({id:d.id,...d.data()})), null, null); setLive(true);
-        const m={}; s.docs.forEach(d=>{ m[d.id]=d.data(); }); window.__pubByDrive=m; window.__rsRenderGallery&&window.__rsRenderGallery(); });  // GỘP: khỏi 1 listener videos thứ 2 (cắt 1/2 read videos)
+      // "videos" TRƯỚC ĐÂY không giới hạn (limit) -> nghe realtime TOÀN BỘ lịch sử video, càng ngày càng phình
+      // (mỗi video enqueue mới, mỗi lần đổi trạng thái đăng đều tính) — phát hiện 19/8 lúc rà lại quota.
+      // FIX: cap 300 video MỚI NHẤT (đủ dùng cho gallery/theo dõi thực tế), fallback nếu thiếu index.
+      const _vidsCb = s => { window.setData(s.docs.map(d=>({id:d.id,...d.data()})), null, null); setLive(true);
+        const m={}; s.docs.forEach(d=>{ m[d.id]=d.data(); }); window.__pubByDrive=m; window.__rsRenderGallery&&window.__rsRenderGallery(); };
+      onSnapshot(query(collection(_appFor("videos"),"videos"), where("owner","==",(window.__ownerUid||window.__uid)), orderBy("updated_at","desc"), limit(300)), _vidsCb,
+        () => { onSnapshot(query(collection(_appFor("videos"),"videos"), where("owner","==",(window.__ownerUid||window.__uid))), _vidsCb, () => setLive(false)); });  // thiếu index -> lùi về không giới hạn (an toàn, hiếm khi cần)
       // channels (stats/health) ĐỔI SANG load-once + tự refresh khi quay lại tab — đổi chậm (stats.yml 6h/lần),
       // realtime không cần thiết, giống storage_accounts (giảm đọc Firestore A).
       window.__loadChannels = async () => { try {
