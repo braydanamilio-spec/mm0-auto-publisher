@@ -940,10 +940,10 @@
           <div class="p-head"><div class="p-title">📊 Trạng thái Render (realtime)</div><div class="p-sub">Cập nhật live theo từng bước · free</div></div>
           <div id="rsAlert" style="display:none;background:#4a1a1a;border:1px solid #a33;border-radius:10px;padding:10px 14px;margin-bottom:10px;color:#ffbcbc;font-weight:600"></div>
           <div id="rsSummary" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:14px">
-            <span>📅 Hôm nay: <b id="rsSumToday">0</b></span>
-            <span>✅ Xong: <b id="rsSumDone">0</b></span>
-            <span>⚙️ Đang chạy: <b id="rsSumRun">0</b></span>
-            <span style="color:#ff8a8a">❌ Lỗi: <b id="rsSumFail">0</b></span>
+            <span title="Video render XONG trong ngày hôm nay (reset lúc 00:00) — CHỈ hôm nay, không cộng dồn">📅 Hôm nay: <b id="rsSumToday">0</b></span>
+            <span title="TỔNG video đã render xong từ trước tới giờ (cộng dồn mọi ngày) — luôn ≥ số Hôm nay">✅ Tổng cộng dồn: <b id="rsSumDone">0</b></span>
+            <span title="Video đang render THẬT ngay lúc này (không tính job cũ đã dọn)">⚙️ Đang chạy: <b id="rsSumRun">0</b></span>
+            <span style="color:#ff8a8a" title="Lỗi MỚI (sau lần render xong gần nhất) — lỗi cũ đã có bản thay thế không tính">❌ Lỗi: <b id="rsSumFail">0</b></span>
           </div>
           <div style="font-weight:600;font-size:13px;margin-bottom:6px;opacity:.8">Tiến trình theo kênh</div>
           <div id="rsChanProg" class="list" style="margin-bottom:12px"><div class="d">—</div></div>
