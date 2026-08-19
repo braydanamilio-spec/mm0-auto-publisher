@@ -17,7 +17,7 @@ import sys
 from datetime import datetime, timezone, timedelta
 
 sys.path.insert(0, os.path.dirname(__file__))
-from firestore_state import State
+from firestore_state import State, client_render_jobs
 
 try:
     import yaml
@@ -56,7 +56,9 @@ def _tz(name: str):
 
 
 def run(dry_run: bool = False):
-    state = State(); db = state.db
+    state = State()
+    q_db = state.pub              # yt_queue -> Project C (OWNED)
+    rj = client_render_jobs()     # render_jobs -> Project B (render)
     owner = _owner()
     if not owner:
         return
@@ -93,7 +95,7 @@ def run(dry_run: bool = False):
     day_cnt: dict[str, dict[str, dict[str, int]]] = {}      # {kênh: {ngày-ET: {"short":n,"long":n}}}
     wk_long: dict[str, dict[str, int]] = {}                 # {kênh: {tuần-ISO: số long}}
     try:
-        for d in db.collection("yt_queue").where("owner", "==", owner).stream():
+        for d in q_db.collection("yt_queue").where("owner", "==", owner).stream():
             data = d.to_dict()
             fid = data.get("drive_file_id")
             if fid:
@@ -152,7 +154,7 @@ def run(dry_run: bool = False):
     added = 0
     for ch in ready:
         try:
-            q = (db.collection("render_jobs").where("owner", "==", owner)
+            q = (rj.collection("render_jobs").where("owner", "==", owner)
                  .where("channel", "==", ch).where("status", "==", "done"))
             try:
                 from google.cloud.firestore_v1 import Query
@@ -169,7 +171,7 @@ def run(dry_run: bool = False):
             fid = j.get("drive_id")
             if not fid or fid in queued_ids:
                 if fid and not dry_run:
-                    db.collection("render_jobs").document(d.id).set({"queued": True}, merge=True)
+                    rj.collection("render_jobs").document(d.id).set({"queued": True}, merge=True)
                 continue
             vtype = "long" if (j.get("type") == "long") else "short"
             when = next_slot(ch, vtype)                     # RẢI theo MIX template -> không quá mix/ngày
@@ -182,8 +184,8 @@ def run(dry_run: bool = False):
                     "created_at": now.isoformat(), "publish_at": when}
             if dry_run:
                 print(f"  (dry) {ch} [{vtype}] -> {when[:16]} · {(item['title'] or fid)[:38]}"); added += 1; continue
-            db.collection("yt_queue").add(item)
-            db.collection("render_jobs").document(d.id).set({"queued": True}, merge=True)
+            q_db.collection("yt_queue").add(item)
+            rj.collection("render_jobs").document(d.id).set({"queued": True}, merge=True)
             queued_ids.add(fid); added += 1
 
     print(f"✔ auto-enqueue: xếp lịch {added} video (theo template)." if added else "✔ auto-enqueue: không có video mới.")

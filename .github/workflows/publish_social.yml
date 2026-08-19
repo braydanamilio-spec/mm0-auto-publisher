@@ -33,11 +33,19 @@ jobs:
       - name: Cài thư viện
         run: pip install -r requirements.txt
       - name: Ghi service account key
-        run: echo '${{ secrets.GCP_SA_KEY }}' > /tmp/sa.json
+        run: |
+          echo '${{ secrets.GCP_SA_KEY }}' > /tmp/sa.json
+          echo '${{ secrets.GCP_SA_KEY_B }}' > /tmp/sa_b.json   # render_jobs -> Project B
+          echo '${{ secrets.GCP_SA_KEY_C }}' > /tmp/sa_c.json   # publish owned -> Project C
       - name: Đăng FB + Instagram
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          GOOGLE_APPLICATION_CREDENTIALS_B: /tmp/sa_b.json
+          FIREBASE_PROJECT_ID_B: ${{ secrets.FIREBASE_PROJECT_ID_B }}
+          GOOGLE_APPLICATION_CREDENTIALS_C: /tmp/sa_c.json
+          FIREBASE_PROJECT_ID_C: ${{ secrets.FIREBASE_PROJECT_ID_C }}
+          SHARD_PUBLISH: ${{ vars.SHARD_PUBLISH }}   # =1 khi đã migrate publish sang C
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             python src/publish_social.py --dry-run
