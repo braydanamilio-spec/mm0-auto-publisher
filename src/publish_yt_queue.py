@@ -140,7 +140,10 @@ def run(dry_run: bool = False):
                     print(f"     ⚠️ caption: {e}")
             # publish_at native chỉ khi private + có giờ tương lai (YT tự công khai đúng giờ)
             sched = it.get("publish_at") if ytc["privacy"] == "private" else None
-            r = YT.upload(tmp, meta, ytc, creds, sched, thumbnail_path=thumb_tmp, captions=caption_specs)
+            # Playlist theo LOẠI video, tự tạo trong ĐÚNG kênh đang upload (creds riêng/kênh -> không thể lẫn playlist
+            # sang kênh khác dù trùng tên "Long Videos"/"Shorts" — mỗi kênh có playlist CỦA RIÊNG nó).
+            _pl_name = "Long Videos" if (it.get("type") or "long") == "long" else "Shorts"
+            r = YT.upload(tmp, meta, ytc, creds, sched, thumbnail_path=thumb_tmp, captions=caption_specs, playlist=_pl_name)
             results["youtube"] = r
             if aff_comment and r.get("id"):
                 try:
