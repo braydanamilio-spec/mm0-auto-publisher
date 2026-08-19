@@ -1638,7 +1638,14 @@
     function subscribe(){
       sub("videos", s => { window.setData(s.docs.map(d=>({id:d.id,...d.data()})), null, null); setLive(true);
         const m={}; s.docs.forEach(d=>{ m[d.id]=d.data(); }); window.__pubByDrive=m; window.__rsRenderGallery&&window.__rsRenderGallery(); });  // GỘP: khỏi 1 listener videos thứ 2 (cắt 1/2 read videos)
-      sub("channels", s => { const c={}; s.docs.forEach(d=>{const v=d.data();c[v.channel||d.id]=v;}); window.setData(null,c,null); if(window.__maybeAutoEnableApis) setTimeout(window.__maybeAutoEnableApis,1500); });
+      // channels (stats/health) ĐỔI SANG load-once + tự refresh khi quay lại tab — đổi chậm (stats.yml 6h/lần),
+      // realtime không cần thiết, giống storage_accounts (giảm đọc Firestore A).
+      window.__loadChannels = async () => { try {
+        const snap = await getDocs(query(collection(_appFor("channels"),"channels"), where("owner","==",(window.__ownerUid||window.__uid))));
+        const c={}; snap.docs.forEach(d=>{const v=d.data();c[v.channel||d.id]=v;}); window.setData(null,c,null);
+        if(window.__maybeAutoEnableApis) setTimeout(window.__maybeAutoEnableApis,1500); } catch(e){} };
+      window.__loadChannels();
+      window.addEventListener("focus", () => { window.__loadChannels&&window.__loadChannels(); });
       sub("counters", s => { const k={}; s.docs.forEach(d=>{const v=d.data();k[v.channel||d.id]=v;}); window.setData(null,null,k); });
       // storage_accounts ĐỔI SANG load-once (67 tài khoản, đổi chậm) + tự refresh khi quay lại tab
       // (đúng lúc kết nối kho mới xong ở tab popup rồi quay về) -> khỏi cần realtime, tiết kiệm đọc Firestore.
