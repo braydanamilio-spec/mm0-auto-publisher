@@ -1552,7 +1552,7 @@
     const firebaseConfigC = { apiKey:"AIzaSyAVEj7RUMx5jRtxN0o2eOzh4r7Pjjm-zBk", authDomain:"mm0-shard-c.firebaseapp.com", projectId:"mm0-shard-c", storageBucket:"mm0-shard-c.firebasestorage.app", messagingSenderId:"443486296227", appId:"1:443486296227:web:e5607766466c3bf6cd8716" };
     let dbPub = db;  // C: publish (videos/counters/quota/queues); lỗi init -> fallback A
     try { const appC = initializeApp(firebaseConfigC, "shardC"); dbPub = getFirestore(appC); } catch(e){ dbPub = db; }
-    const META_B = new Set(["render_config","render_channels","storage_accounts","render_topics","render_requests"]);  // gemini_keys GIỮ ở A (chứa API key -> cần auth, KHÔNG public trên B)
+    const META_B = new Set(["render_config","render_channels","render_topics","render_requests"]);  // gemini_keys + storage_accounts GIỮ ở A: keys cần auth (không public B); storage_accounts do Worker (bên ngoài, chỉ biết A) quản lý connect/sync/xoá -> phải cùng project với Worker
     const PUB_C  = new Set(["videos","counters","quota","social_queue","yt_queue"]);   // publish -> C
     const _appFor = (name) => PUB_C.has(name) ? dbPub : (META_B.has(name) ? dbMeta : db);
     // TIẾT KIỆM ĐỌC Firestore (100% free): tab ẨN >30s -> TẮT network (listener ngừng đọc); HIỆN lại -> BẬT (sync tươi).
