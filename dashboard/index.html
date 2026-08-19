@@ -805,6 +805,17 @@
             <button class="btn-conn" style="background:#ff5a5a22;border-color:#ff5a5a66;color:#ffb3b3" onclick="window.__rsStop&&window.__rsStop()">⛔ Dừng ngay</button>
             <label class="d" style="display:flex;align-items:center;gap:5px">Tối đa/lần:
               <input id="rsMaxRun" type="number" min="0" placeholder="0=∞" style="width:64px" onchange="window.__rsSetMax&&window.__rsSetMax()"/></label>
+            <label class="d" style="display:flex;align-items:center;gap:5px" title="Mỗi kênh làm TỐI ĐA N long/M short RỒI NHƯỜNG SLOT cho kênh khác (video đang làm luôn xong trước, không cắt ngang) — kênh chưa đủ target sẽ tiếp ở lượt sau. 0 = không giới hạn.">
+              🔁 Xoay vòng:
+              <select id="rsRoundPreset" onchange="window.__rsSetRound&&window.__rsSetRound()" style="width:150px">
+                <option value="10,30">10 long · 30 short</option>
+                <option value="5,15">5 long · 15 short</option>
+                <option value="0,0">Không giới hạn</option>
+                <option value="custom">Tuỳ chỉnh…</option>
+              </select>
+              <input id="rsRoundLong" type="number" min="0" placeholder="long" style="width:52px;display:none" onchange="window.__rsSetRoundCustom&&window.__rsSetRoundCustom()"/>
+              <input id="rsRoundShort" type="number" min="0" placeholder="short" style="width:52px;display:none" onchange="window.__rsSetRoundCustom&&window.__rsSetRoundCustom()"/>
+            </label>
             <span class="d" id="rsGithubLink"></span>
           </div>
         </div>
@@ -1724,6 +1735,20 @@
       const v=Math.max(0,Number((document.getElementById("rsMaxRun")||{}).value)||0);
       try { await setDoc(rsCfgDoc(), {owner:RSowner(), max_per_run:v}, {merge:true});
         toastMsg(v?`🎯 Tối đa ${v} video mỗi lần chạy`:"♾️ Bỏ giới hạn số video/lần"); } catch(e){ alert("Lỗi: "+e.message); } };
+    // 🔁 ROUND CAP: mỗi kênh làm xong N long/M short (trọn vẹn, không cắt ngang) rồi nhường slot -> xoay vòng công bằng.
+    async function _rsSaveRound(rl, rs){
+      try { await setDoc(rsCfgDoc(), {owner:RSowner(), round_long:rl, round_short:rs}, {merge:true});
+        toastMsg((rl||rs)?`🔁 Xoay vòng: tối đa ${rl} long · ${rs} short/lượt`:"♾️ Bỏ giới hạn xoay vòng (chạy tới hết target/giờ)"); }
+      catch(e){ alert("Lỗi: "+e.message); } }
+    window.__rsSetRound = () => {
+      const sel=document.getElementById("rsRoundPreset"); const cl=document.getElementById("rsRoundLong"), cs=document.getElementById("rsRoundShort");
+      if(sel.value==="custom"){ cl.style.display=cs.style.display="inline-block"; cl.value=cl.value||10; cs.value=cs.value||30; return; }
+      cl.style.display=cs.style.display="none";
+      const [rl,rs]=sel.value.split(",").map(Number); _rsSaveRound(rl,rs); };
+    window.__rsSetRoundCustom = () => {
+      const rl=Math.max(0,Number((document.getElementById("rsRoundLong")||{}).value)||0);
+      const rs=Math.max(0,Number((document.getElementById("rsRoundShort")||{}).value)||0);
+      _rsSaveRound(rl,rs); };
     window.__rsAddKey = async () => {
       const v=(document.getElementById("rsKeyManual").value||"").trim();
       const em=(document.getElementById("rsKeyEmail").value||"").trim();
@@ -1957,6 +1982,12 @@
       onSnapshot(rsCfgDoc(), d=>{ const c=d.exists()?d.data():{}; window.__rsCfg=c; window.__rsPipeState&&window.__rsPipeState();
         if(c.qc_min) document.getElementById("rsQcMin").value=c.qc_min;
         const mr=document.getElementById("rsMaxRun"); if(mr&&document.activeElement!==mr) mr.value=c.max_per_run||"";
+        (()=>{ const sel=document.getElementById("rsRoundPreset"), cl=document.getElementById("rsRoundLong"), cs=document.getElementById("rsRoundShort");
+          if(!sel || document.activeElement===cl || document.activeElement===cs) return;
+          const rl = c.round_long===undefined?10:Number(c.round_long), rs = c.round_short===undefined?30:Number(c.round_short);
+          const preset = `${rl},${rs}`;
+          if([...sel.options].some(o=>o.value===preset)){ sel.value=preset; cl.style.display=cs.style.display="none"; }
+          else { sel.value="custom"; cl.style.display=cs.style.display="inline-block"; cl.value=rl; cs.value=rs; } })();
         if(c.model) document.getElementById("rsModel").value=c.model;
         window.__rsReserve={long:c.reserve_long||10, short:c.reserve_short||30};   // mức dự trữ an toàn (target=0)
         window.__deadThresh={warn:c.dead_key_warn_hours||72, repl:c.dead_key_replace_hours||168};   // 2 mức cảnh báo key chết
