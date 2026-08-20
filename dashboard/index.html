@@ -2650,8 +2650,13 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     // Nguồn lưu ở render_config.trend_sources (user tự thêm/xoá trên UI) -> trend_scout.py (cron tuần + "Quét ngay") đọc,
     // kết quả lưu collection trend_scout ({owner}__{channel}) -> load-once ở rsInit(), hiện tại đây.
     window.__rsRenderTrendScout=()=>{
+      // BUG cũ: dùng allChannels() -> trộn cả tên kho/video slug (vd "aura-vane","beyond" — của Content-Hub upload)
+      // với tên kênh render thật -> dropdown hiện tên sai/lạ. Đúng ra phải lấy DANH SÁCH KÊNH RENDER thật
+      // (__rsChannelsData, cùng nguồn "applies_to" mà trend_scout.py đọc) — không phải allChannels().
       const sel=document.getElementById("tsApply");
-      if(sel && !sel.__init){ sel.__init=1; try{ sel.innerHTML=allChannels().map(k=>`<option value="${esc(k)}">${esc(chName(k))}</option>`).join(""); }catch(_){} }
+      const rch=(window.__rsChannelsData||[]).map(c=>(c.name||"").toUpperCase()).filter(Boolean).sort();
+      if(sel && sel.__n!==rch.length){ sel.__n=rch.length; const cur=new Set([...sel.selectedOptions].map(o=>o.value));
+        sel.innerHTML=rch.map(k=>`<option value="${esc(k)}" ${cur.has(k)?"selected":""}>${esc(k)}</option>`).join(""); }
       const cfg=window.__rsCfg||{}; const sources=cfg.trend_sources||[];
       const list=document.getElementById("tsList");
       if(list) list.innerHTML = sources.length ? sources.map((s,i)=>
