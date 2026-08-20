@@ -1855,7 +1855,8 @@
         niche:(document.getElementById("rsChNiche").value||"").trim(), type:document.getElementById("rsChType").value,
         img_source:document.getElementById("rsChImg").value, mix, n_shorts:nShorts, make_long:(mix!=="short_only"),
         long_target:lt, short_target:stt, created_at:new Date().toISOString()};
-      if(preset && preset.fmt){ base.format=preset.fmt; base.make_long=false; base.long_target=0; base.type="short";  // kênh motif/doc = short-only + format riêng
+      if(preset && preset.fmt){ base.format=preset.fmt; base.type="short";
+        if(preset.fmt==="doc"){ base.make_long=true; base.long_target=lt||100; } else { base.make_long=false; base.long_target=0; }  // doc = long+short như anh em; motif khác = short-only
         if(preset.accent)base.accent=preset.accent; if(preset.accent2)base.accent2=preset.accent2; if(preset.style)base.style=preset.style; }
       try { await addDoc(collection(dbMeta,"render_channels"), base);
         const cp=document.getElementById("rsChPick"); if(cp)cp.value=""; const cn=document.getElementById("rsChName"); if(cn){cn.value="";cn.style.display="none";} document.getElementById("rsChNiche").value="";
@@ -1864,6 +1865,8 @@
       const c=(window.__rsChannelsData||[]).find(x=>x.id===id)||{};
       if(confirm(`Xoá kênh render "${c.name||id}" khỏi hàng đợi?\n\n• CHỈ xoá cấu hình kênh — VIDEO đã làm KHÔNG bị xoá.\n• Kênh sẽ ngừng làm video mới ở mẻ sau.\n• Đang render dở thì clip đó vẫn xong bình thường (không lỗi).`))
         await deleteDoc(doc(dbMeta,"render_channels",id)); };
+    // Sửa trực tiếp 1-2 field của kênh render (vd niche điền thiếu) mà không phải xoá-thêm-lại.
+    window.__rsPatchChannel = async (id, patch) => { await setDoc(doc(dbMeta,"render_channels",id), patch, {merge:true}); };
     // TRẠNG THÁI THỰC: ĐANG RENDER (có luồng chạy) vs NGHỈ (chờ mẻ kế) vs DỪNG — để anh biết bấm Render ngay hay Dừng.
     function __nextBatchTime(){ const hrs=((window.__rsCfg||{}).batch_hours)||[0,4,8,12,16,20]; const now=new Date(); const uh=now.getUTCHours();
       let nh=hrs.find(h=>h>uh), d=new Date(now); if(nh==null){ nh=hrs[0]; d.setUTCDate(d.getUTCDate()+1); } d.setUTCHours(nh,0,0,0);
@@ -2292,7 +2295,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       {name:"LONGSHOTUSA",fmt:"longshot",accent:"#4F46E5",niche:"real, sourced probability/odds — everyday risks, sports, medical/actuarial stats, disasters, records. Never gambling advice, just real published odds."},
       // ── WAVE 6 (trend-scout informed: crime/disaster/debt/wildlife/defense — chưa channel nào trùng) ──
       {name:"CRIMEUSA",fmt:"doc",accent:"#DC2626",accent2:"#F87171",style:"tense, factual, urgent",niche:"real US crime & public-safety statistics by city and state. STRICT: cite the real source and year (FBI UCR, DOJ, BJS victimization survey) — never invent a crime rate or ranking; if unsure a stat is real, use a different well-documented one; factual and neutral, never sensationalize or target a specific real neighborhood/address."},
-      {name:"DISASTERUSA",fmt:"doc",accent:"#EA580C",accent2:"#FDBA74",style:"dramatic, urgent, awe at scale",niche:"real US natural disaster costs and frequency. STRICT: cite the real event name/year/dollar figure (NOAA NCEI billion-dollar disaster database, FEMA) — never invent a disaster or damage total; if unsure a figure is real, use a different well-documented one."},
+      {name:"DISASTERUSA",fmt:"doc",accent:"#7C2D12",accent2:"#FED7AA",style:"dramatic, urgent, awe at scale",niche:"real US natural disaster costs and frequency. STRICT: cite the real event name/year/dollar figure (NOAA NCEI billion-dollar disaster database, FEMA) — never invent a disaster or damage total; if unsure a figure is real, use a different well-documented one."},
       {name:"DEBTUSA",fmt:"doc",accent:"#0891B2",accent2:"#67E8F9",style:"sharp, revealing, slightly alarming",niche:"real US education costs and student debt. STRICT: cite the real source (Dept of Education, College Scorecard, Federal Reserve student loan data) — never invent a tuition figure or debt number; illustrative examples only, never personal financial advice."},
       {name:"WILDUSA",fmt:"doc",accent:"#65A30D",accent2:"#BEF264",style:"awe, reverent, wild wonder",niche:"real American wildlife and conservation economics. STRICT: cite real documented data (USFWS Endangered Species Act recovery numbers, USGS/USDA invasive-species damage estimates) — never invent a species count or fact."},
       {name:"DEFENSEUSA",fmt:"doc",accent:"#1E3A8A",accent2:"#60A5FA",style:"commanding, precise, high-stakes",niche:"real US military spending and equipment costs. STRICT: cite the real program/unit cost/source (DoD budget documents, GAO reports, CBO) — never invent a cost figure; factual and neutral, never political commentary."},
@@ -2307,7 +2310,8 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       if((window.__rsChannelsData||[]).some(c=>(c.name||"").toUpperCase()===name)) { try{toastMsg("Kênh đã có rồi.");}catch(_){}; return; }
       // kênh mới (motif/doc) = short-only + format riêng; kênh cũ = data-race 1 long + 3 short.
       const base={owner:o,name,niche:p.niche,type:"short",img_source:"C",n_shorts:3,short_target:300,created_at:new Date().toISOString()};
-      if(p.fmt){ base.format=p.fmt; base.make_long=false; base.long_target=0; if(p.accent)base.accent=p.accent; if(p.accent2)base.accent2=p.accent2; if(p.style)base.style=p.style; }
+      if(p.fmt){ base.format=p.fmt; if(p.fmt==="doc"){ base.make_long=true; base.long_target=100; } else { base.make_long=false; base.long_target=0; }
+        if(p.accent)base.accent=p.accent; if(p.accent2)base.accent2=p.accent2; if(p.style)base.style=p.style; }
       else { base.mix="1long_3short"; base.make_long=true; base.long_target=100; }   // MẶC ĐỊNH 100 long/300 short (tùy chỉnh sau)
       try{ await addDoc(collection(dbMeta,"render_channels"),base);
         try{toastMsg("✅ Đã thêm "+name+(p.fmt?(" ["+p.fmt+"]"):"")+" — sẵn sàng render");}catch(_){} }catch(e){ alert("Lỗi: "+e.message); } };
@@ -2321,7 +2325,8 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       let ok=0;
       for(const p of todo){
         const base={owner:o,name:p.name,niche:p.niche,type:"short",img_source:"C",n_shorts:3,short_target:300,created_at:new Date().toISOString()};
-        if(p.fmt){ base.format=p.fmt; base.make_long=false; base.long_target=0; if(p.accent)base.accent=p.accent; if(p.accent2)base.accent2=p.accent2; if(p.style)base.style=p.style; }
+        if(p.fmt){ base.format=p.fmt; if(p.fmt==="doc"){ base.make_long=true; base.long_target=100; } else { base.make_long=false; base.long_target=0; }
+        if(p.accent)base.accent=p.accent; if(p.accent2)base.accent2=p.accent2; if(p.style)base.style=p.style; }
         else { base.mix="1long_3short"; base.make_long=true; base.long_target=100; }
         try{ await addDoc(collection(dbMeta,"render_channels"),base); ok++; }catch(e){}
       }
@@ -2570,7 +2575,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       UNSEENUSA:{d:"UNSEEN",a:"#4C1D95",t:"What no camera has ever captured.",h:"@unseenusa",ic:"🕳️",ht:"#space #astrophysics #artistimpression #usa",niche:"real theoretical astrophysics never photographed — black holes, exoplanets, the early universe"},
       // ── WAVE 6 ──
       CRIMEUSA:{d:"CRIME USA",a:"#DC2626",t:"The real numbers behind the headlines.",h:"@crimeusadaily",ic:"🚨",ht:"#crimestats #safety #usa #data",niche:"US crime & public-safety statistics by city and state (FBI UCR/DOJ data)"},
-      DISASTERUSA:{d:"DISASTER USA",a:"#EA580C",t:"When nature sends the bill.",h:"@disasterusahq",ic:"🌪️",ht:"#disaster #weather #usa #data",niche:"US natural disaster costs & frequency (NOAA/FEMA data)"},
+      DISASTERUSA:{d:"DISASTER USA",a:"#7C2D12",t:"When nature sends the bill.",h:"@disasterusahq",ic:"🌪️",ht:"#disaster #weather #usa #data",niche:"US natural disaster costs & frequency (NOAA/FEMA data)"},
       DEBTUSA:{d:"DEBT USA",a:"#0891B2",t:"What your degree really costs.",h:"@debtusadaily",ic:"🎓",ht:"#studentdebt #college #usa #money",niche:"US education costs & student debt (Dept of Education data)"},
       WILDUSA:{d:"WILD USA",a:"#65A30D",t:"America's last wild places.",h:"@wildusahq",ic:"🦅",ht:"#wildlife #nature #usa #conservation",niche:"American wildlife & conservation economics (USFWS/NPS data)"},
       DEFENSEUSA:{d:"DEFENSE USA",a:"#1E3A8A",t:"What America pays to stay ready.",h:"@defenseusahq",ic:"🛡️",ht:"#military #defense #usa #budget",niche:"US military spending & equipment costs (DoD budget data)"},
@@ -2682,7 +2687,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     RS_BRANDS.GRIDUSA.cat="28";RS_BRANDS.RULEDUSA.cat="27";RS_BRANDS.VAULTUSA.cat="27";RS_BRANDS.LEDGERUSA.cat="27";RS_BRANDS.SIGNALUSA.cat="28";RS_BRANDS.MARGINUSA.cat="28";
     RS_BRANDS.SWARMUSA.cat="28";RS_BRANDS.PULSEUSA.cat="28";RS_BRANDS.CLOCKWORKUSA.cat="28";RS_BRANDS.LONGSHOTUSA.cat="27";
     RS_BRANDS.FUTUREUSA.cat="28";RS_BRANDS.UNSEENUSA.cat="28";
-    RS_BRANDS.CRIMEUSA.cat="25";RS_BRANDS.DISASTERUSA.cat="25";RS_BRANDS.DEBTUSA.cat="27";RS_BRANDS.WILDUSA.cat="28";RS_BRANDS.DEFENSEUSA.cat="25";
+    RS_BRANDS.CRIMEUSA.cat="27";RS_BRANDS.DISASTERUSA.cat="27";RS_BRANDS.DEBTUSA.cat="27";RS_BRANDS.WILDUSA.cat="28";RS_BRANDS.DEFENSEUSA.cat="27";
     // Avatar data-URI cho 1 kênh: brand SVG nếu có, không thì avatar chữ-cái-đầu + màu hash (hợp hàng trăm kênh).
     const _avCache={};   // memo: khỏi sinh lại SVG mỗi lần render (nhẹ CPU khi nhiều kênh) — chỉ RAM, KHÔNG ghi Firestore/Drive
     function rsAvatarUri(k,size){ size=size||44; const K=String(k||"").toUpperCase(); const ck=K+"@"+size;
