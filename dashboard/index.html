@@ -2244,10 +2244,62 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       if(/tình hình|báo cáo|status|report|thế nào/.test(s)) return {reply:"",actions:[{type:"status"}]};
       return {reply:"Em chưa rõ lệnh. Anh thử: “render ngay”, “tạm dừng”, “thử lại lỗi”, “báo cáo”, hoặc bấm thẻ ở trên.",actions:[]};
     }
+    // 💡 GỢI Ý KÊNH/NICHE — bản CŨ chỉ gọi 1 prompt chung chung, KHÔNG biết niche thật của 40 kênh đang
+    // có (chỉ nhắc tên), KHÔNG chặn trùng cứng -> từng gợi "WEALTHGAP" gần như TRÙNG THẲNG DATARACE
+    // (money & wealth/tax/income gap) mà AI không tự nhận ra. Bản này: đưa NICHE THẬT (không chỉ tên)
+    // + xu hướng Trend Scout thật (nếu có) làm ngữ cảnh, bắt trả STRICT-grounding sẵn (khớp văn phong
+    // QC_STANDARD.md), rồi CHẶN TRÙNG BẰNG SO KHỚP TỪ KHOÁ THẬT (không chỉ tin AI tự tránh).
+    window.rsSuggestNiche = async () => {
+      rsLog("Gợi ý kênh/niche","me"); rsLog("💭 Đang phân tích niche thật + xu hướng…");
+      const keys=(window.__rsKeysData||[]).filter(k=>k.key && k.alive!==false);
+      if(!keys.length){ rsLog("❌ Chưa có Gemini key hoạt động."); return; }
+      const existing=(window.RS_PRESETS||[]).map(p=>({name:p.name, niche:(p.niche||"").slice(0,140)}));
+      const trends=Object.values(window.__tsData||{}).flatMap(v=>v.trends||[]).slice(0,6);
+      const sys=`You are a senior YouTube channel strategist for US data-story faceless channels.
+EXISTING CHANNELS (${existing.length} — the new ideas must NOT overlap the topic/angle of ANY of these):
+${existing.map(e=>`- ${e.name}: ${e.niche}`).join("\n")}
+${trends.length?`\nREAL learned style trends (Trend Scout, from real large channels — not guesswork): ${trends.join(" | ")}`:""}
+Propose EXACTLY 3 NEW channel ideas. Each MUST:
+- Have a topic/angle that does NOT overlap ANY existing channel above (check carefully — this is mandatory).
+- Cite a REAL citable data source category (real agency/org name) — never a vague/invented source.
+Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAPS, end in USA if it fits)","concept":"1 short Vietnamese sentence for the founder to read","niche_strict":"1-2 English sentences, STRICT: cite the real source category, matching this house style: 'real US X — sourced [agency/report]. STRICT: cite the real source... never invent...'"}]}`;
+      const body={contents:[{parts:[{text:sys}]}],generationConfig:{temperature:0.6,responseMimeType:"application/json"}};
+      const models=["gemini-3.5-flash","gemini-flash-latest","gemini-2.5-flash","gemini-2.0-flash"];
+      let result=null;
+      outer: for(const k of keys.slice(0,3)){ for(const m of models){
+        try{ const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(k.key)}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+          if(!r.ok) continue; const j=await r.json(); const t=j?.candidates?.[0]?.content?.parts?.[0]?.text; if(!t) continue;
+          try{ result=JSON.parse(t); }catch(_){ const mt=t.match(/\{[\s\S]*\}/); if(mt){ try{ result=JSON.parse(mt[0]); }catch(_){} } }
+          if(result) break outer;
+        }catch(_){}
+      }}
+      if(!result || !Array.isArray(result.suggestions) || !result.suggestions.length){ rsLog("❌ Chưa gọi được Gemini (kiểm key) hoặc phản hồi không hợp lệ."); return; }
+      // CHẶN TRÙNG CỨNG: đo % từ khoá (bỏ từ đệm usa/real/data/story…) trùng với TỪNG niche hiện có —
+      // AI tự tránh (soft, trong prompt) đã CHỨNG MINH thất bại thật (WEALTHGAP ≈ DATARACE) nên phải
+      // có lớp kiểm CỨNG độc lập ở đây, không phụ thuộc AI có làm đúng lời dặn hay không.
+      const stop=new Set(["us","usa","the","and","for","real","data","story","america","american","sourced","strict","cite","never","invent"]);
+      const words=s=>{ const set=new Set(); String(s||"").toLowerCase().replace(/[^a-z0-9 ]/g," ").split(/\s+/).forEach(w=>{ if(w.length>2 && !stop.has(w)) set.add(w); }); return set; };
+      const existW=existing.map(e=>({name:e.name, w:words(e.niche)}));
+      const clean=[], dupped=[];
+      result.suggestions.forEach(s=>{
+        const sw=words((s.concept||"")+" "+(s.niche_strict||""));
+        let best=0, bestName="";
+        existW.forEach(e=>{ let hit=0; sw.forEach(w=>{ if(e.w.has(w)) hit++; });
+          const ratio=sw.size?hit/sw.size:0; if(ratio>best){ best=ratio; bestName=e.name; } });
+        if(best>=0.34) dupped.push(`${s.name} (trùng ~${Math.round(best*100)}% với ${bestName})`);
+        else clean.push(s);
+      });
+      window.__lastNicheSuggest=clean;   // giữ để dùng khi xây kênh thật — VẪN CẦN DUYỆT, không tự động tạo
+      let out=clean.length
+        ? clean.map(s=>`<b>${esc(s.name)}</b> — ${esc(s.concept)}`).join("<br>")
+        : "Cả 3 gợi ý đều bị chặn vì trùng — thử bấm lại.";
+      if(dupped.length) out+=`<br><span style="opacity:.7">⛔ Đã lọc (trùng, không hiện): ${esc(dupped.join(", "))}</span>`;
+      out+=`<br><span style="opacity:.7">Đây vẫn là GỢI Ý — muốn xây kênh thật (giọng/màu/format/brand kit đầy đủ) cần duyệt riêng, không tự tạo.</span>`;
+      rsLog(out);
+    };
     window.rsCmd = async (tag)=>{ const labels={status:"Báo cáo tình hình",render_now:"Render ngay",pause:"Tạm dừng",resume:"Chạy tiếp",retry_failed:"Thử lại lỗi",clean_jobs:"Dọn job cũ",suggest_niche:"Gợi ý kênh/niche"};
       rsLog(labels[tag]||tag,"me");
-      if(tag==="suggest_niche"){ rsLog("💭 Đang nghĩ…"); const g=await rsGemini("Gợi ý cho tôi 3 niche/kênh data-story mới cho thị trường USA, dễ viral, khó bị sao chép. Mỗi ý 1 dòng: TÊN — mô tả ngắn.");
-        rsLog(g&&g.reply?g.reply.replace(/\n/g,"<br>"):"Chưa gọi được Gemini (kiểm key). Vài ý sẵn: <b>DISASTERUSA</b> — thiên tai/thiệt hại theo bang; <b>STARTUPRACE</b> — kỳ lân/định giá; <b>CRIMESTATS</b> — an toàn theo thành phố."); return; }
+      if(tag==="suggest_niche"){ await rsSuggestNiche(); return; }
       await rsRunActions([{type:tag}]);
     };
     window.rsCmdSend = async ()=>{ const inp=document.getElementById("rsChatInput"); const t=(inp.value||"").trim(); if(!t) return;
