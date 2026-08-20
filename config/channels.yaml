@@ -1,54 +1,37 @@
-# ============================================================================
-#  MM0 AUTO-PUBLISHER — CẤU HÌNH KÊNH (MULTI-CHANNEL)
-# ============================================================================
-#  Mỗi kênh khai báo 1 block. Secrets (client_id / token...) KHÔNG viết ở đây,
-#  chỉ ghi TÊN biến môi trường (env). Giá trị thật lưu trong GitHub Secrets.
-#  => code an toàn để đẩy repo public (unlimited Actions minutes).
-#
-#  Muốn thêm kênh: copy 1 block, đổi key + đổi tên env, thêm secret tương ứng.
-# ============================================================================
-
-# Tên project Firestore (dùng cho state + dashboard). Đặt trong GH Secret FIREBASE_PROJECT_ID.
 firestore_project_env: FIREBASE_PROJECT_ID
-
-# Múi giờ mặc định để tính "best time to post" (theo giờ VN).
-timezone: "Asia/Ho_Chi_Minh"
-
+timezone: Asia/Ho_Chi_Minh
 channels:
-
-  # -------------------------------------------------------------------------
   BROKE:
-    display_name: "BROKE"
+    display_name: BROKE
     enabled: true
-    # ID folder gốc của kênh này trên Google Drive (lấy từ URL folder).
     drive_folder_id_env: BROKE_DRIVE_FOLDER_ID
     youtube:
       enabled: true
       client_id_env: BROKE_YT_CLIENT_ID
       client_secret_env: BROKE_YT_CLIENT_SECRET
       refresh_token_env: BROKE_YT_REFRESH_TOKEN
-      category_id: "27"          # 27 = Education, 24 = Entertainment, 26 = Howto
-      default_language: "en"
+      category_id: '27'
+      default_language: en
       made_for_kids: false
-      privacy: "public"          # public | unlisted | private
+      privacy: public
     facebook:
       enabled: true
       page_id_env: BROKE_FB_PAGE_ID
       page_token_env: BROKE_FB_PAGE_TOKEN
     branding:
-      niche: "money / personal finance"
-      # Hashtag mặc định (YouTube chỉ tính ~3 hashtag đầu, để tối đa 3-5 cái mạnh).
-      hashtags: ["#money", "#finance", "#brokenomore"]
-      # Template tiêu đề — {topic} sẽ được thay bằng chủ đề video.
-      long_title_template: "{topic}"
-      short_title_template: "{topic} #shorts"
-      # Chèn cuối description (CTA + disclaimer để tránh vi phạm chính sách).
-      cta: "🔔 Subscribe for more money stories.\n"
-      disclaimer: "This video is for educational and entertainment purposes only, not financial advice."
+      niche: money / personal finance
+      hashtags:
+      - '#money'
+      - '#finance'
+      - '#brokenomore'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more money stories.
 
-  # -------------------------------------------------------------------------
+        '
+      disclaimer: This video is for educational and entertainment purposes only, not financial advice.
   INSIDE_YOU:
-    display_name: "INSIDE YOU"
+    display_name: INSIDE YOU
     enabled: true
     drive_folder_id_env: INSIDE_YOU_DRIVE_FOLDER_ID
     youtube:
@@ -56,25 +39,28 @@ channels:
       client_id_env: INSIDE_YOU_YT_CLIENT_ID
       client_secret_env: INSIDE_YOU_YT_CLIENT_SECRET
       refresh_token_env: INSIDE_YOU_YT_REFRESH_TOKEN
-      category_id: "27"
-      default_language: "en"
+      category_id: '27'
+      default_language: en
       made_for_kids: false
-      privacy: "public"
+      privacy: public
     facebook:
       enabled: true
       page_id_env: INSIDE_YOU_FB_PAGE_ID
       page_token_env: INSIDE_YOU_FB_PAGE_TOKEN
     branding:
-      niche: "psychology / self / body"
-      hashtags: ["#psychology", "#mind", "#insideyou"]
-      long_title_template: "{topic}"
-      short_title_template: "{topic} #shorts"
-      cta: "🔔 Subscribe to understand yourself better.\n"
-      disclaimer: "For educational purposes only. Not medical or psychological advice."
+      niche: psychology / self / body
+      hashtags:
+      - '#psychology'
+      - '#mind'
+      - '#insideyou'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe to understand yourself better.
 
-  # -------------------------------------------------------------------------
+        '
+      disclaimer: For educational purposes only. Not medical or psychological advice.
   HUH:
-    display_name: "HUH?"
+    display_name: HUH?
     enabled: true
     drive_folder_id_env: HUH_DRIVE_FOLDER_ID
     youtube:
@@ -82,25 +68,28 @@ channels:
       client_id_env: HUH_YT_CLIENT_ID
       client_secret_env: HUH_YT_CLIENT_SECRET
       refresh_token_env: HUH_YT_REFRESH_TOKEN
-      category_id: "27"
-      default_language: "en"
+      category_id: '27'
+      default_language: en
       made_for_kids: false
-      privacy: "public"
+      privacy: public
     facebook:
       enabled: true
       page_id_env: HUH_FB_PAGE_ID
       page_token_env: HUH_FB_PAGE_TOKEN
     branding:
-      niche: "curiosity / weird facts"
-      hashtags: ["#facts", "#didyouknow", "#huh"]
-      long_title_template: "{topic}"
-      short_title_template: "{topic} #shorts"
-      cta: "🔔 Subscribe — get curious.\n"
-      disclaimer: ""
+      niche: curiosity / weird facts
+      hashtags:
+      - '#facts'
+      - '#didyouknow'
+      - '#huh'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe — get curious.
 
-  # -------------------------------------------------------------------------
+        '
+      disclaimer: ''
   DATARACE:
-    display_name: "DATA RACE"
+    display_name: DATA RACE
     enabled: true
     drive_folder_id_env: DATARACE_DRIVE_FOLDER_ID
     youtube:
@@ -108,25 +97,26 @@ channels:
       client_id_env: DATARACE_YT_CLIENT_ID
       client_secret_env: DATARACE_YT_CLIENT_SECRET
       refresh_token_env: DATARACE_YT_REFRESH_TOKEN
-      category_id: "27"          # Education (data/giải thích)
-      default_language: "en"
+      category_id: '27'
+      default_language: en
       made_for_kids: false
-      privacy: "public"
+      privacy: public
     facebook:
       enabled: true
       page_id_env: DATARACE_FB_PAGE_ID
       page_token_env: DATARACE_FB_PAGE_TOKEN
     branding:
-      niche: "US data / rankings / money"
-      hashtags: ["#usdata", "#datarace", "#america"]
-      long_title_template: "{topic}"
-      short_title_template: "{topic} #shorts"
-      cta: ""                    # KHÔNG CTA cuối (giữ retention theo chuẩn kênh)
-      disclaimer: "Data for educational purposes. Sources shown in video."
-
-  # -------------------------------------------------------------------------
+      niche: US data / rankings / money
+      hashtags:
+      - '#usdata'
+      - '#datarace'
+      - '#america'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: ''
+      disclaimer: Data for educational purposes. Sources shown in video.
   STATEWARS:
-    display_name: "STATE WARS"
+    display_name: STATE WARS
     enabled: true
     drive_folder_id_env: STATEWARS_DRIVE_FOLDER_ID
     youtube:
@@ -134,25 +124,26 @@ channels:
       client_id_env: STATEWARS_YT_CLIENT_ID
       client_secret_env: STATEWARS_YT_CLIENT_SECRET
       refresh_token_env: STATEWARS_YT_REFRESH_TOKEN
-      category_id: "27"
-      default_language: "en"
+      category_id: '27'
+      default_language: en
       made_for_kids: false
-      privacy: "public"
+      privacy: public
     facebook:
       enabled: true
       page_id_env: STATEWARS_FB_PAGE_ID
       page_token_env: STATEWARS_FB_PAGE_TOKEN
     branding:
-      niche: "US states compared (population, GDP, crime, housing)"
-      hashtags: ["#usa", "#states", "#statewars"]
-      long_title_template: "{topic}"
-      short_title_template: "{topic} #shorts"
-      cta: ""
-      disclaimer: "Data for educational purposes. Sources shown in video."
-
-  # -------------------------------------------------------------------------
+      niche: US states compared (population, GDP, crime, housing)
+      hashtags:
+      - '#usa'
+      - '#states'
+      - '#statewars'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: ''
+      disclaimer: Data for educational purposes. Sources shown in video.
   MONEYMOVES:
-    display_name: "MONEY MOVES"
+    display_name: MONEY MOVES
     enabled: true
     drive_folder_id_env: MONEYMOVES_DRIVE_FOLDER_ID
     youtube:
@@ -160,25 +151,26 @@ channels:
       client_id_env: MONEYMOVES_YT_CLIENT_ID
       client_secret_env: MONEYMOVES_YT_CLIENT_SECRET
       refresh_token_env: MONEYMOVES_YT_REFRESH_TOKEN
-      category_id: "27"
-      default_language: "en"
+      category_id: '27'
+      default_language: en
       made_for_kids: false
-      privacy: "public"
+      privacy: public
     facebook:
       enabled: true
       page_id_env: MONEYMOVES_FB_PAGE_ID
       page_token_env: MONEYMOVES_FB_PAGE_TOKEN
     branding:
-      niche: "US cost of living (rent, gas, groceries, prices)"
-      hashtags: ["#costofliving", "#inflation", "#money"]
-      long_title_template: "{topic}"
-      short_title_template: "{topic} #shorts"
-      cta: ""
-      disclaimer: "Data for educational purposes. Sources shown in video."
-
-  # -------------------------------------------------------------------------
+      niche: US cost of living (rent, gas, groceries, prices)
+      hashtags:
+      - '#costofliving'
+      - '#inflation'
+      - '#money'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: ''
+      disclaimer: Data for educational purposes. Sources shown in video.
   POWERPLAY:
-    display_name: "POWER PLAY"
+    display_name: POWER PLAY
     enabled: true
     drive_folder_id_env: POWERPLAY_DRIVE_FOLDER_ID
     youtube:
@@ -186,25 +178,26 @@ channels:
       client_id_env: POWERPLAY_YT_CLIENT_ID
       client_secret_env: POWERPLAY_YT_CLIENT_SECRET
       refresh_token_env: POWERPLAY_YT_REFRESH_TOKEN
-      category_id: "28"
-      default_language: "en"
+      category_id: '28'
+      default_language: en
       made_for_kids: false
-      privacy: "public"
+      privacy: public
     facebook:
       enabled: true
       page_id_env: POWERPLAY_FB_PAGE_ID
       page_token_env: POWERPLAY_FB_PAGE_TOKEN
     branding:
-      niche: "US companies & brands (market cap, users, EVs)"
-      hashtags: ["#business", "#brands", "#stocks"]
-      long_title_template: "{topic}"
-      short_title_template: "{topic} #shorts"
-      cta: ""
-      disclaimer: "Data for educational purposes. Sources shown in video."
-
-  # -------------------------------------------------------------------------
+      niche: US companies & brands (market cap, users, EVs)
+      hashtags:
+      - '#business'
+      - '#brands'
+      - '#stocks'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: ''
+      disclaimer: Data for educational purposes. Sources shown in video.
   GRIDIRON:
-    display_name: "GRID IRON"
+    display_name: GRID IRON
     enabled: true
     drive_folder_id_env: GRIDIRON_DRIVE_FOLDER_ID
     youtube:
@@ -212,25 +205,26 @@ channels:
       client_id_env: GRIDIRON_YT_CLIENT_ID
       client_secret_env: GRIDIRON_YT_CLIENT_SECRET
       refresh_token_env: GRIDIRON_YT_REFRESH_TOKEN
-      category_id: "17"
-      default_language: "en"
+      category_id: '17'
+      default_language: en
       made_for_kids: false
-      privacy: "public"
+      privacy: public
     facebook:
       enabled: true
       page_id_env: GRIDIRON_FB_PAGE_ID
       page_token_env: GRIDIRON_FB_PAGE_TOKEN
     branding:
-      niche: "US sports money (NFL/NBA salaries, tickets, titles)"
-      hashtags: ["#nfl", "#nba", "#sports"]
-      long_title_template: "{topic}"
-      short_title_template: "{topic} #shorts"
-      cta: ""
-      disclaimer: "Data for educational purposes. Sources shown in video."
-
-  # -------------------------------------------------------------------------
+      niche: US sports money (NFL/NBA salaries, tickets, titles)
+      hashtags:
+      - '#nfl'
+      - '#nba'
+      - '#sports'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: ''
+      disclaimer: Data for educational purposes. Sources shown in video.
   SCREENKINGS:
-    display_name: "SCREEN KINGS"
+    display_name: SCREEN KINGS
     enabled: true
     drive_folder_id_env: SCREENKINGS_DRIVE_FOLDER_ID
     youtube:
@@ -238,25 +232,26 @@ channels:
       client_id_env: SCREENKINGS_YT_CLIENT_ID
       client_secret_env: SCREENKINGS_YT_CLIENT_SECRET
       refresh_token_env: SCREENKINGS_YT_REFRESH_TOKEN
-      category_id: "24"
-      default_language: "en"
+      category_id: '24'
+      default_language: en
       made_for_kids: false
-      privacy: "public"
+      privacy: public
     facebook:
       enabled: true
       page_id_env: SCREENKINGS_FB_PAGE_ID
       page_token_env: SCREENKINGS_FB_PAGE_TOKEN
     branding:
-      niche: "US entertainment (box office, streaming, music)"
-      hashtags: ["#movies", "#streaming", "#music"]
-      long_title_template: "{topic}"
-      short_title_template: "{topic} #shorts"
-      cta: ""
-      disclaimer: "Data for educational purposes. Sources shown in video."
-
-  # -------------------------------------------------------------------------
+      niche: US entertainment (box office, streaming, music)
+      hashtags:
+      - '#movies'
+      - '#streaming'
+      - '#music'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: ''
+      disclaimer: Data for educational purposes. Sources shown in video.
   PAYCHECK:
-    display_name: "PAYCHECK"
+    display_name: PAYCHECK
     enabled: true
     drive_folder_id_env: PAYCHECK_DRIVE_FOLDER_ID
     youtube:
@@ -264,25 +259,26 @@ channels:
       client_id_env: PAYCHECK_YT_CLIENT_ID
       client_secret_env: PAYCHECK_YT_CLIENT_SECRET
       refresh_token_env: PAYCHECK_YT_REFRESH_TOKEN
-      category_id: "27"
-      default_language: "en"
+      category_id: '27'
+      default_language: en
       made_for_kids: false
-      privacy: "public"
+      privacy: public
     facebook:
       enabled: true
       page_id_env: PAYCHECK_FB_PAGE_ID
       page_token_env: PAYCHECK_FB_PAGE_TOKEN
     branding:
-      niche: "US jobs & salaries (highest paying, unemployment)"
-      hashtags: ["#jobs", "#salary", "#career"]
-      long_title_template: "{topic}"
-      short_title_template: "{topic} #shorts"
-      cta: ""
-      disclaimer: "Data for educational purposes. Sources shown in video."
-
-  # -------------------------------------------------------------------------
+      niche: US jobs & salaries (highest paying, unemployment)
+      hashtags:
+      - '#jobs'
+      - '#salary'
+      - '#career'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: ''
+      disclaimer: Data for educational purposes. Sources shown in video.
   BODYUSA:
-    display_name: "BODY USA"
+    display_name: BODY USA
     enabled: true
     drive_folder_id_env: BODYUSA_DRIVE_FOLDER_ID
     youtube:
@@ -290,25 +286,26 @@ channels:
       client_id_env: BODYUSA_YT_CLIENT_ID
       client_secret_env: BODYUSA_YT_CLIENT_SECRET
       refresh_token_env: BODYUSA_YT_REFRESH_TOKEN
-      category_id: "27"
-      default_language: "en"
+      category_id: '27'
+      default_language: en
       made_for_kids: false
-      privacy: "public"
+      privacy: public
     facebook:
       enabled: true
       page_id_env: BODYUSA_FB_PAGE_ID
       page_token_env: BODYUSA_FB_PAGE_TOKEN
     branding:
-      niche: "US health & lifestyle (obesity, lifespan, spending)"
-      hashtags: ["#health", "#usa", "#fitness"]
-      long_title_template: "{topic}"
-      short_title_template: "{topic} #shorts"
-      cta: ""
-      disclaimer: "Data for educational purposes. Sources shown in video."
-
-  # -------------------------------------------------------------------------
+      niche: US health & lifestyle (obesity, lifespan, spending)
+      hashtags:
+      - '#health'
+      - '#usa'
+      - '#fitness'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: ''
+      disclaimer: Data for educational purposes. Sources shown in video.
   RIDEUSA:
-    display_name: "RIDE USA"
+    display_name: RIDE USA
     enabled: true
     drive_folder_id_env: RIDEUSA_DRIVE_FOLDER_ID
     youtube:
@@ -316,25 +313,26 @@ channels:
       client_id_env: RIDEUSA_YT_CLIENT_ID
       client_secret_env: RIDEUSA_YT_CLIENT_SECRET
       refresh_token_env: RIDEUSA_YT_REFRESH_TOKEN
-      category_id: "2"
-      default_language: "en"
+      category_id: '2'
+      default_language: en
       made_for_kids: false
-      privacy: "public"
+      privacy: public
     facebook:
       enabled: true
       page_id_env: RIDEUSA_FB_PAGE_ID
       page_token_env: RIDEUSA_FB_PAGE_TOKEN
     branding:
-      niche: "US cars & auto (brand sales, EV vs gas, trucks)"
-      hashtags: ["#cars", "#ev", "#auto"]
-      long_title_template: "{topic}"
-      short_title_template: "{topic} #shorts"
-      cta: ""
-      disclaimer: "Data for educational purposes. Sources shown in video."
-
-  # -------------------------------------------------------------------------
+      niche: US cars & auto (brand sales, EV vs gas, trucks)
+      hashtags:
+      - '#cars'
+      - '#ev'
+      - '#auto'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: ''
+      disclaimer: Data for educational purposes. Sources shown in video.
   EATSUSA:
-    display_name: "EATS USA"
+    display_name: EATS USA
     enabled: true
     drive_folder_id_env: EATSUSA_DRIVE_FOLDER_ID
     youtube:
@@ -342,25 +340,804 @@ channels:
       client_id_env: EATSUSA_YT_CLIENT_ID
       client_secret_env: EATSUSA_YT_CLIENT_SECRET
       refresh_token_env: EATSUSA_YT_REFRESH_TOKEN
-      category_id: "26"
-      default_language: "en"
+      category_id: '26'
+      default_language: en
       made_for_kids: false
-      privacy: "public"
+      privacy: public
     facebook:
       enabled: true
       page_id_env: EATSUSA_FB_PAGE_ID
       page_token_env: EATSUSA_FB_PAGE_TOKEN
     branding:
-      niche: "US food & fast-food (chains, calories, prices)"
-      hashtags: ["#food", "#fastfood", "#usa"]
-      long_title_template: "{topic}"
-      short_title_template: "{topic} #shorts"
-      cta: ""
-      disclaimer: "Data for educational purposes. Sources shown in video."
+      niche: US food & fast-food (chains, calories, prices)
+      hashtags:
+      - '#food'
+      - '#fastfood'
+      - '#usa'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: ''
+      disclaimer: Data for educational purposes. Sources shown in video.
+  GUESSUSA:
+    display_name: GUESSUSA
+    enabled: true
+    drive_folder_id_env: GUESSUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: GUESSUSA_YT_CLIENT_ID
+      client_secret_env: GUESSUSA_YT_CLIENT_SECRET
+      refresh_token_env: GUESSUSA_YT_REFRESH_TOKEN
+      category_id: '24'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: GUESSUSA_FB_PAGE_ID
+      page_token_env: GUESSUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US trivia & guessing games
+      hashtags:
+      - '#guess'
+      - '#usa'
+      - '#trivia'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
 
-# ============================================================================
-#  GỢI Ý category_id YouTube phổ biến:
-#   1 Film & Animation | 2 Autos | 10 Music | 17 Sports | 19 Travel
-#   20 Gaming | 22 People & Blogs | 23 Comedy | 24 Entertainment
-#   25 News & Politics | 26 Howto & Style | 27 Education | 28 Science & Tech
-# ============================================================================
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  MAPPEDUSA:
+    display_name: MAPPEDUSA
+    enabled: true
+    drive_folder_id_env: MAPPEDUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: MAPPEDUSA_YT_CLIENT_ID
+      client_secret_env: MAPPEDUSA_YT_CLIENT_SECRET
+      refresh_token_env: MAPPEDUSA_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: MAPPEDUSA_FB_PAGE_ID
+      page_token_env: MAPPEDUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US data mapped by state
+      hashtags:
+      - '#map'
+      - '#usa'
+      - '#data'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  RANKEDUSA:
+    display_name: RANKEDUSA
+    enabled: true
+    drive_folder_id_env: RANKEDUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: RANKEDUSA_YT_CLIENT_ID
+      client_secret_env: RANKEDUSA_YT_CLIENT_SECRET
+      refresh_token_env: RANKEDUSA_YT_REFRESH_TOKEN
+      category_id: '24'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: RANKEDUSA_FB_PAGE_ID
+      page_token_env: RANKEDUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US things ranked by real data
+      hashtags:
+      - '#ranked'
+      - '#usa'
+      - '#tierlist'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  SCALEDUSA:
+    display_name: SCALEDUSA
+    enabled: true
+    drive_folder_id_env: SCALEDUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: SCALEDUSA_YT_CLIENT_ID
+      client_secret_env: SCALEDUSA_YT_CLIENT_SECRET
+      refresh_token_env: SCALEDUSA_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: SCALEDUSA_FB_PAGE_ID
+      page_token_env: SCALEDUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US size & scale comparisons
+      hashtags:
+      - '#scale'
+      - '#comparison'
+      - '#usa'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  THENNOWUSA:
+    display_name: THENNOWUSA
+    enabled: true
+    drive_folder_id_env: THENNOWUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: THENNOWUSA_YT_CLIENT_ID
+      client_secret_env: THENNOWUSA_YT_CLIENT_SECRET
+      refresh_token_env: THENNOWUSA_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: THENNOWUSA_FB_PAGE_ID
+      page_token_env: THENNOWUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US then vs now comparisons
+      hashtags:
+      - '#thenvsnow'
+      - '#usa'
+      - '#history'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  COSMOS:
+    display_name: COSMOS
+    enabled: true
+    drive_folder_id_env: COSMOS_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: COSMOS_YT_CLIENT_ID
+      client_secret_env: COSMOS_YT_CLIENT_SECRET
+      refresh_token_env: COSMOS_YT_REFRESH_TOKEN
+      category_id: '28'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: COSMOS_FB_PAGE_ID
+      page_token_env: COSMOS_FB_PAGE_TOKEN
+    branding:
+      niche: space & the universe explained
+      hashtags:
+      - '#space'
+      - '#cosmos'
+      - '#science'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  THEDEEP:
+    display_name: THEDEEP
+    enabled: true
+    drive_folder_id_env: THEDEEP_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: THEDEEP_YT_CLIENT_ID
+      client_secret_env: THEDEEP_YT_CLIENT_SECRET
+      refresh_token_env: THEDEEP_YT_REFRESH_TOKEN
+      category_id: '28'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: THEDEEP_FB_PAGE_ID
+      page_token_env: THEDEEP_FB_PAGE_TOKEN
+    branding:
+      niche: oceans & deep sea explained
+      hashtags:
+      - '#ocean'
+      - '#deepsea'
+      - '#science'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  WHYUSA:
+    display_name: WHYUSA
+    enabled: true
+    drive_folder_id_env: WHYUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: WHYUSA_YT_CLIENT_ID
+      client_secret_env: WHYUSA_YT_CLIENT_SECRET
+      refresh_token_env: WHYUSA_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: WHYUSA_FB_PAGE_ID
+      page_token_env: WHYUSA_FB_PAGE_TOKEN
+    branding:
+      niche: why America works the way it does
+      hashtags:
+      - '#usa'
+      - '#explained'
+      - '#why'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  EMPIREUSA:
+    display_name: EMPIREUSA
+    enabled: true
+    drive_folder_id_env: EMPIREUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: EMPIREUSA_YT_CLIENT_ID
+      client_secret_env: EMPIREUSA_YT_CLIENT_SECRET
+      refresh_token_env: EMPIREUSA_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: EMPIREUSA_FB_PAGE_ID
+      page_token_env: EMPIREUSA_FB_PAGE_TOKEN
+    branding:
+      niche: rise & fall of US empires and brands
+      hashtags:
+      - '#empire'
+      - '#business'
+      - '#usa'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  UNSOLVED:
+    display_name: UNSOLVED
+    enabled: true
+    drive_folder_id_env: UNSOLVED_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: UNSOLVED_YT_CLIENT_ID
+      client_secret_env: UNSOLVED_YT_CLIENT_SECRET
+      refresh_token_env: UNSOLVED_YT_REFRESH_TOKEN
+      category_id: '24'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: UNSOLVED_FB_PAGE_ID
+      page_token_env: UNSOLVED_FB_PAGE_TOKEN
+    branding:
+      niche: unsolved US mysteries & cold cases
+      hashtags:
+      - '#unsolved'
+      - '#mystery'
+      - '#usa'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  GRIDUSA:
+    display_name: GRIDUSA
+    enabled: true
+    drive_folder_id_env: GRIDUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: GRIDUSA_YT_CLIENT_ID
+      client_secret_env: GRIDUSA_YT_CLIENT_SECRET
+      refresh_token_env: GRIDUSA_YT_REFRESH_TOKEN
+      category_id: '28'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: GRIDUSA_FB_PAGE_ID
+      page_token_env: GRIDUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US energy, power grid & infrastructure
+      hashtags:
+      - '#energy'
+      - '#grid'
+      - '#usa'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  RULEDUSA:
+    display_name: RULEDUSA
+    enabled: true
+    drive_folder_id_env: RULEDUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: RULEDUSA_YT_CLIENT_ID
+      client_secret_env: RULEDUSA_YT_CLIENT_SECRET
+      refresh_token_env: RULEDUSA_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: RULEDUSA_FB_PAGE_ID
+      page_token_env: RULEDUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US laws & strange regulations
+      hashtags:
+      - '#law'
+      - '#usa'
+      - '#rules'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  VAULTUSA:
+    display_name: VAULTUSA
+    enabled: true
+    drive_folder_id_env: VAULTUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: VAULTUSA_YT_CLIENT_ID
+      client_secret_env: VAULTUSA_YT_CLIENT_SECRET
+      refresh_token_env: VAULTUSA_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: VAULTUSA_FB_PAGE_ID
+      page_token_env: VAULTUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US money vaults, gold & reserves
+      hashtags:
+      - '#money'
+      - '#gold'
+      - '#usa'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  LEDGERUSA:
+    display_name: LEDGERUSA
+    enabled: true
+    drive_folder_id_env: LEDGERUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: LEDGERUSA_YT_CLIENT_ID
+      client_secret_env: LEDGERUSA_YT_CLIENT_SECRET
+      refresh_token_env: LEDGERUSA_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: LEDGERUSA_FB_PAGE_ID
+      page_token_env: LEDGERUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US government spending & budgets
+      hashtags:
+      - '#budget'
+      - '#spending'
+      - '#usa'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  SIGNALUSA:
+    display_name: SIGNALUSA
+    enabled: true
+    drive_folder_id_env: SIGNALUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: SIGNALUSA_YT_CLIENT_ID
+      client_secret_env: SIGNALUSA_YT_CLIENT_SECRET
+      refresh_token_env: SIGNALUSA_YT_REFRESH_TOKEN
+      category_id: '28'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: SIGNALUSA_FB_PAGE_ID
+      page_token_env: SIGNALUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US tech, internet & telecom
+      hashtags:
+      - '#tech'
+      - '#internet'
+      - '#usa'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  MARGINUSA:
+    display_name: MARGINUSA
+    enabled: true
+    drive_folder_id_env: MARGINUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: MARGINUSA_YT_CLIENT_ID
+      client_secret_env: MARGINUSA_YT_CLIENT_SECRET
+      refresh_token_env: MARGINUSA_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: MARGINUSA_FB_PAGE_ID
+      page_token_env: MARGINUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US business margins & profit
+      hashtags:
+      - '#business'
+      - '#profit'
+      - '#usa'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  SWARMUSA:
+    display_name: SWARMUSA
+    enabled: true
+    drive_folder_id_env: SWARMUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: SWARMUSA_YT_CLIENT_ID
+      client_secret_env: SWARMUSA_YT_CLIENT_SECRET
+      refresh_token_env: SWARMUSA_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: SWARMUSA_FB_PAGE_ID
+      page_token_env: SWARMUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US counts visualized at scale
+      hashtags:
+      - '#data'
+      - '#usa'
+      - '#visualized'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  PULSEUSA:
+    display_name: PULSEUSA
+    enabled: true
+    drive_folder_id_env: PULSEUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: PULSEUSA_YT_CLIENT_ID
+      client_secret_env: PULSEUSA_YT_CLIENT_SECRET
+      refresh_token_env: PULSEUSA_YT_REFRESH_TOKEN
+      category_id: '28'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: PULSEUSA_FB_PAGE_ID
+      page_token_env: PULSEUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US intensity & extremes measured
+      hashtags:
+      - '#extreme'
+      - '#data'
+      - '#usa'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  CLOCKWORKUSA:
+    display_name: CLOCKWORKUSA
+    enabled: true
+    drive_folder_id_env: CLOCKWORKUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: CLOCKWORKUSA_YT_CLIENT_ID
+      client_secret_env: CLOCKWORKUSA_YT_CLIENT_SECRET
+      refresh_token_env: CLOCKWORKUSA_YT_REFRESH_TOKEN
+      category_id: '28'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: CLOCKWORKUSA_FB_PAGE_ID
+      page_token_env: CLOCKWORKUSA_FB_PAGE_TOKEN
+    branding:
+      niche: huge timespans compressed
+      hashtags:
+      - '#time'
+      - '#history'
+      - '#science'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  LONGSHOTUSA:
+    display_name: LONGSHOTUSA
+    enabled: true
+    drive_folder_id_env: LONGSHOTUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: LONGSHOTUSA_YT_CLIENT_ID
+      client_secret_env: LONGSHOTUSA_YT_CLIENT_SECRET
+      refresh_token_env: LONGSHOTUSA_YT_REFRESH_TOKEN
+      category_id: '28'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: LONGSHOTUSA_FB_PAGE_ID
+      page_token_env: LONGSHOTUSA_FB_PAGE_TOKEN
+    branding:
+      niche: real odds & probability
+      hashtags:
+      - '#odds'
+      - '#probability'
+      - '#science'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  VERSUSUSA:
+    display_name: VERSUSUSA
+    enabled: true
+    drive_folder_id_env: VERSUSUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: VERSUSUSA_YT_CLIENT_ID
+      client_secret_env: VERSUSUSA_YT_CLIENT_SECRET
+      refresh_token_env: VERSUSUSA_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: VERSUSUSA_FB_PAGE_ID
+      page_token_env: VERSUSUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US head-to-head comparisons
+      hashtags:
+      - '#versus'
+      - '#usa'
+      - '#comparison'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  WILDUSA:
+    display_name: WILDUSA
+    enabled: true
+    drive_folder_id_env: WILDUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: WILDUSA_YT_CLIENT_ID
+      client_secret_env: WILDUSA_YT_CLIENT_SECRET
+      refresh_token_env: WILDUSA_YT_REFRESH_TOKEN
+      category_id: '15'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: WILDUSA_FB_PAGE_ID
+      page_token_env: WILDUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US wildlife & nature
+      hashtags:
+      - '#wildlife'
+      - '#nature'
+      - '#usa'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  CRIMEUSA:
+    display_name: CRIMEUSA
+    enabled: true
+    drive_folder_id_env: CRIMEUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: CRIMEUSA_YT_CLIENT_ID
+      client_secret_env: CRIMEUSA_YT_CLIENT_SECRET
+      refresh_token_env: CRIMEUSA_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: CRIMEUSA_FB_PAGE_ID
+      page_token_env: CRIMEUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US crime statistics explained
+      hashtags:
+      - '#crime'
+      - '#usa'
+      - '#data'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  DISASTERUSA:
+    display_name: DISASTERUSA
+    enabled: true
+    drive_folder_id_env: DISASTERUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: DISASTERUSA_YT_CLIENT_ID
+      client_secret_env: DISASTERUSA_YT_CLIENT_SECRET
+      refresh_token_env: DISASTERUSA_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: DISASTERUSA_FB_PAGE_ID
+      page_token_env: DISASTERUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US disasters & how they unfolded
+      hashtags:
+      - '#disaster'
+      - '#usa'
+      - '#history'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  DEFENSEUSA:
+    display_name: DEFENSEUSA
+    enabled: true
+    drive_folder_id_env: DEFENSEUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: DEFENSEUSA_YT_CLIENT_ID
+      client_secret_env: DEFENSEUSA_YT_CLIENT_SECRET
+      refresh_token_env: DEFENSEUSA_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: DEFENSEUSA_FB_PAGE_ID
+      page_token_env: DEFENSEUSA_FB_PAGE_TOKEN
+    branding:
+      niche: US defense spending & capability
+      hashtags:
+      - '#defense'
+      - '#usa'
+      - '#military'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  FUTUREUSA:
+    display_name: FUTUREUSA
+    enabled: true
+    drive_folder_id_env: FUTUREUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: FUTUREUSA_YT_CLIENT_ID
+      client_secret_env: FUTUREUSA_YT_CLIENT_SECRET
+      refresh_token_env: FUTUREUSA_YT_REFRESH_TOKEN
+      category_id: '28'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: FUTUREUSA_FB_PAGE_ID
+      page_token_env: FUTUREUSA_FB_PAGE_TOKEN
+    branding:
+      niche: what America might look like next
+      hashtags:
+      - '#future'
+      - '#usa'
+      - '#tech'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  UNSEENUSA:
+    display_name: UNSEENUSA
+    enabled: true
+    drive_folder_id_env: UNSEENUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: UNSEENUSA_YT_CLIENT_ID
+      client_secret_env: UNSEENUSA_YT_CLIENT_SECRET
+      refresh_token_env: UNSEENUSA_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: UNSEENUSA_FB_PAGE_ID
+      page_token_env: UNSEENUSA_FB_PAGE_TOKEN
+    branding:
+      niche: things in America you never see
+      hashtags:
+      - '#hidden'
+      - '#usa'
+      - '#unseen'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
