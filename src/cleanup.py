@@ -32,6 +32,7 @@ from firestore_state import client_render_jobs
 IMG_EXT = (".jpg", ".jpeg", ".png")
 CAP_EXT = (".srt", ".vtt")          # phụ đề đi kèm -> dọn luôn, tránh file mồ côi chiếm dung lượng
 GB = 1_000_000_000
+SCRIPT_SCAN_LIMIT = 500             # trần đọc/lần cho _manage_scripts (xem comment tại chỗ dùng)
 
 
 def _age_days(f: dict, now: datetime, posted_at: str | None = None) -> float:
@@ -69,19 +70,26 @@ def _companions(drv, parent_id: str, base: str) -> list[str]:
     return ids
 
 
-def _manage_scripts(state, uid: str, accts: list, dry_run: bool, archive_days: int = 30) -> tuple[int, int]:
+def _manage_scripts(state, rj, uid: str, accts: list, dry_run: bool, archive_days: int = 30) -> tuple[int, int]:
     """Giữ Firestore (free 1GiB) KHÔNG phình theo số video, dù render hàng chục nghìn video:
       - Video ĐÃ ĐĂNG YouTube -> script hết tác dụng (YouTube đã giữ bản chính) -> xoá field.
       - Video CHƯA đăng nhưng render đã lâu (>=archive_days, ví dụ auto-đăng chưa bật/kênh bị bỏ quên)
         -> ĐẨY SANG DRIVE (_SCRIPTS_ARCHIVE, kho free lớn hơn Firestore nhiều) rồi mới xoá khỏi Firestore
         -> KHÔNG MẤT DỮ LIỆU, hoàn toàn tự động, không cần bấm gì.
       - Video chưa đăng + còn mới (< archive_days) -> giữ nguyên trong Firestore (còn cần, đọc nhanh).
+    `rj` = client Project B đã tạo SẴN 1 LẦN ở run() (KHÔNG tự tạo lại ở đây mỗi user -> tránh lặp lại
+    request kết nối + ping kiểm tra database của _sa_client() cho từng user, dù cả app dùng CHUNG 1 cặp
+    secret GOOGLE_APPLICATION_CREDENTIALS_B/FIREBASE_PROJECT_ID_B — thừa 1 read Firestore mỗi user/lần chạy).
     Trả (số đã xoá vì đã đăng, số đã đẩy Drive vì cũ)."""
     import json, tempfile
     n_posted = n_archived = 0
     try:
-        rj = client_render_jobs()
-        docs = list(rj.collection("render_jobs").where("owner", "==", uid).where("script", "!=", "").stream())
+        # LIMIT phòng vệ (không đổi hành vi bình thường — script tự dọn dần mỗi ngày nên set thường nhỏ):
+        # tránh .stream() không giới hạn quét TOÀN BỘ collection nếu việc dọn script từng bị treo nhiều
+        # ngày liền (bug khác / lỗi mạng) khiến backlog phình to -> 1 lần chạy vẫn chỉ đọc tối đa
+        # SCRIPT_SCAN_LIMIT doc, phần dư để cron cleanup ngày mai xử lý tiếp (không mất dữ liệu).
+        docs = list(rj.collection("render_jobs").where("owner", "==", uid)
+                    .where("script", "!=", "").limit(SCRIPT_SCAN_LIMIT).stream())
     except Exception as e:
         print(f"  ⚠️ manage_scripts đọc render_jobs lỗi ({e}) — bỏ qua, thử lại ngày sau"); return 0, 0
     if not docs:
@@ -157,6 +165,10 @@ def run(dry_run=False, force_now=False):
         print("  ⚠️  Chưa có tài khoản Drive kết nối nào. Bỏ qua.")
         return
 
+    # Tạo client Project B (render_jobs) 1 LẦN DUY NHẤT cho cả lần chạy (mọi user dùng chung 1 cặp
+    # secret B) -> tránh _manage_scripts() tự tạo lại (kèm ping kiểm tra DB) mỗi user trong vòng lặp dưới.
+    rj = client_render_jobs()
+
     now = datetime.now(timezone.utc)
     for uid, dconns in users.items():
         pol = (state.get_doc("settings", "overrides__" + uid) or {}).get("cleanup") or {}
@@ -194,7 +206,7 @@ def run(dry_run=False, force_now=False):
         # Dọn field 'script' (kịch bản) -> chạy LUÔN, không phụ thuộc mode Drive (đó là chính sách riêng
         # cho FILE video; script ở Firestore B là mối lo dung lượng riêng, luôn dọn tự động).
         try:
-            n_posted, n_archived = _manage_scripts(state, uid, accts, dry_run,
+            n_posted, n_archived = _manage_scripts(state, rj, uid, accts, dry_run,
                                                     archive_days=pol.get("script_archive_days", 30))
             if n_posted:
                 print(f"  📄 script đã đăng -> xoá {n_posted} bản (Firestore B)")

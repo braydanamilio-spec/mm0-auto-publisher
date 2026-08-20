@@ -158,7 +158,15 @@ def run(dry_run: bool = False):
                  .where("channel", "==", ch).where("status", "==", "done"))
             try:
                 from google.cloud.firestore_v1 import Query
-                docs = list(q.order_by("created_at", direction=Query.ASCENDING).limit(SCAN_LIMIT).stream())
+                # 20/8: DESCENDING (mới nhất trước), KHÔNG phải ASCENDING như trước.
+                # render_jobs 'done' KHÔNG BAO GIỜ bị xoá (chỉ được đánh dấu queued=True) -> mỗi kênh
+                # tích luỹ NGÀY CÀNG NHIỀU doc 'done'. Với ASCENDING + limit(SCAN_LIMIT), query này
+                # LUÔN trả về CÙNG SCAN_LIMIT DOC CŨ NHẤT, không đổi, mỗi lần chạy — một khi kênh đã có
+                # > SCAN_LIMIT doc 'done' (rất nhanh với render factory 10 luồng/10 phút), toàn bộ
+                # SCAN_LIMIT doc trả về đều đã queued=True từ lâu -> vòng lặp bên dưới skip hết, video
+                # MỚI render xong (luôn nằm ở cuối, ngoài giới hạn SCAN_LIMIT) KHÔNG BAO GIỜ được xét tới
+                # -> auto-enqueue coi như CHẾT LẶNG LẼ cho kênh đó (không lỗi, không log rõ ràng).
+                docs = list(q.order_by("created_at", direction=Query.DESCENDING).limit(SCAN_LIMIT).stream())
             except Exception:
                 docs = list(q.limit(SCAN_LIMIT).stream())
         except Exception as e:

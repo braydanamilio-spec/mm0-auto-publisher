@@ -76,11 +76,25 @@ def resolve_channel_env(ch: dict, state=None, key=None) -> dict:
     return out
 
 
-def _initial_status(prev, review_mode):
-    """Trạng thái khởi tạo cho video: phục hồi 'uploading'->pending; video mới ->
-    'needs_review' nếu bật chế độ duyệt, ngược lại 'pending'."""
+def _initial_status(prev, review_mode, updated_at=None, now=None, lease_min=15):
+    """Trạng thái khởi tạo cho video: phục hồi 'uploading'->pending CHỈ khi đã treo quá
+    lease_min phút (crash thật); nếu còn trong lease -> GIỮ NGUYÊN 'uploading' để due_items()
+    tiếp tục loại nó khỏi hàng chờ. video mới -> 'needs_review' nếu bật chế độ duyệt, ngược lại 'pending'.
+
+    20/8: TRƯỚC ĐÂY reset 'uploading'->'pending' VÔ ĐIỀU KIỆN mỗi lần quét, kể cả khi tiến trình
+    khác đang thật sự upload dở (vd repo private bấm 'Run workflow' tay trong lúc repo public đang
+    cron) -> vòng đồng bộ ngay sau đó GHI ĐÈ 'pending' lên trên 'uploading' đang chạy thật, làm
+    due_items() lại chọn video này lần nữa -> ĐĂNG TRÙNG lên YouTube/Facebook. Cùng cơ chế lease
+    với claim_item() (mặc định 15 phút)."""
     if prev == "uploading":
-        return "pending"
+        stale = True
+        if updated_at and now:
+            try:
+                ts = datetime.fromisoformat(str(updated_at).replace("Z", "+00:00"))
+                stale = (now - ts).total_seconds() > lease_min * 60
+            except Exception:
+                stale = True
+        return "pending" if stale else "uploading"
     if prev:
         return prev
     return "needs_review" if review_mode else "pending"
@@ -142,7 +156,7 @@ def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now, 
             "type": meta["type"],
             "meta": meta,
             "publish_at": doc.get("publish_at") or raw.get("publish_at"),
-            "status": _initial_status(doc.get("status"), review_mode),
+            "status": _initial_status(doc.get("status"), review_mode, doc.get("updated_at"), now),
             "attempts": doc.get("attempts", 0),
             "warnings": warns,
             "thumbnail": sidecar.get("thumbnail"),
@@ -394,7 +408,7 @@ def process_pool(channels_cfg, templates, safety, tz, dry_run, state, now, overr
                 "drive_file_id": f["id"], "drive_name": f["name"], "parent_id": f["parents"][0],
                 "channel": channel, "type": meta["type"], "meta": meta,
                 "publish_at": doc.get("publish_at") or raw.get("publish_at"),
-                "status": _initial_status(doc.get("status"), review_mode),
+                "status": _initial_status(doc.get("status"), review_mode, doc.get("updated_at"), now),
                 "attempts": doc.get("attempts", 0),
                 "warnings": M.lint(meta), "thumbnail": sidecar.get("thumbnail"),
                 "captions": sidecar.get("captions"), "playlist": sidecar.get("playlist"),
@@ -501,7 +515,7 @@ def process_users(channels_cfg, templates, safety, tz, dry_run, state, now):
                     "drive_file_id": f["id"], "drive_name": f["name"], "parent_id": f["parents"][0],
                     "channel": channel, "type": meta["type"], "meta": meta,
                     "publish_at": doc.get("publish_at") or raw.get("publish_at"),
-                    "status": _initial_status(doc.get("status"), review_mode),
+                    "status": _initial_status(doc.get("status"), review_mode, doc.get("updated_at"), now),
                     "attempts": doc.get("attempts", 0), "warnings": M.lint(meta),
                     "thumbnail": sidecar.get("thumbnail"), "captions": sidecar.get("captions"),
                     "playlist": sidecar.get("playlist"), "results": doc.get("results") or {},

@@ -1651,7 +1651,14 @@
       document.getElementById("login").classList.remove("hide"); } }, 6000);
 
     function sub(name, cb){ onSnapshot(query(collection(_appFor(name),name), where("owner","==",(window.__ownerUid||window.__uid))), cb, () => setLive(false)); }
+    let __subscribed=false;
     function subscribe(){
+      // BẢO VỆ: onAuthStateChanged gọi subscribe() mỗi lần đăng nhập (kể cả đăng xuất rồi đăng nhập lại
+      // TRONG CÙNG tab, không reload trang) — nếu không có guard này, mỗi lần login lại sẽ MỞ THÊM một bộ
+      // onSnapshot mới (videos/counters/settings/fb_pages/quota/social_queue/yt_queue/tasks/links) CHỒNG lên
+      // bộ cũ (không huỷ), cộng dồn focus-listener -> đọc Firestore tăng dần mỗi lần đổi tài khoản, và callback
+      // của các listener cũ (owner cũ) có thể ghi đè dữ liệu owner mới. Cùng lớp lỗi với rsInit()'s rsInited.
+      if(__subscribed) return; __subscribed=true;
       // "videos" TRƯỚC ĐÂY không giới hạn (limit) -> nghe realtime TOÀN BỘ lịch sử video, càng ngày càng phình
       // (mỗi video enqueue mới, mỗi lần đổi trạng thái đăng đều tính) — phát hiện 19/8 lúc rà lại quota.
       // FIX: cap 300 video MỚI NHẤT (đủ dùng cho gallery/theo dõi thực tế), fallback nếu thiếu index.
@@ -2283,6 +2290,12 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       {name:"FUTUREUSA",fmt:"doc",accent:"#3B82F6",accent2:"#A855F7",style:"awe, speculative, cinematic wonder",niche:"speculative visions of the future — future cities, technology, transportation, food, medicine, daily life 50-200 years from now. Presented as IMAGINATIVE SPECULATION, never predicted fact."},
       {name:"UNSEENUSA",fmt:"doc",accent:"#4C1D95",accent2:"#A78BFA",style:"awe, cosmic mystery, reverent",niche:"real theoretical astrophysics never photographed — black hole interiors, exoplanet surfaces, the early universe. STRICT: narration grounded in real science, only the visuals are artist's-impression speculation."},
       {name:"LONGSHOTUSA",fmt:"longshot",accent:"#4F46E5",niche:"real, sourced probability/odds — everyday risks, sports, medical/actuarial stats, disasters, records. Never gambling advice, just real published odds."},
+      // ── WAVE 6 (trend-scout informed: crime/disaster/debt/wildlife/defense — chưa channel nào trùng) ──
+      {name:"CRIMEUSA",fmt:"doc",accent:"#DC2626",accent2:"#F87171",style:"tense, factual, urgent",niche:"real US crime & public-safety statistics by city and state. STRICT: cite the real source and year (FBI UCR, DOJ, BJS victimization survey) — never invent a crime rate or ranking; if unsure a stat is real, use a different well-documented one; factual and neutral, never sensationalize or target a specific real neighborhood/address."},
+      {name:"DISASTERUSA",fmt:"doc",accent:"#EA580C",accent2:"#FDBA74",style:"dramatic, urgent, awe at scale",niche:"real US natural disaster costs and frequency. STRICT: cite the real event name/year/dollar figure (NOAA NCEI billion-dollar disaster database, FEMA) — never invent a disaster or damage total; if unsure a figure is real, use a different well-documented one."},
+      {name:"DEBTUSA",fmt:"doc",accent:"#0891B2",accent2:"#67E8F9",style:"sharp, revealing, slightly alarming",niche:"real US education costs and student debt. STRICT: cite the real source (Dept of Education, College Scorecard, Federal Reserve student loan data) — never invent a tuition figure or debt number; illustrative examples only, never personal financial advice."},
+      {name:"WILDUSA",fmt:"doc",accent:"#65A30D",accent2:"#BEF264",style:"awe, reverent, wild wonder",niche:"real American wildlife and conservation economics. STRICT: cite real documented data (USFWS Endangered Species Act recovery numbers, USGS/USDA invasive-species damage estimates) — never invent a species count or fact."},
+      {name:"DEFENSEUSA",fmt:"doc",accent:"#1E3A8A",accent2:"#60A5FA",style:"commanding, precise, high-stakes",niche:"real US military spending and equipment costs. STRICT: cite the real program/unit cost/source (DoD budget documents, GAO reports, CBO) — never invent a cost figure; factual and neutral, never political commentary."},
     ];
     window.RS_PRESETS=RS_PRESETS; try{ window.__rsFillPicker&&window.__rsFillPicker(); }catch(_){}   // đổ dropdown chọn kênh
     window.rsPick=(name)=>{ const sel=document.getElementById("rsChPick");
@@ -2555,6 +2568,12 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       // ── WAVE 5 (speculative — 100% ảnh AI vẽ, Nano Banana) ──
       FUTUREUSA:{d:"FUTURE USA",a:"#3B82F6",t:"One vision of tomorrow.",h:"@futureusadaily",ic:"🚀",ht:"#future #speculative #concept #usa",niche:"speculative visions of the future — cities, tech, transport, daily life 50-200 years from now"},
       UNSEENUSA:{d:"UNSEEN",a:"#4C1D95",t:"What no camera has ever captured.",h:"@unseenusa",ic:"🕳️",ht:"#space #astrophysics #artistimpression #usa",niche:"real theoretical astrophysics never photographed — black holes, exoplanets, the early universe"},
+      // ── WAVE 6 ──
+      CRIMEUSA:{d:"CRIME USA",a:"#DC2626",t:"The real numbers behind the headlines.",h:"@crimeusadaily",ic:"🚨",ht:"#crimestats #safety #usa #data",niche:"US crime & public-safety statistics by city and state (FBI UCR/DOJ data)"},
+      DISASTERUSA:{d:"DISASTER USA",a:"#EA580C",t:"When nature sends the bill.",h:"@disasterusahq",ic:"🌪️",ht:"#disaster #weather #usa #data",niche:"US natural disaster costs & frequency (NOAA/FEMA data)"},
+      DEBTUSA:{d:"DEBT USA",a:"#0891B2",t:"What your degree really costs.",h:"@debtusadaily",ic:"🎓",ht:"#studentdebt #college #usa #money",niche:"US education costs & student debt (Dept of Education data)"},
+      WILDUSA:{d:"WILD USA",a:"#65A30D",t:"America's last wild places.",h:"@wildusahq",ic:"🦅",ht:"#wildlife #nature #usa #conservation",niche:"American wildlife & conservation economics (USFWS/NPS data)"},
+      DEFENSEUSA:{d:"DEFENSE USA",a:"#1E3A8A",t:"What America pays to stay ready.",h:"@defenseusahq",ic:"🛡️",ht:"#military #defense #usa #budget",niche:"US military spending & equipment costs (DoD budget data)"},
     };
     const _dark="#0b1020";
     function rsBrandSvg(k,W,H,kind){ const b=RS_BRANDS[k]; if(!b) return ""; const s=Math.min(W,H);
@@ -2663,6 +2682,7 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     RS_BRANDS.GRIDUSA.cat="28";RS_BRANDS.RULEDUSA.cat="27";RS_BRANDS.VAULTUSA.cat="27";RS_BRANDS.LEDGERUSA.cat="27";RS_BRANDS.SIGNALUSA.cat="28";RS_BRANDS.MARGINUSA.cat="28";
     RS_BRANDS.SWARMUSA.cat="28";RS_BRANDS.PULSEUSA.cat="28";RS_BRANDS.CLOCKWORKUSA.cat="28";RS_BRANDS.LONGSHOTUSA.cat="27";
     RS_BRANDS.FUTUREUSA.cat="28";RS_BRANDS.UNSEENUSA.cat="28";
+    RS_BRANDS.CRIMEUSA.cat="25";RS_BRANDS.DISASTERUSA.cat="25";RS_BRANDS.DEBTUSA.cat="27";RS_BRANDS.WILDUSA.cat="28";RS_BRANDS.DEFENSEUSA.cat="25";
     // Avatar data-URI cho 1 kênh: brand SVG nếu có, không thì avatar chữ-cái-đầu + màu hash (hợp hàng trăm kênh).
     const _avCache={};   // memo: khỏi sinh lại SVG mỗi lần render (nhẹ CPU khi nhiều kênh) — chỉ RAM, KHÔNG ghi Firestore/Drive
     function rsAvatarUri(k,size){ size=size||44; const K=String(k||"").toUpperCase(); const ck=K+"@"+size;
