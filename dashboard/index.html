@@ -1862,6 +1862,8 @@
         if(preset.fmt==="doc"){ base.make_long=true; base.long_target=lt||100; } else { base.make_long=false; base.long_target=0; }  // doc = long+short như anh em; motif khác = short-only
         if(preset.accent)base.accent=preset.accent; if(preset.accent2)base.accent2=preset.accent2; if(preset.style)base.style=preset.style;
         if(preset.mode)base.mode=preset.mode; if(preset.host_prompt)base.host_prompt=preset.host_prompt; }
+      (function(){ const v=(window.RS_VOICES||{})[String(name||"").toUpperCase()];
+        if(v){ base.voice=v[0]; base.voice_rate=v[1]; } })();   // giọng riêng/kênh — chống nội dung hàng loạt
       try { await addDoc(collection(dbMeta,"render_channels"), base);
         const cp=document.getElementById("rsChPick"); if(cp)cp.value=""; const cn=document.getElementById("rsChName"); if(cn){cn.value="";cn.style.display="none";} document.getElementById("rsChNiche").value="";
         toastMsg("✔ Đã thêm kênh "+name+(preset&&preset.fmt?" ["+preset.fmt+"]":"")); } catch(e){ alert("Lỗi: "+e.message); } };
@@ -2259,6 +2261,13 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     };
 
     // ===== KẾ HOẠCH 10 KÊNH USA (preset + phân nhóm tiến độ) =====
+    // 🎙️ GIỌNG RIÊNG TỪNG KÊNH — chống "nội dung sản xuất hàng loạt" (rủi ro bật kiếm tiền lớn nhất của
+    // hệ 40 kênh cùng chủ). TRƯỚC ĐÂY cả 40 kênh dùng CHUNG 1 giọng en-US-AndrewNeural + 21 kênh chung
+    // engine Cinematic -> video nghe/nhìn gần y hệt nhau. Đã verify 40/40 cặp (giọng, tốc độ) KHÁC NHAU,
+    // 21 kênh doc trải đủ 16 giọng Mỹ NGƯỜI LỚN CÓ THẬT của edge-tts (đã đối chiếu list_voices() thật —
+    // 9 tên giọng đoán ban đầu KHÔNG tồn tại, dùng vào là hỏng TTS cả kênh). Sửa giọng: đổi ở đây.
+    const RS_VOICES={"COSMOS":["en-US-AndrewNeural","+0%"],"THEDEEP":["en-US-BrianNeural","+0%"],"WHYUSA":["en-US-GuyNeural","+0%"],"EMPIREUSA":["en-US-EricNeural","+0%"],"UNSOLVED":["en-US-RogerNeural","+0%"],"GRIDUSA":["en-US-SteffanNeural","+0%"],"RULEDUSA":["en-US-ChristopherNeural","+0%"],"VAULTUSA":["en-US-AndrewMultilingualNeural","+0%"],"LEDGERUSA":["en-US-BrianMultilingualNeural","+0%"],"SIGNALUSA":["en-US-AriaNeural","+0%"],"MARGINUSA":["en-US-JennyNeural","+0%"],"FUTUREUSA":["en-US-MichelleNeural","+0%"],"UNSEENUSA":["en-US-EmmaNeural","+0%"],"CRIMEUSA":["en-US-AvaNeural","+0%"],"DISASTERUSA":["en-US-AvaMultilingualNeural","+0%"],"DEBTUSA":["en-US-EmmaMultilingualNeural","+0%"],"WILDUSA":["en-US-AndrewNeural","+6%"],"DEFENSEUSA":["en-US-BrianNeural","+6%"],"VERSUSUSA":["en-US-GuyNeural","+6%"],"FILEUSA":["en-US-EricNeural","+6%"],"VOXUSA":["en-US-RogerNeural","+6%"],"DATARACE":["en-US-SteffanNeural","+6%"],"STATEWARS":["en-US-ChristopherNeural","+6%"],"MONEYMOVES":["en-US-AndrewMultilingualNeural","+6%"],"POWERPLAY":["en-US-BrianMultilingualNeural","+6%"],"GRIDIRON":["en-US-AriaNeural","+6%"],"SCREENKINGS":["en-US-JennyNeural","+6%"],"PAYCHECK":["en-US-MichelleNeural","+6%"],"BODYUSA":["en-US-EmmaNeural","+6%"],"RIDEUSA":["en-US-AvaNeural","+6%"],"EATSUSA":["en-US-AvaMultilingualNeural","+6%"],"GUESSUSA":["en-US-EmmaMultilingualNeural","+6%"],"MAPPEDUSA":["en-US-AndrewNeural","+11%"],"RANKEDUSA":["en-US-BrianNeural","+11%"],"SCALEDUSA":["en-US-GuyNeural","+11%"],"THENNOWUSA":["en-US-EricNeural","+11%"],"SWARMUSA":["en-US-RogerNeural","+11%"],"PULSEUSA":["en-US-SteffanNeural","+11%"],"CLOCKWORKUSA":["en-US-ChristopherNeural","+11%"],"LONGSHOTUSA":["en-US-AndrewMultilingualNeural","+11%"]};
+    window.RS_VOICES=RS_VOICES;
     const RS_PRESETS=[
       {name:"DATARACE",niche:"US money & wealth (billionaires, tax, income gap)"},
       {name:"STATEWARS",niche:"US states compared (population, GDP, crime, housing)"},
@@ -2321,7 +2330,9 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
       if(p.fmt){ base.format=p.fmt; if(p.fmt==="doc"){ base.make_long=true; base.long_target=100; } else { base.make_long=false; base.long_target=0; }
         if(p.accent)base.accent=p.accent; if(p.accent2)base.accent2=p.accent2; if(p.style)base.style=p.style;
         if(p.mode)base.mode=p.mode; if(p.host_prompt)base.host_prompt=p.host_prompt; }
-      else { base.mix="1long_3short"; base.make_long=true; base.long_target=100; }   // MẶC ĐỊNH 100 long/300 short (tùy chỉnh sau)
+      else { base.mix="1long_3short"; base.make_long=true; base.long_target=100; }
+      (function(){ const v=(window.RS_VOICES||{})[String(base.name||"").toUpperCase()];
+        if(v){ base.voice=v[0]; base.voice_rate=v[1]; } })();   // giọng riêng/kênh — chống nội dung hàng loạt   // MẶC ĐỊNH 100 long/300 short (tùy chỉnh sau)
       try{ await addDoc(collection(dbMeta,"render_channels"),base);
         try{toastMsg("✅ Đã thêm "+name+(p.fmt?(" ["+p.fmt+"]"):"")+" — sẵn sàng render");}catch(_){} }catch(e){ alert("Lỗi: "+e.message); } };
     // THÊM TẤT CẢ kênh còn thiếu 1 lần (dedup + set ĐÚNG format cho từng kênh -> dispatch chuẩn engine).
@@ -2338,6 +2349,8 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
         if(p.accent)base.accent=p.accent; if(p.accent2)base.accent2=p.accent2; if(p.style)base.style=p.style;
         if(p.mode)base.mode=p.mode; if(p.host_prompt)base.host_prompt=p.host_prompt; }
         else { base.mix="1long_3short"; base.make_long=true; base.long_target=100; }
+        (function(){ const v=(window.RS_VOICES||{})[String(base.name||"").toUpperCase()];
+          if(v){ base.voice=v[0]; base.voice_rate=v[1]; } })();   // giọng riêng/kênh — chống nội dung hàng loạt
         try{ await addDoc(collection(dbMeta,"render_channels"),base); ok++; }catch(e){}
       }
       try{toastMsg(`✅ Đã thêm ${ok}/${todo.length} kênh — sẵn sàng render`);}catch(_){}
