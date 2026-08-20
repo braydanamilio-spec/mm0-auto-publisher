@@ -937,6 +937,22 @@
         </div>
 
         <div class="panel" style="margin-bottom:14px">
+          <div class="p-head"><div class="p-title">🔎 Trend Scout — học gu kênh lớn</div><div class="p-sub">Quét TITLE (yt-dlp, không tải video) kênh lớn tham khảo → Gemini tóm tắt GU hook/twist → tự đưa vào kịch bản kênh của anh (không copy chủ đề, chỉ học cách viết)</div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:flex-start">
+            <input id="tsUrl" placeholder="Link kênh YouTube tham khảo (vd https://www.youtube.com/@kurzgesagt/videos)" style="flex:1;min-width:260px"/>
+            <select id="tsApply" multiple style="min-width:200px;height:64px" title="Kênh MM0 nào áp dụng gu này (giữ Ctrl/Cmd để chọn nhiều)"></select>
+            <button class="btn-conn" onclick="window.tsAddSource&&tsAddSource()">＋ Thêm kênh tham khảo</button>
+          </div>
+          <div id="tsList" class="list" style="margin-bottom:10px"><div class="d">Đang tải…</div></div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <button class="btn-conn" onclick="window.tsRunNow&&tsRunNow()">⚡ Quét ngay</button>
+            <span class="d" id="tsLastRun">Chưa quét lần nào — cron tự quét mỗi thứ 2 hàng tuần.</span>
+          </div>
+          <div style="font-weight:600;font-size:13px;margin:8px 0 6px;opacity:.8">Xu hướng đã học theo kênh</div>
+          <div id="tsDigest" class="list"><div class="d">Chưa có dữ liệu — bấm "Quét ngay" hoặc đợi cron.</div></div>
+        </div>
+
+        <div class="panel" style="margin-bottom:14px">
           <div class="p-head"><div class="p-title">📊 Trạng thái Render (realtime)</div><div class="p-sub">Cập nhật live theo từng bước · free</div></div>
           <div id="rsAlert" style="display:none;background:#4a1a1a;border:1px solid #a33;border-radius:10px;padding:10px 14px;margin-bottom:10px;color:#ffbcbc;font-weight:600"></div>
           <div id="rsSummary" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:14px">
@@ -2009,7 +2025,7 @@
     function rsInit(){
       if(rsInited) return; const o=RSowner(); if(!o){ setTimeout(rsInit,800); return; } rsInited=true;
       const q=(name)=>query(collection(_appFor(name),name), where("owner","==",o));
-      onSnapshot(rsCfgDoc(), d=>{ const c=d.exists()?d.data():{}; window.__rsCfg=c; window.__rsPipeState&&window.__rsPipeState();
+      onSnapshot(rsCfgDoc(), d=>{ const c=d.exists()?d.data():{}; window.__rsCfg=c; window.__rsPipeState&&window.__rsPipeState(); window.__rsRenderTrendScout&&window.__rsRenderTrendScout();
         if(c.qc_min) document.getElementById("rsQcMin").value=c.qc_min;
         const mr=document.getElementById("rsMaxRun"); if(mr&&document.activeElement!==mr) mr.value=c.max_per_run||"";
         (()=>{ const sel=document.getElementById("rsRoundPreset"), cl=document.getElementById("rsRoundLong"), cs=document.getElementById("rsRoundShort");
@@ -2028,6 +2044,12 @@
       // KEY đổi CHẬM -> đọc 1 LẦN + refresh khi bấm (thay realtime) -> cắt việc đọc lại 44 key mỗi lần health-check/đổi key.
       window.__loadKeys = async () => { try{ const snap=await getDocs(q("gemini_keys")); window.__rsKeysData=snap.docs.map(d=>({id:d.id,...d.data()})); const mk=document.getElementById("rsTotKeys"); if(mk) mk.textContent=snap.docs.length; window.__rsRenderKeys&&window.__rsRenderKeys(); }catch(e){} };
       window.__loadKeys();
+      // Trend Scout: nguồn/gu đổi CHẬM (tuần) -> load-once + tự refresh khi quay lại tab (thay realtime, đỡ tốn đọc).
+      window.__loadTrendScout = async () => { try{
+        const snap=await getDocs(query(collection(dbMeta,"trend_scout"), where("owner","==",o)));
+        window.__tsData={}; snap.docs.forEach(d=>{ const v=d.data(); if(v.channel) window.__tsData[v.channel]=v; });
+      }catch(e){} window.__rsRenderTrendScout&&window.__rsRenderTrendScout(); };
+      window.__loadTrendScout();
       onSnapshot(q("render_channels"), s=>{
         window.__rsChannelsData = s.docs.map(d=>({id:d.id,...d.data()})); window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderChList&&window.__rsRenderChList(); }, ()=>{});
       const _jobsCb=(s)=>{ const el=document.getElementById("rsJobs"); const bd=document.getElementById("nvRender");
@@ -2063,8 +2085,13 @@
           return `<div style="height:6px;background:#ffffff14;border-radius:4px;margin-top:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${color}"></div></div>`; };
         if(cp){ const chans=Object.keys(byCh).sort(); cp.innerHTML = chans.length? chans.map(c=>{
           const js=byCh[c],lo=js.filter(j=>j.type==="long"),sh=js.filter(j=>j.type==="short");
-          const ld=lo.filter(j=>j.status==="done").length,lf=lo.filter(j=>j.status==="failed").length,lr=lo.length-ld-lf;
-          const shd=sh.filter(j=>j.status==="done").length,shf=sh.filter(j=>j.status==="failed").length;
+          // LỖI THẬT = xảy ra SAU lần thành công gần nhất CỦA KÊNH ĐÓ (cùng logic banner tổng) -> lỗi cũ (đã có bản mới thay) không tính đỏ nữa.
+          const ld=lo.filter(j=>j.status==="done").length, loFailAll=lo.filter(j=>j.status==="failed");
+          const loOkAt=lo.filter(j=>j.status==="done").reduce((m,j)=>((j.created_at||"")>m?(j.created_at||""):m),"");
+          const lf=loFailAll.filter(j=>!loOkAt||(j.created_at||"")>loOkAt).length, lr=lo.length-ld-loFailAll.length;
+          const shd=sh.filter(j=>j.status==="done").length, shFailAll=sh.filter(j=>j.status==="failed");
+          const shOkAt=sh.filter(j=>j.status==="done").reduce((m,j)=>((j.created_at||"")>m?(j.created_at||""):m),"");
+          const shf=shFailAll.filter(j=>!shOkAt||(j.created_at||"")>shOkAt).length;
           const bg=lr>0?"⚙️":((lf||shf)?"⚠️":"✅");
           const m=chMeta[c.toUpperCase()]||{}; const lt=m.long_target||0, st=m.short_target||0;
           const tgt=(lt||st)?`<span class="d"> · 🎯 ${lt?`long ${ld}/${lt}`:""}${lt&&st?" · ":""}${st?`short ${shd}/${st}`:""}</span>`:"";
@@ -2562,7 +2589,71 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
           <div><b style="color:${b.a}">${esc(b.d)}</b> · ${esc(b.h)} · 🎨 ${esc(b.a)} · <span class="d">danh mục YT ${esc(RS_BRANDS[k].cat||"")}</span></div>
           <div style="margin:6px 0"><div class="d">📝 Mô tả</div><div style="white-space:pre-wrap;font-size:13px">${esc(rsBrandDesc(k))}</div><button class="btn-mini" style="margin-top:4px" onclick="window.rsBrandCopy('${k}','desc')">📋 Copy mô tả</button></div>
           <div style="margin:6px 0"><div class="d">🏷️ Keywords/Tags</div><div style="font-size:13px">${esc(b.niche.replace(/[(),]/g," ").split(/\s+/).filter(w=>w.length>2).join(", "))}</div><button class="btn-mini" style="margin-top:4px" onclick="window.rsBrandCopy('${k}','tags')">📋 Copy keywords</button> <button class="btn-mini" onclick="window.rsBrandCopy('${k}','ht')">📋 Copy hashtags</button></div>
+          ${window.rsBrandConnRow(k)}
         </div></div>`;
+    };
+    // 🔗 Kết nối thật: YouTube (__C[k], gán qua assignChannelGmail) + FB/IG (__OVERRIDES.fb_map[k] -> __FBP), 1-click xem, hoặc gán ngay nếu chưa có.
+    window.rsBrandConnRow=(k)=>{
+      const yc=__C[k]||{}, ytLink=yc.channel_id?`https://www.youtube.com/channel/${yc.channel_id}`:"";
+      const fbSlug=(__OVERRIDES.fb_map||{})[k]||""; const fbPage=fbSlug?(__FBP||[]).find(p=>p.name===fbSlug):null;
+      const fbLink=fbPage&&fbPage.page_id?`https://facebook.com/${fbPage.page_id}`:"";
+      const igLink=fbPage&&fbPage.ig_username?`https://instagram.com/${fbPage.ig_username}`:"";
+      const fbOpts=`<option value="">— chưa gán —</option>`+(__FBP||[]).map(p=>`<option value="${esc(p.name)}" ${fbSlug===p.name?"selected":""}>${esc(p.page_name||p.name)}${p.ig_user_id?" + IG":""}</option>`).join("");
+      const row=(ic,lbl,link,extra)=>`<div style="display:flex;align-items:center;gap:7px;padding:3px 0"><span style="width:16px;text-align:center">${ic}</span><span style="flex:1;font-size:13px">${lbl}</span>${extra||(link?`<a class="btn-mini" href="${esc(link)}" target="_blank">🔗 Xem</a>`:'<span class="d">chưa kết nối</span>')}</div>`;
+      return `<div style="margin:8px 0 2px;border-top:1px solid var(--border);padding-top:8px"><div class="d" style="margin-bottom:4px">🔗 Kết nối</div>
+        ${row("▶️",yc.channel_title?esc(yc.channel_title):"YouTube",ytLink,yc.channel_id?"":`<button class="btn-mini" onclick="window.assignChannelGmail('${k}')">➕ Gán Gmail</button>`)}
+        ${row("📘",fbPage?esc(fbPage.page_name||fbPage.name):"Facebook Page",fbLink,fbLink?"":`<select class="set-sel" style="max-width:150px;font-size:12px" onchange="window.saveFbMap('${k}',this.value)">${fbOpts}</select>`)}
+        ${fbPage&&fbPage.ig_user_id?row("📷","Instagram",igLink,""):""}
+      </div>`;
+    };
+    // ===== 🔎 TREND SCOUT — quét gu (KHÔNG chủ đề) của kênh lớn tham khảo, feed vào content_brain =====
+    // Nguồn lưu ở render_config.trend_sources (user tự thêm/xoá trên UI) -> trend_scout.py (cron tuần + "Quét ngay") đọc,
+    // kết quả lưu collection trend_scout ({owner}__{channel}) -> load-once ở rsInit(), hiện tại đây.
+    window.__rsRenderTrendScout=()=>{
+      const sel=document.getElementById("tsApply");
+      if(sel && !sel.__init){ sel.__init=1; try{ sel.innerHTML=allChannels().map(k=>`<option value="${esc(k)}">${esc(chName(k))}</option>`).join(""); }catch(_){} }
+      const cfg=window.__rsCfg||{}; const sources=cfg.trend_sources||[];
+      const list=document.getElementById("tsList");
+      if(list) list.innerHTML = sources.length ? sources.map((s,i)=>
+        `<div class="row" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"><a href="${esc(s.url||'')}" target="_blank">${esc(s.handle||s.url||'?')}</a> <span class="d">→ ${esc((s.applies_to||[]).map(k=>{try{return chName(k);}catch(_){return k;}}).join(", ")||"—")}</span></span>
+          <button class="btn-mini" onclick="window.tsRemoveSource(${i})">🗑</button>
+        </div>`).join("") : '<div class="d">Chưa có kênh tham khảo — dán link YouTube ở trên rồi bấm Thêm.</div>';
+      const dg=document.getElementById("tsDigest"); const td=window.__tsData||{}; const chans=Object.keys(td).sort();
+      if(dg) dg.innerHTML = chans.length ? chans.map(c=>{ const v=td[c]||{}, trends=v.trends||[];
+        return `<div class="row" style="display:block;padding:6px 0"><b>${esc((()=>{try{return chName(c);}catch(_){return c;}})())}</b>
+          <div class="d" style="margin-top:2px;font-size:13px">${trends.map(t=>esc(t)).join("<br>")||"—"}</div>
+          ${v.updated_at?`<div class="d" style="opacity:.6;margin-top:2px">cập nhật ${esc(String(v.updated_at).slice(0,10))}</div>`:""}</div>`;
+      }).join("") : '<div class="d">Chưa có xu hướng nào được học — bấm "Quét ngay" hoặc đợi cron tuần.</div>';
+      const lr=document.getElementById("tsLastRun");
+      if(lr) lr.textContent = cfg.trend_scout_last_run ? `Lần quét gần nhất: ${new Date(cfg.trend_scout_last_run).toLocaleString("vi-VN")}` : "Chưa quét lần nào — cron tự quét mỗi thứ 2 hàng tuần.";
+    };
+    window.tsAddSource=async()=>{
+      const o=RSowner(); if(!o) return;
+      const urlEl=document.getElementById("tsUrl"), url=(urlEl.value||"").trim();
+      const sel=document.getElementById("tsApply"); const applies=sel?[...sel.selectedOptions].map(op=>op.value):[];
+      if(!url||!applies.length){ toastMsg("Nhập link kênh + chọn ít nhất 1 kênh MM0 áp dụng"); return; }
+      let handle=url; try{ const seg=new URL(url).pathname.split("/").filter(Boolean); handle=seg[0]?("@"+seg[0].replace(/^@/,"")):url; }catch(_){}
+      try{
+        const cur=(window.__rsCfg&&window.__rsCfg.trend_sources)||[];
+        const next=[...cur,{handle,url,applies_to:applies}];
+        await setDoc(rsCfgDoc(),{owner:o,trend_sources:next},{merge:true});
+        urlEl.value=""; toastMsg("✔ Đã thêm — quét ở lần cron tới, hoặc bấm ⚡ Quét ngay");
+      }catch(e){ alert("Lỗi: "+e.message); }
+    };
+    window.tsRemoveSource=async(i)=>{
+      const o=RSowner(); if(!o) return;
+      try{
+        const cur=(window.__rsCfg&&window.__rsCfg.trend_sources)||[];
+        await setDoc(rsCfgDoc(),{owner:o,trend_sources:cur.filter((_,idx)=>idx!==i)},{merge:true});
+      }catch(e){ alert("Lỗi: "+e.message); }
+    };
+    window.tsRunNow=async()=>{
+      const o=RSowner(); if(!o) return;
+      try{
+        await setDoc(rsCfgDoc(),{owner:o,trend_scout_run_now:new Date().toISOString()},{merge:true});
+        toastMsg("⚡ Đã đặt lệnh Quét ngay — nhà máy nhận trong nhịp kiểm gần nhất (≤30 phút), tự lưu kết quả ở đây.");
+      }catch(e){ alert("Lỗi: "+e.message); }
     };
     window.__rsBrandInit=(selId,hostId)=>{ const sel=document.getElementById(selId); if(!sel) return;
       if(!sel.__init){ sel.__init=1; sel.innerHTML=Object.keys(RS_BRANDS).map((k,i)=>`<option value="${k}">${String(i+1).padStart(2,"0")}. ${esc(RS_BRANDS[k].d)}</option>`).join(""); sel.onchange=()=>window.rsRenderBrand(hostId,selId); try{window.rsSelectWithAvatars(sel);}catch(_){} }
