@@ -96,6 +96,11 @@ service cloud.firestore {
       allow create: if canEdit(request.resource.data.owner);
       allow update, delete: if canEdit(resource.data.owner);
     }
+    match /thumb_requests/{doc} {    // yêu cầu tạo lại THUMBNAIL (nút 🖼) — chỉ đổi ảnh, không render lại video
+      allow read:   if canRead(resource.data.owner);
+      allow create: if canEdit(request.resource.data.owner);
+      allow update, delete: if canEdit(resource.data.owner);
+    }
     // Ngân hàng chủ đề (chống trùng) — pipeline ghi qua Admin; client chỉ đọc.
     match /render_topics/{doc} {
       allow read:  if canRead(resource.data.owner);

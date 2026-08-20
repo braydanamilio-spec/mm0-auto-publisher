@@ -2463,7 +2463,10 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         const acc=j.drive_account||"";
         const pid="pl_"+(j.id||Math.random().toString(36).slice(2));
         const tall=(j.type!=="long")?1:0;
-        const thumb=fid?`${WORKER_URL}/api/drive-thumb?t=${encodeURIComponent(tk)}${acc?`&account=${encodeURIComponent(acc)}`:""}&fileId=${encodeURIComponent(fid)}`:"";
+        // Ưu tiên ẢNH THUMBNAIL THẬT (thumb_id — file .jpg cạnh video). Không có thì mới lùi về
+        // preview tự sinh của Drive (khung đầu video) như trước.
+        const timg=j.thumb_id||fid;
+        const thumb=timg?`${WORKER_URL}/api/drive-thumb?t=${encodeURIComponent(tk)}${acc?`&account=${encodeURIComponent(acc)}`:""}&fileId=${encodeURIComponent(timg)}`:"";
         const tw=tall?68:120;
         return `<div style="border-bottom:1px solid #ffffff0f;padding:6px 0">
           <div style="display:flex;gap:11px;align-items:center;cursor:pointer" onclick="window.rsPlay('${pid}','${esc(acc)}','${esc(fid)}','${pv}',${tall},'${esc(j.id||'')}')">
@@ -2480,6 +2483,7 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
               <a href="${esc(pv)}" target="_blank" onclick="event.stopPropagation()" class="d" style="color:#8b6cff;font-size:12px;align-self:center">Drive ↗</a>
               <button class="d" onclick="event.stopPropagation();window.rsMarkFlaw('${esc(j.id||'')}',${j.flagged?'false':'true'})" style="background:none;border:1px solid ${j.flagged?'#f59e0b':'#8b6cff44'};color:${j.flagged?'#f59e0b':'#9aa6c0'};border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Đánh dấu lỗi / bỏ dấu">${j.flagged?'🚩':'⚐'}</button>
               ${j.rerender?`<span class="d" style="font-size:11px;color:#4ea1ff;align-self:center;white-space:nowrap">🔄 ${esc(j.rerender)}</span><button class="d" onclick="event.stopPropagation();window.rsCancelRerender('${esc(j.id||'')}')" style="background:none;border:1px solid #f59e0b66;color:#f59e0b;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Hủy render lại (chỉ khi chưa chạy)">⏹ Hủy</button>`:`<button class="d" onclick="event.stopPropagation();window.rsRerender('${esc(j.id||'')}')" style="background:none;border:1px solid #4ea1ff55;color:#4ea1ff;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Render lại + tự thay thế bản này">🔄</button>`}
+              ${j.thumb_req?`<span class="d" style="font-size:11px;color:#22c55e;align-self:center;white-space:nowrap" title="Đã gửi yêu cầu — cron gom làm mỗi 30 phút">🖼 đã đặt</span>`:`<button class="d" onclick="event.stopPropagation();window.rsRedoThumb('${esc(j.id||'')}','${esc(fid)}','${esc(j.channel||'')}',this)" style="background:none;border:1px solid #22c55e55;color:#22c55e;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Tạo lại thumbnail (mỗi lần thử một kiểu khác)">🖼</button>`}
               <button class="d" onclick="event.stopPropagation();window.rsDeleteVideo('${esc(fid)}','${esc(acc)}','${esc(j.id||'')}',this)" style="background:none;border:1px solid #ff5a5a55;color:#ff8080;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Xóa video khỏi Drive">🗑</button>
             </span>
           </div><div id="${pid}"></div></div>`;
@@ -2599,6 +2603,25 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         await setDoc(rsCfgDoc(),{owner:o,enabled:true,run_now:new Date().toISOString()},{merge:true});
         try{toastMsg("🔄 Đã yêu cầu render lại — chờ chạy (≤30'). Chưa chạy thì bấm ⏹ để hủy.");}catch(_){}
       }catch(e){ try{toastMsg("Lỗi: "+e.message);}catch(_){} } };
+    // TẠO LẠI THUMBNAIL (chỉ đổi ẢNH, KHÔNG render lại video -> nhanh + không tốn quota Gemini viết bài).
+    // Ghi vào thumb_requests; workflow thumb_requests.yml gom mỗi 30' làm một lượt (không kích runner
+    // cho từng ảnh lẻ, tránh giành trần 20 job song song với render_cron).
+    window.rsRedoThumb=async(jobId,fileId,channel,btn)=>{
+      const j=(window.__rsJobsData||[]).find(x=>x.id===jobId); if(!j) return;
+      if(!fileId){ try{toastMsg("Video chưa có trên Drive nên chưa tạo lại thumbnail được.");}catch(_){}; return; }
+      if(j.thumb_req){ try{toastMsg("Đã đặt yêu cầu cho video này rồi.");}catch(_){}; return; }
+      const o=RSowner();
+      if(btn){ btn.disabled=true; btn.textContent="⏳"; }
+      try{
+        // attempt = số lần ĐÃ tạo lại -> script đi một đường KHÁC mỗi lần, khỏi ra lại đúng tấm cũ.
+        const att=Number(j.thumb_tries||0);
+        const ref=await addDoc(collection(dbMeta,"thumb_requests"),{owner:o,channel:channel||j.channel||"",
+          drive_id:fileId,drive_account:(j.drive_account||""),title:(j.title||""),
+          attempt:att,status:"pending",created_at:new Date().toISOString()});
+        await setDoc(doc(dbJobs,"render_jobs",jobId),{thumb_req:ref.id,thumb_tries:att+1},{merge:true});
+        try{toastMsg("🖼 Đã đặt tạo lại thumbnail — cron gom làm trong ~30 phút.");}catch(_){}
+      }catch(e){ if(btn){ btn.disabled=false; btn.textContent="🖼"; } try{toastMsg("Lỗi: "+e.message);}catch(_){} } };
+
     // HỦY render lại — chỉ khi CHƯA bắt đầu (status còn 'pending').
     window.rsCancelRerender=async(jobId)=>{
       const j=(window.__rsJobsData||[]).find(x=>x.id===jobId); if(!j||!j.rerender_req){ try{toastMsg("Không có yêu cầu để hủy.");}catch(_){}; return; }

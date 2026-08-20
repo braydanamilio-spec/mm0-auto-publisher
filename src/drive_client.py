@@ -283,11 +283,14 @@ class Drive:
 
         if thumbnail_path and os.path.exists(thumbnail_path):
             ext = os.path.splitext(thumbnail_path)[1] or ".jpg"
-            self.svc.files().create(
+            _th = self.svc.files().create(
                 body={"name": f"{base}{ext}", "parents": [folder]},
                 media_body=MediaFileUpload(thumbnail_path, resumable=True),
                 fields="id",
             ).execute()
+            # Trả id ẢNH về cho caller -> lưu vào bản ghi job -> dashboard hiện được thumbnail để
+            # user tự soi và bấm "tạo lại" nếu xấu. Không có id thì web không biết lấy ảnh ở đâu.
+            created["thumb_id"] = (_th or {}).get("id", "")
 
         if subtitle_path and os.path.exists(subtitle_path):
             ext = os.path.splitext(subtitle_path)[1] or ".srt"
