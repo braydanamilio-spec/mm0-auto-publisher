@@ -2582,9 +2582,11 @@ Nếu người dùng chỉ hỏi/không cần thao tác thì actions=[] và tr�
     };
     const _dark="#0b1020";
     function rsBrandSvg(k,W,H,kind){ const b=RS_BRANDS[k]; if(!b) return ""; const s=Math.min(W,H);
-      const nameFs=kind==="avatar"?Math.round(s*0.16):Math.round(H*0.22), icFs=kind==="avatar"?Math.round(s*0.34):Math.round(H*0.34);
+      let nameFs=kind==="avatar"?Math.round(s*0.16):Math.round(H*0.22); const icFs=kind==="avatar"?Math.round(s*0.34):Math.round(H*0.34);
       const cx=kind==="avatar"?W/2:H*0.62, cy=kind==="avatar"?H*0.42:H*0.5;
       const words=b.d.split(" ");
+      // AUTO-FIT: tên dài (vd "DEFENSE USA") ở cỡ chữ cố định TRÀN khỏi khung avatar vuông -> co lại vừa bề ngang, có lề an toàn.
+      if(kind==="avatar"){ const maxW=W*0.88; const est=b.d.length*nameFs*0.62; if(est>maxW) nameFs=Math.floor(nameFs*maxW/est); }
       const nameSvg=kind==="avatar"
         ? `<text x="${W/2}" y="${H*0.72}" font-family="Poppins,Arial" font-weight="900" font-size="${nameFs}" fill="#fff" text-anchor="middle">${b.d.replace("&","&amp;")}</text>`
         : `<text x="${H*1.15}" y="${H*0.44}" font-family="Poppins,Arial" font-weight="900" font-size="${nameFs}" fill="#fff">${words[0]}</text><text x="${H*1.15}" y="${H*0.44+nameFs*0.95}" font-family="Poppins,Arial" font-weight="900" font-size="${nameFs}" fill="${b.a}">${words.slice(1).join(" ")||""}</text><text x="${H*1.15}" y="${H*0.44+nameFs*1.7}" font-family="Poppins,Arial" font-weight="600" font-size="${Math.round(nameFs*0.42)}" fill="#cbd5e1">${b.t}  ·  ${b.h}</text>`;
