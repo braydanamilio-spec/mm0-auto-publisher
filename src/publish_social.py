@@ -201,10 +201,16 @@ def run_queue(state, now, dry_run=False):
                     errs.append(f"IG: {e}"); print(f"     ❌ Instagram: {e}")
             # QUAN TRỌNG: chờ FB KÉO XONG video (file_url tải ngầm) TRƯỚC khi thu hồi link,
             # nếu không video 2-5GB chưa kịp kéo -> hỏng. IG.upload đã block tới FINISHED nên an toàn sẵn.
+            # Bọc riêng try/except: nếu hàm này throw (lỗi mạng/API) mà KHÔNG bắt ở đây, exception sẽ
+            # văng thẳng ra ngoài, NHẢY QUA state.update_queue() ghi kết quả bên dưới -> FB đã đăng THẬT
+            # nhưng results["facebook"] không kịp lưu -> cron sau coi như chưa đăng -> ĐĂNG TRÙNG.
             fb_id = (results.get("facebook") or {}).get("id")
             if fb_id:
-                if not FB.wait_video_ready(fb_id, conn["page_token"]):
-                    print("     ⚠️ FB xử lý video lâu/không xong trước khi thu hồi link.")
+                try:
+                    if not FB.wait_video_ready(fb_id, conn["page_token"]):
+                        print("     ⚠️ FB xử lý video lâu/không xong trước khi thu hồi link.")
+                except Exception as e:
+                    print(f"     ⚠️ wait_video_ready lỗi (bỏ qua, FB đã đăng {fb_id} rồi): {e}")
         finally:
             if public_url:
                 if not drv.make_private(fid):
@@ -302,9 +308,15 @@ def _post_one(it, pages, fb_map, do_fb, do_ig, state, now, dry_run, aff_cfg=None
             except Exception as e:
                 print(f"     ❌ Instagram lỗi: {e}")
         # Chờ FB kéo xong video TRƯỚC khi thu hồi link (video nặng tải ngầm nhiều phút).
+        # results["facebook"] đã lưu Firestore NGAY phía trên (an toàn nếu bước này lỗi) — vẫn bọc
+        # try/except để không văng exception làm dở dang state.upsert_video "social_status" cuối hàm.
         fb_id = (results.get("facebook") or {}).get("id")
-        if fb_id and not FB.wait_video_ready(fb_id, page["page_token"]):
-            print("     ⚠️ FB xử lý video lâu/không xong trước khi thu hồi link.")
+        if fb_id:
+            try:
+                if not FB.wait_video_ready(fb_id, page["page_token"]):
+                    print("     ⚠️ FB xử lý video lâu/không xong trước khi thu hồi link.")
+            except Exception as e:
+                print(f"     ⚠️ wait_video_ready lỗi (bỏ qua, FB đã đăng {fb_id} rồi): {e}")
     finally:
         if public_url:
             if not drv.make_private(fid):   # THU HỒI link công khai (retry+verify bên trong)

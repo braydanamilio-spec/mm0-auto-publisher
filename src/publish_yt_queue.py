@@ -165,9 +165,20 @@ def run(dry_run: bool = False):
             state.update_yt_queue(it["id"], {"status": "pending", "error": "quota hết — để mai", "attempts": attempts})
             print("     ⏸ quota project đã hết -> để mai")
         except Exception as e:
-            status = "failed" if attempts >= 3 else "pending"
-            state.update_yt_queue(it["id"], {"status": status, "error": str(e), "attempts": attempts})
-            print(f"     ❌ YouTube lỗi: {e}")
+            # QUAN TRỌNG: nếu upload YouTube ĐÃ THÀNH CÔNG (results["youtube"]["id"] có thật) và lỗi xảy ra
+            # ở bước SAU đó (vd post_comment, hoặc chính write Firestore "posted" phía trên bị lỗi mạng/429
+            # tạm thời) -> TUYỆT ĐỐI không được ghi đè mất "results" ở đây, nếu không lần cron sau coi như
+            # CHƯA đăng (results rỗng) -> tải + up lại -> ĐĂNG TRÙNG video thật đã có trên YouTube.
+            yt_id = (results.get("youtube") or {}).get("id")
+            if yt_id:
+                state.update_yt_queue(it["id"], {"status": "posted", "results": results,
+                                                 "attempts": attempts, "posted_at": now.isoformat(),
+                                                 "error": f"đã đăng nhưng lỗi bước sau: {e}"})
+                print(f"     ⚠️ Đã đăng YouTube ({yt_id}) nhưng lỗi bước sau ({e}) — giữ nguyên kết quả, KHÔNG đăng lại.")
+            else:
+                status = "failed" if attempts >= 3 else "pending"
+                state.update_yt_queue(it["id"], {"status": status, "error": str(e), "attempts": attempts})
+                print(f"     ❌ YouTube lỗi: {e}")
         finally:
             for p in [tmp, thumb_tmp] + [c["path"] for c in caption_specs]:
                 try:
