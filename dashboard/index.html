@@ -745,6 +745,7 @@
           <div class="p-sub" id="clExplain" style="margin-top:10px;line-height:1.6"></div>
         </div>
         <div class="kpis" id="stKpis"></div>
+        <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
           <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive)</div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -1679,7 +1680,9 @@
       // (đúng lúc kết nối kho mới xong ở tab popup rồi quay về) -> khỏi cần realtime, tiết kiệm đọc Firestore.
       window.__loadStorage = async () => {
         try { const snap = await getDocs(query(collection(_appFor("storage_accounts"),"storage_accounts"), where("owner","==",(window.__ownerUid||window.__uid))));
-          const accounts = snap.docs.map(d=>{const v=d.data();return {name:v.name, email:v.email, root:v.root||v.folder_id||"", used:v.used||0, cap:(v.cap_gb||14)*1e9, connected_at:v.connected_at||""};});
+          // health/health_at/health_err do publisher tự ghi mỗi phiên (chỉ khi ĐỔI trạng thái) -> hiện
+          // token sống/chết mà KHÔNG phải đọc thêm collection nào, cũng không cần bấm nút 🩺.
+          const accounts = snap.docs.map(d=>{const v=d.data();return {name:v.name, email:v.email, root:v.root||v.folder_id||"", used:v.used||0, cap:(v.cap_gb||14)*1e9, connected_at:v.connected_at||"", health:v.health||"", health_at:v.health_at||"", health_err:v.health_err||""};});
           window.setStorage(accounts.length ? {accounts} : null); } catch(e){} };
       window.__loadStorage();
       window.addEventListener("focus", () => { window.__loadStorage&&window.__loadStorage(); });
@@ -5526,25 +5529,38 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       const mode0=(s&&s.cleanup_mode)||(clcfg.mode)||"keep";
       $("stMode").textContent="Chế độ dọn: "+(mode0==="delete"?`xoá sau ${clcfg.keep_days||30} ngày`:"giữ mãi mãi 🛡️");
       const accs=(s&&s.accounts)||[];
-      if(!accs.length){$("stKpis").innerHTML="";$("stAccounts").innerHTML=emptyBox("Chưa cấu hình tài khoản pool. Xem docs/STORAGE.md — mỗi tài khoản Google free 15GB, gộp lại thành 150GB/1TB.");return;}
+      if(!accs.length){$("stKpis").innerHTML="";const _dw=$("stDeadWarn");if(_dw)_dw.style.display="none";$("stAccounts").innerHTML=emptyBox("Chưa cấu hình tài khoản pool. Xem docs/STORAGE.md — mỗi tài khoản Google free 15GB, gộp lại thành 150GB/1TB.");return;}
       const used=accs.reduce((a,x)=>a+(x.used||0),0),cap=accs.reduce((a,x)=>a+(x.cap||0),0);
+      // Đếm kho token chết (publisher tự ghi) -> hiện thành ô KPI đỏ + nút lọc nhanh, khỏi phải
+      // tự đi dò từng kho mới biết cái nào rụng.
+      const nDead=accs.filter(a=>a.health==="dead").length;
       $("stKpis").innerHTML=kpi("disk","var(--accent-soft)","var(--accent)",fmtBytes(cap),"Tổng dung lượng pool")
         +kpi("disk","var(--info-soft)","var(--info)",fmtBytes(used),"Đã dùng")
         +kpi("disk","var(--good-soft)","var(--good)",fmtBytes(cap-used),"Còn trống")
-        +kpi("disk","var(--warn-soft)","var(--warn)",String(accs.length),"Tài khoản");
+        +kpi("disk","var(--warn-soft)","var(--warn)",String(accs.length),"Tài khoản")
+        +(nDead?kpi("disk","var(--bad-soft)","var(--bad)",String(nDead),"⚠️ Token hỏng"):"");
+      const dw=$("stDeadWarn");
+      if(dw){ if(nDead){ const ds=accs.filter(a=>a.health==="dead");
+          dw.style.display="block";
+          dw.innerHTML=`⚠️ <b>${nDead} kho Drive mất kết nối</b> — video không đẩy vào được, cần kết nối lại: `
+            +ds.map(a=>`<b>${esc(a.name)}</b>${a.email?` <span style="opacity:.8">(${esc(a.email)})</span>`:""}`).join(" · ")
+            +` <button class="btn-mini" style="margin-left:8px" onclick="document.getElementById('stStatus').value='bad';window.renderStorage&&window.renderStorage()">Chỉ xem kho hỏng →</button>`;
+        } else dw.style.display="none"; }
       const sortBy=($("stSort")&&$("stSort").value)||"free";
       const freeOf=a=>Math.max(0,(a.cap||0)-(a.used||0));
       const qA=(($("stAccSearch")||{}).value||"").trim().toLowerCase();
       const sfA=(($("stStatus")||{}).value||"");
       let list=[...accs];
       if(qA) list=list.filter(a=>[a.name,a.email,a.root].some(v=>String(v||"").toLowerCase().includes(qA)));
+      // Lọc theo trạng thái: dùng kết quả bấm 🩺 nếu có, KHÔNG có thì dùng health publisher tự ghi
+      // -> lọc "token hỏng" chạy được ngay cả khi chưa bấm kiểm lần nào.
       if(sfA) list=list.filter(a=>{ const tk=(window.__driveTok||{})[a.name]; const pct=a.cap?(a.used||0)/a.cap*100:0;
         if(sfA==="nearfull") return pct>=80;
-        if(sfA==="unchecked") return !tk;
+        if(sfA==="unchecked") return !tk && !a.health;
+        if(sfA==="bad")    return tk ? !tk.healthy : a.health==="dead";
+        if(sfA==="full")   return tk ? (tk.healthy&&tk.fullEdit!==false) : a.health==="ok";
         if(!tk) return false;
-        if(sfA==="bad") return !tk.healthy;
         if(sfA==="noperm") return tk.healthy&&tk.fullEdit===false;
-        if(sfA==="full") return tk.healthy&&tk.fullEdit!==false;
         return true; });
       const sortedAccs=list.sort((a,b)=>
         sortBy==="full" ? ((b.used||0)/(b.cap||1))-((a.used||0)/(a.cap||1))
@@ -5557,7 +5573,12 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         const capGB=(a.cap||0)/1e9; const tier=capGB>16?`☁️ One ${Math.round(capGB)}GB`:"🆓 Free 15GB";
         const idLine=a.root?`<div class="p-sub" style="font-size:11px;opacity:.7">🆔 ${esc(a.root)}</div>`:"";
         const tk=(window.__driveTok||{})[a.name];
-        const perm=tk?(tk.unknown?`<span class="d" title="chưa kiểm được (rate-limit) — bấm 🩺 lại">⏳ chưa kiểm được</span>`:(tk.healthy===false?`<span style="color:var(--bad);font-weight:700" title="token hỏng — kết nối lại">⚠️ token hỏng</span>`:(tk.fullEdit===false?`<span style="color:var(--bad);font-weight:700" title="thiếu quyền full Drive — không share/xóa được">🔒 thiếu quyền</span>`:`<span style="color:var(--good);font-weight:700" title="đủ quyền: upload · share · xóa">✅ full quyền</span>`))):`<span class="d" title="bấm 🩺 Kiểm token + quyền để kiểm">⚪ chưa kiểm quyền</span>`;
+        // Ưu tiên kết quả bấm 🩺 (kiểm cả quyền full Drive). Chưa bấm thì dùng trạng thái publisher
+        // TỰ GHI mỗi phiên -> mặc định đã thấy ngay kho nào token chết, khỏi phải nhớ đi kiểm tay.
+        const perm=tk?(tk.unknown?`<span class="d" title="chưa kiểm được (rate-limit) — bấm 🩺 lại">⏳ chưa kiểm được</span>`:(tk.healthy===false?`<span style="color:var(--bad);font-weight:700" title="token hỏng — kết nối lại">⚠️ token hỏng</span>`:(tk.fullEdit===false?`<span style="color:var(--bad);font-weight:700" title="thiếu quyền full Drive — không share/xóa được">🔒 thiếu quyền</span>`:`<span style="color:var(--good);font-weight:700" title="đủ quyền: upload · share · xóa">✅ full quyền</span>`)))
+          :(a.health==="dead"?`<span style="color:var(--bad);font-weight:700" title="Tự kiểm ${esc(ago(a.health_at)||"")}: ${esc(String(a.health_err||"token hỏng").replace(/"/g,"'"))} — bấm 🗑 rồi kết nối lại">⚠️ token hỏng</span>`
+          :(a.health==="ok"?`<span style="color:var(--good);font-weight:700" title="Publisher tự kiểm ${esc(ago(a.health_at)||"")} — đọc được _QUEUE bình thường">✅ kết nối tốt</span>`
+          :`<span class="d" title="bấm 🩺 Kiểm token + quyền để kiểm">⚪ chưa kiểm quyền</span>`));
         return `<div class="chan-item"><div class="ava" style="background:linear-gradient(145deg,var(--accent),var(--violet))">${esc((a.name||'?').slice(0,2).toUpperCase())}</div>
           <div class="chan-mid"><div class="nm">${esc(a.name)} <span class="tier-badge">${tier}</span> ${perm}${a.email?` <span class="p-sub">· ${esc(a.email)}</span>`:""}</div><div class="st">${fmtBytes(a.used||0)} / ${fmtBytes(a.cap||0)}</div>${idLine}
           <div class="bar"><i style="width:${pct}%;background:${col}"></i></div></div>

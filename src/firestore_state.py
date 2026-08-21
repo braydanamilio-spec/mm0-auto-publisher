@@ -235,7 +235,35 @@ class State:
     def list_connections(self, kind: str) -> list[dict]:
         """Danh sách connection theo loại (vd 'drive') do Worker ghi."""
         q = self.db.collection("connections").where("kind", "==", kind)
-        return [d.to_dict() for d in _retry(lambda: list(q.stream()))]
+        # kèm _id: cần doc id để ghi ngược trạng thái sức khoẻ (set_drive_health) mà KHÔNG phải đọc lại.
+        return [{**(d.to_dict() or {}), "_id": d.id} for d in _retry(lambda: list(q.stream()))]
+
+    def set_drive_health(self, conn_id: str, owner: str, name: str, ok: bool, err: str = "", prev=None):
+        """Ghi sức khoẻ 1 kho Drive — CHỈ KHI ĐỔI TRẠNG THÁI, nên bình thường tốn 0 lượt ghi.
+
+        Vì sao cần: dashboard trước đây chỉ biết token sống/chết khi user tự bấm nút 🩺, nên kho bị
+        thu hồi token vẫn hiện 'đã kết nối' (sự cố 21/8: 1 kho lỗi invalid_grant suốt nhiều giờ mà
+        nhìn vào dashboard không thấy gì). Publisher vốn ĐÃ gọi Drive mỗi phiên -> tận dụng luôn kết
+        quả đó làm health check, không tốn thêm 1 lệnh gọi API nào.
+
+        prev = giá trị 'health' đọc được từ chính doc connection (đã nằm sẵn trong bộ nhớ) -> so sánh
+        tại chỗ, khỏi đọc thêm. Giống nhau thì KHÔNG ghi gì."""
+        new = "ok" if ok else "dead"
+        if prev == new:
+            return False
+        at = datetime.now(timezone.utc).isoformat()
+        patch = {"health": new, "health_at": at, "health_err": ("" if ok else str(err)[:200])}
+        try:
+            if conn_id:
+                _retry(lambda: self.db.collection("connections").document(conn_id).set(patch, merge=True))
+            # mirror sang storage_accounts — ĐÚNG doc dashboard đã đọc sẵn -> hiện trạng thái mà
+            # dashboard không phải đọc thêm collection nào.
+            if owner and name:
+                _retry(lambda: self.db.collection("storage_accounts")
+                       .document(f"{owner}__{name}").set(patch, merge=True))
+        except Exception:
+            return False
+        return True
 
     # ---------- STATS (view / sub) ----------
     def set_channel_stats(self, channel: str, data: dict, owner: str | None = None):

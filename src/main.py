@@ -476,22 +476,38 @@ def process_users(channels_cfg, templates, safety, tz, dry_run, state, now):
         ov_ch = ov.get("channels", {})
         fb_meta_cfg = ov.get("fallback_meta") or {}   # PHƯƠNG ÁN 2: metadata tổ hợp dự phòng (mặc định tắt)
 
+        # SỨC KHOẺ KHO: ta vốn đã phải mở Drive + liệt kê _QUEUE cho từng kho -> lấy luôn kết quả đó
+        # làm health check (0 lệnh gọi API thêm). Ghi lại CHỈ KHI đổi trạng thái nên gần như 0 lượt ghi.
+        def _mark(dc, ok, err=""):
+            try:
+                state.set_drive_health(dc.get("_id", ""), dc.get("owner") or uid,
+                                       dc.get("channel") or "drive", ok, err, prev=dc.get("health"))
+            except Exception:
+                pass
+
+        def _nm(dc):
+            return dc.get("channel") or dc.get("email") or (dc.get("root") or "?")[:10]
+
         pool = []
         for dc in u["drive"]:
             try:
                 pool.append((ST.Drive.from_oauth({"client_id": dc["client_id"],
                              "client_secret": dc["client_secret"],
-                             "refresh_token": dc["refresh_token"]}), dc["root"]))
+                             "refresh_token": dc["refresh_token"]}), dc["root"], dc))
             except Exception as e:
-                print(f"  ⚠️ drive {uid[:8]}: {e}")
+                print(f"  ⚠️ mở kho {_nm(dc)}: {e}")
+                _mark(dc, False, e)
 
         groups: dict[str, list] = {}
-        for drv, root in pool:
+        for drv, root, dc in pool:
             try:
                 files = drv.list_queue(root)
             except Exception as e:
-                print(f"  ⚠️ list_queue {uid[:8]}: {e}")
+                # in TÊN KHO chứ không phải uid — trước đây log chỉ hiện uid nên không biết kho nào chết.
+                print(f"  ⚠️ list_queue kho {_nm(dc)}: {e}")
+                _mark(dc, False, e)
                 continue
+            _mark(dc, True)
             for f in files:
                 sidecar = drv.read_sidecar(f["parents"][0], f["name"])
                 channel = sidecar.get("channel")
