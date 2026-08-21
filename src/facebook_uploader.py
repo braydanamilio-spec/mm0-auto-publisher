@@ -56,25 +56,57 @@ def wait_video_ready(video_id: str, page_token: str,
     return False
 
 
+def set_thumbnail(video_id: str, thumb_path: str, page_token: str) -> bool:
+    """Đặt ảnh bìa cho video ĐÃ đăng (Graph: POST /{video-id}/thumbnails, is_preferred=true).
+
+    Dùng cho Reels — quy trình 3 pha của Reels không nhận ảnh bìa ngay lúc đăng, phải đặt sau.
+    BEST-EFFORT: hỏng thì chỉ mất ảnh bìa (FB tự lấy 1 khung), TUYỆT ĐỐI không được ném lỗi ra
+    ngoài — lúc gọi thì video ĐÃ đăng rồi, ném ra là caller tưởng thất bại và đăng lại lần nữa
+    (đúng lỗi trùng bài đã sửa ở youtube_uploader)."""
+    if not (video_id and thumb_path and os.path.exists(thumb_path)):
+        return False
+    try:
+        with open(thumb_path, "rb") as t:
+            r = requests.post(f"{GRAPH}/{video_id}/thumbnails",
+                              data={"is_preferred": "true", "access_token": page_token},
+                              files={"source": t}, timeout=120)
+        if r.status_code >= 400:
+            print(f"     ⚠️ FB không nhận ảnh bìa: {r.text[:120]}")
+            return False
+        return True
+    except Exception as e:
+        print(f"     ⚠️ FB đặt ảnh bìa lỗi: {str(e)[:100]}")
+        return False
+
+
 def upload_video(file_path: str, meta: dict, page_id: str, page_token: str,
-                 video_url: str | None = None) -> dict:
+                 video_url: str | None = None, thumb_path: str | None = None) -> dict:
     """Đăng video thường lên Page.
     - video_url có sẵn -> FB TỰ KÉO từ link (không tải-lại qua cron -> tối ưu cho video 2-5GB).
     - không -> upload bytes (stream, không nạp hết vào RAM)."""
     desc = f"{meta['title']}\n\n{meta['description']}"
     common = {"title": meta["title"][:255], "description": desc, "access_token": page_token}
-    if video_url:
-        r = requests.post(f"{GRAPH}/{page_id}/videos", data={**common, "file_url": video_url}, timeout=600)
-    else:
-        with open(file_path, "rb") as f:
-            r = requests.post(f"{GRAPH}/{page_id}/videos", data=common, files={"source": f}, timeout=1800)
+    # 'thumb' gửi kèm ngay lệnh đăng -> 1 lần gọi, ảnh bìa có hiệu lực từ giây đầu (không như Reels
+    # phải đặt sau). Mở file trong ngữ cảnh có điều kiện nên dùng ExitStack cho gọn.
+    import contextlib
+    with contextlib.ExitStack() as stack:
+        extra = {}
+        if thumb_path and os.path.exists(thumb_path):
+            extra["thumb"] = stack.enter_context(open(thumb_path, "rb"))
+        if video_url:
+            r = requests.post(f"{GRAPH}/{page_id}/videos", data={**common, "file_url": video_url},
+                              files=(extra or None), timeout=600)
+        else:
+            f = stack.enter_context(open(file_path, "rb"))
+            r = requests.post(f"{GRAPH}/{page_id}/videos", data=common,
+                              files={"source": f, **extra}, timeout=1800)
     r.raise_for_status()
     data = r.json()
     return {"id": data.get("id"), "url": f"https://facebook.com/{data.get('id')}"}
 
 
 def upload_reel(file_path: str | None, meta: dict, page_id: str, page_token: str,
-                video_url: str | None = None) -> dict:
+                video_url: str | None = None, thumb_path: str | None = None) -> dict:
     """
     Đăng Reels (video dọc/short) theo quy trình 3 pha của Graph API.
     - video_url có sẵn -> PHA 2 gửi header `file_url` để FB tự kéo (không tải-lại bytes).
@@ -127,17 +159,26 @@ def upload_reel(file_path: str | None, meta: dict, page_id: str, page_token: str
         timeout=120,
     )
     finish.raise_for_status()
+    # Ảnh bìa: Reels KHÔNG nhận thumb trong 3 pha -> đặt sau khi đã publish. Best-effort, không
+    # bao giờ ném lỗi ra ngoài (video đã đăng rồi; ném ra là caller tưởng hỏng và đăng lại).
+    if thumb_path:
+        set_thumbnail(video_id, thumb_path, page_token)
     return {"id": video_id, "url": f"https://facebook.com/reel/{video_id}"}
 
 
 def upload(file_path: str | None, meta: dict, page_id: str, page_token: str,
-           video_url: str | None = None) -> dict:
+           video_url: str | None = None, thumb_path: str | None = None) -> dict:
+    """thumb_path: ảnh bìa DÙNG CHUNG với YouTube (cùng tấm thumbnail của chính video đó) -> bài
+    trên FB và YouTube nhìn đồng bộ. Thiếu ảnh thì FB tự lấy 1 khung như trước, không lỗi."""
     # Short -> ưu tiên Reels (đúng định dạng, phân phối tốt hơn); long -> video Page thường.
     if meta.get("type") == "short":
         try:
-            return upload_reel(file_path, meta, page_id, page_token, video_url=video_url)
+            return upload_reel(file_path, meta, page_id, page_token, video_url=video_url,
+                               thumb_path=thumb_path)
         except Exception as e:
             # An toàn: nếu Reels API lỗi (vd không hỗ trợ hosted url) -> quay về video thường (vẫn đăng được).
             print(f"     ⚠️ Reels lỗi ({e}) -> đăng dạng video thường.")
-            return upload_video(file_path, meta, page_id, page_token, video_url=video_url)
-    return upload_video(file_path, meta, page_id, page_token, video_url=video_url)
+            return upload_video(file_path, meta, page_id, page_token, video_url=video_url,
+                                thumb_path=thumb_path)
+    return upload_video(file_path, meta, page_id, page_token, video_url=video_url,
+                        thumb_path=thumb_path)

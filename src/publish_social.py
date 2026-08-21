@@ -21,6 +21,7 @@ An toàn:
 
 from __future__ import annotations
 import os
+import tempfile
 import sys
 import time
 import random
@@ -284,13 +285,28 @@ def _post_one(it, pages, fb_map, do_fb, do_ig, state, now, dry_run, aff_cfg=None
     fb_comment = AFF.apply(fb_meta, aff_cfg, "facebook", _slug, fid)
     AFF.apply(ig_meta, aff_cfg, "instagram", _slug, fid)
 
+    # ẢNH BÌA: dùng ĐÚNG tấm thumbnail của chính video này (cùng tấm YouTube dùng) -> bài FB và
+    # YouTube nhìn đồng bộ, thay vì để FB tự bốc một khung bất kỳ. Tìm theo TÊN FILE ghi trong
+    # sidecar, trong ĐÚNG thư mục chứa video -> không bao giờ lấy nhầm ảnh của video khác.
+    fb_thumb = None
+    if sidecar.get("thumbnail"):
+        try:
+            _tid = drv.find_file(it["parent_id"], sidecar["thumbnail"])
+            if _tid:
+                fb_thumb = os.path.join(tempfile.gettempdir(), f"fbthumb_{fid}_{sidecar['thumbnail']}")
+                drv.download(_tid, fb_thumb)
+        except Exception as e:
+            fb_thumb = None      # không có ảnh -> FB tự lấy khung như cũ, KHÔNG chặn việc đăng
+            print(f"     ⚠️ không tải được ảnh bìa ({str(e)[:70]}) -> để FB tự chọn khung")
+
     print(f"  🚀 FB/IG: {it['name']} -> {page.get('page_name')}")
     public_url = None
     try:
         public_url = drv.make_public(fid)   # FB/IG tự kéo từ link này
         if want_fb:
             try:
-                r = FB.upload(None, fb_meta, page["page_id"], page["page_token"], video_url=public_url)
+                r = FB.upload(None, fb_meta, page["page_id"], page["page_token"],
+                              video_url=public_url, thumb_path=fb_thumb)
                 results["facebook"] = r
                 state.upsert_video(fid, {"results": results})
                 print(f"     ✅ Facebook: {r.get('url')}")
@@ -321,6 +337,11 @@ def _post_one(it, pages, fb_map, do_fb, do_ig, state, now, dry_run, aff_cfg=None
         if public_url:
             if not drv.make_private(fid):   # THU HỒI link công khai (retry+verify bên trong)
                 state.upsert_video(fid, {"needs_revocation": True})
+        if fb_thumb:                        # dọn ảnh bìa tạm (runner CI dung lượng có hạn)
+            try:
+                os.remove(fb_thumb)
+            except OSError:
+                pass
     # Nhả khoá: đăng xong -> posted; còn thiếu -> pending để cron sau retry (giữ kết quả 1 phần)
     fully = ((not want_fb) or results.get("facebook", {}).get("id")) and \
             ((not want_ig) or results.get("instagram", {}).get("id"))
