@@ -68,7 +68,7 @@ class Drive:
 
     # ---- dung lượng tài khoản (chỉ đúng khi dùng OAuth của chính acc đó) ----
     def usage(self) -> dict:
-        q = self.svc.about().get(fields="storageQuota").execute().get("storageQuota", {})
+        q = self.svc.about().get(fields="storageQuota").execute(num_retries=_RETRIES).get("storageQuota", {})
         limit = int(q.get("limit", 0)) if q.get("limit") else 0
         used = int(q.get("usage", 0))
         return {"used": used, "limit": limit, "free": (limit - used) if limit else None}
@@ -150,7 +150,7 @@ class Drive:
         files = res.get("files", [])
         if not files:
             return {}
-        data = self.svc.files().get_media(fileId=files[0]["id"]).execute()
+        data = self.svc.files().get_media(fileId=files[0]["id"]).execute(num_retries=_RETRIES)
         try:
             return json.loads(data.decode("utf-8"))
         except Exception:
@@ -173,7 +173,7 @@ class Drive:
             body={"name": name, "parents": [dest_folder_id]},
             media_body=MediaFileUpload(local_path, resumable=True, chunksize=1024 * 1024 * 8),
             fields="id",
-        ).execute()
+        ).execute(num_retries=_RETRIES)
 
     # ---- di chuyển file sang _POSTED / _FAILED ----
     def move(self, file_id: str, channel_root_id: str, target: str = "_POSTED"):
@@ -266,10 +266,10 @@ class Drive:
         created = self.svc.files().create(
             body={"name": name, "parents": [folder]},
             media_body=media, fields="id,name",
-        ).execute()
+        ).execute(num_retries=_RETRIES)
         # LINK FULL QUYỀN MẶC ĐỊNH: ai có link đều XEM được -> mở link không cần "request access".
         try:
-            self.svc.permissions().create(fileId=created["id"], body={"role": "reader", "type": "anyone"}, fields="id").execute()
+            self.svc.permissions().create(fileId=created["id"], body={"role": "reader", "type": "anyone"}, fields="id").execute(num_retries=_RETRIES)
         except Exception:
             pass
 
@@ -279,7 +279,7 @@ class Drive:
                 body={"name": f"{base}.json", "parents": [folder]},
                 media_body=MediaInMemoryUpload(blob, mimetype="application/json"),
                 fields="id",
-            ).execute()
+            ).execute(num_retries=_RETRIES)
 
         if thumbnail_path and os.path.exists(thumbnail_path):
             ext = os.path.splitext(thumbnail_path)[1] or ".jpg"
@@ -287,7 +287,7 @@ class Drive:
                 body={"name": f"{base}{ext}", "parents": [folder]},
                 media_body=MediaFileUpload(thumbnail_path, resumable=True),
                 fields="id",
-            ).execute()
+            ).execute(num_retries=_RETRIES)
             # Trả id ẢNH về cho caller -> lưu vào bản ghi job -> dashboard hiện được thumbnail để
             # user tự soi và bấm "tạo lại" nếu xấu. Không có id thì web không biết lấy ảnh ở đâu.
             created["thumb_id"] = (_th or {}).get("id", "")
@@ -298,5 +298,5 @@ class Drive:
                 body={"name": f"{base}{ext}", "parents": [folder]},
                 media_body=MediaFileUpload(subtitle_path, resumable=True),
                 fields="id",
-            ).execute()
+            ).execute(num_retries=_RETRIES)
         return created
