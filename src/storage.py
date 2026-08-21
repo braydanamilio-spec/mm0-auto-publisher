@@ -101,8 +101,24 @@ def _resolve(acc: dict) -> dict | None:
     }
 
 
+_POOL_CACHE = {"at": 0.0, "val": None}
+POOL_TTL = 600     # giây
+
+
 def firestore_pool_accounts() -> list[dict]:
-    """Tài khoản Drive đã 'Kết nối' qua dashboard (Firestore) — token do Worker ghi."""
+    """Tài khoản Drive đã 'Kết nối' qua dashboard (Firestore) — token do Worker ghi.
+
+    CÓ ĐỆM 10 PHÚT — đây là chỗ ĐỐT QUOTA NẶNG NHẤT của cả hệ (phát hiện 21/8):
+    hàm này đọc TOÀN BỘ collection connections (~70 kho Drive), mà nó nằm trong đường enqueue nên
+    được gọi MỖI LẦN ĐẨY 1 VIDEO. Ở đỉnh 172 video/giờ = ~12.000 lượt đọc/giờ -> cạn hạn mức
+    50K/ngày của Project A chỉ sau ~4 tiếng. Đúng thứ làm publish + render chết ngày 20/8.
+
+    Danh sách kho gần như không đổi trong một phiên render, nên đệm 10 phút là an toàn tuyệt đối:
+    kho mới kết nối chậm nhất 10 phút là nhận ra. Phần chọn kho nào còn trống vẫn hỏi dung lượng
+    THẬT qua Drive API mỗi lần (không đệm) -> KHÔNG ảnh hưởng việc rải video hay phát hiện kho đầy."""
+    import time as _t
+    if _POOL_CACHE["val"] is not None and (_t.time() - _POOL_CACHE["at"]) < POOL_TTL:
+        return _POOL_CACHE["val"]
     try:
         from firestore_state import State
         out = []
@@ -115,6 +131,7 @@ def firestore_pool_accounts() -> list[dict]:
                     "creds": {"client_id": c["client_id"], "client_secret": c["client_secret"],
                               "refresh_token": c["refresh_token"]},
                 })
+        _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), out
         return out
     except Exception:
         return []
