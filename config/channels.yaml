@@ -1431,3 +1431,90 @@ channels:
 
         '
       disclaimer: Data for educational purposes. Sources shown in video.
+  DEBTUSA:
+    display_name: DEBT USA
+    enabled: true
+    drive_folder_id_env: DEBTUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: DEBTUSA_YT_CLIENT_ID
+      client_secret_env: DEBTUSA_YT_CLIENT_SECRET
+      refresh_token_env: DEBTUSA_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: DEBTUSA_FB_PAGE_ID
+      page_token_env: DEBTUSA_FB_PAGE_TOKEN
+    branding:
+      niche: real US education costs and student debt (Dept of Education, College Scorecard, Fed data)
+      hashtags:
+      - '#studentdebt'
+      - '#college'
+      - '#money'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  FILEUSA:
+    display_name: FILE USA
+    enabled: true
+    drive_folder_id_env: FILEUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: FILEUSA_YT_CLIENT_ID
+      client_secret_env: FILEUSA_YT_CLIENT_SECRET
+      refresh_token_env: FILEUSA_YT_REFRESH_TOKEN
+      category_id: '25'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: FILEUSA_FB_PAGE_ID
+      page_token_env: FILEUSA_FB_PAGE_TOKEN
+    branding:
+      niche: declassified US files & documents explained (FOIA, national archives)
+      hashtags:
+      - '#declassified'
+      - '#history'
+      - '#usa'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  VOXUSA:
+    display_name: VOX USA
+    enabled: true
+    drive_folder_id_env: VOXUSA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: VOXUSA_YT_CLIENT_ID
+      client_secret_env: VOXUSA_YT_CLIENT_SECRET
+      refresh_token_env: VOXUSA_YT_REFRESH_TOKEN
+      category_id: '25'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: VOXUSA_FB_PAGE_ID
+      page_token_env: VOXUSA_FB_PAGE_TOKEN
+    branding:
+      niche: what Americans really say & believe — polls and surveys visualized (Pew, Gallup)
+      hashtags:
+      - '#polls'
+      - '#america'
+      - '#data'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.

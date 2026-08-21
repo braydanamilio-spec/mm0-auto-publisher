@@ -748,5 +748,50 @@
     "motif": "field",
     "layout": "left",
     "tagline": "From soil to shelf."
+  },
+  "DEBTUSA": {
+    "display": "DEBT USA",
+    "niche": "real US education costs and student debt (Dept of Education, College Scorecard, Fed data)",
+    "hashtags": [
+      "#studentdebt",
+      "#college",
+      "#money"
+    ],
+    "category": "27",
+    "accent": "#9333EA",
+    "handle": "@debtusa",
+    "motif": "ledger",
+    "layout": "left",
+    "tagline": "The real cost of the dream."
+  },
+  "FILEUSA": {
+    "display": "FILE USA",
+    "niche": "declassified US files & documents explained (FOIA, national archives)",
+    "hashtags": [
+      "#declassified",
+      "#history",
+      "#usa"
+    ],
+    "category": "25",
+    "accent": "#334155",
+    "handle": "@fileusa",
+    "motif": "file",
+    "layout": "left",
+    "tagline": "Declassified, decoded."
+  },
+  "VOXUSA": {
+    "display": "VOX USA",
+    "niche": "what Americans really say & believe — polls and surveys visualized (Pew, Gallup)",
+    "hashtags": [
+      "#polls",
+      "#america",
+      "#data"
+    ],
+    "category": "25",
+    "accent": "#F0ABFC",
+    "handle": "@voxusa",
+    "motif": "wave",
+    "layout": "center",
+    "tagline": "America, in its own words."
   }
 }
