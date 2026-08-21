@@ -97,5 +97,17 @@ def main():
     print("✔ Xong.")
 
 
+def _run_guarded(fn):
+    """Hết hạn mức Firestore là chuyện TẠM THỜI (tự hồi khi reset) — bắt riêng 429 để thoát 0
+    thay vì crash đỏ mỗi lần cron chạy trong khung cạn quota. Lỗi KHÁC vẫn ném lên. (Cùng khuôn
+    main.py/publish_social.py — 21/8 stats còn sót nên đỏ oan lúc 19:05Z.)"""
+    try:
+        fn()
+    except Exception as e:
+        if type(e).__name__ == "ResourceExhausted" or "429 Quota exceeded" in str(e):
+            print("\n⏳ Firestore hết hạn mức -> bỏ lượt này, cron sau tự chạy lại.")
+            raise SystemExit(0)
+        raise
+
 if __name__ == "__main__":
-    main()
+    _run_guarded(lambda: main())
