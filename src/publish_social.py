@@ -328,5 +328,20 @@ def _post_one(it, pages, fb_map, do_fb, do_ig, state, now, dry_run, aff_cfg=None
                              "social_status": "posted" if fully else "pending"})
 
 
+def _run_guarded(fn):
+    """Hết hạn mức đọc/ghi Firestore là chuyện TẠM THỜI, tự hồi khi quota reset (~08:00 UTC) —
+    không phải lỗi cấu hình cần người sửa. Trước đây nó ném ResourceExhausted lên tận cùng ->
+    workflow đỏ, và mỗi lần cron chạy trong khung cạn quota lại đỏ thêm một lần (sự cố 21/8:
+    publish + publish_social đỏ liên tục 00:00-07:10Z). Bắt riêng ca này, báo rõ rồi thoát 0:
+    lần cron kế tiếp sẽ tự làm lại. Mọi lỗi KHÁC vẫn ném lên như cũ để còn thấy mà sửa."""
+    try:
+        fn()
+    except Exception as e:
+        if type(e).__name__ == "ResourceExhausted" or "429 Quota exceeded" in str(e):
+            print("\n⏳ Firestore hết hạn mức hôm nay -> bỏ lượt này, cron sau tự chạy lại.")
+            print(f"   ({str(e)[:110]})")
+            raise SystemExit(0)
+        raise
+
 if __name__ == "__main__":
-    run(dry_run="--dry-run" in sys.argv)
+    _run_guarded(lambda: run(dry_run="--dry-run" in sys.argv))
