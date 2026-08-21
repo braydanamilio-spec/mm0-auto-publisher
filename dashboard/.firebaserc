@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "mm0-auto-publisher"
+    "default": "mm0-auto-publisher",
+    "a": "mm0-auto-publisher",
+    "b": "mm0-shard-b",
+    "c": "mm0-shard-c"
   }
 }
