@@ -2134,7 +2134,11 @@
       // GIỚI HẠN 300 job MỚI NHẤT -> Firestore đọc luôn bị chặn dù có hàng chục nghìn video (vẫn free). Index chưa sẵn -> fallback không limit.
       // SHARD: đọc render_jobs từ CẢ A (video CŨ, tĩnh) + B (video MỚI, đang chạy) rồi GỘP -> không mất video cũ, khỏi migrate.
       let __jA={}, __jB={};
-      const _mapJ=s=>{ const m={}; s.docs.forEach(d=>{ m[d.id]={id:d.id,...d.data()}; }); return m; };
+      // Ghi nhận CÓ CHẠM TRẦN không: mỗi phía lấy tối đa 300 job mới nhất -> gộp lại tối đa 600.
+      // Không nói ra thì user nhìn con số tưởng đó là TỔNG (21/8: thấy 481 và tưởng mất ~700 video,
+      // trong khi đó chỉ là trần hiển thị — tổng thật đếm bằng aggregation lớn hơn nhiều).
+      window.__jobsCapped=false;
+      const _mapJ=s=>{ const m={}; s.docs.forEach(d=>{ m[d.id]={id:d.id,...d.data()}; }); if(s.docs.length>=300) window.__jobsCapped=true; return m; };
       const _mergeJobs=()=>{ const byId={...__jA, ...__jB}; _jobsCb({ docs: Object.values(byId).map(o=>({id:o.id, data:()=>o})) }); };
       onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(300)), s=>{ __jA=_mapJ(s); _mergeJobs(); },
                  ()=>{ onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o)), s=>{__jA=_mapJ(s);_mergeJobs();}, ()=>{}); });
@@ -2456,7 +2460,7 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       done.sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));
       const CAP=40, over=done.length>CAP && !q; const disp=over?done.slice(0,CAP):done;   // giới hạn hiển thị cho NHẸ (search thì hiện hết kết quả)
       const totMB=done.reduce((s,j)=>s+(Number(j.size_mb)||0),0), totStr=totMB>=1000?(totMB/1000).toFixed(1)+"GB":totMB.toFixed(0)+"MB";
-      const cnt=document.getElementById(countId); if(cnt) cnt.textContent=`📤 ${done.length} video · ${tL} long · ${tS} short${totMB?` · 💾 ${totStr}`:""}${unk?` · 🔍 ${unk} chưa rõ kho`:""}${over?` · hiện ${CAP} mới nhất`:""}`;
+      const cnt=document.getElementById(countId); if(cnt) cnt.textContent=`📤 ${done.length} video · ${tL} long · ${tS} short${totMB?` · 💾 ${totStr}`:""}${unk?` · 🔍 ${unk} chưa rõ kho`:""}${over?` · hiện ${CAP} mới nhất`:""}${window.__jobsCapped?` · ⚠️ chỉ nạp 600 job mới nhất — tổng thật lớn hơn`:""}`;
       const _pubEmpty={unposted:"✓ Không có video chưa đăng.",scheduled:"Chưa có video đang lên lịch đăng.",youtube:"Chưa có video đã đăng YouTube (kết nối kênh + đăng thì hiện ở đây).",fbig:"Chưa có video đã đăng FB/IG.",both:"Chưa có video đã đăng cả 2 nền tảng."};
       if(!done.length){ host.innerHTML='<div class="d">'+(_pubEmpty[view]||(view==="flawed"?'✓ Không có video nghi lỗi/bản cũ — tất cả đều là bản mới nhất.':(q?`Không tìm thấy video khớp "${esc(q)}".`:'Chưa có video hoàn tất — render xong + đẩy Drive là hiện ở đây.')))+'</div>'; return; }
       let tk=""; try{ tk=await window.__getIdToken(); }catch(_){}
