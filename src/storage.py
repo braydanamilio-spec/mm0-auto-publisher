@@ -179,6 +179,45 @@ def account_status(acc: dict) -> dict:
     }
 
 
+_STATUS_CACHE = {}     # root -> (thời điểm, free_under_cap)
+_DEAD_ACCS = {}        # root -> lý do (token hỏng) — bỏ qua tới hết tiến trình
+STATUS_TTL = 300       # giây
+
+
+def _free_cached(acc):
+    """Dung lượng còn trống của 1 kho, CÓ ĐỆM 5 PHÚT.
+
+    ranked_accounts() gọi account_status() cho TỪNG kho, mà mỗi lần là 1 lượt gọi Google Drive
+    (kèm refresh token). Với ~70 kho và hàm này nằm trong đường enqueue -> MỖI VIDEO tốn ~70 lượt
+    gọi Drive; ở đỉnh 172 video/giờ là hơn 12.000 lượt/giờ, thừa sức chạm trần API của Google và
+    làm mỗi lần đẩy video chậm hàng chục giây.
+
+    Đệm 5 phút an toàn vì phần ĐANG BAY đã được trừ riêng qua _RESERVED/_shared_reservations —
+    tức vẫn không thể nhét quá dung lượng kho dù số đọc được hơi cũ.
+
+    Kho có token HỎNG (invalid_grant) bị nhớ lại và BỎ QUA hẳn: trước đây mỗi video lại thử lại
+    kho chết đó một lần, vừa phí vừa rác log (đúng trường hợp kho ADISONDURHAM ngày 20-21/8)."""
+    import time as _t
+    root = acc["root"]
+    if root in _DEAD_ACCS:
+        return None
+    hit = _STATUS_CACHE.get(root)
+    if hit and (_t.time() - hit[0]) < STATUS_TTL:
+        return hit[1]
+    try:
+        free = account_status(acc)["free_under_cap"]
+    except Exception as e:
+        msg = str(e)
+        if "invalid_grant" in msg or "expired or revoked" in msg or "unauthorized" in msg.lower():
+            _DEAD_ACCS[root] = msg[:80]
+            print(f"  ⛔ kho {acc.get('name')}: token hỏng -> BỎ QUA hẳn phiên này (cần kết nối lại)")
+        else:
+            print(f"  ⚠️  Không đọc được dung lượng {acc.get('name')}: {msg[:70]}")
+        return None
+    _STATUS_CACHE[root] = (_t.time(), free)
+    return free
+
+
 def ranked_accounts(need_bytes: int = 0, cfg: dict | None = None,
                     owner: str | None = None, seed: str | None = None) -> list[tuple[dict, int]]:
     """
@@ -194,13 +233,12 @@ def ranked_accounts(need_bytes: int = 0, cfg: dict | None = None,
     for acc in pool_accounts(cfg):
         if owner and acc.get("owner") and acc["owner"] != owner:
             continue
-        try:
-            root = acc["root"]
-            held = max(_RESERVED.get(root, 0), shared.get(root, 0))   # local & chia-sẻ: lấy cái lớn hơn (tránh trễ Firestore)
-            free = account_status(acc)["free_under_cap"] - held
-        except Exception as e:
-            print(f"  ⚠️  Không đọc được dung lượng {acc['name']}: {e}")
+        root = acc["root"]
+        base = _free_cached(acc)          # có đệm 5' + bỏ hẳn kho token hỏng
+        if base is None:
             continue
+        held = max(_RESERVED.get(root, 0), shared.get(root, 0))   # local & chia-sẻ: lấy cái lớn hơn (tránh trễ Firestore)
+        free = base - held
         scored.append((acc, max(0, free)))
     scored.sort(key=lambda x: -x[1])
     result = [(a, f) for (a, f) in scored if f >= max(0, need_bytes)]
