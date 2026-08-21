@@ -2456,8 +2456,11 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       const q=(((document.getElementById(searchId)||{}).value)||"").trim().toLowerCase();
       if(q) done=done.filter(j=>((j.title||"")+" "+(j.channel||"")+" "+(j.drive_account||"")+" "+(j.drive_id||"")+" "+(j.type||"")).toLowerCase().includes(q));
       const view=((document.getElementById(viewId)||{}).value)||"channel";
-      const newestPver=done.reduce((m,j)=>{const p=j.pver||"";return p>m?p:m;},"");
-      const isFlawed=j=>j.flagged||((j.pver||"")<newestPver)||(j.score&&Number(j.score)<90);   // có cờ lỗi HOẶC bản cũ HOẶC QC<90
+      // pver so THEO TỪNG KÊNH: engine mỗi kênh nâng cấp lúc khác nhau (21/8 chỉ doc lên v3,
+      // data-race vẫn v2 và video v2 của nó là CHUẨN TỐT). So toàn cục thì 1 video v3 ra đời là
+      // toàn bộ video tốt của DATARACE bị coi "bản cũ" -> nút Dọn xoá nhầm hàng tốt.
+      const newestPverBy={}; done.forEach(j=>{const c=j.channel||"";const p=j.pver||"";if(p>(newestPverBy[c]||""))newestPverBy[c]=p;});
+      const isFlawed=j=>j.flagged||((j.pver||"")<(newestPverBy[j.channel||""]||""))||(j.score&&Number(j.score)<90);   // có cờ lỗi HOẶC bản cũ CỦA KÊNH ĐÓ HOẶC QC<90
       if(view==="flawed") done=done.filter(isFlawed);
       if(["unposted","scheduled","youtube","fbig","both"].includes(view)) done=done.filter(j=>{ const st=rsPubStatus(j);
         return view==="youtube"?(st==="youtube"||st==="both"):view==="fbig"?(st==="fbig"||st==="both"):st===view; });
@@ -2576,8 +2579,8 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
     // BƯỚC 1: chỉ HIỆN mục 🚩 (thumbnail + chi tiết) để REVIEW trực quan — KHÔNG xóa ngay.
     window.rsCleanOld=async(btn)=>{
       const done=(window.__rsJobsData||[]).filter(j=>j.status==="done"&&(j.drive_id||j.preview));
-      const newest=done.reduce((m,j)=>{const p=j.pver||"";return p>m?p:m;},"");
-      const flaw=done.filter(j=>j.flagged||((j.pver||"")<newest)||(j.score&&Number(j.score)<90));
+      const newestBy={}; done.forEach(j=>{const c=j.channel||"";const p=j.pver||"";if(p>(newestBy[c]||""))newestBy[c]=p;});
+      const flaw=done.filter(j=>j.flagged||((j.pver||"")<(newestBy[j.channel||""]||""))||(j.score&&Number(j.score)<90));
       if(!flaw.length){ try{toastMsg("✓ Không có video nghi lỗi/bản cũ nào.");}catch(_){}; return; }
       ["rsGalView","stVaultView"].forEach(id=>{const s=document.getElementById(id); if(s) s.value="flawed";});
       window.__rsRenderGallery&&window.__rsRenderGallery();
@@ -2586,8 +2589,8 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
     // BƯỚC 2: XÓA hết mục nghi lỗi/bản cũ (sau khi đã review).
     window.rsCleanOldExec=async(btn)=>{
       const done=(window.__rsJobsData||[]).filter(j=>j.status==="done"&&(j.drive_id||j.preview));
-      const newest=done.reduce((m,j)=>{const p=j.pver||"";return p>m?p:m;},"");
-      const flaw=done.filter(j=>j.flagged||((j.pver||"")<newest)||(j.score&&Number(j.score)<90));
+      const newestBy={}; done.forEach(j=>{const c=j.channel||"";const p=j.pver||"";if(p>(newestBy[c]||""))newestBy[c]=p;});
+      const flaw=done.filter(j=>j.flagged||((j.pver||"")<(newestBy[j.channel||""]||""))||(j.score&&Number(j.score)<90));
       if(!flaw.length){ try{toastMsg("Không còn gì để xóa.");}catch(_){}; return; }
       if(!confirm(`Xóa ${flaw.length} video nghi lỗi/bản cũ ĐANG HIỆN? Đưa vào thùng rác (khôi phục 30 ngày).`)) return;
       if(btn){ btn.disabled=true; } let ok=0;
