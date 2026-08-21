@@ -144,8 +144,11 @@ def upload(
             svc.thumbnails().set(
                 videoId=vid, media_body=MediaFileUpload(thumbnail_path)
             ).execute()
-        except HttpError as e:
-            # kênh chưa xác minh có thể chưa được đặt thumbnail tùy chỉnh -> không chặn
+        except Exception as e:
+            # BẮT MỌI LỖI, không chỉ HttpError: tới đây video ĐÃ LÊN YOUTUBE rồi. Nếu lỗi khác
+            # (file thumbnail thiếu/hỏng -> IOError chẳng hạn) lọt ra ngoài thì hàm KHÔNG trả về
+            # vid -> caller tưởng upload thất bại -> lần chạy sau ĐĂNG LẠI = video TRÙNG trên kênh,
+            # đúng thứ YouTube phạt nặng. Mất thumbnail thì chấp nhận, mất video thì không.
             print(f"     ⚠️  Không đặt được thumbnail: {e}")
 
     # Upload phụ đề (captions) — mỗi ngôn ngữ 1 track
@@ -162,7 +165,7 @@ def upload(
                 media_body=MediaFileUpload(cap["path"]),
             ).execute()
             print(f"     ✅ Phụ đề [{cap.get('language','en')}] đã lên.")
-        except HttpError as e:
+        except Exception as e:           # đã có vid -> không được phép ném ra ngoài (xem ghi chú ở thumbnail)
             print(f"     ⚠️  Không upload được phụ đề: {e}")
 
     # Thêm vào playlist (tự tạo nếu chưa có)
@@ -174,7 +177,7 @@ def upload(
                 "resourceId": {"kind": "youtube#video", "videoId": vid},
             }}).execute()
             print(f"     ✅ Đã thêm vào playlist: {playlist!r}")
-        except HttpError as e:
+        except Exception as e:           # đã có vid -> không được phép ném ra ngoài
             print(f"     ⚠️  Không thêm được playlist: {e}")
 
     return {"id": vid, "url": f"https://youtu.be/{vid}"}
