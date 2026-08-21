@@ -113,7 +113,7 @@
       "#fitness"
     ],
     "category": "27",
-    "accent": "#7C5CFF",
+    "accent": "#6D28D9",
     "tagline": "The American body.",
     "handle": "@bodyusahq",
     "motif": "pulse",
@@ -153,7 +153,7 @@
     "display": "GUESS",
     "niche": "US cities, world landmarks, famous scientists, history",
     "category": "24",
-    "accent": "#F5B301",
+    "accent": "#FFB020",
     "tagline": "Can you get them all?",
     "handle": "@guessdaily",
     "hashtags": [
@@ -168,7 +168,7 @@
     "display": "MAPPED",
     "niche": "US demographics, cost of living, health by state",
     "category": "27",
-    "accent": "#22D3EE",
+    "accent": "#3B82F6",
     "tagline": "The US, one map at a time.",
     "handle": "@mappedusa",
     "hashtags": [
@@ -183,7 +183,7 @@
     "display": "RANKED",
     "niche": "US fast food, streaming, cars, brands ranked",
     "category": "24",
-    "accent": "#7C5CFF",
+    "accent": "#8B5CF6",
     "tagline": "S-tier to trash.",
     "handle": "@rankedusa",
     "hashtags": [
@@ -198,7 +198,7 @@
     "display": "SCALED",
     "niche": "ocean animals, tallest buildings, planets, sizes",
     "category": "28",
-    "accent": "#2FA84F",
+    "accent": "#22C55E",
     "tagline": "See the real size.",
     "handle": "@scaledusa",
     "hashtags": [
@@ -213,7 +213,7 @@
     "display": "THEN NOW",
     "niche": "cost of living, tech, salaries 1970 vs now",
     "category": "27",
-    "accent": "#EC4899",
+    "accent": "#DB2777",
     "tagline": "How much has changed?",
     "handle": "@thennowusa",
     "hashtags": [
@@ -298,5 +298,305 @@
     ],
     "motif": "doc",
     "layout": "center"
+  },
+  "BROKE": {
+    "display": "BROKE",
+    "niche": "money / personal finance",
+    "hashtags": [
+      "#money",
+      "#broke",
+      "#finance"
+    ],
+    "category": "27",
+    "accent": "#16A34A",
+    "handle": "@brokehq",
+    "motif": "cash",
+    "layout": "center",
+    "tagline": "Where your money really goes."
+  },
+  "INSIDE_YOU": {
+    "display": "INSIDE YOU",
+    "niche": "psychology / self / body",
+    "hashtags": [
+      "#psychology",
+      "#body",
+      "#mind"
+    ],
+    "category": "27",
+    "accent": "#F472B6",
+    "handle": "@insideyouhq",
+    "motif": "body",
+    "layout": "center",
+    "tagline": "What's happening inside you."
+  },
+  "HUH": {
+    "display": "HUH?",
+    "niche": "curiosity / weird facts",
+    "hashtags": [
+      "#facts",
+      "#weird",
+      "#huh"
+    ],
+    "category": "24",
+    "accent": "#FF8A3D",
+    "handle": "@huhdaily",
+    "motif": "question",
+    "layout": "center",
+    "tagline": "Wait... what?"
+  },
+  "GRIDUSA": {
+    "display": "GRID USA",
+    "niche": "US energy, power grid & infrastructure",
+    "hashtags": [
+      "#energy",
+      "#grid",
+      "#usa"
+    ],
+    "category": "28",
+    "accent": "#FACC15",
+    "handle": "@gridusahq",
+    "motif": "grid",
+    "layout": "left",
+    "tagline": "What keeps America on."
+  },
+  "RULEDUSA": {
+    "display": "RULED USA",
+    "niche": "US laws & strange regulations",
+    "hashtags": [
+      "#law",
+      "#rules",
+      "#usa"
+    ],
+    "category": "25",
+    "accent": "#94A3B8",
+    "handle": "@ruledusahq",
+    "motif": "gavel",
+    "layout": "left",
+    "tagline": "The rules you never knew."
+  },
+  "VAULTUSA": {
+    "display": "VAULT USA",
+    "niche": "US money vaults, gold & reserves",
+    "hashtags": [
+      "#gold",
+      "#vault",
+      "#money"
+    ],
+    "category": "27",
+    "accent": "#D4A017",
+    "handle": "@vaultusahq",
+    "motif": "vault",
+    "layout": "center",
+    "tagline": "Where America keeps it."
+  },
+  "LEDGERUSA": {
+    "display": "LEDGER USA",
+    "niche": "US government spending & budgets",
+    "hashtags": [
+      "#budget",
+      "#spending",
+      "#usa"
+    ],
+    "category": "25",
+    "accent": "#4CC3FF",
+    "handle": "@ledgerusahq",
+    "motif": "ledger",
+    "layout": "left",
+    "tagline": "Every dollar, accounted."
+  },
+  "SIGNALUSA": {
+    "display": "SIGNAL USA",
+    "niche": "US tech, internet & telecom",
+    "hashtags": [
+      "#tech",
+      "#internet",
+      "#usa"
+    ],
+    "category": "28",
+    "accent": "#818CF8",
+    "handle": "@signalusahq",
+    "motif": "wave",
+    "layout": "center",
+    "tagline": "The signals around you."
+  },
+  "MARGINUSA": {
+    "display": "MARGIN USA",
+    "niche": "US business margins & profit",
+    "hashtags": [
+      "#business",
+      "#profit",
+      "#usa"
+    ],
+    "category": "27",
+    "accent": "#34D399",
+    "handle": "@marginusahq",
+    "motif": "chart",
+    "layout": "left",
+    "tagline": "Where the profit hides."
+  },
+  "SWARMUSA": {
+    "display": "SWARM USA",
+    "niche": "US counts visualized at scale",
+    "hashtags": [
+      "#data",
+      "#scale",
+      "#usa"
+    ],
+    "category": "27",
+    "accent": "#F97316",
+    "handle": "@swarmusahq",
+    "motif": "dots",
+    "layout": "center",
+    "tagline": "Every dot is real."
+  },
+  "PULSEUSA": {
+    "display": "PULSE USA",
+    "niche": "US intensity & extremes measured",
+    "hashtags": [
+      "#extremes",
+      "#data",
+      "#usa"
+    ],
+    "category": "28",
+    "accent": "#E11D48",
+    "handle": "@pulseusahq",
+    "motif": "pulse",
+    "layout": "center",
+    "tagline": "America, measured live."
+  },
+  "CLOCKWORKUSA": {
+    "display": "CLOCKWORK USA",
+    "niche": "huge timespans compressed",
+    "hashtags": [
+      "#time",
+      "#history",
+      "#usa"
+    ],
+    "category": "27",
+    "accent": "#C084FC",
+    "handle": "@clockworkusahq",
+    "motif": "clock",
+    "layout": "center",
+    "tagline": "Time, compressed."
+  },
+  "LONGSHOTUSA": {
+    "display": "LONGSHOT USA",
+    "niche": "real odds & probability",
+    "hashtags": [
+      "#odds",
+      "#probability",
+      "#usa"
+    ],
+    "category": "27",
+    "accent": "#0D9488",
+    "handle": "@longshotusahq",
+    "motif": "dice",
+    "layout": "center",
+    "tagline": "What are the odds?"
+  },
+  "VERSUSUSA": {
+    "display": "VERSUS USA",
+    "niche": "US head-to-head comparisons",
+    "hashtags": [
+      "#versus",
+      "#compare",
+      "#usa"
+    ],
+    "category": "24",
+    "accent": "#FB7185",
+    "handle": "@versususahq",
+    "motif": "duel",
+    "layout": "split",
+    "tagline": "Two sides. One winner."
+  },
+  "WILDUSA": {
+    "display": "WILD USA",
+    "niche": "US wildlife & nature",
+    "hashtags": [
+      "#wildlife",
+      "#nature",
+      "#usa"
+    ],
+    "category": "15",
+    "accent": "#4ADE80",
+    "handle": "@wildusahq",
+    "motif": "leaf",
+    "layout": "left",
+    "tagline": "America's wild side."
+  },
+  "CRIMEUSA": {
+    "display": "CRIME USA",
+    "niche": "US crime statistics explained",
+    "hashtags": [
+      "#crime",
+      "#statistics",
+      "#usa"
+    ],
+    "category": "25",
+    "accent": "#B91C1C",
+    "handle": "@crimeusahq",
+    "motif": "file",
+    "layout": "left",
+    "tagline": "The numbers behind crime."
+  },
+  "DISASTERUSA": {
+    "display": "DISASTER USA",
+    "niche": "US disasters & how they unfolded",
+    "hashtags": [
+      "#disaster",
+      "#history",
+      "#usa"
+    ],
+    "category": "25",
+    "accent": "#EA580C",
+    "handle": "@disasterusahq",
+    "motif": "alert",
+    "layout": "left",
+    "tagline": "How it really happened."
+  },
+  "DEFENSEUSA": {
+    "display": "DEFENSE USA",
+    "niche": "US defense spending & capability",
+    "hashtags": [
+      "#defense",
+      "#military",
+      "#usa"
+    ],
+    "category": "25",
+    "accent": "#64748B",
+    "handle": "@defenseusahq",
+    "motif": "shield",
+    "layout": "left",
+    "tagline": "What defense really costs."
+  },
+  "FUTUREUSA": {
+    "display": "FUTURE USA",
+    "niche": "what America might look like next",
+    "hashtags": [
+      "#future",
+      "#usa",
+      "#tomorrow"
+    ],
+    "category": "28",
+    "accent": "#06B6D4",
+    "handle": "@futureusahq",
+    "motif": "doc",
+    "layout": "center",
+    "tagline": "America, next."
+  },
+  "UNSEENUSA": {
+    "display": "UNSEEN USA",
+    "niche": "things in America you never see",
+    "hashtags": [
+      "#hidden",
+      "#unseen",
+      "#usa"
+    ],
+    "category": "24",
+    "accent": "#A78BFA",
+    "handle": "@unseenusahq",
+    "motif": "doc",
+    "layout": "center",
+    "tagline": "What you never see."
   }
 }
