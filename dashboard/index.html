@@ -2140,10 +2140,15 @@
       window.__jobsCapped=false;
       const _mapJ=s=>{ const m={}; s.docs.forEach(d=>{ m[d.id]={id:d.id,...d.data()}; }); if(s.docs.length>=300) window.__jobsCapped=true; return m; };
       const _mergeJobs=()=>{ const byId={...__jA, ...__jB}; _jobsCb({ docs: Object.values(byId).map(o=>({id:o.id, data:()=>o})) }); };
+      // ĐƯỜNG LÙI PHẢI CÓ limit — trước đây thiếu: khi truy vấn-có-sắp-xếp lỗi (thiếu composite
+      // index, đúng tình trạng project B tới sáng 21/8), nó mở listener REALTIME trên TOÀN BỘ
+      // render_jobs của owner (hàng nghìn bản ghi) và giữ mở suốt thời gian dashboard bật ->
+      // đốt hạn mức ĐỌC âm thầm. limit(300) không cần index nên vẫn chạy được khi thiếu index,
+      // mà chi phí bị chặn cứng.
       onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(300)), s=>{ __jA=_mapJ(s); _mergeJobs(); },
-                 ()=>{ onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o)), s=>{__jA=_mapJ(s);_mergeJobs();}, ()=>{}); });
+                 ()=>{ onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o), limit(300)), s=>{__jA=_mapJ(s);_mergeJobs();}, ()=>{}); });
       if(dbJobs!==db) onSnapshot(query(collection(dbJobs,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(300)), s=>{ __jB=_mapJ(s); _mergeJobs(); },
-                 ()=>{ onSnapshot(query(collection(dbJobs,"render_jobs"), where("owner","==",o)), s=>{__jB=_mapJ(s);_mergeJobs();}, ()=>{}); });
+                 ()=>{ onSnapshot(query(collection(dbJobs,"render_jobs"), where("owner","==",o), limit(300)), s=>{__jB=_mapJ(s);_mergeJobs();}, ()=>{}); });
       // Dữ liệu ĐĂNG (collection 'videos' keyed theo drive_id) -> chia trạng thái đã đăng/chưa/nền tảng.
       /* listener videos thứ 2 ĐÃ GỘP vào sub("videos") ở trên -> khỏi đọc collection videos 2 lần (tiết kiệm Firestore) */
       // ĐẾM tổng tài nguyên (Drive lưu trữ / YouTube / Facebook) — 19/8: PHÁT HIỆN lặp lại đúng lỗi đã fix
