@@ -598,5 +598,155 @@
     "motif": "doc",
     "layout": "center",
     "tagline": "What you never see."
+  },
+  "MADEUSA": {
+    "display": "MADE USA",
+    "niche": "how iconic American products are actually made — factories, processes, materials.",
+    "hashtags": [
+      "#madeinusa",
+      "#manufacturing",
+      "#howitsmade"
+    ],
+    "category": "28",
+    "accent": "#E76F51",
+    "handle": "@madeusa",
+    "motif": "factory",
+    "layout": "left",
+    "tagline": "How America makes it."
+  },
+  "BUILTUSA": {
+    "display": "BUILT USA",
+    "niche": "American megastructures & engineering marvels — bridges, dams, tunnels, stadiums.",
+    "hashtags": [
+      "#engineering",
+      "#megastructures",
+      "#construction"
+    ],
+    "category": "28",
+    "accent": "#457B9D",
+    "handle": "@builtusa",
+    "motif": "crane",
+    "layout": "left",
+    "tagline": "Engineering, at American scale."
+  },
+  "UNDERUSA": {
+    "display": "UNDER USA",
+    "niche": "what lies beneath America — tunnels, caves, pipelines, subways, bunkers (publicly documented only).",
+    "hashtags": [
+      "#underground",
+      "#hidden",
+      "#usa"
+    ],
+    "category": "27",
+    "accent": "#5E548E",
+    "handle": "@underusa",
+    "motif": "layers",
+    "layout": "center",
+    "tagline": "America, underneath."
+  },
+  "RELICUSA": {
+    "display": "RELIC USA",
+    "niche": "abandoned America — ghost towns, closed malls, lost highways and why they emptied.",
+    "hashtags": [
+      "#abandoned",
+      "#ghosttown",
+      "#history"
+    ],
+    "category": "27",
+    "accent": "#8D6A4F",
+    "handle": "@relicusa",
+    "motif": "ruin",
+    "layout": "left",
+    "tagline": "What America left behind."
+  },
+  "FIRSTUSA": {
+    "display": "FIRST USA",
+    "niche": "America's firsts — the first flight, first skyscraper, first transplant, and the moment each happened.",
+    "hashtags": [
+      "#history",
+      "#firsts",
+      "#america"
+    ],
+    "category": "27",
+    "accent": "#B22234",
+    "handle": "@firstusa",
+    "motif": "medal",
+    "layout": "center",
+    "tagline": "The moment it began."
+  },
+  "BRANDEDUSA": {
+    "display": "BRANDED USA",
+    "niche": "origin stories and hidden details of famous American brands and logos.",
+    "hashtags": [
+      "#brands",
+      "#logo",
+      "#business"
+    ],
+    "category": "27",
+    "accent": "#111827",
+    "handle": "@brandedusa",
+    "motif": "mark",
+    "layout": "center",
+    "tagline": "The story behind the logo."
+  },
+  "PRICEDUSA": {
+    "display": "PRICED USA",
+    "niche": "the anatomy of everyday American prices — where each dollar of a latte, sneaker or ticket actually goes.",
+    "hashtags": [
+      "#prices",
+      "#economics",
+      "#money"
+    ],
+    "category": "27",
+    "accent": "#0F766E",
+    "handle": "@pricedusa",
+    "motif": "receipt",
+    "layout": "left",
+    "tagline": "Where your dollar goes."
+  },
+  "HAULUSA": {
+    "display": "HAUL USA",
+    "niche": "how stuff moves across America — ports, rail, trucking, overnight shipping, cold chains.",
+    "hashtags": [
+      "#logistics",
+      "#shipping",
+      "#supplychain"
+    ],
+    "category": "28",
+    "accent": "#CA8A04",
+    "handle": "@haulusa",
+    "motif": "route",
+    "layout": "left",
+    "tagline": "America in motion."
+  },
+  "FAKEUSA": {
+    "display": "FAKE USA",
+    "niche": "counterfeits and consumer scams in America, exposed with official data (FTC, CBP).",
+    "hashtags": [
+      "#scam",
+      "#counterfeit",
+      "#consumer"
+    ],
+    "category": "27",
+    "accent": "#DC2626",
+    "handle": "@fakeusa",
+    "motif": "magnifier",
+    "layout": "left",
+    "tagline": "Spot the fake."
+  },
+  "FARMUSA": {
+    "display": "FARM USA",
+    "niche": "where American food really comes from — farms, harvests, feedlots and the scale behind them (USDA data).",
+    "hashtags": [
+      "#farming",
+      "#agriculture",
+      "#food"
+    ],
+    "category": "27",
+    "accent": "#65A30D",
+    "handle": "@farmusa",
+    "motif": "field",
+    "layout": "left",
+    "tagline": "From soil to shelf."
   }
 }
