@@ -87,3 +87,10 @@
 - **Chất lượng đề tài**: đấu loại 3 phương án pillar + giám khảo (log 🏆) khi viết bằng Groq/CF.
 - **Đang chờ xác nhận** (phiên đầu sau hotfix 173c0d5 lúc 07:23Z): Groq viết thành công end-to-end + video mới vào hàng đợi; 99 lỗi hiển thị trên dashboard đều thuộc phiên 07:07Z TRƯỚC hotfix (TypeError system_instruction — đã vá cả 2 shim).
 - Repo render: braydanamilio-spec/mq-vx-lab (bản workflow THẬT chạy cron nằm ở đây). Worker: mm0-connect (wrangler deploy trong connect-worker/).
+
+### Cập nhật 22/8 tối — 2 KÊNH TOON + chuẩn mới
+- **BALDBANDIT** (đại bàng Bald + gấu mèo Bandit, flat vector đỏ-trắng-xanh) & **HANKTOWN** (Hank bố Mỹ + Dale hàng xóm, retro 50s) — nhân vật GỐC tự thiết kế (điều khoản bản quyền trong CHANNEL_METHODS.md).
+- Engine: ToonShort/ToonLong (long = 3 skit chapters 16:9, 3 short đẻ từ chính 3 skit — 0 thêm AI); karaoke từng chữ; sàn kịch bản 95; Vision kiểm khung vẽ; FLUX-CF vẽ (~290 neuron/video, 0 Gemini).
+- Brand art thật host tại dashboard/brand/ (avatar 800 · YT 2560x1440 · FB 820x312) — panel Brand kit hiện ảnh thật + đủ mô tả/tags.
+- Đã BỎ BROKE/HUH/INSIDE_YOU khỏi hệ đăng (52 kênh). Docs: TOON_CONCEPT.md · CHANNEL_METHODS.md §TOON · QC_STANDARD.md §TOON.
+- Seed tự động qua wave8_channels.json ở phiên plan kế; round chuẩn 10 long/30 short.
