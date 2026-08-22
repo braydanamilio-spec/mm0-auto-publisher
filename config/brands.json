@@ -1,797 +1,829 @@
 {
-  "DATARACE": {
-    "display": "DATA RACE",
-    "niche": "US money & wealth (billionaires, tax, income gap)",
-    "hashtags": [
-      "#usdata",
-      "#datarace",
-      "#money"
-    ],
-    "category": "27",
-    "accent": "#F5B301",
-    "tagline": "Watch the numbers race.",
-    "handle": "@dataracehq",
-    "motif": "bars",
-    "layout": "center"
-  },
-  "STATEWARS": {
-    "display": "STATE WARS",
-    "niche": "US states compared (population, GDP, crime, housing)",
-    "hashtags": [
-      "#usa",
-      "#states",
-      "#statewars"
-    ],
-    "category": "27",
-    "accent": "#E4562B",
-    "tagline": "50 states. One winner.",
-    "handle": "@statewarsusa",
-    "motif": "map",
-    "layout": "left"
-  },
-  "MONEYMOVES": {
-    "display": "MONEY MOVES",
-    "niche": "US cost of living (rent, gas, groceries, prices)",
-    "hashtags": [
-      "#costofliving",
-      "#inflation",
-      "#money"
-    ],
-    "category": "27",
-    "accent": "#2FA84F",
-    "tagline": "Where your money goes.",
-    "handle": "@moneymovesusa",
-    "motif": "coins",
-    "layout": "center"
-  },
-  "POWERPLAY": {
-    "display": "POWER PLAY",
-    "niche": "US companies & brands (market cap, users, EVs)",
-    "hashtags": [
-      "#business",
-      "#brands",
-      "#stocks"
-    ],
-    "category": "28",
-    "accent": "#22D3EE",
-    "tagline": "Who owns America.",
-    "handle": "@powerplayhq",
-    "motif": "chip",
-    "layout": "left"
-  },
-  "GRIDIRON": {
-    "display": "GRID IRON",
-    "niche": "US sports money (NFL/NBA salaries, tickets, titles)",
-    "hashtags": [
-      "#nfl",
-      "#nba",
-      "#sports"
-    ],
-    "category": "17",
-    "accent": "#FB923C",
-    "tagline": "The money game.",
-    "handle": "@gridironusa",
-    "motif": "field",
-    "layout": "left"
-  },
-  "SCREENKINGS": {
-    "display": "SCREEN KINGS",
-    "niche": "US entertainment (box office, streaming, music)",
-    "hashtags": [
-      "#movies",
-      "#streaming",
-      "#music"
-    ],
-    "category": "24",
-    "accent": "#EC4899",
-    "tagline": "Who rules your screen.",
-    "handle": "@screenkingshq",
-    "motif": "film",
-    "layout": "center"
-  },
-  "PAYCHECK": {
-    "display": "PAYCHECK",
-    "niche": "US jobs & salaries (highest paying, unemployment)",
-    "hashtags": [
-      "#jobs",
-      "#salary",
-      "#career"
-    ],
-    "category": "27",
-    "accent": "#2DD4BF",
-    "tagline": "What America earns.",
-    "handle": "@paycheckusa",
-    "motif": "receipt",
-    "layout": "center"
-  },
-  "BODYUSA": {
-    "display": "BODY USA",
-    "niche": "US health & lifestyle (obesity, lifespan, spending)",
-    "hashtags": [
-      "#health",
-      "#usa",
-      "#fitness"
-    ],
-    "category": "27",
-    "accent": "#6D28D9",
-    "tagline": "The American body.",
-    "handle": "@bodyusahq",
-    "motif": "pulse",
-    "layout": "left"
-  },
-  "RIDEUSA": {
-    "display": "RIDE USA",
-    "niche": "US cars & auto (brand sales, EV vs gas, trucks)",
-    "hashtags": [
-      "#cars",
-      "#ev",
-      "#auto"
-    ],
-    "category": "2",
-    "accent": "#38BDF8",
-    "tagline": "America on wheels.",
-    "handle": "@rideusahq",
-    "motif": "road",
-    "layout": "center"
-  },
-  "EATSUSA": {
-    "display": "EATS USA",
-    "niche": "US food & fast-food (chains, calories, prices)",
-    "hashtags": [
-      "#food",
-      "#fastfood",
-      "#usa"
-    ],
-    "category": "26",
-    "accent": "#A3E635",
-    "tagline": "How America eats.",
-    "handle": "@eatsusahq",
-    "motif": "plate",
-    "layout": "left"
-  },
-  "GUESSUSA": {
-    "display": "GUESS",
-    "niche": "US cities, world landmarks, famous scientists, history",
-    "category": "24",
-    "accent": "#FFB020",
-    "tagline": "Can you get them all?",
-    "handle": "@guessdaily",
-    "hashtags": [
-      "#guess",
-      "#quiz",
-      "#trivia"
-    ],
-    "motif": "guess",
-    "layout": "center"
-  },
-  "MAPPEDUSA": {
-    "display": "MAPPED",
-    "niche": "US demographics, cost of living, health by state",
-    "category": "27",
-    "accent": "#3B82F6",
-    "tagline": "The US, one map at a time.",
-    "handle": "@mappedusa",
-    "hashtags": [
-      "#mapped",
-      "#usa",
-      "#maps"
-    ],
-    "motif": "mapped",
-    "layout": "center"
-  },
-  "RANKEDUSA": {
-    "display": "RANKED",
-    "niche": "US fast food, streaming, cars, brands ranked",
-    "category": "24",
-    "accent": "#8B5CF6",
-    "tagline": "S-tier to trash.",
-    "handle": "@rankedusa",
-    "hashtags": [
-      "#ranked",
-      "#tierlist",
-      "#ranking"
-    ],
-    "motif": "ranked",
-    "layout": "center"
-  },
-  "SCALEDUSA": {
-    "display": "SCALED",
-    "niche": "ocean animals, tallest buildings, planets, sizes",
-    "category": "28",
-    "accent": "#22C55E",
-    "tagline": "See the real size.",
-    "handle": "@scaledusa",
-    "hashtags": [
-      "#sizecomparison",
-      "#scale",
-      "#science"
-    ],
-    "motif": "scaled",
-    "layout": "center"
-  },
-  "THENNOWUSA": {
-    "display": "THEN NOW",
-    "niche": "cost of living, tech, salaries 1970 vs now",
-    "category": "27",
-    "accent": "#DB2777",
-    "tagline": "How much has changed?",
-    "handle": "@thennowusa",
-    "hashtags": [
-      "#thenvsnow",
-      "#nostalgia",
-      "#history"
-    ],
-    "motif": "thennow",
-    "layout": "center"
-  },
-  "COSMOS": {
-    "display": "COSMOS",
-    "niche": "space, galaxies, black holes, planets, the universe",
-    "category": "28",
-    "accent": "#7C5CFF",
-    "tagline": "The universe, explained.",
-    "handle": "@cosmosdaily",
-    "hashtags": [
-      "#space",
-      "#cosmos",
-      "#universe"
-    ],
-    "motif": "doc",
-    "layout": "center"
-  },
-  "THEDEEP": {
-    "display": "THE DEEP",
-    "niche": "deep sea creatures, ocean mysteries, marine life",
-    "category": "28",
-    "accent": "#0EA5E9",
-    "tagline": "The ocean's darkest secrets.",
-    "handle": "@thedeepdaily",
-    "hashtags": [
-      "#ocean",
-      "#deepsea",
-      "#nature"
-    ],
-    "motif": "doc",
-    "layout": "center"
-  },
-  "WHYUSA": {
-    "display": "WHY",
-    "niche": "why natural phenomena happen, science explainers",
-    "category": "28",
-    "accent": "#F59E0B",
-    "tagline": "Why everything is the way it is.",
-    "handle": "@whydaily",
-    "hashtags": [
-      "#science",
-      "#why",
-      "#explained"
-    ],
-    "motif": "doc",
-    "layout": "center"
-  },
-  "EMPIREUSA": {
-    "display": "EMPIRE",
-    "niche": "how famous entrepreneurs built their empires",
-    "category": "27",
-    "accent": "#EAB308",
-    "tagline": "How they built it all.",
-    "handle": "@empiredaily",
-    "hashtags": [
-      "#business",
-      "#entrepreneur",
-      "#success"
-    ],
-    "motif": "doc",
-    "layout": "center"
-  },
-  "UNSOLVED": {
-    "display": "UNSOLVED",
-    "niche": "unsolved mysteries, ancient enigmas, unexplained phenomena",
-    "category": "27",
-    "accent": "#EF4444",
-    "tagline": "Mysteries with no answer.",
-    "handle": "@unsolveddaily",
-    "hashtags": [
-      "#mystery",
-      "#unsolved",
-      "#unexplained"
-    ],
-    "motif": "doc",
-    "layout": "center"
-  },
-  "BROKE": {
-    "display": "BROKE",
-    "niche": "money / personal finance",
-    "hashtags": [
-      "#money",
-      "#broke",
-      "#finance"
-    ],
-    "category": "27",
-    "accent": "#16A34A",
-    "handle": "@brokehq",
-    "motif": "cash",
-    "layout": "center",
-    "tagline": "Where your money really goes."
-  },
-  "INSIDE_YOU": {
-    "display": "INSIDE YOU",
-    "niche": "psychology / self / body",
-    "hashtags": [
-      "#psychology",
-      "#body",
-      "#mind"
-    ],
-    "category": "27",
-    "accent": "#F472B6",
-    "handle": "@insideyouhq",
-    "motif": "body",
-    "layout": "center",
-    "tagline": "What's happening inside you."
-  },
-  "HUH": {
-    "display": "HUH?",
-    "niche": "curiosity / weird facts",
-    "hashtags": [
-      "#facts",
-      "#weird",
-      "#huh"
-    ],
-    "category": "24",
-    "accent": "#FF8A3D",
-    "handle": "@huhdaily",
-    "motif": "question",
-    "layout": "center",
-    "tagline": "Wait... what?"
-  },
-  "GRIDUSA": {
-    "display": "GRID USA",
-    "niche": "US energy, power grid & infrastructure",
-    "hashtags": [
-      "#energy",
-      "#grid",
-      "#usa"
-    ],
-    "category": "28",
-    "accent": "#FACC15",
-    "handle": "@gridusahq",
-    "motif": "grid",
-    "layout": "left",
-    "tagline": "What keeps America on."
-  },
-  "RULEDUSA": {
-    "display": "RULED USA",
-    "niche": "US laws & strange regulations",
-    "hashtags": [
-      "#law",
-      "#rules",
-      "#usa"
-    ],
-    "category": "25",
-    "accent": "#94A3B8",
-    "handle": "@ruledusahq",
-    "motif": "gavel",
-    "layout": "left",
-    "tagline": "The rules you never knew."
-  },
-  "VAULTUSA": {
-    "display": "VAULT USA",
-    "niche": "US money vaults, gold & reserves",
-    "hashtags": [
-      "#gold",
-      "#vault",
-      "#money"
-    ],
-    "category": "27",
-    "accent": "#D4A017",
-    "handle": "@vaultusahq",
-    "motif": "vault",
-    "layout": "center",
-    "tagline": "Where America keeps it."
-  },
-  "LEDGERUSA": {
-    "display": "LEDGER USA",
-    "niche": "US government spending & budgets",
-    "hashtags": [
-      "#budget",
-      "#spending",
-      "#usa"
-    ],
-    "category": "25",
-    "accent": "#4CC3FF",
-    "handle": "@ledgerusahq",
-    "motif": "ledger",
-    "layout": "left",
-    "tagline": "Every dollar, accounted."
-  },
-  "SIGNALUSA": {
-    "display": "SIGNAL USA",
-    "niche": "US tech, internet & telecom",
-    "hashtags": [
-      "#tech",
-      "#internet",
-      "#usa"
-    ],
-    "category": "28",
-    "accent": "#818CF8",
-    "handle": "@signalusahq",
-    "motif": "wave",
-    "layout": "center",
-    "tagline": "The signals around you."
-  },
-  "MARGINUSA": {
-    "display": "MARGIN USA",
-    "niche": "US business margins & profit",
-    "hashtags": [
-      "#business",
-      "#profit",
-      "#usa"
-    ],
-    "category": "27",
-    "accent": "#34D399",
-    "handle": "@marginusahq",
-    "motif": "chart",
-    "layout": "left",
-    "tagline": "Where the profit hides."
-  },
-  "SWARMUSA": {
-    "display": "SWARM USA",
-    "niche": "US counts visualized at scale",
-    "hashtags": [
-      "#data",
-      "#scale",
-      "#usa"
-    ],
-    "category": "27",
-    "accent": "#F97316",
-    "handle": "@swarmusahq",
-    "motif": "dots",
-    "layout": "center",
-    "tagline": "Every dot is real."
-  },
-  "PULSEUSA": {
-    "display": "PULSE USA",
-    "niche": "US intensity & extremes measured",
-    "hashtags": [
-      "#extremes",
-      "#data",
-      "#usa"
-    ],
-    "category": "28",
-    "accent": "#E11D48",
-    "handle": "@pulseusahq",
-    "motif": "pulse",
-    "layout": "center",
-    "tagline": "America, measured live."
-  },
-  "CLOCKWORKUSA": {
-    "display": "CLOCKWORK USA",
-    "niche": "huge timespans compressed",
-    "hashtags": [
-      "#time",
-      "#history",
-      "#usa"
-    ],
-    "category": "27",
-    "accent": "#C084FC",
-    "handle": "@clockworkusahq",
-    "motif": "clock",
-    "layout": "center",
-    "tagline": "Time, compressed."
-  },
-  "LONGSHOTUSA": {
-    "display": "LONGSHOT USA",
-    "niche": "real odds & probability",
-    "hashtags": [
-      "#odds",
-      "#probability",
-      "#usa"
-    ],
-    "category": "27",
-    "accent": "#0D9488",
-    "handle": "@longshotusahq",
-    "motif": "dice",
-    "layout": "center",
-    "tagline": "What are the odds?"
-  },
-  "VERSUSUSA": {
-    "display": "VERSUS USA",
-    "niche": "US head-to-head comparisons",
-    "hashtags": [
-      "#versus",
-      "#compare",
-      "#usa"
-    ],
-    "category": "24",
-    "accent": "#FB7185",
-    "handle": "@versususahq",
-    "motif": "duel",
-    "layout": "split",
-    "tagline": "Two sides. One winner."
-  },
-  "WILDUSA": {
-    "display": "WILD USA",
-    "niche": "US wildlife & nature",
-    "hashtags": [
-      "#wildlife",
-      "#nature",
-      "#usa"
-    ],
-    "category": "15",
-    "accent": "#4ADE80",
-    "handle": "@wildusahq",
-    "motif": "leaf",
-    "layout": "left",
-    "tagline": "America's wild side."
-  },
-  "CRIMEUSA": {
-    "display": "CRIME USA",
-    "niche": "US crime statistics explained",
-    "hashtags": [
-      "#crime",
-      "#statistics",
-      "#usa"
-    ],
-    "category": "25",
-    "accent": "#B91C1C",
-    "handle": "@crimeusahq",
-    "motif": "file",
-    "layout": "left",
-    "tagline": "The numbers behind crime."
-  },
-  "DISASTERUSA": {
-    "display": "DISASTER USA",
-    "niche": "US disasters & how they unfolded",
-    "hashtags": [
-      "#disaster",
-      "#history",
-      "#usa"
-    ],
-    "category": "25",
-    "accent": "#EA580C",
-    "handle": "@disasterusahq",
-    "motif": "alert",
-    "layout": "left",
-    "tagline": "How it really happened."
-  },
-  "DEFENSEUSA": {
-    "display": "DEFENSE USA",
-    "niche": "US defense spending & capability",
-    "hashtags": [
-      "#defense",
-      "#military",
-      "#usa"
-    ],
-    "category": "25",
-    "accent": "#64748B",
-    "handle": "@defenseusahq",
-    "motif": "shield",
-    "layout": "left",
-    "tagline": "What defense really costs."
-  },
-  "FUTUREUSA": {
-    "display": "FUTURE USA",
-    "niche": "what America might look like next",
-    "hashtags": [
-      "#future",
-      "#usa",
-      "#tomorrow"
-    ],
-    "category": "28",
-    "accent": "#06B6D4",
-    "handle": "@futureusahq",
-    "motif": "doc",
-    "layout": "center",
-    "tagline": "America, next."
-  },
-  "UNSEENUSA": {
-    "display": "UNSEEN USA",
-    "niche": "things in America you never see",
-    "hashtags": [
-      "#hidden",
-      "#unseen",
-      "#usa"
-    ],
-    "category": "24",
-    "accent": "#A78BFA",
-    "handle": "@unseenusahq",
-    "motif": "doc",
-    "layout": "center",
-    "tagline": "What you never see."
-  },
-  "MADEUSA": {
-    "display": "MADE USA",
-    "niche": "how iconic American products are actually made — factories, processes, materials.",
-    "hashtags": [
-      "#madeinusa",
-      "#manufacturing",
-      "#howitsmade"
-    ],
-    "category": "28",
-    "accent": "#E76F51",
-    "handle": "@madeusa",
-    "motif": "factory",
-    "layout": "left",
-    "tagline": "How America makes it."
-  },
-  "BUILTUSA": {
-    "display": "BUILT USA",
-    "niche": "American megastructures & engineering marvels — bridges, dams, tunnels, stadiums.",
-    "hashtags": [
-      "#engineering",
-      "#megastructures",
-      "#construction"
-    ],
-    "category": "28",
-    "accent": "#457B9D",
-    "handle": "@builtusa",
-    "motif": "crane",
-    "layout": "left",
-    "tagline": "Engineering, at American scale."
-  },
-  "UNDERUSA": {
-    "display": "UNDER USA",
-    "niche": "what lies beneath America — tunnels, caves, pipelines, subways, bunkers (publicly documented only).",
-    "hashtags": [
-      "#underground",
-      "#hidden",
-      "#usa"
-    ],
-    "category": "27",
-    "accent": "#5E548E",
-    "handle": "@underusa",
-    "motif": "layers",
-    "layout": "center",
-    "tagline": "America, underneath."
-  },
-  "RELICUSA": {
-    "display": "RELIC USA",
-    "niche": "abandoned America — ghost towns, closed malls, lost highways and why they emptied.",
-    "hashtags": [
-      "#abandoned",
-      "#ghosttown",
-      "#history"
-    ],
-    "category": "27",
-    "accent": "#8D6A4F",
-    "handle": "@relicusa",
-    "motif": "ruin",
-    "layout": "left",
-    "tagline": "What America left behind."
-  },
-  "FIRSTUSA": {
-    "display": "FIRST USA",
-    "niche": "America's firsts — the first flight, first skyscraper, first transplant, and the moment each happened.",
-    "hashtags": [
-      "#history",
-      "#firsts",
-      "#america"
-    ],
-    "category": "27",
-    "accent": "#B22234",
-    "handle": "@firstusa",
-    "motif": "medal",
-    "layout": "center",
-    "tagline": "The moment it began."
-  },
-  "BRANDEDUSA": {
-    "display": "BRANDED USA",
-    "niche": "origin stories and hidden details of famous American brands and logos.",
-    "hashtags": [
-      "#brands",
-      "#logo",
-      "#business"
-    ],
-    "category": "27",
-    "accent": "#111827",
-    "handle": "@brandedusa",
-    "motif": "mark",
-    "layout": "center",
-    "tagline": "The story behind the logo."
-  },
-  "PRICEDUSA": {
-    "display": "PRICED USA",
-    "niche": "the anatomy of everyday American prices — where each dollar of a latte, sneaker or ticket actually goes.",
-    "hashtags": [
-      "#prices",
-      "#economics",
-      "#money"
-    ],
-    "category": "27",
-    "accent": "#0F766E",
-    "handle": "@pricedusa",
-    "motif": "receipt",
-    "layout": "left",
-    "tagline": "Where your dollar goes."
-  },
-  "HAULUSA": {
-    "display": "HAUL USA",
-    "niche": "how stuff moves across America — ports, rail, trucking, overnight shipping, cold chains.",
-    "hashtags": [
-      "#logistics",
-      "#shipping",
-      "#supplychain"
-    ],
-    "category": "28",
-    "accent": "#CA8A04",
-    "handle": "@haulusa",
-    "motif": "route",
-    "layout": "left",
-    "tagline": "America in motion."
-  },
-  "FAKEUSA": {
-    "display": "FAKE USA",
-    "niche": "counterfeits and consumer scams in America, exposed with official data (FTC, CBP).",
-    "hashtags": [
-      "#scam",
-      "#counterfeit",
-      "#consumer"
-    ],
-    "category": "27",
-    "accent": "#DC2626",
-    "handle": "@fakeusa",
-    "motif": "magnifier",
-    "layout": "left",
-    "tagline": "Spot the fake."
-  },
-  "FARMUSA": {
-    "display": "FARM USA",
-    "niche": "where American food really comes from — farms, harvests, feedlots and the scale behind them (USDA data).",
-    "hashtags": [
-      "#farming",
-      "#agriculture",
-      "#food"
-    ],
-    "category": "27",
-    "accent": "#65A30D",
-    "handle": "@farmusa",
-    "motif": "field",
-    "layout": "left",
-    "tagline": "From soil to shelf."
-  },
-  "DEBTUSA": {
-    "display": "DEBT USA",
-    "niche": "real US education costs and student debt (Dept of Education, College Scorecard, Fed data)",
-    "hashtags": [
-      "#studentdebt",
-      "#college",
-      "#money"
-    ],
-    "category": "27",
-    "accent": "#9333EA",
-    "handle": "@debtusa",
-    "motif": "ledger",
-    "layout": "left",
-    "tagline": "The real cost of the dream."
-  },
-  "FILEUSA": {
-    "display": "FILE USA",
-    "niche": "declassified US files & documents explained (FOIA, national archives)",
-    "hashtags": [
-      "#declassified",
-      "#history",
-      "#usa"
-    ],
-    "category": "25",
-    "accent": "#334155",
-    "handle": "@fileusa",
-    "motif": "file",
-    "layout": "left",
-    "tagline": "Declassified, decoded."
-  },
-  "VOXUSA": {
-    "display": "VOX USA",
-    "niche": "what Americans really say & believe — polls and surveys visualized (Pew, Gallup)",
-    "hashtags": [
-      "#polls",
-      "#america",
-      "#data"
-    ],
-    "category": "25",
-    "accent": "#F0ABFC",
-    "handle": "@voxusa",
-    "motif": "wave",
-    "layout": "center",
-    "tagline": "America, in its own words."
-  }
+ "DATARACE": {
+  "display": "DATA RACE",
+  "niche": "US money & wealth (billionaires, tax, income gap)",
+  "hashtags": [
+   "#usdata",
+   "#datarace",
+   "#money"
+  ],
+  "category": "27",
+  "accent": "#F5B301",
+  "tagline": "Watch the numbers race.",
+  "handle": "@dataracehq",
+  "motif": "bars",
+  "layout": "center"
+ },
+ "STATEWARS": {
+  "display": "STATE WARS",
+  "niche": "US states compared (population, GDP, crime, housing)",
+  "hashtags": [
+   "#usa",
+   "#states",
+   "#statewars"
+  ],
+  "category": "27",
+  "accent": "#E4562B",
+  "tagline": "50 states. One winner.",
+  "handle": "@statewarsusa",
+  "motif": "map",
+  "layout": "left"
+ },
+ "MONEYMOVES": {
+  "display": "MONEY MOVES",
+  "niche": "US cost of living (rent, gas, groceries, prices)",
+  "hashtags": [
+   "#costofliving",
+   "#inflation",
+   "#money"
+  ],
+  "category": "27",
+  "accent": "#2FA84F",
+  "tagline": "Where your money goes.",
+  "handle": "@moneymovesusa",
+  "motif": "coins",
+  "layout": "center"
+ },
+ "POWERPLAY": {
+  "display": "POWER PLAY",
+  "niche": "US companies & brands (market cap, users, EVs)",
+  "hashtags": [
+   "#business",
+   "#brands",
+   "#stocks"
+  ],
+  "category": "28",
+  "accent": "#22D3EE",
+  "tagline": "Who owns America.",
+  "handle": "@powerplayhq",
+  "motif": "chip",
+  "layout": "left"
+ },
+ "GRIDIRON": {
+  "display": "GRID IRON",
+  "niche": "US sports money (NFL/NBA salaries, tickets, titles)",
+  "hashtags": [
+   "#nfl",
+   "#nba",
+   "#sports"
+  ],
+  "category": "17",
+  "accent": "#FB923C",
+  "tagline": "The money game.",
+  "handle": "@gridironusa",
+  "motif": "field",
+  "layout": "left"
+ },
+ "SCREENKINGS": {
+  "display": "SCREEN KINGS",
+  "niche": "US entertainment (box office, streaming, music)",
+  "hashtags": [
+   "#movies",
+   "#streaming",
+   "#music"
+  ],
+  "category": "24",
+  "accent": "#EC4899",
+  "tagline": "Who rules your screen.",
+  "handle": "@screenkingshq",
+  "motif": "film",
+  "layout": "center"
+ },
+ "PAYCHECK": {
+  "display": "PAYCHECK",
+  "niche": "US jobs & salaries (highest paying, unemployment)",
+  "hashtags": [
+   "#jobs",
+   "#salary",
+   "#career"
+  ],
+  "category": "27",
+  "accent": "#2DD4BF",
+  "tagline": "What America earns.",
+  "handle": "@paycheckusa",
+  "motif": "receipt",
+  "layout": "center"
+ },
+ "BODYUSA": {
+  "display": "BODY USA",
+  "niche": "US health & lifestyle (obesity, lifespan, spending)",
+  "hashtags": [
+   "#health",
+   "#usa",
+   "#fitness"
+  ],
+  "category": "27",
+  "accent": "#6D28D9",
+  "tagline": "The American body.",
+  "handle": "@bodyusahq",
+  "motif": "pulse",
+  "layout": "left"
+ },
+ "RIDEUSA": {
+  "display": "RIDE USA",
+  "niche": "US cars & auto (brand sales, EV vs gas, trucks)",
+  "hashtags": [
+   "#cars",
+   "#ev",
+   "#auto"
+  ],
+  "category": "2",
+  "accent": "#38BDF8",
+  "tagline": "America on wheels.",
+  "handle": "@rideusahq",
+  "motif": "road",
+  "layout": "center"
+ },
+ "EATSUSA": {
+  "display": "EATS USA",
+  "niche": "US food & fast-food (chains, calories, prices)",
+  "hashtags": [
+   "#food",
+   "#fastfood",
+   "#usa"
+  ],
+  "category": "26",
+  "accent": "#A3E635",
+  "tagline": "How America eats.",
+  "handle": "@eatsusahq",
+  "motif": "plate",
+  "layout": "left"
+ },
+ "GUESSUSA": {
+  "display": "GUESS",
+  "niche": "US cities, world landmarks, famous scientists, history",
+  "category": "24",
+  "accent": "#FFB020",
+  "tagline": "Can you get them all?",
+  "handle": "@guessdaily",
+  "hashtags": [
+   "#guess",
+   "#quiz",
+   "#trivia"
+  ],
+  "motif": "guess",
+  "layout": "center"
+ },
+ "MAPPEDUSA": {
+  "display": "MAPPED",
+  "niche": "US demographics, cost of living, health by state",
+  "category": "27",
+  "accent": "#3B82F6",
+  "tagline": "The US, one map at a time.",
+  "handle": "@mappedusa",
+  "hashtags": [
+   "#mapped",
+   "#usa",
+   "#maps"
+  ],
+  "motif": "mapped",
+  "layout": "center"
+ },
+ "RANKEDUSA": {
+  "display": "RANKED",
+  "niche": "US fast food, streaming, cars, brands ranked",
+  "category": "24",
+  "accent": "#8B5CF6",
+  "tagline": "S-tier to trash.",
+  "handle": "@rankedusa",
+  "hashtags": [
+   "#ranked",
+   "#tierlist",
+   "#ranking"
+  ],
+  "motif": "ranked",
+  "layout": "center"
+ },
+ "SCALEDUSA": {
+  "display": "SCALED",
+  "niche": "ocean animals, tallest buildings, planets, sizes",
+  "category": "28",
+  "accent": "#22C55E",
+  "tagline": "See the real size.",
+  "handle": "@scaledusa",
+  "hashtags": [
+   "#sizecomparison",
+   "#scale",
+   "#science"
+  ],
+  "motif": "scaled",
+  "layout": "center"
+ },
+ "THENNOWUSA": {
+  "display": "THEN NOW",
+  "niche": "cost of living, tech, salaries 1970 vs now",
+  "category": "27",
+  "accent": "#DB2777",
+  "tagline": "How much has changed?",
+  "handle": "@thennowusa",
+  "hashtags": [
+   "#thenvsnow",
+   "#nostalgia",
+   "#history"
+  ],
+  "motif": "thennow",
+  "layout": "center"
+ },
+ "COSMOS": {
+  "display": "COSMOS",
+  "niche": "space, galaxies, black holes, planets, the universe",
+  "category": "28",
+  "accent": "#7C5CFF",
+  "tagline": "The universe, explained.",
+  "handle": "@cosmosdaily",
+  "hashtags": [
+   "#space",
+   "#cosmos",
+   "#universe"
+  ],
+  "motif": "doc",
+  "layout": "center"
+ },
+ "THEDEEP": {
+  "display": "THE DEEP",
+  "niche": "deep sea creatures, ocean mysteries, marine life",
+  "category": "28",
+  "accent": "#0EA5E9",
+  "tagline": "The ocean's darkest secrets.",
+  "handle": "@thedeepdaily",
+  "hashtags": [
+   "#ocean",
+   "#deepsea",
+   "#nature"
+  ],
+  "motif": "doc",
+  "layout": "center"
+ },
+ "WHYUSA": {
+  "display": "WHY",
+  "niche": "why natural phenomena happen, science explainers",
+  "category": "28",
+  "accent": "#F59E0B",
+  "tagline": "Why everything is the way it is.",
+  "handle": "@whydaily",
+  "hashtags": [
+   "#science",
+   "#why",
+   "#explained"
+  ],
+  "motif": "doc",
+  "layout": "center"
+ },
+ "EMPIREUSA": {
+  "display": "EMPIRE",
+  "niche": "how famous entrepreneurs built their empires",
+  "category": "27",
+  "accent": "#EAB308",
+  "tagline": "How they built it all.",
+  "handle": "@empiredaily",
+  "hashtags": [
+   "#business",
+   "#entrepreneur",
+   "#success"
+  ],
+  "motif": "doc",
+  "layout": "center"
+ },
+ "UNSOLVED": {
+  "display": "UNSOLVED",
+  "niche": "unsolved mysteries, ancient enigmas, unexplained phenomena",
+  "category": "27",
+  "accent": "#EF4444",
+  "tagline": "Mysteries with no answer.",
+  "handle": "@unsolveddaily",
+  "hashtags": [
+   "#mystery",
+   "#unsolved",
+   "#unexplained"
+  ],
+  "motif": "doc",
+  "layout": "center"
+ },
+ "BROKE": {
+  "display": "BROKE",
+  "niche": "money / personal finance",
+  "hashtags": [
+   "#money",
+   "#broke",
+   "#finance"
+  ],
+  "category": "27",
+  "accent": "#16A34A",
+  "handle": "@brokehq",
+  "motif": "cash",
+  "layout": "center",
+  "tagline": "Where your money really goes."
+ },
+ "INSIDE_YOU": {
+  "display": "INSIDE YOU",
+  "niche": "psychology / self / body",
+  "hashtags": [
+   "#psychology",
+   "#body",
+   "#mind"
+  ],
+  "category": "27",
+  "accent": "#F472B6",
+  "handle": "@insideyouhq",
+  "motif": "body",
+  "layout": "center",
+  "tagline": "What's happening inside you."
+ },
+ "HUH": {
+  "display": "HUH?",
+  "niche": "curiosity / weird facts",
+  "hashtags": [
+   "#facts",
+   "#weird",
+   "#huh"
+  ],
+  "category": "24",
+  "accent": "#FF8A3D",
+  "handle": "@huhdaily",
+  "motif": "question",
+  "layout": "center",
+  "tagline": "Wait... what?"
+ },
+ "GRIDUSA": {
+  "display": "GRID USA",
+  "niche": "US energy, power grid & infrastructure",
+  "hashtags": [
+   "#energy",
+   "#grid",
+   "#usa"
+  ],
+  "category": "28",
+  "accent": "#FACC15",
+  "handle": "@gridusahq",
+  "motif": "grid",
+  "layout": "left",
+  "tagline": "What keeps America on."
+ },
+ "RULEDUSA": {
+  "display": "RULED USA",
+  "niche": "US laws & strange regulations",
+  "hashtags": [
+   "#law",
+   "#rules",
+   "#usa"
+  ],
+  "category": "25",
+  "accent": "#94A3B8",
+  "handle": "@ruledusahq",
+  "motif": "gavel",
+  "layout": "left",
+  "tagline": "The rules you never knew."
+ },
+ "VAULTUSA": {
+  "display": "VAULT USA",
+  "niche": "US money vaults, gold & reserves",
+  "hashtags": [
+   "#gold",
+   "#vault",
+   "#money"
+  ],
+  "category": "27",
+  "accent": "#D4A017",
+  "handle": "@vaultusahq",
+  "motif": "vault",
+  "layout": "center",
+  "tagline": "Where America keeps it."
+ },
+ "LEDGERUSA": {
+  "display": "LEDGER USA",
+  "niche": "US government spending & budgets",
+  "hashtags": [
+   "#budget",
+   "#spending",
+   "#usa"
+  ],
+  "category": "25",
+  "accent": "#4CC3FF",
+  "handle": "@ledgerusahq",
+  "motif": "ledger",
+  "layout": "left",
+  "tagline": "Every dollar, accounted."
+ },
+ "SIGNALUSA": {
+  "display": "SIGNAL USA",
+  "niche": "US tech, internet & telecom",
+  "hashtags": [
+   "#tech",
+   "#internet",
+   "#usa"
+  ],
+  "category": "28",
+  "accent": "#818CF8",
+  "handle": "@signalusahq",
+  "motif": "wave",
+  "layout": "center",
+  "tagline": "The signals around you."
+ },
+ "MARGINUSA": {
+  "display": "MARGIN USA",
+  "niche": "US business margins & profit",
+  "hashtags": [
+   "#business",
+   "#profit",
+   "#usa"
+  ],
+  "category": "27",
+  "accent": "#34D399",
+  "handle": "@marginusahq",
+  "motif": "chart",
+  "layout": "left",
+  "tagline": "Where the profit hides."
+ },
+ "SWARMUSA": {
+  "display": "SWARM USA",
+  "niche": "US counts visualized at scale",
+  "hashtags": [
+   "#data",
+   "#scale",
+   "#usa"
+  ],
+  "category": "27",
+  "accent": "#F97316",
+  "handle": "@swarmusahq",
+  "motif": "dots",
+  "layout": "center",
+  "tagline": "Every dot is real."
+ },
+ "PULSEUSA": {
+  "display": "PULSE USA",
+  "niche": "US intensity & extremes measured",
+  "hashtags": [
+   "#extremes",
+   "#data",
+   "#usa"
+  ],
+  "category": "28",
+  "accent": "#E11D48",
+  "handle": "@pulseusahq",
+  "motif": "pulse",
+  "layout": "center",
+  "tagline": "America, measured live."
+ },
+ "CLOCKWORKUSA": {
+  "display": "CLOCKWORK USA",
+  "niche": "huge timespans compressed",
+  "hashtags": [
+   "#time",
+   "#history",
+   "#usa"
+  ],
+  "category": "27",
+  "accent": "#C084FC",
+  "handle": "@clockworkusahq",
+  "motif": "clock",
+  "layout": "center",
+  "tagline": "Time, compressed."
+ },
+ "LONGSHOTUSA": {
+  "display": "LONGSHOT USA",
+  "niche": "real odds & probability",
+  "hashtags": [
+   "#odds",
+   "#probability",
+   "#usa"
+  ],
+  "category": "27",
+  "accent": "#0D9488",
+  "handle": "@longshotusahq",
+  "motif": "dice",
+  "layout": "center",
+  "tagline": "What are the odds?"
+ },
+ "VERSUSUSA": {
+  "display": "VERSUS USA",
+  "niche": "US head-to-head comparisons",
+  "hashtags": [
+   "#versus",
+   "#compare",
+   "#usa"
+  ],
+  "category": "24",
+  "accent": "#FB7185",
+  "handle": "@versususahq",
+  "motif": "duel",
+  "layout": "split",
+  "tagline": "Two sides. One winner."
+ },
+ "WILDUSA": {
+  "display": "WILD USA",
+  "niche": "US wildlife & nature",
+  "hashtags": [
+   "#wildlife",
+   "#nature",
+   "#usa"
+  ],
+  "category": "15",
+  "accent": "#4ADE80",
+  "handle": "@wildusahq",
+  "motif": "leaf",
+  "layout": "left",
+  "tagline": "America's wild side."
+ },
+ "CRIMEUSA": {
+  "display": "CRIME USA",
+  "niche": "US crime statistics explained",
+  "hashtags": [
+   "#crime",
+   "#statistics",
+   "#usa"
+  ],
+  "category": "25",
+  "accent": "#B91C1C",
+  "handle": "@crimeusahq",
+  "motif": "file",
+  "layout": "left",
+  "tagline": "The numbers behind crime."
+ },
+ "DISASTERUSA": {
+  "display": "DISASTER USA",
+  "niche": "US disasters & how they unfolded",
+  "hashtags": [
+   "#disaster",
+   "#history",
+   "#usa"
+  ],
+  "category": "25",
+  "accent": "#EA580C",
+  "handle": "@disasterusahq",
+  "motif": "alert",
+  "layout": "left",
+  "tagline": "How it really happened."
+ },
+ "DEFENSEUSA": {
+  "display": "DEFENSE USA",
+  "niche": "US defense spending & capability",
+  "hashtags": [
+   "#defense",
+   "#military",
+   "#usa"
+  ],
+  "category": "25",
+  "accent": "#64748B",
+  "handle": "@defenseusahq",
+  "motif": "shield",
+  "layout": "left",
+  "tagline": "What defense really costs."
+ },
+ "FUTUREUSA": {
+  "display": "FUTURE USA",
+  "niche": "what America might look like next",
+  "hashtags": [
+   "#future",
+   "#usa",
+   "#tomorrow"
+  ],
+  "category": "28",
+  "accent": "#06B6D4",
+  "handle": "@futureusahq",
+  "motif": "doc",
+  "layout": "center",
+  "tagline": "America, next."
+ },
+ "UNSEENUSA": {
+  "display": "UNSEEN USA",
+  "niche": "things in America you never see",
+  "hashtags": [
+   "#hidden",
+   "#unseen",
+   "#usa"
+  ],
+  "category": "24",
+  "accent": "#A78BFA",
+  "handle": "@unseenusahq",
+  "motif": "doc",
+  "layout": "center",
+  "tagline": "What you never see."
+ },
+ "MADEUSA": {
+  "display": "MADE USA",
+  "niche": "how iconic American products are actually made — factories, processes, materials.",
+  "hashtags": [
+   "#madeinusa",
+   "#manufacturing",
+   "#howitsmade"
+  ],
+  "category": "28",
+  "accent": "#E76F51",
+  "handle": "@madeusa",
+  "motif": "factory",
+  "layout": "left",
+  "tagline": "How America makes it."
+ },
+ "BUILTUSA": {
+  "display": "BUILT USA",
+  "niche": "American megastructures & engineering marvels — bridges, dams, tunnels, stadiums.",
+  "hashtags": [
+   "#engineering",
+   "#megastructures",
+   "#construction"
+  ],
+  "category": "28",
+  "accent": "#457B9D",
+  "handle": "@builtusa",
+  "motif": "crane",
+  "layout": "left",
+  "tagline": "Engineering, at American scale."
+ },
+ "UNDERUSA": {
+  "display": "UNDER USA",
+  "niche": "what lies beneath America — tunnels, caves, pipelines, subways, bunkers (publicly documented only).",
+  "hashtags": [
+   "#underground",
+   "#hidden",
+   "#usa"
+  ],
+  "category": "27",
+  "accent": "#5E548E",
+  "handle": "@underusa",
+  "motif": "layers",
+  "layout": "center",
+  "tagline": "America, underneath."
+ },
+ "RELICUSA": {
+  "display": "RELIC USA",
+  "niche": "abandoned America — ghost towns, closed malls, lost highways and why they emptied.",
+  "hashtags": [
+   "#abandoned",
+   "#ghosttown",
+   "#history"
+  ],
+  "category": "27",
+  "accent": "#8D6A4F",
+  "handle": "@relicusa",
+  "motif": "ruin",
+  "layout": "left",
+  "tagline": "What America left behind."
+ },
+ "FIRSTUSA": {
+  "display": "FIRST USA",
+  "niche": "America's firsts — the first flight, first skyscraper, first transplant, and the moment each happened.",
+  "hashtags": [
+   "#history",
+   "#firsts",
+   "#america"
+  ],
+  "category": "27",
+  "accent": "#B22234",
+  "handle": "@firstusa",
+  "motif": "medal",
+  "layout": "center",
+  "tagline": "The moment it began."
+ },
+ "BRANDEDUSA": {
+  "display": "BRANDED USA",
+  "niche": "origin stories and hidden details of famous American brands and logos.",
+  "hashtags": [
+   "#brands",
+   "#logo",
+   "#business"
+  ],
+  "category": "27",
+  "accent": "#111827",
+  "handle": "@brandedusa",
+  "motif": "mark",
+  "layout": "center",
+  "tagline": "The story behind the logo."
+ },
+ "PRICEDUSA": {
+  "display": "PRICED USA",
+  "niche": "the anatomy of everyday American prices — where each dollar of a latte, sneaker or ticket actually goes.",
+  "hashtags": [
+   "#prices",
+   "#economics",
+   "#money"
+  ],
+  "category": "27",
+  "accent": "#0F766E",
+  "handle": "@pricedusa",
+  "motif": "receipt",
+  "layout": "left",
+  "tagline": "Where your dollar goes."
+ },
+ "HAULUSA": {
+  "display": "HAUL USA",
+  "niche": "how stuff moves across America — ports, rail, trucking, overnight shipping, cold chains.",
+  "hashtags": [
+   "#logistics",
+   "#shipping",
+   "#supplychain"
+  ],
+  "category": "28",
+  "accent": "#CA8A04",
+  "handle": "@haulusa",
+  "motif": "route",
+  "layout": "left",
+  "tagline": "America in motion."
+ },
+ "FAKEUSA": {
+  "display": "FAKE USA",
+  "niche": "counterfeits and consumer scams in America, exposed with official data (FTC, CBP).",
+  "hashtags": [
+   "#scam",
+   "#counterfeit",
+   "#consumer"
+  ],
+  "category": "27",
+  "accent": "#DC2626",
+  "handle": "@fakeusa",
+  "motif": "magnifier",
+  "layout": "left",
+  "tagline": "Spot the fake."
+ },
+ "FARMUSA": {
+  "display": "FARM USA",
+  "niche": "where American food really comes from — farms, harvests, feedlots and the scale behind them (USDA data).",
+  "hashtags": [
+   "#farming",
+   "#agriculture",
+   "#food"
+  ],
+  "category": "27",
+  "accent": "#65A30D",
+  "handle": "@farmusa",
+  "motif": "field",
+  "layout": "left",
+  "tagline": "From soil to shelf."
+ },
+ "DEBTUSA": {
+  "display": "DEBT USA",
+  "niche": "real US education costs and student debt (Dept of Education, College Scorecard, Fed data)",
+  "hashtags": [
+   "#studentdebt",
+   "#college",
+   "#money"
+  ],
+  "category": "27",
+  "accent": "#9333EA",
+  "handle": "@debtusa",
+  "motif": "ledger",
+  "layout": "left",
+  "tagline": "The real cost of the dream."
+ },
+ "FILEUSA": {
+  "display": "FILE USA",
+  "niche": "declassified US files & documents explained (FOIA, national archives)",
+  "hashtags": [
+   "#declassified",
+   "#history",
+   "#usa"
+  ],
+  "category": "25",
+  "accent": "#334155",
+  "handle": "@fileusa",
+  "motif": "file",
+  "layout": "left",
+  "tagline": "Declassified, decoded."
+ },
+ "VOXUSA": {
+  "display": "VOX USA",
+  "niche": "what Americans really say & believe — polls and surveys visualized (Pew, Gallup)",
+  "hashtags": [
+   "#polls",
+   "#america",
+   "#data"
+  ],
+  "category": "25",
+  "accent": "#F0ABFC",
+  "handle": "@voxusa",
+  "motif": "wave",
+  "layout": "center",
+  "tagline": "America, in its own words."
+ },
+ "BALDBANDIT": {
+  "display": "BALD & BANDIT",
+  "niche": "US everyday-life comedy skits with Bald the patriotic eagle and Bandit the sly raccoon — original animated duo.",
+  "hashtags": [
+   "#comedy",
+   "#animation",
+   "#usa",
+   "#funny"
+  ],
+  "category": "23",
+  "accent": "#B91C1C",
+  "tagline": "One eagle. One raccoon. Zero chill.",
+  "handle": "@baldandbandit",
+  "motif": "toon",
+  "layout": "center"
+ },
+ "HANKTOWN": {
+  "display": "HANKTOWN",
+  "niche": "retro American suburb comedy — Hank the BBQ dad and Dale the nosy neighbor, 1950s cartoon style.",
+  "hashtags": [
+   "#comedy",
+   "#retro",
+   "#suburbs",
+   "#animation"
+  ],
+  "category": "23",
+  "accent": "#B45309",
+  "tagline": "Welcome to the neighborhood.",
+  "handle": "@hanktownusa",
+  "motif": "toon",
+  "layout": "left"
+ }
 }

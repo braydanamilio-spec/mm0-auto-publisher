@@ -29,7 +29,8 @@ channels:
       cta: '🔔 Subscribe for more money stories.
 
         '
-      disclaimer: This video is for educational and entertainment purposes only, not financial advice.
+      disclaimer: This video is for educational and entertainment purposes only, not
+        financial advice.
   INSIDE_YOU:
     display_name: INSIDE YOU
     enabled: true
@@ -1159,7 +1160,8 @@ channels:
       page_id_env: MADEUSA_FB_PAGE_ID
       page_token_env: MADEUSA_FB_PAGE_TOKEN
     branding:
-      niche: how iconic American products are actually made — factories, processes, materials.
+      niche: how iconic American products are actually made — factories, processes,
+        materials.
       hashtags:
       - '#madeinusa'
       - '#manufacturing'
@@ -1188,7 +1190,8 @@ channels:
       page_id_env: BUILTUSA_FB_PAGE_ID
       page_token_env: BUILTUSA_FB_PAGE_TOKEN
     branding:
-      niche: American megastructures & engineering marvels — bridges, dams, tunnels, stadiums.
+      niche: American megastructures & engineering marvels — bridges, dams, tunnels,
+        stadiums.
       hashtags:
       - '#engineering'
       - '#megastructures'
@@ -1217,7 +1220,8 @@ channels:
       page_id_env: UNDERUSA_FB_PAGE_ID
       page_token_env: UNDERUSA_FB_PAGE_TOKEN
     branding:
-      niche: what lies beneath America — tunnels, caves, pipelines, subways, bunkers (publicly documented only).
+      niche: what lies beneath America — tunnels, caves, pipelines, subways, bunkers
+        (publicly documented only).
       hashtags:
       - '#underground'
       - '#hidden'
@@ -1246,7 +1250,8 @@ channels:
       page_id_env: RELICUSA_FB_PAGE_ID
       page_token_env: RELICUSA_FB_PAGE_TOKEN
     branding:
-      niche: abandoned America — ghost towns, closed malls, lost highways and why they emptied.
+      niche: abandoned America — ghost towns, closed malls, lost highways and why
+        they emptied.
       hashtags:
       - '#abandoned'
       - '#ghosttown'
@@ -1275,7 +1280,8 @@ channels:
       page_id_env: FIRSTUSA_FB_PAGE_ID
       page_token_env: FIRSTUSA_FB_PAGE_TOKEN
     branding:
-      niche: America's firsts — the first flight, first skyscraper, first transplant, and the moment each happened.
+      niche: America's firsts — the first flight, first skyscraper, first transplant,
+        and the moment each happened.
       hashtags:
       - '#history'
       - '#firsts'
@@ -1333,7 +1339,8 @@ channels:
       page_id_env: PRICEDUSA_FB_PAGE_ID
       page_token_env: PRICEDUSA_FB_PAGE_TOKEN
     branding:
-      niche: the anatomy of everyday American prices — where each dollar of a latte, sneaker or ticket actually goes.
+      niche: the anatomy of everyday American prices — where each dollar of a latte,
+        sneaker or ticket actually goes.
       hashtags:
       - '#prices'
       - '#economics'
@@ -1362,7 +1369,8 @@ channels:
       page_id_env: HAULUSA_FB_PAGE_ID
       page_token_env: HAULUSA_FB_PAGE_TOKEN
     branding:
-      niche: how stuff moves across America — ports, rail, trucking, overnight shipping, cold chains.
+      niche: how stuff moves across America — ports, rail, trucking, overnight shipping,
+        cold chains.
       hashtags:
       - '#logistics'
       - '#shipping'
@@ -1391,7 +1399,8 @@ channels:
       page_id_env: FAKEUSA_FB_PAGE_ID
       page_token_env: FAKEUSA_FB_PAGE_TOKEN
     branding:
-      niche: counterfeits and consumer scams in America, exposed with official data (FTC, CBP).
+      niche: counterfeits and consumer scams in America, exposed with official data
+        (FTC, CBP).
       hashtags:
       - '#scam'
       - '#counterfeit'
@@ -1420,7 +1429,8 @@ channels:
       page_id_env: FARMUSA_FB_PAGE_ID
       page_token_env: FARMUSA_FB_PAGE_TOKEN
     branding:
-      niche: where American food really comes from — farms, harvests, feedlots and the scale behind them (USDA data).
+      niche: where American food really comes from — farms, harvests, feedlots and
+        the scale behind them (USDA data).
       hashtags:
       - '#farming'
       - '#agriculture'
@@ -1449,7 +1459,8 @@ channels:
       page_id_env: DEBTUSA_FB_PAGE_ID
       page_token_env: DEBTUSA_FB_PAGE_TOKEN
     branding:
-      niche: real US education costs and student debt (Dept of Education, College Scorecard, Fed data)
+      niche: real US education costs and student debt (Dept of Education, College
+        Scorecard, Fed data)
       hashtags:
       - '#studentdebt'
       - '#college'
@@ -1507,11 +1518,72 @@ channels:
       page_id_env: VOXUSA_FB_PAGE_ID
       page_token_env: VOXUSA_FB_PAGE_TOKEN
     branding:
-      niche: what Americans really say & believe — polls and surveys visualized (Pew, Gallup)
+      niche: what Americans really say & believe — polls and surveys visualized (Pew,
+        Gallup)
       hashtags:
       - '#polls'
       - '#america'
       - '#data'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  BALDBANDIT:
+    display_name: BALD & BANDIT
+    enabled: true
+    drive_folder_id_env: BALDBANDIT_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: BALDBANDIT_YT_CLIENT_ID
+      client_secret_env: BALDBANDIT_YT_CLIENT_SECRET
+      refresh_token_env: BALDBANDIT_YT_REFRESH_TOKEN
+      category_id: '28'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: BALDBANDIT_FB_PAGE_ID
+      page_token_env: BALDBANDIT_FB_PAGE_TOKEN
+    branding:
+      niche: how iconic American products are actually made — factories, processes,
+        materials.
+      hashtags:
+      - '#madeinusa'
+      - '#manufacturing'
+      - '#howitsmade'
+      long_title_template: '{topic}'
+      short_title_template: '{topic} #shorts'
+      cta: '🔔 Subscribe for more.
+
+        '
+      disclaimer: Data for educational purposes. Sources shown in video.
+  HANKTOWN:
+    display_name: HANKTOWN
+    enabled: true
+    drive_folder_id_env: HANKTOWN_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: HANKTOWN_YT_CLIENT_ID
+      client_secret_env: HANKTOWN_YT_CLIENT_SECRET
+      refresh_token_env: HANKTOWN_YT_REFRESH_TOKEN
+      category_id: '28'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: HANKTOWN_FB_PAGE_ID
+      page_token_env: HANKTOWN_FB_PAGE_TOKEN
+    branding:
+      niche: how iconic American products are actually made — factories, processes,
+        materials.
+      hashtags:
+      - '#madeinusa'
+      - '#manufacturing'
+      - '#howitsmade'
       long_title_template: '{topic}'
       short_title_template: '{topic} #shorts'
       cta: '🔔 Subscribe for more.
