@@ -1574,30 +1574,3 @@ channels:
       short_title_template: '{topic} #shorts'
       cta: ''
       disclaimer: ''
-  RANKRUSH:
-    display_name: RANK RUSH
-    enabled: true
-    drive_folder_id_env: RANKRUSH_DRIVE_FOLDER_ID
-    youtube:
-      enabled: true
-      client_id_env: RANKRUSH_YT_CLIENT_ID
-      client_secret_env: RANKRUSH_YT_CLIENT_SECRET
-      refresh_token_env: RANKRUSH_YT_REFRESH_TOKEN
-      category_id: '27'
-      default_language: en
-      made_for_kids: false
-      privacy: public
-    facebook:
-      enabled: false
-      page_id_env: RANKRUSH_FB_PAGE_ID
-      page_token_env: RANKRUSH_FB_PAGE_TOKEN
-    branding:
-      niche: bar chart races & animated rankings across money, nations, tech, sports, culture
-      hashtags:
-      - '#rankrush'
-      - '#barchartrace'
-      - '#rankings'
-      long_title_template: '{topic}'
-      short_title_template: '{topic} #shorts'
-      cta: ''
-      disclaimer: ''
