@@ -747,7 +747,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 01:41 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 06:35 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -1665,7 +1665,7 @@
       // FIX: cap 300 video MỚI NHẤT (đủ dùng cho gallery/theo dõi thực tế), fallback nếu thiếu index.
       const _vidsCb = s => { window.setData(s.docs.map(d=>({id:d.id,...d.data()})), null, null); setLive(true);
         const m={}; s.docs.forEach(d=>{ m[d.id]=d.data(); }); window.__pubByDrive=m; window.__rsRenderGallery&&window.__rsRenderGallery(); };
-      onSnapshot(query(collection(_appFor("videos"),"videos"), where("owner","==",(window.__ownerUid||window.__uid)), orderBy("updated_at","desc"), limit(300)), _vidsCb,
+      onSnapshot(query(collection(_appFor("videos"),"videos"), where("owner","==",(window.__ownerUid||window.__uid)), orderBy("updated_at","desc"), limit(200)), _vidsCb,
         () => { onSnapshot(query(collection(_appFor("videos"),"videos"), where("owner","==",(window.__ownerUid||window.__uid))), _vidsCb, () => setLive(false)); });  // thiếu index -> lùi về không giới hạn (an toàn, hiếm khi cần)
       // channels (stats/health) ĐỔI SANG load-once + tự refresh khi quay lại tab — đổi chậm (stats.yml 6h/lần),
       // realtime không cần thiết, giống storage_accounts (giảm đọc Firestore A).
@@ -2158,10 +2158,11 @@
       // render_jobs của owner (hàng nghìn bản ghi) và giữ mở suốt thời gian dashboard bật ->
       // đốt hạn mức ĐỌC âm thầm. limit(300) không cần index nên vẫn chạy được khi thiếu index,
       // mà chi phí bị chặn cứng.
-      onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(300)), s=>{ __jA=_mapJ(s); _mergeJobs(); },
-                 ()=>{ onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o), limit(300)), s=>{__jA=_mapJ(s);_mergeJobs();}, ()=>{}); });
-      if(dbJobs!==db) onSnapshot(query(collection(dbJobs,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(300)), s=>{ __jB=_mapJ(s); _mergeJobs(); },
-                 ()=>{ onSnapshot(query(collection(dbJobs,"render_jobs"), where("owner","==",o), limit(300)), s=>{__jB=_mapJ(s);_mergeJobs();}, ()=>{}); });
+      /* A-side render_jobs ĐÔNG CỨNG từ 19/8 (job mới toàn ở B) -> 100 bản cũ nhất-gần-đây là đủ hiển thị, đỡ 200 đọc/lần mở */
+      onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(100)), s=>{ __jA=_mapJ(s); _mergeJobs(); },
+                 ()=>{ onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o), limit(100)), s=>{__jA=_mapJ(s);_mergeJobs();}, ()=>{}); });
+      if(dbJobs!==db) onSnapshot(query(collection(dbJobs,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(200)), s=>{ __jB=_mapJ(s); _mergeJobs(); },
+                 ()=>{ onSnapshot(query(collection(dbJobs,"render_jobs"), where("owner","==",o), limit(200)), s=>{__jB=_mapJ(s);_mergeJobs();}, ()=>{}); });
       // Dữ liệu ĐĂNG (collection 'videos' keyed theo drive_id) -> chia trạng thái đã đăng/chưa/nền tảng.
       /* listener videos thứ 2 ĐÃ GỘP vào sub("videos") ở trên -> khỏi đọc collection videos 2 lần (tiết kiệm Firestore) */
       // ĐẾM tổng tài nguyên (Drive lưu trữ / YouTube / Facebook) — 19/8: PHÁT HIỆN lặp lại đúng lỗi đã fix
