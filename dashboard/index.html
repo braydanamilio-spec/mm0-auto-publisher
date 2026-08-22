@@ -2151,7 +2151,7 @@
           const base=(dbJobs!==db)?dbJobs:db;
           const tot=(await getCountFromServer(query(collection(base,"render_jobs"),where("owner","==",o),where("status","==","done")))).data().count;
           window.__cntCache=tot; if(sd) sd.textContent=tot;
-        }catch(e){} })();
+        }catch(e){ window.__cntAt=0; } })();   // 23/8: lỗi đếm (429 nhịp) thì MỞ KHOÁ ngay để lần render kế thử lại — trước đây kẹt 5' số cũ/thiếu
         if(sf){ sf.textContent=activeFails.length; sf.title=oldFails?`${oldFails} lỗi cũ đã khắc phục (không tính)`:""; }
         const today=new Date().toISOString().slice(0,10);
         const stt=document.getElementById("rsSumToday"); if(stt) stt.textContent=all.filter(j=>j.status==="done"&&(j.created_at||"").slice(0,10)===today).length;
