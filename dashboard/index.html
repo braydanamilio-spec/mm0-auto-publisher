@@ -747,7 +747,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 12:08 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 12:26 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -2621,7 +2621,11 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
             <button class="d" onclick="window.rsDeleteGroup('${view}','${esc(String(g).replace(/'/g,''))}')" style="background:none;border:1px solid #ff5a5a44;color:#ff8080;border-radius:6px;padding:2px 9px;font-size:11px;cursor:pointer" title="Xóa tất cả video của nhóm này (dọn bản cũ/lỗi)">🗑 Xóa nhóm</button></div>
           ${grp("🎬","Long 16:9",longs)}${grp("📱","Short 9:16",shorts)}</div>`;
       }).join("");
-      window.__collapseList&&window.__collapseList(hostId,150);   // thu gọn kho tổng còn ~1 nhóm, có "Xem thêm"
+      // ĐANG LỌC (ngày/kênh/tìm kiếm) -> hiện TOÀN BỘ kết quả lọc; không lọc mới thu gọn 150.
+      // (22/8: lọc chạy đúng nhưng màn hình luôn cắt còn 40 video MỚI NHẤT — mà video hôm nay chính
+      // là mới nhất nên đổi bộ lọc nhìn y hệt -> user tưởng "lọc không hoạt động".)
+      const _filtering=!!(dv||q||chF||view!=="channel");
+      window.__collapseList&&window.__collapseList(hostId, _filtering?5000:150);
     }
     // DEBOUNCE + chỉ render gallery ĐANG HIỆN (tránh treo trang khi job cập nhật dồn dập).
     let _galT=null;
