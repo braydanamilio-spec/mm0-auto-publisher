@@ -747,7 +747,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 08:20 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 08:33 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -2735,6 +2735,17 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       VERSUSUSA:{d:"VERSUS USA",a:"#B91C1C",t:"Two things. One winner. Real numbers.",h:"@versususahq",ic:"⚔️",ht:"#versus #compare #usa #data",niche:"real USA head-to-head comparisons, real numbers, a clear winner"},
       FILEUSA:{d:"FILE USA",a:"#78716C",t:"The file America forgot.",h:"@fileusahq",ic:"🗂️",ht:"#declassified #history #usa #files",niche:"real US historical & government case files (declassified-reveal style)"},
       VOXUSA:{d:"VOX USA",a:"#D97706",t:"Meet the face behind the facts.",h:"@voxusahq",ic:"🦊",ht:"#facts #host #usa #daily",niche:"real USA facts across any topic, told by a consistent recurring host"},
+    ,
+      MADEUSA:{d:"MADE USA",a:"#E76F51",t:"How America makes it.",h:"@madeusa",ic:"🏭",ht:"#madeinusa #manufacturing #howitsmade",niche:"how iconic American products are actually made — factories, processes, materials."},
+      BUILTUSA:{d:"BUILT USA",a:"#457B9D",t:"Engineering, at American scale.",h:"@builtusa",ic:"🏗️",ht:"#engineering #megastructures #construction",niche:"American megastructures & engineering marvels — bridges, dams, tunnels, stadiums."},
+      UNDERUSA:{d:"UNDER USA",a:"#5E548E",t:"America, underneath.",h:"@underusa",ic:"🕳️",ht:"#underground #hidden #usa",niche:"what lies beneath America — tunnels, caves, pipelines, subways, bunkers (publicly documented only)."},
+      RELICUSA:{d:"RELIC USA",a:"#8D6A4F",t:"What America left behind.",h:"@relicusa",ic:"🏚️",ht:"#abandoned #ghosttown #history",niche:"abandoned America — ghost towns, closed malls, lost highways and why they emptied."},
+      FIRSTUSA:{d:"FIRST USA",a:"#B22234",t:"The moment it began.",h:"@firstusa",ic:"🥇",ht:"#history #firsts #america",niche:"America's firsts — the first flight, first skyscraper, first transplant, and the moment each happened."},
+      BRANDEDUSA:{d:"BRANDED USA",a:"#111827",t:"The story behind the logo.",h:"@brandedusa",ic:"🏷️",ht:"#brands #logo #business",niche:"origin stories and hidden details of famous American brands and logos."},
+      PRICEDUSA:{d:"PRICED USA",a:"#0F766E",t:"Where your dollar goes.",h:"@pricedusa",ic:"💲",ht:"#prices #economics #money",niche:"the anatomy of everyday American prices — where each dollar of a latte, sneaker or ticket actually goes."},
+      HAULUSA:{d:"HAUL USA",a:"#CA8A04",t:"America in motion.",h:"@haulusa",ic:"🚛",ht:"#logistics #shipping #supplychain",niche:"how stuff moves across America — ports, rail, trucking, overnight shipping, cold chains."},
+      FAKEUSA:{d:"FAKE USA",a:"#DC2626",t:"Spot the fake.",h:"@fakeusa",ic:"🎭",ht:"#scam #counterfeit #consumer",niche:"counterfeits and consumer scams in America, exposed with official data (FTC, CBP)."},
+      FARMUSA:{d:"FARM USA",a:"#65A30D",t:"From soil to shelf.",h:"@farmusa",ic:"🌾",ht:"#farming #agriculture #food",niche:"where American food really comes from — farms, harvests, feedlots and the scale behind them (USDA data)."}
     };
     const _dark="#0b1020";
     function rsBrandSvg(k,W,H,kind){ const b=RS_BRANDS[k]; if(!b) return ""; const s=Math.min(W,H);
@@ -2845,7 +2856,7 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
     window.__rsBrandInit=(selId,hostId)=>{ const sel=document.getElementById(selId); if(!sel) return;
       if(!sel.__init){ sel.__init=1; sel.innerHTML=Object.keys(RS_BRANDS).map((k,i)=>`<option value="${k}">${String(i+1).padStart(2,"0")}. ${esc(RS_BRANDS[k].d)}</option>`).join(""); sel.onchange=()=>window.rsRenderBrand(hostId,selId); try{window.rsSelectWithAvatars(sel);}catch(_){} }
       window.rsRenderBrand(hostId,selId); };
-    RS_BRANDS.DATARACE.cat="27";RS_BRANDS.STATEWARS.cat="27";RS_BRANDS.MONEYMOVES.cat="27";RS_BRANDS.POWERPLAY.cat="28";RS_BRANDS.GRIDIRON.cat="17";RS_BRANDS.SCREENKINGS.cat="24";RS_BRANDS.PAYCHECK.cat="27";RS_BRANDS.BODYUSA.cat="27";RS_BRANDS.RIDEUSA.cat="2";RS_BRANDS.EATSUSA.cat="26";
+    RS_BRANDS.DATARACE.cat="27";RS_BRANDS.MADEUSA.cat="28";RS_BRANDS.BUILTUSA.cat="28";RS_BRANDS.UNDERUSA.cat="27";RS_BRANDS.RELICUSA.cat="27";RS_BRANDS.FIRSTUSA.cat="27";RS_BRANDS.BRANDEDUSA.cat="27";RS_BRANDS.PRICEDUSA.cat="27";RS_BRANDS.HAULUSA.cat="28";RS_BRANDS.FAKEUSA.cat="27";RS_BRANDS.FARMUSA.cat="27";RS_BRANDS.STATEWARS.cat="27";RS_BRANDS.MONEYMOVES.cat="27";RS_BRANDS.POWERPLAY.cat="28";RS_BRANDS.GRIDIRON.cat="17";RS_BRANDS.SCREENKINGS.cat="24";RS_BRANDS.PAYCHECK.cat="27";RS_BRANDS.BODYUSA.cat="27";RS_BRANDS.RIDEUSA.cat="2";RS_BRANDS.EATSUSA.cat="26";
     RS_BRANDS.GUESSUSA.cat="24";RS_BRANDS.MAPPEDUSA.cat="27";RS_BRANDS.RANKEDUSA.cat="24";RS_BRANDS.SCALEDUSA.cat="28";RS_BRANDS.THENNOWUSA.cat="27";RS_BRANDS.COSMOS.cat="28";RS_BRANDS.THEDEEP.cat="28";RS_BRANDS.WHYUSA.cat="28";RS_BRANDS.EMPIREUSA.cat="27";RS_BRANDS.UNSOLVED.cat="27";
     RS_BRANDS.GRIDUSA.cat="28";RS_BRANDS.RULEDUSA.cat="27";RS_BRANDS.VAULTUSA.cat="27";RS_BRANDS.LEDGERUSA.cat="27";RS_BRANDS.SIGNALUSA.cat="28";RS_BRANDS.MARGINUSA.cat="28";
     RS_BRANDS.SWARMUSA.cat="28";RS_BRANDS.PULSEUSA.cat="28";RS_BRANDS.CLOCKWORKUSA.cat="28";RS_BRANDS.LONGSHOTUSA.cat="27";

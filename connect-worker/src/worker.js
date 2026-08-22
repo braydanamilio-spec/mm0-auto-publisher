@@ -1540,7 +1540,17 @@ async function apiCfAccounts(request) {
     headers: { Authorization: "Bearer " + tok } });
   const j = await r.json().catch(() => ({}));
   const acc = ((j || {}).result || [])[0] || {};
-  // Không tra được account -> verify token để phân biệt "token sai" vs "token sống nhưng thiếu quyền"
+  // /accounts trả RỖNG dù token sống (CF lọc im lặng khi token thiếu quyền đọc account — bẫy!)
+  // -> THỬ account nhà (nơi worker này đang chạy): token dùng được ở đó thì lấy luôn id đó.
+  if (!acc.id) {
+    const home = "bef1f9158d2eb75d29527778f5c59bf1";   // Account ID của account Cloudflare chính (adisondurham)
+    try {
+      const p = await fetch(`https://api.cloudflare.com/client/v4/accounts/${home}/ai/models/search?per_page=1`,
+        { headers: { Authorization: "Bearer " + tok } });
+      if (p.ok) { acc.id = home; acc.name = "home"; }
+    } catch (e) {}
+  }
+  // Vẫn không ra -> verify token để phân biệt "token sai" vs "token sống nhưng thiếu quyền"
   let verify = "";
   if (!acc.id) {
     try {
