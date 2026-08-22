@@ -747,7 +747,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 10:58 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 11:05 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -2110,7 +2110,13 @@
       window.__loadTrendScout();
       onSnapshot(q("render_channels"), s=>{
         window.__rsChannelsData = s.docs.map(d=>({id:d.id,...d.data()})); window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderChList&&window.__rsRenderChList(); }, ()=>{});
-      const _jobsCb=(s)=>{ const el=document.getElementById("rsJobs"); const bd=document.getElementById("nvRender");
+      // DEBOUNCE 15s (22/8): phiên render 18 luồng đẩy cập nhật dồn dập -> màn hình "nhảy liên tục"
+      // gây cảm giác tốn kém. Lượt ĐỌC không đổi (listener realtime chỉ tính doc THAY ĐỔI — chế độ rẻ
+      // nhất); đây là gom các đợt vẽ UI lại còn tối đa 1 lần/15s cho êm mắt + nhẹ CPU tab.
+      const _jobsCb=(snap)=>{ window.__jcbPend=snap; const now=Date.now();
+        if(now-(window.__jcbAt||0)<15000){ clearTimeout(window.__jcbT); window.__jcbT=setTimeout(()=>{__jobsCbRun(window.__jcbPend)},15200-(now-window.__jcbAt)); return; }
+        __jobsCbRun(snap); };
+      const __jobsCbRun=(s)=>{ window.__jcbAt=Date.now(); const el=document.getElementById("rsJobs"); const bd=document.getElementById("nvRender");
         const ds=s.docs.sort((a,b)=>(b.data().created_at||"").localeCompare(a.data().created_at||"")).slice(0,20);
         const all=s.docs.map(d=>({id:d.id,...d.data()})); window.__rsJobsData = all; window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderGallery&&window.__rsRenderGallery(); window.__rsRenderChList&&window.__rsRenderChList(); window.__rsPipeState&&window.__rsPipeState();
         // TỰ DỌN job MA (orphan): active nhưng quá 6h (> timeout workflow 350') -> tiến trình đã chết -> đánh dấu failed (rồi bị dọn nếu có bản mới).
