@@ -76,3 +76,14 @@
 - **2026-08-15 (phiên 6+)**: Đã thêm & deploy: **Cloudflare Worker** kết nối OAuth (nút Kết nối YouTube/Drive trên dashboard → token lưu Firestore); **chế độ Duyệt** trước khi đăng; **giao diện EN/VI** (mặc định EN); **playlist** tự tạo; **chọn template per-kênh** trên dashboard; **dọn dẹp linh động** chỉnh trên dashboard (mode/keep_days → Firestore, cleanup đọc); **thống kê Long/Short** theo kênh; logo/favicon SVG. Secret pipeline GitHub đã nạp. CÒN LẠI: branding kênh qua API + quản lý comment/like (đang xếp hàng). Chi tiết Worker: connect-worker/README.md.
 
 - **2026-08-15**: Dựng xong toàn bộ code + docs; tạo repo + Firebase project; đẩy code lên. Chờ người dùng chạy SETUP.md để đưa vào vận hành.
+
+## HIỆN TRẠNG 22/8/2026 (bản bàn giao mới nhất — đọc file này + render-pipeline/PIPELINE_RULES.md mục 4d/7 trước khi làm tiếp)
+- **53 kênh** (Wave 8 đã seed + vào matrix). Chuẩn: 1 long (3 phần) : 3 short bám nội dung long; mở đầu hook footage thật, cắt 2-3s, không intro/outro; 3 cổng QC + canary; thumbnail khung hook, gắn qua API cả YouTube lẫn Facebook.
+- **3 nhà cung cấp AI, phân vai theo thế mạnh** (tất cả chung collection gemini_keys, tự nhận diện theo đầu chuỗi khi add trên dashboard):
+  · ⚡ Groq (gsk_) — VIẾT chính, model openai/gpt-oss-120b, tự-dò model sống khi 404
+  · ⛅ Cloudflare (cf:acc:token, dán token cfut_ là tự tra Account ID qua worker /api/cf-accounts) — VẼ ẢNH FLUX trước Gemini + vision fallback + viết chót bảng
+  · ◆ Gemini (AIza) — VISION (độc quyền) + vẽ ảnh dự phòng; 20 req/key/ngày, reset 07:00Z
+- **Firestore 3 project đều SPARK FREE** (nút nâng Blaze của user bị lỗi "báo thành công nhưng không ăn"). Chống chết + tiết kiệm: đọc-mềm (_RQ_DEAD) + ghi-mềm (_WQ_DEAD) + snapshot key 1-doc (__snap__) + sổ đếm gộp (__req__) + hãm update_job 10' + nhịp tim 15'. Đo thật: ~33 đọc + ~12 ghi/luồng.
+- **Chất lượng đề tài**: đấu loại 3 phương án pillar + giám khảo (log 🏆) khi viết bằng Groq/CF.
+- **Đang chờ xác nhận** (phiên đầu sau hotfix 173c0d5 lúc 07:23Z): Groq viết thành công end-to-end + video mới vào hàng đợi; 99 lỗi hiển thị trên dashboard đều thuộc phiên 07:07Z TRƯỚC hotfix (TypeError system_instruction — đã vá cả 2 shim).
+- Repo render: braydanamilio-spec/mq-vx-lab (bản workflow THẬT chạy cron nằm ở đây). Worker: mm0-connect (wrangler deploy trong connect-worker/).
