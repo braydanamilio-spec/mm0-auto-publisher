@@ -747,7 +747,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 11:05 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 11:35 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -2144,9 +2144,10 @@
         // count() phía server = 1 lượt đọc/kho, chính xác tuyệt đối, làm mới tối đa 1 lần/5 phút.
         (async()=>{ try{ const now=Date.now(); if(now-(window.__cntAt||0)<300000) {const c=window.__cntCache; if(c&&sd){sd.textContent=c;} return;}
           window.__cntAt=now; const o=(window.__ownerUid||window.__uid);
-          const qs=[query(collection(db,"render_jobs"),where("owner","==",o),where("status","==","done"))];
-          if(dbJobs!==db) qs.push(query(collection(dbJobs,"render_jobs"),where("owner","==",o),where("status","==","done")));
-          let tot=0; for(const q of qs){ tot += (await getCountFromServer(q)).data().count; }
+          // CHỈ đếm kho B khi đã shard: đợt chia kho 19/8 SAO CHÉP job cũ A->B, đếm cả 2 là TÍNH TRÙNG
+          // (22/8: hiện 1397 trong khi thật ~750 — user tưởng số ảo). B là tập đủ (job mới chỉ ghi B).
+          const base=(dbJobs!==db)?dbJobs:db;
+          const tot=(await getCountFromServer(query(collection(base,"render_jobs"),where("owner","==",o),where("status","==","done")))).data().count;
           window.__cntCache=tot; if(sd) sd.textContent=tot;
         }catch(e){} })();
         if(sf){ sf.textContent=activeFails.length; sf.title=oldFails?`${oldFails} lỗi cũ đã khắc phục (không tính)`:""; }
