@@ -747,7 +747,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 08:05 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 08:08 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -1733,7 +1733,7 @@
       document.getElementById("liveTx").textContent = ok
         ? T("synced")+" "+new Date().toLocaleTimeString() : "⚠ rules";
     }
-    const toastMsg = (m) => { const t=document.getElementById("toast"); if(t){t.textContent=m; t.style.opacity="1"; setTimeout(()=>t.style.opacity="0",2600);} };
+    const toastMsg = (m, ms) => { const t=document.getElementById("toast"); if(t){t.textContent=m; t.style.opacity="1"; setTimeout(()=>t.style.opacity="0", ms||2600);} };
     window.toastMsg = toastMsg;   // để script classic (gỡ kết nối, editor…) gọi được
     const ovDoc = () => doc(db,"settings","overrides__"+(window.__ownerUid||window.__uid));
     window.saveOverride = async (channel, tmpl) => {
