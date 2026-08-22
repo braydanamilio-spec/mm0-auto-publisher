@@ -793,37 +793,5 @@
     "motif": "wave",
     "layout": "center",
     "tagline": "America, in its own words."
-  },
-  "BEYOND": {
-    "display": "BEYOND",
-    "niche": "cinematic deep-time & far-future science (universe, Earth, humanity)",
-    "hashtags": [
-      "#beyond",
-      "#universe",
-      "#space"
-    ],
-    "category": "28",
-    "accent": "#7C9EFF",
-    "tagline": "Zoom out. See the bigger picture.",
-    "handle": "@beyondhq",
-    "motif": "cosmos",
-    "layout": "center",
-    "imported": true
-  },
-  "LEGACY": {
-    "display": "LEGACY",
-    "niche": "cinematic biographies of history's greatest people",
-    "hashtags": [
-      "#legacy",
-      "#history",
-      "#biography"
-    ],
-    "category": "27",
-    "accent": "#C9A227",
-    "tagline": "How greatness was made.",
-    "handle": "@legacyhq",
-    "motif": "portrait",
-    "layout": "center",
-    "imported": true
   }
 }
