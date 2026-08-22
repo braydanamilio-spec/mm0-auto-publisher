@@ -747,7 +747,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 07:05 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 07:40 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -1812,7 +1812,16 @@
       if(!em) return alert("Nhập Gmail đã tạo key (để quản lý key theo tài khoản).");
       // Cloudflare Workers AI: dán "ACCOUNT_ID:API_TOKEN" (32 hex + ":" + token) -> lưu "cf:acc:token"
       const isCf = /^[0-9a-f]{32}:\S{20,}$/i.test(v) || v.startsWith("cf:");
-      const kv = isCf && !v.startsWith("cf:") ? "cf:"+v : v;
+      let kv = isCf && !v.startsWith("cf:") ? "cf:"+v : v;
+      // Dán MỖI token trần (không AIza/gsk_/không có ":") -> 99% là token Cloudflare thiếu Account ID: hỏi luôn
+      if(!isCf && !v.startsWith("AIza") && !v.startsWith("gsk_")){
+        const acc=prompt("Key này không phải Gemini (AIza…) hay Groq (gsk_…).\nNếu là token CLOUDFLARE: dán ACCOUNT ID (32 ký tự, trang chủ dash.cloudflare.com, cột phải) để ghép tự động.\nBấm Cancel nếu đây là loại key khác.");
+        if(acc===null){} else {
+          const a=acc.trim().toLowerCase();
+          if(/^[0-9a-f]{32}$/.test(a)) kv="cf:"+a+":"+v;
+          else return alert("Account ID không hợp lệ (phải đúng 32 ký tự hex). Key CHƯA được thêm — thử lại nha.");
+        }
+      }
       try { await addDoc(collection(db,"gemini_keys"), {owner:RSowner(), key:kv, last4:kv.slice(-4),
         email:em, source:"manual", provider:(kv.startsWith("gsk_")?"groq":kv.startsWith("cf:")?"cloudflare":"gemini"), created_at:new Date().toISOString()});
         document.getElementById("rsKeyManual").value=""; document.getElementById("rsKeyEmail").value="";
