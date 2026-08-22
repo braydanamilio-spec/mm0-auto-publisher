@@ -748,7 +748,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 14:05 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 13:35 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -2846,6 +2846,13 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       try{ navigator.clipboard.writeText(txt); }catch(_){}; try{toastMsg("📋 Đã copy "+(what==="desc"?"mô tả":what==="tags"?"keywords":"hashtags"));}catch(_){}; };
     window.rsRenderBrand=(hostId,selId)=>{ const host=document.getElementById(hostId); if(!host) return;
       const k=((document.getElementById(selId)||{}).value)||"DATARACE"; const b=RS_BRANDS[k]; if(!b) return;
+      // KÊNH CÓ ART NHÂN VẬT THẬT (vẽ FLUX, file host tại /brand/) -> hiện ảnh thật thay SVG chữ+emoji
+      if(b.art){ host.innerHTML=`<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+        <div><div class="d" style="margin-bottom:4px">👤 Profile / Avatar (nhân vật thật)</div><img src="${b.art.avatar}" style="width:130px;height:130px;border-radius:16px;border:2px solid ${b.a};object-fit:cover"/><div style="margin-top:6px"><a class="btn-mini" style="text-decoration:none" href="${b.art.avatar}" download>⬇ Avatar 800×800</a></div></div>
+        <div style="flex:1;min-width:260px"><div class="d" style="margin-bottom:4px">🖼️ Cover / Banner (nhân vật thật)</div><img src="${b.art.cover}" style="width:100%;max-width:420px;border-radius:12px;border:1px solid #ffffff22"/>
+          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><a class="btn-mini" style="text-decoration:none" href="${b.art.cover}" download>⬇ Cover 2560×1440 (YouTube)</a></div>
+          <div style="margin-top:10px"><b style="color:${b.a}">${esc(b.d)}</b> · ${esc(b.h)} · <span class="d">${esc(b.t)}</span></div>
+          <div class="d" style="margin-top:6px">${esc(b.niche)}</div></div></div>`; return; }
       const av=rsBrandSvg(k,800,800,"avatar"), cov=rsBrandSvg(k,1640,624,"cover");
       const embed=svg=>"data:image/svg+xml;utf8,"+encodeURIComponent(svg);
       host.innerHTML=`<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
@@ -2934,7 +2941,7 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
     window.__rsBrandInit=(selId,hostId)=>{ const sel=document.getElementById(selId); if(!sel) return;
       if(!sel.__init){ sel.__init=1; sel.innerHTML=Object.keys(RS_BRANDS).map((k,i)=>`<option value="${k}">${String(i+1).padStart(2,"0")}. ${esc(RS_BRANDS[k].d)}</option>`).join(""); sel.onchange=()=>window.rsRenderBrand(hostId,selId); try{window.rsSelectWithAvatars(sel);}catch(_){} }
       window.rsRenderBrand(hostId,selId); };
-    RS_BRANDS.DATARACE.cat="27";RS_BRANDS.BALDBANDIT.cat="23";RS_BRANDS.HANKTOWN.cat="23";RS_BRANDS.MADEUSA.cat="28";RS_BRANDS.BUILTUSA.cat="28";RS_BRANDS.UNDERUSA.cat="27";RS_BRANDS.RELICUSA.cat="27";RS_BRANDS.FIRSTUSA.cat="27";RS_BRANDS.BRANDEDUSA.cat="27";RS_BRANDS.PRICEDUSA.cat="27";RS_BRANDS.HAULUSA.cat="28";RS_BRANDS.FAKEUSA.cat="27";RS_BRANDS.FARMUSA.cat="27";RS_BRANDS.STATEWARS.cat="27";RS_BRANDS.MONEYMOVES.cat="27";RS_BRANDS.POWERPLAY.cat="28";RS_BRANDS.GRIDIRON.cat="17";RS_BRANDS.SCREENKINGS.cat="24";RS_BRANDS.PAYCHECK.cat="27";RS_BRANDS.BODYUSA.cat="27";RS_BRANDS.RIDEUSA.cat="2";RS_BRANDS.EATSUSA.cat="26";
+    RS_BRANDS.DATARACE.cat="27";RS_BRANDS.BALDBANDIT.cat="23";RS_BRANDS.HANKTOWN.cat="23";RS_BRANDS.BALDBANDIT.art={avatar:"/brand/BALDBANDIT_avatar_800.jpg",cover:"/brand/BALDBANDIT_cover_2560x1440.jpg"};RS_BRANDS.HANKTOWN.art={avatar:"/brand/HANKTOWN_avatar_800.jpg",cover:"/brand/HANKTOWN_cover_2560x1440.jpg"};RS_BRANDS.MADEUSA.cat="28";RS_BRANDS.BUILTUSA.cat="28";RS_BRANDS.UNDERUSA.cat="27";RS_BRANDS.RELICUSA.cat="27";RS_BRANDS.FIRSTUSA.cat="27";RS_BRANDS.BRANDEDUSA.cat="27";RS_BRANDS.PRICEDUSA.cat="27";RS_BRANDS.HAULUSA.cat="28";RS_BRANDS.FAKEUSA.cat="27";RS_BRANDS.FARMUSA.cat="27";RS_BRANDS.STATEWARS.cat="27";RS_BRANDS.MONEYMOVES.cat="27";RS_BRANDS.POWERPLAY.cat="28";RS_BRANDS.GRIDIRON.cat="17";RS_BRANDS.SCREENKINGS.cat="24";RS_BRANDS.PAYCHECK.cat="27";RS_BRANDS.BODYUSA.cat="27";RS_BRANDS.RIDEUSA.cat="2";RS_BRANDS.EATSUSA.cat="26";
     RS_BRANDS.GUESSUSA.cat="24";RS_BRANDS.MAPPEDUSA.cat="27";RS_BRANDS.RANKEDUSA.cat="24";RS_BRANDS.SCALEDUSA.cat="28";RS_BRANDS.THENNOWUSA.cat="27";RS_BRANDS.COSMOS.cat="28";RS_BRANDS.THEDEEP.cat="28";RS_BRANDS.WHYUSA.cat="28";RS_BRANDS.EMPIREUSA.cat="27";RS_BRANDS.UNSOLVED.cat="27";
     RS_BRANDS.GRIDUSA.cat="28";RS_BRANDS.RULEDUSA.cat="27";RS_BRANDS.VAULTUSA.cat="27";RS_BRANDS.LEDGERUSA.cat="27";RS_BRANDS.SIGNALUSA.cat="28";RS_BRANDS.MARGINUSA.cat="28";
     RS_BRANDS.SWARMUSA.cat="28";RS_BRANDS.PULSEUSA.cat="28";RS_BRANDS.CLOCKWORKUSA.cat="28";RS_BRANDS.LONGSHOTUSA.cat="27";
