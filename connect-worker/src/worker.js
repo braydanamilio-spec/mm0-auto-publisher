@@ -39,6 +39,7 @@ export default {
       if (url.pathname === "/api/drive-has") return corsResp(await apiDriveHas(request, url, env));
       if (url.pathname === "/api/empty-trash") return corsResp(await apiEmptyTrash(request, url, env));
       if (url.pathname === "/api/cf-accounts") return corsResp(await apiCfAccounts(request));
+      if (url.pathname === "/api/cf-flux") return corsResp(await apiCfFlux(request));
       if (url.pathname === "/api/drive-trash") return corsResp(await apiDriveTrash(request, url, env));
       if (url.pathname === "/api/drive-usage") return corsResp(await apiDriveUsage(request, url, env));
       if (url.pathname === "/api/token-check") return corsResp(await apiTokenCheck(request, url, env));
@@ -1561,5 +1562,23 @@ async function apiCfAccounts(request) {
     } catch (e) { verify = "network"; }
   }
   return new Response(JSON.stringify({ ok: r.ok, status: r.status, id: acc.id || "", name: acc.name || "", verify }),
+    { headers: { "content-type": "application/json" } });
+}
+
+
+// ── VẼ THỬ FLUX qua worker (22/8): dashboard/thử-nghiệm gọi với {token, account, prompt, steps}
+// -> trả {image: base64}. Token chỉ đi qua, không lưu.
+async function apiCfFlux(request) {
+  if (request.method !== "POST") return new Response(JSON.stringify({ error: "POST only" }), { status: 405 });
+  let b = {};
+  try { b = await request.json(); } catch (e) {}
+  if (!b.token || !b.account || !b.prompt) return new Response(JSON.stringify({ error: "thiếu token/account/prompt" }), { status: 400 });
+  const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${b.account}/ai/run/@cf/black-forest-labs/flux-1-schnell`, {
+    method: "POST",
+    headers: { Authorization: "Bearer " + b.token, "content-type": "application/json" },
+    body: JSON.stringify({ prompt: String(b.prompt).slice(0, 1800), steps: Math.min(Number(b.steps) || 4, 8) }) });
+  const j = await r.json().catch(() => ({}));
+  return new Response(JSON.stringify({ ok: r.ok, status: r.status,
+    image: (((j || {}).result) || {}).image || "", err: JSON.stringify((j || {}).errors || "").slice(0, 200) }),
     { headers: { "content-type": "application/json" } });
 }
