@@ -825,5 +825,21 @@
     "motif": "portrait",
     "layout": "center",
     "imported": true
+  },
+  "RANKRUSH": {
+    "display": "RANK RUSH",
+    "niche": "bar chart races & animated rankings (money, nations, tech, sports, culture)",
+    "hashtags": [
+      "#rankrush",
+      "#barchartrace",
+      "#rankings"
+    ],
+    "category": "27",
+    "accent": "#22D3EE",
+    "tagline": "Every ranking is a race.",
+    "handle": "@rankrush",
+    "motif": "podium",
+    "layout": "center",
+    "imported": true
   }
 }

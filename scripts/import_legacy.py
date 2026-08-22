@@ -6,8 +6,9 @@ TÁCH RIÊNG khỏi dây chuyền render — chỉ dùng 1 lần (chạy lại a
 Nguồn (folder trong ~/Documents):
   ch5_beyond    -> kênh BEYOND    (long: *-LONG.mp4 + *-LONG.json + _thumb.jpg + .srt; shorts/*.json)
   ch6_legacy    -> kênh LEGACY    (cùng format ch5)
-  ch7_datarace  -> kênh DATARACE  (đã có trong hệ thống; metadata từ *-UPLOAD.txt,
-                                   gồm videos/ + shorts/ toàn cục + compilations/)
+  ch7_datarace  -> kênh RANKRUSH  (KÊNH MỚI, khác kênh DATARACE của hệ thống — user làm riêng máy cũ;
+                                   metadata từ *-UPLOAD.txt, gồm videos/ + shorts/ toàn cục + compilations/;
+                                   tự REBRAND "Data Race"/#datarace -> "Rank Rush"/#rankrush trong title+desc)
 
 Mỗi video -> gọi src/enqueue.enqueue(): dựng sidecar chuẩn (title/desc/hashtags/tags/thumbnail/
 captions) + đẩy lên Drive kho pool `_QUEUE/<long|short>` -> hệ thống tự nhận khi đăng.
@@ -34,7 +35,19 @@ SRC_CANDIDATES = [
     "/Users/khieudinhquyen/Documents",
     "/Users/mrquyenbk/Documents",
 ]
-FOLDERS = {"BEYOND": "ch5_beyond", "LEGACY": "ch6_legacy", "DATARACE": "ch7_datarace"}
+FOLDERS = {"BEYOND": "ch5_beyond", "LEGACY": "ch6_legacy", "RANKRUSH": "ch7_datarace"}
+
+# ch7 làm dưới brand cũ "DATA RACE" -> đổi sang brand mới RANK RUSH (không trùng kênh DATARACE của hệ thống)
+REBRAND = [("DATA RACE", "RANK RUSH"), ("Data Race", "Rank Rush"), ("data race", "rank rush"),
+           ("#datarace", "#rankrush"), ("#DataRace", "#rankrush"), ("@dataracehq", "@rankrush")]
+
+
+def _rebrand(s):
+    if not s:
+        return s
+    for old, new in REBRAND:
+        s = s.replace(old, new)
+    return s
 
 # chỉ nhận hashtag chữ (#beyond, #barchartrace) — KHÔNG bắt "#1" trong tiêu đề/mô tả
 TAG = r"#[A-Za-z_][\w']*"
@@ -130,9 +143,9 @@ def _parse_upload_txt(path: str):
 
 
 def _from_datarace(root: str):
-    """ch7: videos/*/ + compilations/*/ (long) + shorts/ toàn cục + videos/*/shorts/."""
+    """ch7 -> RANKRUSH: videos/*/ + compilations/*/ (long) + shorts/ toàn cục + videos/*/shorts/."""
     items = []
-    ch7 = os.path.join(root, FOLDERS["DATARACE"])
+    ch7 = os.path.join(root, FOLDERS["RANKRUSH"])
     for vdir in sorted(glob.glob(os.path.join(ch7, "videos", "*")) + glob.glob(os.path.join(ch7, "compilations", "*"))):
         if not os.path.isdir(vdir):
             continue
@@ -167,6 +180,13 @@ def _from_datarace(root: str):
             items.append(dict(channel="DATARACE", video=sv, vtype="short", topic=slug,
                               title=sm.get("title"), description=desc or None,
                               hashtags=htags or None, tags=None, thumbnail=None, subtitle=None))
+    # REBRAND tập trung: mọi item ch7 mang key RANKRUSH + thay brand cũ trong chữ
+    for it in items:
+        it["channel"] = "RANKRUSH"
+        it["title"] = _rebrand(it["title"])
+        it["description"] = _rebrand(it["description"])
+        it["hashtags"] = [_rebrand(h) for h in it["hashtags"]] if it["hashtags"] else None
+        it["tags"] = [_rebrand(t) for t in it["tags"]] if it["tags"] else None
     return items
 
 
@@ -178,7 +198,7 @@ def collect(root: str, channels):
             for vdir in sorted(glob.glob(os.path.join(base, "*"))):
                 if os.path.isdir(vdir):
                     items += _from_json_dir(ch, vdir)
-    if "DATARACE" in channels:
+    if "RANKRUSH" in channels:
         items += _from_datarace(root)
     return items
 
@@ -186,7 +206,7 @@ def collect(root: str, channels):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true", help="Chỉ kiểm kê + validate metadata, không upload.")
-    ap.add_argument("--channels", default="BEYOND,LEGACY,DATARACE")
+    ap.add_argument("--channels", default="BEYOND,LEGACY,RANKRUSH")
     ap.add_argument("--limit", type=int, default=0, help="Giới hạn số video (0 = tất cả).")
     ap.add_argument("--start", type=int, default=0, help="Bỏ qua N video đầu (resume).")
     ap.add_argument("--owner", default=OWNER_DEFAULT)
@@ -231,7 +251,7 @@ def main():
         return
 
     from enqueue import enqueue
-    platforms = {"BEYOND": ["youtube"], "LEGACY": ["youtube"], "DATARACE": None}
+    platforms = {"BEYOND": ["youtube"], "LEGACY": ["youtube"], "RANKRUSH": ["youtube"]}
     ok = dup = err = 0
     for i, it in enumerate(items, 1):
         print(f"\n[{i}/{len(items)}] {it['channel']} {it['vtype']} — {os.path.basename(it['video'])}")
