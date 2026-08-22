@@ -747,7 +747,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 11:52 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 12:08 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -2203,6 +2203,13 @@
       window.__jobsCapped=false;
       const _mapJ=s=>{ const m={}; s.docs.forEach(d=>{ m[d.id]={id:d.id,...d.data()}; }); if(s.docs.length>=300) window.__jobsCapped=true; return m; };
       const _mergeJobs=()=>{ const byId={...(window.__jX||{}), ...__jA, ...__jB}; _jobsCb({ docs: Object.values(byId).map(o=>({id:o.id, data:()=>o})) }); };
+      // SỔ THỐNG KÊ 1-DOC render_stats/{owner} (pipeline ghi cuối mỗi luồng): số THẬT long+short
+      // của MỌI kênh với đúng 1 lượt đọc/5' — một nguồn sự thật cho mọi ô số, hết "rối tùm lum".
+      (async function _loadStats(){ try{
+        const o=(window.__ownerUid||window.__uid); if(!o) return;
+        const snap=await getDoc(doc(dbJobs!==db?dbJobs:db,"render_stats",o));
+        if(snap.exists()){ const d=snap.to_dict?snap.to_dict():snap.data(); delete d.up; window.__chStats=d; try{_mergeJobs();}catch(_){}}
+      }catch(e){} finally{ setTimeout(_loadStats, 300000); } })();
       // TẢI THÊM THEO YÊU CẦU (22/8): danh sách thường trực chỉ 100(A)+200(B) doc cho rẻ; muốn xem
       // kho cũ sâu hơn thì bấm nút — mỗi lần bấm nạp thêm 300 doc CŨ HƠN (chỉ tốn đọc khi thật sự cần).
       window.__rsGalMore=async(btn)=>{ try{
@@ -2541,7 +2548,10 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         else { const cut=new Date(Date.now()-Number(dv)*86400000).toISOString(); all=all.filter(j=>(j.created_at||"")>=cut); } }
       const chSel=document.getElementById(channelId);   // dropdown lọc kênh — liệt kê mọi kênh đã có video
       if(chSel){ const chans=[...new Set(all.map(j=>j.channel||"?"))].sort();
-        const opts='<option value="">Tất cả kênh ('+(window.__cntCache||all.length)+(window.__cntCache&&window.__cntCache>all.length?' · đã tải '+all.length:'')+')</option>'+chans.map((c,i)=>`<option value="${esc(c)}">${String(i+1).padStart(2,"0")}. ${esc(c)} (${all.filter(j=>(j.channel||"?")===c).length})</option>`).join("");
+        const _st=window.__chStats||{};
+        const _cnt=c=>{ const v=_st[String(c||"").toUpperCase()]; return v?((v.l||0)+(v.s||0)):all.filter(j=>(j.channel||"?")===c).length; };
+        const _tot=Object.keys(_st).length?Object.values(_st).reduce((a,v)=>a+((v&&v.l)||0)+((v&&v.s)||0),0):(window.__cntCache||all.length);
+        const opts='<option value="">Tất cả kênh ('+_tot+')</option>'+chans.map((c,i)=>`<option value="${esc(c)}">${String(i+1).padStart(2,"0")}. ${esc(c)} (${_cnt(c)})</option>`).join("");
         if(chSel.getAttribute("data-opts")!==opts){ const cur=chSel.value; chSel.innerHTML=opts; chSel.setAttribute("data-opts",opts); if(chans.includes(cur)) chSel.value=cur; try{window.rsSelectWithAvatars(chSel);}catch(_){} } }
       const chF=(chSel&&chSel.value)||"";
       let done = chF ? all.filter(j=>(j.channel||"?")===chF) : all;
