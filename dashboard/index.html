@@ -747,7 +747,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 12:26 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 12:36 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -2568,7 +2568,9 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         return view==="youtube"?(st==="youtube"||st==="both"):view==="fbig"?(st==="fbig"||st==="both"):st===view; });
       const tL=done.filter(j=>j.type==="long").length, tS=done.length-tL, unk=done.filter(j=>!j.drive_account).length;
       done.sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));
-      const CAP=40, over=done.length>CAP && !q; const disp=over?done.slice(0,CAP):done;   // giới hạn hiển thị cho NHẸ (search thì hiện hết kết quả)
+      // ĐANG LỌC (tìm kiếm/ngày/kênh) -> hiện HẾT kết quả lọc; chỉ chế độ mặc định mới cắt 40 cho nhẹ.
+      // (22/8: trước chỉ nhường ô tìm kiếm -> đổi lọc ngày nhìn y hệt vì cả 2 đều hiện "40 mới nhất".)
+      const CAP=40, over=done.length>CAP && !q && !dv && !chF; const disp=over?done.slice(0,CAP):done;
       const totMB=done.reduce((s,j)=>s+(Number(j.size_mb)||0),0), totStr=totMB>=1000?(totMB/1000).toFixed(1)+"GB":totMB.toFixed(0)+"MB";
       const cnt=document.getElementById(countId); if(cnt) cnt.textContent=`📤 ${done.length} video · ${tL} long · ${tS} short${totMB?` · 💾 ${totStr}`:""}${unk?` · 🔍 ${unk} chưa rõ kho`:""}${over?` · hiện ${CAP} mới nhất`:""}${window.__jobsCapped?` · ⚠️ chỉ nạp 600 job mới nhất — tổng thật lớn hơn`:""}`;
       const _pubEmpty={unposted:"✓ Không có video chưa đăng.",scheduled:"Chưa có video đang lên lịch đăng.",youtube:"Chưa có video đã đăng YouTube (kết nối kênh + đăng thì hiện ở đây).",fbig:"Chưa có video đã đăng FB/IG.",both:"Chưa có video đã đăng cả 2 nền tảng."};
