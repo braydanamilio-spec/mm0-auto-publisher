@@ -875,11 +875,11 @@
         </div>
 
         <div class="panel" style="margin-bottom:14px">
-          <div class="p-head"><div class="p-title">🔑 Gemini API Keys</div><div class="p-sub">Nhiều key = quota free ×N, tự xoay vòng</div></div>
+          <div class="p-head"><div class="p-title">🔑 API Keys (Gemini + Groq)</div><div class="p-sub">Nhiều key = quota free ×N, tự xoay vòng</div></div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
             <button class="btn-conn" onclick="window.__rsGeminiConnect&&window.__rsGeminiConnect()" title="1-click sẽ tự lưu Gmail tạo key">🔗 Kết nối Gemini (1-click · auto Gmail)</button>
-            <input id="rsKeyEmail" type="email" placeholder="Gmail tạo key (vd you@gmail.com)" style="min-width:220px"/><a href="https://console.groq.com/keys" target="_blank" class="d" style="font-size:11px;margin-left:6px" title="Groq free ~1.000 gọi/ngày/tài khoản — dán key gsk_... vào ô key như key Gemini, hệ tự nhận diện">🔑 Lấy key Groq (free ~1K/ngày)</a>
-            <input id="rsKeyManual" placeholder="dán API key (aistudio.google.com/apikey)" style="flex:1;min-width:240px"/>
+            <input id="rsKeyEmail" type="email" placeholder="Gmail tạo key (vd you@gmail.com)" style="min-width:220px"/><a href="https://console.groq.com/keys" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Groq free ~1.000 gọi/ngày/tài khoản — dán key gsk_... vào Ô KEY BÊN TRÊN như key Gemini, hệ tự nhận diện và chỉ dùng cho khâu VIẾT (vision/vẽ ảnh vẫn là Gemini)">⚡ Lấy key Groq — free ~1K gọi/ngày</a>
+            <input id="rsKeyManual" placeholder="dán API key (aistudio.google.com/apikey) hoặc gsk_... (Groq)" style="flex:1;min-width:240px"/>
             <button class="btn-conn" onclick="window.__rsAddKey&&window.__rsAddKey()">＋ Thêm key</button>
           </div>
           <div id="rsKeyHealth" style="margin:6px 0;padding:8px 10px;background:#ffffff0d;border-radius:8px;font-size:13px">⚪ Chưa health-check lần nào.</div>
