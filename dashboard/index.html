@@ -1948,8 +1948,14 @@
         [..._sel.options].forEach(o=>{ if(_lbl[o.value]!=null) o.textContent=_lbl[o.value]; }); }
       if(q) list=list.filter(k=>[k.email,k.last4,k.source].some(v=>String(v||"").toLowerCase().includes(q)));
       if(sf) list=list.filter(k=> sf==="deadall"?(k._st==="dead"||k._st==="warn"||k._st==="replace") : k._st===sf);
+      // LỌC THEO NHÀ CUNG CẤP (chia phần Groq riêng để soi lỗi dễ — kho vẫn chung, chỉ tách hiển thị)
+      const pv=window.__rsKeyProv||"";
+      const provOf=k=>((k.key||"").startsWith("gsk_")||k.provider==="groq")?"groq":"gemini";
+      if(pv) list=list.filter(k=>provOf(k)===pv);
+      const nGem=ks.filter(k=>provOf(k)==="gemini").length, nGrq=ks.length-nGem;
+      const provChips=`<div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">${[["","Tất cả "+ks.length],["gemini","◆ Gemini "+nGem],["groq","⚡ Groq "+nGrq]].map(([v,l])=>`<button class="btn-mini" style="${pv===v?"background:#8b6cff;color:#fff":""}" onclick="window.__rsKeyProv='${v}';window.__loadKeys&&window.__loadKeys()">${l}</button>`).join("")}</div>`;
       const nowIso=new Date().toISOString();
-      el.innerHTML=(q||sf?`<div class="p-sub" style="margin-bottom:6px">🔎 ${list.length}/${ks.length} key khớp</div>`:"")
+      el.innerHTML=provChips+(q||sf||pv?`<div class="p-sub" style="margin-bottom:6px">🔎 ${list.length}/${ks.length} key khớp</div>`:"")
         +(list.length? list.map(k=>{ const cooling=k.cooling_until&&k.cooling_until>nowIso;
           const dot=(k._st==="dead"||k._st==="warn"||k._st==="replace")?'🔴':(cooling?'😴':(k.alive===true?'🟢':'⚪'));
           const chk=k.last_checked?` · <span class="d">kiểm ${ago(k.last_checked)}</span>`:'';
@@ -1958,7 +1964,7 @@
           let badge=''; if(k.dead_since&&(k._st==="warn"||k._st==="replace")){ const dys=Math.max(1,Math.floor((Date.now()-new Date(k.dead_since).getTime())/8.64e7));
             badge=k._st==="replace"?` <span style="color:#fff;background:#dc2626;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:800">🔴 THAY NGAY · ${dys}d</span>`:` <span style="color:#111;background:#f59e0b;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:800">⚠️ theo dõi · ${dys}d</span>`; }
           const rq=k.req_today?` · <span class="d" title="request hôm nay (reset mỗi ngày)">📊 ${k.req_today}</span>`:'';
-          return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${dot} <b style="color:#8b6cff">#${k._i+1}</b> 🔑 •••• ${esc(k.last4||"")} · 📧 <b>${esc(k.email||"(chưa ghi Gmail)")}</b>${stx}${badge}${rq} <span class="d">(${esc(k.source||"")})</span>${chk}</span><button class="btn-conn" onclick="window.__rsDelKey('${k.id}')">Xoá</button></div>`; }).join("") : '<div class="d">Không key nào khớp.</div>');
+          return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${dot} <b style="color:#8b6cff">#${k._i+1}</b>${provOf(k)==="groq"?' <span style="background:#f97316;color:#111;border-radius:5px;padding:0 5px;font-size:10px;font-weight:800" title="key Groq — chỉ dùng khâu VIẾT (vision/vẽ = Gemini)">⚡GROQ</span>':''} 🔑 •••• ${esc(k.last4||"")} · 📧 <b>${esc(k.email||"(chưa ghi Gmail)")}</b>${stx}${badge}${rq} <span class="d">(${esc(k.source||"")})</span>${chk}</span><button class="btn-conn" onclick="window.__rsDelKey('${k.id}')">Xoá</button></div>`; }).join("") : '<div class="d">Không key nào khớp.</div>');
       const _dt=window.__deadThresh||{warn:72,repl:168}; const kb=document.getElementById("rsKeyHealth");
       const totReq=ks.reduce((a,k)=>a+(k.req_today||0),0);
       const rpd=(window.__rsCfg&&window.__rsCfg.gemini_rpd)||20;        // Gemini free: ĐO THẬT từ lỗi Google 21/8 (limit: 20)
