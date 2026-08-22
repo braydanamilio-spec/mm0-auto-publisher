@@ -148,6 +148,28 @@ def firestore_pool_accounts() -> list[dict]:
     if _POOL_CACHE["val"] is not None:
         print(f"   ⚠️ Đọc danh sách kho lỗi ({str(last)[:60]}) — dùng đệm cũ {len(_POOL_CACHE['val'])} kho.")
         return _POOL_CACHE["val"]
+    # 23/8: A cạn quota đọc CẢ NGÀY (không phải 1 nhịp) -> retry vô ích. Cứu cánh cuối: GƯƠNG
+    # connections_mirror ở B (render plan chép sang mỗi phiên khi A còn thở; rules B khóa kín, chỉ
+    # service account đọc). B sống độc lập A -> khâu đẩy kho hết điểm-chết-đơn.
+    try:
+        from firestore_state import client_render_jobs
+        out = []
+        for d in client_render_jobs().collection("connections_mirror").stream():
+            c = d.to_dict() or {}
+            if c.get("refresh_token") and c.get("root"):
+                out.append({
+                    "name": c.get("channel", "drive"),
+                    "root": c["root"], "cap_gb": c.get("cap_gb", 14),
+                    "owner": c.get("owner"), "email": c.get("email", ""),
+                    "creds": {"client_id": c["client_id"], "client_secret": c["client_secret"],
+                              "refresh_token": c["refresh_token"]},
+                })
+        if out:
+            print(f"   🪞 A nghẽn — dùng GƯƠNG kho ở B: {len(out)} tài khoản.")
+            _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), out
+            return out
+    except Exception as e:
+        print(f"   ⚠️ Gương kho B cũng lỗi: {str(e)[:70]}")
     print(f"   ⚠️ Đọc danh sách kho lỗi và chưa có đệm: {str(last)[:80]}")
     return []
 
