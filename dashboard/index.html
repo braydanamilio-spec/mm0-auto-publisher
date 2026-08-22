@@ -878,7 +878,7 @@
           <div class="p-head"><div class="p-title">🔑 Gemini API Keys</div><div class="p-sub">Nhiều key = quota free ×N, tự xoay vòng</div></div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
             <button class="btn-conn" onclick="window.__rsGeminiConnect&&window.__rsGeminiConnect()" title="1-click sẽ tự lưu Gmail tạo key">🔗 Kết nối Gemini (1-click · auto Gmail)</button>
-            <input id="rsKeyEmail" type="email" placeholder="Gmail tạo key (vd you@gmail.com)" style="min-width:220px"/>
+            <input id="rsKeyEmail" type="email" placeholder="Gmail tạo key (vd you@gmail.com)" style="min-width:220px"/><a href="https://console.groq.com/keys" target="_blank" class="d" style="font-size:11px;margin-left:6px" title="Groq free ~1.000 gọi/ngày/tài khoản — dán key gsk_... vào ô key như key Gemini, hệ tự nhận diện">🔑 Lấy key Groq (free ~1K/ngày)</a>
             <input id="rsKeyManual" placeholder="dán API key (aistudio.google.com/apikey)" style="flex:1;min-width:240px"/>
             <button class="btn-conn" onclick="window.__rsAddKey&&window.__rsAddKey()">＋ Thêm key</button>
           </div>
@@ -1811,7 +1811,7 @@
       if(v.length<20) return alert("Key không hợp lệ.");
       if(!em) return alert("Nhập Gmail đã tạo key (để quản lý key theo tài khoản).");
       try { await addDoc(collection(db,"gemini_keys"), {owner:RSowner(), key:v, last4:v.slice(-4),
-        email:em, source:"manual", created_at:new Date().toISOString()});
+        email:em, source:"manual", provider:(v.startsWith("gsk_")?"groq":"gemini"), created_at:new Date().toISOString()});
         document.getElementById("rsKeyManual").value=""; document.getElementById("rsKeyEmail").value="";
         toastMsg("✔ Đã thêm key cho "+em); window.__loadKeys&&window.__loadKeys(); } catch(e){ alert("Lỗi: "+e.message); } };
     window.__rsGeminiConnect = () => {
@@ -1916,7 +1916,10 @@
         done++; if(btn) btn.textContent=`⚡ Đang kiểm ${done}/${ks.length}…`;
         if(!k.key){ continue; }
         try{
-          const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(k.key)}`);
+          // key Groq (gsk_) -> ping đúng nhà; key Gemini (AIza) -> Google như cũ
+          const r = k.key.startsWith("gsk_")
+            ? await fetch("https://api.groq.com/openai/v1/models", {headers:{Authorization:"Bearer "+k.key}})
+            : await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(k.key)}`);
           const txt=await r.text().catch(()=>"" ); const low=(txt||"").toLowerCase(); const now=new Date().toISOString();
           if(r.ok){ aliveN++; await setDoc(doc(db,"gemini_keys",k.id),{alive:true,dead_kind:"",dead_reason:"",last_checked:now},{merge:true}); }
           else if(r.status===429||low.includes("quota")||low.includes("exhausted")||low.includes("rate limit")){ rateN++; await setDoc(doc(db,"gemini_keys",k.id),{alive:true,dead_reason:"",last_checked:now},{merge:true}); }  // rate-limited = VẪN SỐNG
@@ -1957,8 +1960,12 @@
           const rq=k.req_today?` · <span class="d" title="request hôm nay (reset mỗi ngày)">📊 ${k.req_today}</span>`:'';
           return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${dot} <b style="color:#8b6cff">#${k._i+1}</b> 🔑 •••• ${esc(k.last4||"")} · 📧 <b>${esc(k.email||"(chưa ghi Gmail)")}</b>${stx}${badge}${rq} <span class="d">(${esc(k.source||"")})</span>${chk}</span><button class="btn-conn" onclick="window.__rsDelKey('${k.id}')">Xoá</button></div>`; }).join("") : '<div class="d">Không key nào khớp.</div>');
       const _dt=window.__deadThresh||{warn:72,repl:168}; const kb=document.getElementById("rsKeyHealth");
-      const totReq=ks.reduce((a,k)=>a+(k.req_today||0),0); const rpd=(window.__rsCfg&&window.__rsCfg.gemini_rpd)||20;   // 20 = ĐO THẬT từ lỗi Google 21/8 ("free_tier_requests, limit: 20", gemini-3.5-flash) — không phải đoán 250 nữa
-      const quotaLine=`<div style="margin-bottom:5px">📊 Hôm nay: <b>${totReq}</b> request · ${ks.length} key · ước còn <b style="color:#4ade80">~${Math.max(0,rpd*ks.length-totReq).toLocaleString()}</b> <span class="d">(trần ${rpd}/key/ngày — Google in trong lỗi 429; reset 07:00Z=14:00 VN, KHÁC mốc đếm ngày của bảng này)</span></div>`;
+      const totReq=ks.reduce((a,k)=>a+(k.req_today||0),0);
+      const rpd=(window.__rsCfg&&window.__rsCfg.gemini_rpd)||20;        // Gemini free: ĐO THẬT từ lỗi Google 21/8 (limit: 20)
+      const rpdGroq=(window.__rsCfg&&window.__rsCfg.groq_rpd)||1000;    // Groq free ~1K/ngày (kiểm console.groq.com/settings/limits)
+      const nGroq=ks.filter(k=>(k.key||"").startsWith("gsk_")||k.provider==="groq").length;
+      const capTotal=(ks.length-nGroq)*rpd + nGroq*rpdGroq;
+      const quotaLine=`<div style="margin-bottom:5px">📊 Hôm nay: <b>${totReq}</b> request · ${ks.length} key · ước còn <b style="color:#4ade80">~${Math.max(0,capTotal-totReq).toLocaleString()}</b> <span class="d">(Gemini ${rpd}/key · Groq ${rpdGroq}/key${nGroq?` · ${nGroq} key Groq`:""} — reset 07:00Z=14:00 VN)</span></div>`;
       if(kb) kb.innerHTML = quotaLine +
         (nRepl?`<div>🔴 <b style="color:#fff;background:#dc2626;padding:2px 7px;border-radius:6px">${nRepl} key chết >${Math.round(_dt.repl/24)} ngày — THAY NGAY</b></div>`:'')
         +(nWarn?`<div style="margin-top:4px">⚠️ <b style="color:#111;background:#f59e0b;padding:2px 7px;border-radius:6px">${nWarn} key chết >${_dt.warn}h — theo dõi</b></div>`:'')
