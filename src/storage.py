@@ -119,22 +119,37 @@ def firestore_pool_accounts() -> list[dict]:
     import time as _t
     if _POOL_CACHE["val"] is not None and (_t.time() - _POOL_CACHE["at"]) < POOL_TTL:
         return _POOL_CACHE["val"]
-    try:
-        from firestore_state import State
-        out = []
-        for c in State().list_connections("drive"):
-            if c.get("refresh_token") and c.get("root"):
-                out.append({
-                    "name": c.get("channel", "drive"),
-                    "root": c["root"], "cap_gb": c.get("cap_gb", 14),
-                    "owner": c.get("owner"), "email": c.get("email", ""),
-                    "creds": {"client_id": c["client_id"], "client_secret": c["client_secret"],
-                              "refresh_token": c["refresh_token"]},
-                })
-        _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), out
-        return out
-    except Exception:
-        return []
+    # 22/8 tối: Firestore A nghẽn 1 nhịp -> except trả [] -> enqueue hiểu là "0 kho" -> 9 video
+    # EMPIREUSA QC 98 vừa render xong bị TỪ CHỐI đẩy Drive (mất trắng công render). Lỗi mạng/quota
+    # KHÔNG BAO GIỜ được dịch thành "không có kho": thử lại 2 lần (8s/25s — enqueue chỉ chạy 1
+    # lần/video nên đợi rẻ hơn nhiều so với vứt video), vẫn lỗi thì dùng ĐỆM CŨ dù quá hạn TTL
+    # (danh sách kho gần như không đổi trong phiên); chỉ khi cả đời tiến trình chưa từng đọc được
+    # mới đành trả [].
+    last = None
+    for wait in (0, 8, 25):
+        if wait:
+            _t.sleep(wait)
+        try:
+            from firestore_state import State
+            out = []
+            for c in State().list_connections("drive"):
+                if c.get("refresh_token") and c.get("root"):
+                    out.append({
+                        "name": c.get("channel", "drive"),
+                        "root": c["root"], "cap_gb": c.get("cap_gb", 14),
+                        "owner": c.get("owner"), "email": c.get("email", ""),
+                        "creds": {"client_id": c["client_id"], "client_secret": c["client_secret"],
+                                  "refresh_token": c["refresh_token"]},
+                    })
+            _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), out
+            return out
+        except Exception as e:
+            last = e
+    if _POOL_CACHE["val"] is not None:
+        print(f"   ⚠️ Đọc danh sách kho lỗi ({str(last)[:60]}) — dùng đệm cũ {len(_POOL_CACHE['val'])} kho.")
+        return _POOL_CACHE["val"]
+    print(f"   ⚠️ Đọc danh sách kho lỗi và chưa có đệm: {str(last)[:80]}")
+    return []
 
 
 def pool_accounts(cfg: dict | None = None) -> list[dict]:
