@@ -747,7 +747,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 10:18 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 10:45 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -1571,7 +1571,7 @@
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
       signInWithEmailAndPassword, createUserWithEmailAndPassword }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query, where, orderBy, limit, doc, setDoc, addDoc, deleteDoc, getDocs, getDoc, disableNetwork, enableNetwork }
+    import { getFirestore, collection, onSnapshot, query, where, orderBy, limit, doc, setDoc, addDoc, deleteDoc, getDocs, getDoc, disableNetwork, enableNetwork, getCountFromServer }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -2132,6 +2132,16 @@
         if(bd) bd.textContent=active;
         const sd=document.getElementById("rsSumDone"),sr=document.getElementById("rsSumRun"),sf=document.getElementById("rsSumFail");
         if(sd)sd.textContent=done.length; if(sr)sr.textContent=active;
+        // TỔNG THẬT bằng ĐẾM SERVER (22/8): danh sách chỉ tải 100(A)+200(B) doc để tiết kiệm đọc,
+        // đếm theo danh sách làm "Tổng cộng dồn" TỤT ẢO (528 -> 217) khiến user tưởng bị xóa video.
+        // count() phía server = 1 lượt đọc/kho, chính xác tuyệt đối, làm mới tối đa 1 lần/5 phút.
+        (async()=>{ try{ const now=Date.now(); if(now-(window.__cntAt||0)<300000) {const c=window.__cntCache; if(c&&sd){sd.textContent=c;} return;}
+          window.__cntAt=now; const o=(window.__ownerUid||window.__uid);
+          const qs=[query(collection(db,"render_jobs"),where("owner","==",o),where("status","==","done"))];
+          if(dbJobs!==db) qs.push(query(collection(dbJobs,"render_jobs"),where("owner","==",o),where("status","==","done")));
+          let tot=0; for(const q of qs){ tot += (await getCountFromServer(q)).data().count; }
+          window.__cntCache=tot; if(sd) sd.textContent=tot;
+        }catch(e){} })();
         if(sf){ sf.textContent=activeFails.length; sf.title=oldFails?`${oldFails} lỗi cũ đã khắc phục (không tính)`:""; }
         const today=new Date().toISOString().slice(0,10);
         const stt=document.getElementById("rsSumToday"); if(stt) stt.textContent=all.filter(j=>j.status==="done"&&(j.created_at||"").slice(0,10)===today).length;
