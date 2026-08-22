@@ -747,7 +747,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 09:20 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 09:35 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -1942,7 +1942,7 @@
           const r = k.key.startsWith("gsk_")
             ? await fetch("https://api.groq.com/openai/v1/models", {headers:{Authorization:"Bearer "+k.key}})
             : k.key.startsWith("cf:")
-            ? await (()=>{const p=k.key.split(":");return fetch(`https://api.cloudflare.com/client/v4/accounts/${p[1]}/ai/models/search?per_page=1`,{headers:{Authorization:"Bearer "+p.slice(2).join(":")}})})()
+            ? await fetch("https://mm0-connect.adisondurham-ef1.workers.dev/api/cf-accounts",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:k.key.split(":").slice(2).join(":")})})
             : await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(k.key)}`);
           const txt=await r.text().catch(()=>"" ); const low=(txt||"").toLowerCase(); const now=new Date().toISOString();
           if(r.ok){ aliveN++; await setDoc(doc(db,"gemini_keys",k.id),{alive:true,dead_kind:"",dead_reason:"",last_checked:now},{merge:true}); }
