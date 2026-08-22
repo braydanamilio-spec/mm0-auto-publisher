@@ -299,51 +299,6 @@
   "motif": "doc",
   "layout": "center"
  },
- "BROKE": {
-  "display": "BROKE",
-  "niche": "money / personal finance",
-  "hashtags": [
-   "#money",
-   "#broke",
-   "#finance"
-  ],
-  "category": "27",
-  "accent": "#16A34A",
-  "handle": "@brokehq",
-  "motif": "cash",
-  "layout": "center",
-  "tagline": "Where your money really goes."
- },
- "INSIDE_YOU": {
-  "display": "INSIDE YOU",
-  "niche": "psychology / self / body",
-  "hashtags": [
-   "#psychology",
-   "#body",
-   "#mind"
-  ],
-  "category": "27",
-  "accent": "#F472B6",
-  "handle": "@insideyouhq",
-  "motif": "body",
-  "layout": "center",
-  "tagline": "What's happening inside you."
- },
- "HUH": {
-  "display": "HUH?",
-  "niche": "curiosity / weird facts",
-  "hashtags": [
-   "#facts",
-   "#weird",
-   "#huh"
-  ],
-  "category": "24",
-  "accent": "#FF8A3D",
-  "handle": "@huhdaily",
-  "motif": "question",
-  "layout": "center",
-  "tagline": "Wait... what?"
- },
  "GRIDUSA": {
   "display": "GRID USA",
   "niche": "US energy, power grid & infrastructure",
