@@ -747,7 +747,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 08:08 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 08:20 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -1820,12 +1820,15 @@
           // qua Worker của mình (server-side) — trình duyệt gọi thẳng api.cloudflare.com bị CORS chặn
           const r=await fetch("https://mm0-connect.adisondurham-ef1.workers.dev/api/cf-accounts",
             {method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:v})});
-          acc=(((await r.json().catch(()=>({})))||{}).id)||"";
+          const jj=await r.json().catch(()=>({})); window.__cfDiag=jj; acc=(jj||{}).id||"";
         }catch(e){}
         if(/^[0-9a-f]{32}$/i.test(acc)){ kv="cf:"+acc.toLowerCase()+":"+v; toastMsg("⛅ Đã tự nhận Account ID Cloudflare ✓"); }
         else {
-          // KHÔNG popup (kém chuyên nghiệp) — toast hướng dẫn, không lưu gì
-          toastMsg("⛅ Token chưa cho phép tự tra Account ID. Dán dạng ACCOUNT_ID:TOKEN, hoặc tạo lại token có thêm quyền Account Settings → Read.", 9000);
+          console.warn("cf-add chẩn đoán:", window.__cfDiag);
+          const vv=(window.__cfDiag||{}).verify||"";
+          toastMsg(vv==="active" ? "⛅ Token SỐNG nhưng thiếu quyền tra account — dán dạng ACCOUNT_ID:TOKEN, hoặc tạo token có thêm quyền Account Settings → Read."
+                 : vv==="invalid" ? "⛅ Token KHÔNG hợp lệ — kiểm tra copy đủ chuỗi cfut_, không dính khoảng trắng, token chưa bị xoá."
+                 : "⛅ Không liên lạc được Cloudflare — thử lại sau ít phút.", 10000);
           return;
         }
       }

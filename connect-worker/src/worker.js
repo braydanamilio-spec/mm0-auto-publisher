@@ -1540,6 +1540,16 @@ async function apiCfAccounts(request) {
     headers: { Authorization: "Bearer " + tok } });
   const j = await r.json().catch(() => ({}));
   const acc = ((j || {}).result || [])[0] || {};
-  return new Response(JSON.stringify({ ok: r.ok, status: r.status, id: acc.id || "", name: acc.name || "" }),
+  // Không tra được account -> verify token để phân biệt "token sai" vs "token sống nhưng thiếu quyền"
+  let verify = "";
+  if (!acc.id) {
+    try {
+      const v2 = await fetch("https://api.cloudflare.com/client/v4/user/tokens/verify", {
+        headers: { Authorization: "Bearer " + tok } });
+      const jv = await v2.json().catch(() => ({}));
+      verify = v2.ok ? (((jv || {}).result || {}).status || "active") : "invalid";
+    } catch (e) { verify = "network"; }
+  }
+  return new Response(JSON.stringify({ ok: r.ok, status: r.status, id: acc.id || "", name: acc.name || "", verify }),
     { headers: { "content-type": "application/json" } });
 }
