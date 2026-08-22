@@ -2554,12 +2554,16 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       if(dv){ if(dv==="today"){ const t=new Date().toISOString().slice(0,10); all=all.filter(j=>(j.created_at||"").slice(0,10)===t); }
         else { const cut=new Date(Date.now()-Number(dv)*86400000).toISOString(); all=all.filter(j=>(j.created_at||"")>=cut); } }
       const chSel=document.getElementById(channelId);   // dropdown lọc kênh — liệt kê mọi kênh đã có video
-      if(chSel){ const chans=[...new Set(all.map(j=>j.channel||"?"))].sort();
-        // ĐANG LỌC NGÀY -> đếm theo TẬP ĐÃ LỌC (22/8: trước dùng tổng toàn cục nên chọn "Hôm nay"
-        // vẫn thấy 1097 y hệt "Mọi lúc"). Không lọc -> dùng sổ thống kê/đếm server (số thật toàn kho).
+      if(chSel){
+        // 23/8: danh sách kênh TỪNG chỉ lấy từ ~300 doc đã nạp -> xổ ra vỏn vẹn 10 kênh chạy gần
+        // nhất, 40+ kênh còn lại "tàng hình". Hợp nhất thêm kênh từ sổ thống kê render_stats (có
+        // đủ mọi kênh đã từng ra video) — chỉ khi KHÔNG lọc ngày (lọc ngày phải đếm theo tập nạp).
         const _st=dv?{}:(window.__chStats||{});
+        const chans=[...new Set([...all.map(j=>j.channel||"?"), ...Object.keys(_st)])].sort();
         const _cnt=c=>{ const v=_st[String(c||"").toUpperCase()]; return v?((v.l||0)+(v.s||0)):all.filter(j=>(j.channel||"?")===c).length; };
-        const _tot=dv?all.length:(Object.keys(_st).length?Object.values(_st).reduce((a,v)=>a+((v&&v.l)||0)+((v&&v.s)||0),0):(window.__cntCache||all.length));
+        // Tổng "Tất cả kênh": ưu tiên SỐ ĐẾM SERVER (đủ cả kho, kể cả kênh chưa vào sổ thống kê);
+        // sổ thống kê chỉ là dự phòng (nó thiếu kênh chưa chạy lane từ lúc sổ ra đời -> 810 < thật).
+        const _tot=dv?all.length:(window.__cntCache||(Object.keys(_st).length?Object.values(_st).reduce((a,v)=>a+((v&&v.l)||0)+((v&&v.s)||0),0):all.length));
         const opts='<option value="">Tất cả kênh ('+_tot+')</option>'+chans.map((c,i)=>`<option value="${esc(c)}">${String(i+1).padStart(2,"0")}. ${esc(c)} (${_cnt(c)})</option>`).join("");
         if(chSel.getAttribute("data-opts")!==opts){ const cur=chSel.value; chSel.innerHTML=opts; chSel.setAttribute("data-opts",opts); if(chans.includes(cur)) chSel.value=cur; try{window.rsSelectWithAvatars(chSel);}catch(_){} } }
       const chF=(chSel&&chSel.value)||"";
