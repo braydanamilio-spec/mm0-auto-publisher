@@ -747,7 +747,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 07:40 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 07:48 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -879,7 +879,7 @@
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
             <button class="btn-conn" onclick="window.__rsGeminiConnect&&window.__rsGeminiConnect()" title="1-click sẽ tự lưu Gmail tạo key">🔗 Kết nối Gemini (1-click · auto Gmail)</button>
             <input id="rsKeyEmail" type="email" placeholder="Gmail tạo key (vd you@gmail.com)" style="min-width:220px"/><a href="https://console.groq.com/keys" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Groq free ~1.000 gọi/ngày/tài khoản — dán key gsk_... vào Ô KEY BÊN TRÊN như key Gemini, hệ tự nhận diện và chỉ dùng cho khâu VIẾT (vision/vẽ ảnh vẫn là Gemini)">⚡ Lấy key Groq — free ~1K gọi/ngày</a><a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Cloudflare Workers AI free 10K neuron/ngày ≈ ~2.000 ảnh FLUX. Tạo API Token (quyền Workers AI - Read+Edit), rồi dán vào ô key theo dạng: ACCOUNT_ID:TOKEN (Account ID nằm ở trang chủ dash.cloudflare.com, cột phải). Hệ tự nhận diện — dùng chủ yếu để VẼ ẢNH + kiểm ảnh.">⛅ Lấy key Cloudflare — free ~2K ảnh/ngày</a>
-            <input id="rsKeyManual" placeholder="dán key: AIza... (Gemini) · gsk_... (Groq) · ACCOUNT_ID:TOKEN (Cloudflare)" style="flex:1;min-width:240px"/>
+            <input id="rsKeyManual" placeholder="dán key: AIza... (Gemini) · gsk_... (Groq) · cfut_... (Cloudflare — tự nhận Account ID)" style="flex:1;min-width:240px"/>
             <button class="btn-conn" onclick="window.__rsAddKey&&window.__rsAddKey()">＋ Thêm key</button>
           </div>
           <div id="rsKeyHealth" style="margin:6px 0;padding:8px 10px;background:#ffffff0d;border-radius:8px;font-size:13px">⚪ Chưa health-check lần nào.</div>
@@ -1813,13 +1813,22 @@
       // Cloudflare Workers AI: dán "ACCOUNT_ID:API_TOKEN" (32 hex + ":" + token) -> lưu "cf:acc:token"
       const isCf = /^[0-9a-f]{32}:\S{20,}$/i.test(v) || v.startsWith("cf:");
       let kv = isCf && !v.startsWith("cf:") ? "cf:"+v : v;
-      // Dán MỖI token trần (không AIza/gsk_/không có ":") -> 99% là token Cloudflare thiếu Account ID: hỏi luôn
+      // Token Cloudflare (cfut_… hoặc token trần khác AIza/gsk_): TỰ GỌI CF lấy Account ID — user chỉ cần dán token
       if(!isCf && !v.startsWith("AIza") && !v.startsWith("gsk_")){
-        const acc=prompt("Key này không phải Gemini (AIza…) hay Groq (gsk_…).\nNếu là token CLOUDFLARE: dán ACCOUNT ID (32 ký tự, trang chủ dash.cloudflare.com, cột phải) để ghép tự động.\nBấm Cancel nếu đây là loại key khác.");
-        if(acc===null){} else {
-          const a=acc.trim().toLowerCase();
-          if(/^[0-9a-f]{32}$/.test(a)) kv="cf:"+a+":"+v;
-          else return alert("Account ID không hợp lệ (phải đúng 32 ký tự hex). Key CHƯA được thêm — thử lại nha.");
+        let acc="";
+        try{
+          const r=await fetch("https://api.cloudflare.com/client/v4/accounts",{headers:{Authorization:"Bearer "+v}});
+          const j=await r.json().catch(()=>({}));
+          acc=((((j||{}).result)||[])[0]||{}).id||"";
+        }catch(e){}
+        if(/^[0-9a-f]{32}$/i.test(acc)){ kv="cf:"+acc.toLowerCase()+":"+v; toastMsg("⛅ Đã tự nhận Account ID Cloudflare"); }
+        else {
+          const inp=prompt("Token Cloudflare (cfut_…) — em không tự lấy được Account ID (token thiếu quyền đọc account hoặc trình duyệt chặn).\nDán ACCOUNT ID (32 ký tự — dash.cloudflare.com, trang Overview, cột phải) vào đây:");
+          if(inp===null){} else {
+            const a=inp.trim().toLowerCase();
+            if(/^[0-9a-f]{32}$/.test(a)) kv="cf:"+a+":"+v;
+            else return alert("Chuỗi vừa dán không phải Account ID (phải đúng 32 ký tự hex, KHÔNG phải token cfut_). Key CHƯA được thêm — thử lại nha.");
+          }
         }
       }
       try { await addDoc(collection(db,"gemini_keys"), {owner:RSowner(), key:kv, last4:kv.slice(-4),
