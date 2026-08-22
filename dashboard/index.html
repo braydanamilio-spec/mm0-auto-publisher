@@ -747,7 +747,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 10:45 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 10:58 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -990,6 +990,7 @@
             <button class="btn-conn" style="background:#ef4444;border:1px solid #ef4444;color:#fff;font-weight:700" onclick="window.rsCleanOld&&window.rsCleanOld(this)" title="Chỉ xóa video phiên bản CŨ hơn bản mới nhất — giữ bản tốt">🧹 Dọn bản cũ</button>
             <button class="btn-conn" onclick="window.rsExportLinks&&window.rsExportLinks()" title="Xuất tất cả link video ra file .txt">📄 Xuất link</button>
             <button class="btn-conn" onclick="window.rsEmptyTrash&&window.rsEmptyTrash(this)" title="Xóa vĩnh viễn file đã bỏ rác — thu hồi dung lượng ngay">🧹 Đổ thùng rác</button>
+            <button class="btn-conn" onclick="window.__rsGalMore&&window.__rsGalMore(this)" title="Danh sách thường trực chỉ giữ ~300 video mới nhất cho tiết kiệm quota. Bấm để nạp thêm 300 video CŨ HƠN mỗi lần (chỉ tốn lượt đọc khi bấm).">⬇ Tải thêm video cũ</button>
           </div>
           <div id="rsGallery"><div class="d">Chưa có video hoàn tất — render xong + đẩy Drive là hiện ở đây.</div></div>
         </div>
@@ -2187,7 +2188,24 @@
       // trong khi đó chỉ là trần hiển thị — tổng thật đếm bằng aggregation lớn hơn nhiều).
       window.__jobsCapped=false;
       const _mapJ=s=>{ const m={}; s.docs.forEach(d=>{ m[d.id]={id:d.id,...d.data()}; }); if(s.docs.length>=300) window.__jobsCapped=true; return m; };
-      const _mergeJobs=()=>{ const byId={...__jA, ...__jB}; _jobsCb({ docs: Object.values(byId).map(o=>({id:o.id, data:()=>o})) }); };
+      const _mergeJobs=()=>{ const byId={...(window.__jX||{}), ...__jA, ...__jB}; _jobsCb({ docs: Object.values(byId).map(o=>({id:o.id, data:()=>o})) }); };
+      // TẢI THÊM THEO YÊU CẦU (22/8): danh sách thường trực chỉ 100(A)+200(B) doc cho rẻ; muốn xem
+      // kho cũ sâu hơn thì bấm nút — mỗi lần bấm nạp thêm 300 doc CŨ HƠN (chỉ tốn đọc khi thật sự cần).
+      window.__rsGalMore=async(btn)=>{ try{
+        if(btn) btn.textContent="⏳ Đang tải…";
+        const o=(window.__ownerUid||window.__uid); window.__jX=window.__jX||{};
+        const cur=Object.values({...window.__jX, ...__jA, ...__jB});
+        const oldest=cur.reduce((m,j)=>((j.created_at&&j.created_at<m)?j.created_at:m),"9999");
+        let got=0;
+        for(const base of (dbJobs!==db?[dbJobs,db]:[db])){
+          const snap=await getDocs(query(collection(base,"render_jobs"),where("owner","==",o),
+            where("created_at","<",oldest),orderBy("created_at","desc"),limit(150)));
+          snap.docs.forEach(d=>{ if(!window.__jX[d.id]){window.__jX[d.id]={id:d.id,...d.data()};got++;} });
+        }
+        _mergeJobs();
+        if(btn) btn.textContent="⬇ Tải thêm video cũ";
+        toastMsg(got?("⬇ Đã nạp thêm "+got+" video cũ vào danh sách"):"Hết — đã tải toàn bộ kho.");
+      }catch(e){ if(btn) btn.textContent="⬇ Tải thêm video cũ"; toastMsg("Lỗi tải thêm: "+e.message,6000); } };
       // ĐƯỜNG LÙI PHẢI CÓ limit — trước đây thiếu: khi truy vấn-có-sắp-xếp lỗi (thiếu composite
       // index, đúng tình trạng project B tới sáng 21/8), nó mở listener REALTIME trên TOÀN BỘ
       // render_jobs của owner (hàng nghìn bản ghi) và giữ mở suốt thời gian dashboard bật ->
@@ -2509,7 +2527,7 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         else { const cut=new Date(Date.now()-Number(dv)*86400000).toISOString(); all=all.filter(j=>(j.created_at||"")>=cut); } }
       const chSel=document.getElementById(channelId);   // dropdown lọc kênh — liệt kê mọi kênh đã có video
       if(chSel){ const chans=[...new Set(all.map(j=>j.channel||"?"))].sort();
-        const opts='<option value="">Tất cả kênh ('+all.length+')</option>'+chans.map((c,i)=>`<option value="${esc(c)}">${String(i+1).padStart(2,"0")}. ${esc(c)} (${all.filter(j=>(j.channel||"?")===c).length})</option>`).join("");
+        const opts='<option value="">Tất cả kênh ('+(window.__cntCache||all.length)+(window.__cntCache&&window.__cntCache>all.length?' · đã tải '+all.length:'')+')</option>'+chans.map((c,i)=>`<option value="${esc(c)}">${String(i+1).padStart(2,"0")}. ${esc(c)} (${all.filter(j=>(j.channel||"?")===c).length})</option>`).join("");
         if(chSel.getAttribute("data-opts")!==opts){ const cur=chSel.value; chSel.innerHTML=opts; chSel.setAttribute("data-opts",opts); if(chans.includes(cur)) chSel.value=cur; try{window.rsSelectWithAvatars(chSel);}catch(_){} } }
       const chF=(chSel&&chSel.value)||"";
       let done = chF ? all.filter(j=>(j.channel||"?")===chF) : all;
