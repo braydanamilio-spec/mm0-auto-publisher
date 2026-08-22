@@ -1957,8 +1957,8 @@
           const rq=k.req_today?` · <span class="d" title="request hôm nay (reset mỗi ngày)">📊 ${k.req_today}</span>`:'';
           return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${dot} <b style="color:#8b6cff">#${k._i+1}</b> 🔑 •••• ${esc(k.last4||"")} · 📧 <b>${esc(k.email||"(chưa ghi Gmail)")}</b>${stx}${badge}${rq} <span class="d">(${esc(k.source||"")})</span>${chk}</span><button class="btn-conn" onclick="window.__rsDelKey('${k.id}')">Xoá</button></div>`; }).join("") : '<div class="d">Không key nào khớp.</div>');
       const _dt=window.__deadThresh||{warn:72,repl:168}; const kb=document.getElementById("rsKeyHealth");
-      const totReq=ks.reduce((a,k)=>a+(k.req_today||0),0); const rpd=(window.__rsCfg&&window.__rsCfg.gemini_rpd)||250;
-      const quotaLine=`<div style="margin-bottom:5px">📊 Hôm nay: <b>${totReq}</b> request · ${ks.length} key · ước còn <b style="color:#4ade80">~${Math.max(0,rpd*ks.length-totReq).toLocaleString()}</b> <span class="d">(ước theo ~${rpd}/key/ngày${(window.__rsCfg&&window.__rsCfg.gemini_rpd)?"":" — mặc định, Google có thể đổi"})</span></div>`;
+      const totReq=ks.reduce((a,k)=>a+(k.req_today||0),0); const rpd=(window.__rsCfg&&window.__rsCfg.gemini_rpd)||20;   // 20 = ĐO THẬT từ lỗi Google 21/8 ("free_tier_requests, limit: 20", gemini-3.5-flash) — không phải đoán 250 nữa
+      const quotaLine=`<div style="margin-bottom:5px">📊 Hôm nay: <b>${totReq}</b> request · ${ks.length} key · ước còn <b style="color:#4ade80">~${Math.max(0,rpd*ks.length-totReq).toLocaleString()}</b> <span class="d">(trần ${rpd}/key/ngày — Google in trong lỗi 429; reset 07:00Z=14:00 VN, KHÁC mốc đếm ngày của bảng này)</span></div>`;
       if(kb) kb.innerHTML = quotaLine +
         (nRepl?`<div>🔴 <b style="color:#fff;background:#dc2626;padding:2px 7px;border-radius:6px">${nRepl} key chết >${Math.round(_dt.repl/24)} ngày — THAY NGAY</b></div>`:'')
         +(nWarn?`<div style="margin-top:4px">⚠️ <b style="color:#111;background:#f59e0b;padding:2px 7px;border-radius:6px">${nWarn} key chết >${_dt.warn}h — theo dõi</b></div>`:'')
