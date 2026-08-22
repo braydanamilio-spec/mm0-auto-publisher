@@ -1577,8 +1577,7 @@ async function apiCfFlux(request) {
     method: "POST",
     headers: { Authorization: "Bearer " + b.token, "content-type": "application/json" },
     body: JSON.stringify({ prompt: String(b.prompt).slice(0, 1800), steps: Math.min(Number(b.steps) || 4, 8),
-      ...(b.width ? { width: Math.min(Number(b.width), 1344) } : {}),
-      ...(b.height ? { height: Math.min(Number(b.height), 1344) } : {}) }) });
+      ...(b.seed !== undefined ? { seed: Number(b.seed) } : {}) }) });   // width/height: flux schnell KHÔNG nhận (5006) — đã gỡ
   const j = await r.json().catch(() => ({}));
   return new Response(JSON.stringify({ ok: r.ok, status: r.status,
     image: (((j || {}).result) || {}).image || "", err: JSON.stringify((j || {}).errors || "").slice(0, 200) }),

@@ -780,5 +780,53 @@
   "handle": "@hanktownusa",
   "motif": "toon",
   "layout": "left"
+ },
+ "TRUETALES": {
+  "display": "TRUE TALES USA",
+  "niche": "narrated dramatic everyday-American stories with stick-figure illustrations — twist endings, one narrator.",
+  "hashtags": [
+   "#storytime",
+   "#animation",
+   "#usa",
+   "#drama"
+  ],
+  "category": "24",
+  "accent": "#DC2626",
+  "tagline": "Every town has a story.",
+  "handle": "@truetalesusa",
+  "motif": "toon",
+  "layout": "center"
+ },
+ "DUMBHISTORY": {
+  "display": "DUMB HISTORY",
+  "niche": "absurd-but-true moments of American history, stick-figure reenactments, witty narrator.",
+  "hashtags": [
+   "#history",
+   "#funny",
+   "#usa",
+   "#animation"
+  ],
+  "category": "27",
+  "accent": "#92400E",
+  "tagline": "It really happened. Unfortunately.",
+  "handle": "@dumbhistoryusa",
+  "motif": "toon",
+  "layout": "left"
+ },
+ "EXPLAINUSA": {
+  "display": "EXPLAIN THIS, AMERICA",
+  "niche": "deadpan comedic explainers of things only America has — tipping, medical bills, imperial units.",
+  "hashtags": [
+   "#explained",
+   "#usa",
+   "#comedy",
+   "#facts"
+  ],
+  "category": "27",
+  "accent": "#0369A1",
+  "tagline": "Making sense of the nonsense.",
+  "handle": "@explainthisusa",
+  "motif": "toon",
+  "layout": "center"
  }
 }
