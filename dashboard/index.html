@@ -747,7 +747,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 11:35 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 11:52 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -2153,6 +2153,13 @@
         if(sf){ sf.textContent=activeFails.length; sf.title=oldFails?`${oldFails} lỗi cũ đã khắc phục (không tính)`:""; }
         const today=new Date().toISOString().slice(0,10);
         const stt=document.getElementById("rsSumToday"); if(stt) stt.textContent=all.filter(j=>j.status==="done"&&(j.created_at||"").slice(0,10)===today).length;
+        // HÔM NAY đếm SERVER (22/8): danh sách chỉ tải 200 doc B — ngày >200 video là đếm thiếu.
+        // Index (owner,status,created_at) đã deploy lên B; lỗi/awaiting-index -> giữ số theo danh sách.
+        (async()=>{ try{ const now=Date.now(); if(now-(window.__cntTdAt||0)<300000){ if(window.__cntTd!=null&&stt) stt.textContent=window.__cntTd; return; }
+          window.__cntTdAt=now; const o=(window.__ownerUid||window.__uid); const base=(dbJobs!==db)?dbJobs:db;
+          const c=(await getCountFromServer(query(collection(base,"render_jobs"),where("owner","==",o),where("status","==","done"),where("created_at",">=",today)))).data().count;
+          window.__cntTd=c; if(stt) stt.textContent=c;
+        }catch(e){} })();
         const byCh={}; all.forEach(j=>{const c=j.channel||"?";(byCh[c]=byCh[c]||[]).push(j);});
         const cp=document.getElementById("rsChanProg");
         const chMeta={}; (window.__rsChannelsData||[]).forEach(c=>chMeta[(c.name||"").toUpperCase()]=c);
