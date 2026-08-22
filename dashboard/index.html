@@ -748,7 +748,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 13:52 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 14:02 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -2850,7 +2850,7 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       if(b.art){ host.innerHTML=`<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
         <div><div class="d" style="margin-bottom:4px">👤 Profile / Avatar (nhân vật thật)</div><img src="${b.art.avatar}" style="width:130px;height:130px;border-radius:16px;border:2px solid ${b.a};object-fit:cover"/><div style="margin-top:6px"><a class="btn-mini" style="text-decoration:none" href="${b.art.avatar}" download>⬇ Avatar 800×800</a></div></div>
         <div style="flex:1;min-width:260px"><div class="d" style="margin-bottom:4px">🖼️ Cover / Banner (nhân vật thật)</div><img src="${b.art.cover}" style="width:100%;max-width:420px;border-radius:12px;border:1px solid #ffffff22"/>
-          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><a class="btn-mini" style="text-decoration:none" href="${b.art.cover}" download>⬇ Cover 2560×1440 (YouTube)</a></div>
+          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><a class="btn-mini" style="text-decoration:none" href="${b.art.cover}" download>⬇ YouTube 2560×1440</a><a class="btn-mini" style="text-decoration:none" href="${b.art.cover.replace('_cover_2560x1440','_fb_cover_820x312')}" download>⬇ Facebook 820×312</a><a class="btn-mini" style="text-decoration:none" href="${b.art.avatar}" download>⬇ IG/FB avatar 800×800</a></div>
           <div style="margin-top:10px"><b style="color:${b.a}">${esc(b.d)}</b> · ${esc(b.h)} · <span class="d">${esc(b.t)}</span></div>
           <div style="margin:8px 0"><div class="d">📝 Mô tả</div><div style="white-space:pre-wrap;font-size:13px">${esc(rsBrandDesc(k))}</div><button class="btn-mini" style="margin-top:4px" onclick="window.rsBrandCopy('${k}','desc')">📋 Copy mô tả</button></div>
           <div style="margin:8px 0"><div class="d">🏷️ Keywords/Tags</div><div style="font-size:13px">${esc(b.niche.replace(/[(),]/g," ").split(/\s+/).filter(w=>w.length>2).join(", "))}</div><button class="btn-mini" style="margin-top:4px" onclick="window.rsBrandCopy('${k}','tags')">📋 Copy keywords</button> <button class="btn-mini" onclick="window.rsBrandCopy('${k}','ht')">📋 Copy hashtags</button></div>
