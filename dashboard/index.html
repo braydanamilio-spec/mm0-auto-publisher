@@ -674,6 +674,7 @@
               <option value="channel">📺 Nhóm theo kênh</option>
               <option value="account">📦 Nhóm theo kho</option>
               <option value="flawed">🚩 Nghi lỗi / bản cũ (để xóa)</option>
+              <option value="nothumb">🖼 Thiếu thumbnail chuẩn</option>
               <option value="unposted">📤 Chưa đăng</option>
               <option value="scheduled">📅 Đã lên lịch</option>
               <option value="youtube">▶️ Đã đăng YouTube</option>
@@ -747,7 +748,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 12:36 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 12:52 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -980,6 +981,7 @@
               <option value="channel">📺 Nhóm theo kênh</option>
               <option value="account">📦 Nhóm theo kho</option>
               <option value="flawed">🚩 Nghi lỗi / bản cũ (để xóa)</option>
+              <option value="nothumb">🖼 Thiếu thumbnail chuẩn</option>
               <option value="unposted">📤 Chưa đăng</option>
               <option value="scheduled">📅 Đã lên lịch</option>
               <option value="youtube">▶️ Đã đăng YouTube</option>
@@ -2564,6 +2566,7 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       const newestPverBy={}; done.forEach(j=>{const c=j.channel||"";const p=j.pver||"";if(p>(newestPverBy[c]||""))newestPverBy[c]=p;});
       const isFlawed=j=>j.flagged||((j.pver||"")<(newestPverBy[j.channel||""]||""))||(j.score&&Number(j.score)<90);   // có cờ lỗi HOẶC bản cũ CỦA KÊNH ĐÓ HOẶC QC<90
       if(view==="flawed") done=done.filter(isFlawed);
+      if(view==="nothumb") done=done.filter(j=>!j.thumb_id);   // audit: video chưa có ảnh thumbnail .jpg đi kèm
       if(["unposted","scheduled","youtube","fbig","both"].includes(view)) done=done.filter(j=>{ const st=rsPubStatus(j);
         return view==="youtube"?(st==="youtube"||st==="both"):view==="fbig"?(st==="fbig"||st==="both"):st===view; });
       const tL=done.filter(j=>j.type==="long").length, tS=done.length-tL, unk=done.filter(j=>!j.drive_account).length;
@@ -2572,7 +2575,7 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       // (22/8: trước chỉ nhường ô tìm kiếm -> đổi lọc ngày nhìn y hệt vì cả 2 đều hiện "40 mới nhất".)
       const CAP=40, over=done.length>CAP && !q && !dv && !chF; const disp=over?done.slice(0,CAP):done;
       const totMB=done.reduce((s,j)=>s+(Number(j.size_mb)||0),0), totStr=totMB>=1000?(totMB/1000).toFixed(1)+"GB":totMB.toFixed(0)+"MB";
-      const cnt=document.getElementById(countId); if(cnt) cnt.textContent=`📤 ${done.length} video · ${tL} long · ${tS} short${totMB?` · 💾 ${totStr}`:""}${unk?` · 🔍 ${unk} chưa rõ kho`:""}${over?` · hiện ${CAP} mới nhất`:""}${window.__jobsCapped?` · ⚠️ chỉ nạp 600 job mới nhất — tổng thật lớn hơn`:""}`;
+      const cnt=document.getElementById(countId); if(cnt) cnt.textContent=`📤 ${done.length} video · ${tL} long · ${tS} short${totMB?` · 💾 ${totStr}`:""}${unk?` · 🔍 ${unk} chưa rõ kho`:""}${(()=>{const n=done.filter(j=>!j.thumb_id).length;return n?` · 🖼 ${n} thiếu thumb`:""})()}${over?` · hiện ${CAP} mới nhất`:""}${window.__jobsCapped?` · ⚠️ chỉ nạp 600 job mới nhất — tổng thật lớn hơn`:""}`;
       const _pubEmpty={unposted:"✓ Không có video chưa đăng.",scheduled:"Chưa có video đang lên lịch đăng.",youtube:"Chưa có video đã đăng YouTube (kết nối kênh + đăng thì hiện ở đây).",fbig:"Chưa có video đã đăng FB/IG.",both:"Chưa có video đã đăng cả 2 nền tảng."};
       if(!done.length){ host.innerHTML='<div class="d">'+(_pubEmpty[view]||(view==="flawed"?'✓ Không có video nghi lỗi/bản cũ — tất cả đều là bản mới nhất.':(q?`Không tìm thấy video khớp "${esc(q)}".`:'Chưa có video hoàn tất — render xong + đẩy Drive là hiện ở đây.')))+'</div>'; return; }
       let tk=""; try{ tk=await window.__getIdToken(); }catch(_){}
@@ -2590,7 +2593,7 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         return `<div style="border-bottom:1px solid #ffffff0f;padding:6px 0">
           <div style="display:flex;gap:11px;align-items:center;cursor:pointer" onclick="window.rsPlay('${pid}','${esc(acc)}','${esc(fid)}','${pv}',${tall},'${esc(j.id||'')}')">
             <div style="position:relative;width:${tw}px;height:68px;flex:none;border-radius:7px;overflow:hidden;background:linear-gradient(135deg,#8b6cff55,#4ea1ff33);display:flex;align-items:center;justify-content:center">
-              ${thumb?`<img src="${thumb}" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.remove()">`:""}
+              ${thumb?`<img src="${thumb}" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.remove()">`:""}${j.thumb_id?"":`<span title="Chưa có ảnh thumbnail .jpg đi kèm — đang hiện khung tự sinh của Drive" style="position:absolute;left:3px;top:3px;background:#b45309ee;color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:5px">🖼 thiếu</span>`}
               <span style="position:absolute;color:#fff;font-size:20px;text-shadow:0 1px 5px #000">▶</span>
             </div>
             <div style="min-width:0;flex:1">
