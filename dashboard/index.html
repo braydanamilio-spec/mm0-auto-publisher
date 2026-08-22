@@ -747,7 +747,7 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 07:48 UTC</span></div>
+          <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 07:58 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
               <button class="btn-mini" onclick="checkDriveTokens()">🩺 Kiểm token + quyền</button>
@@ -1817,18 +1817,17 @@
       if(!isCf && !v.startsWith("AIza") && !v.startsWith("gsk_")){
         let acc="";
         try{
-          const r=await fetch("https://api.cloudflare.com/client/v4/accounts",{headers:{Authorization:"Bearer "+v}});
-          const j=await r.json().catch(()=>({}));
-          acc=((((j||{}).result)||[])[0]||{}).id||"";
+          // qua Worker của mình (server-side) — trình duyệt gọi thẳng api.cloudflare.com bị CORS chặn
+          const r=await fetch("https://mm0-connect.adisondurham-ef1.workers.dev/api/cf-accounts",
+            {method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:v})});
+          acc=(((await r.json().catch(()=>({})))||{}).id)||"";
         }catch(e){}
-        if(/^[0-9a-f]{32}$/i.test(acc)){ kv="cf:"+acc.toLowerCase()+":"+v; toastMsg("⛅ Đã tự nhận Account ID Cloudflare"); }
+        if(/^[0-9a-f]{32}$/i.test(acc)){ kv="cf:"+acc.toLowerCase()+":"+v; toastMsg("⛅ Đã tự nhận Account ID Cloudflare ✓"); }
         else {
-          const inp=prompt("Token Cloudflare (cfut_…) — em không tự lấy được Account ID (token thiếu quyền đọc account hoặc trình duyệt chặn).\nDán ACCOUNT ID (32 ký tự — dash.cloudflare.com, trang Overview, cột phải) vào đây:");
-          if(inp===null){} else {
-            const a=inp.trim().toLowerCase();
-            if(/^[0-9a-f]{32}$/.test(a)) kv="cf:"+a+":"+v;
-            else return alert("Chuỗi vừa dán không phải Account ID (phải đúng 32 ký tự hex, KHÔNG phải token cfut_). Key CHƯA được thêm — thử lại nha.");
-          }
+          const inp=prompt("Token Cloudflare — chưa tự lấy được Account ID (token có thể thiếu quyền).\nDán ACCOUNT ID (32 ký tự — dash.cloudflare.com → Overview → cột phải, KHÔNG phải chuỗi cfut_):");
+          const a=(inp||"").trim().toLowerCase();
+          if(!/^[0-9a-f]{32}$/.test(a)) return alert("Key CHƯA được thêm (không có Account ID hợp lệ) — token trần không dùng được nên em không lưu bừa thành Gemini nữa.");
+          kv="cf:"+a+":"+v;
         }
       }
       try { await addDoc(collection(db,"gemini_keys"), {owner:RSowner(), key:kv, last4:kv.slice(-4),

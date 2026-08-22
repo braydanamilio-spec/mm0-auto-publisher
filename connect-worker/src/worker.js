@@ -38,6 +38,7 @@ export default {
       if (url.pathname === "/api/drive-share") return corsResp(await apiDriveShare(request, url, env));
       if (url.pathname === "/api/drive-has") return corsResp(await apiDriveHas(request, url, env));
       if (url.pathname === "/api/empty-trash") return corsResp(await apiEmptyTrash(request, url, env));
+      if (url.pathname === "/api/cf-accounts") return corsResp(await apiCfAccounts(request));
       if (url.pathname === "/api/drive-trash") return corsResp(await apiDriveTrash(request, url, env));
       if (url.pathname === "/api/drive-usage") return corsResp(await apiDriveUsage(request, url, env));
       if (url.pathname === "/api/token-check") return corsResp(await apiTokenCheck(request, url, env));
@@ -1524,4 +1525,21 @@ function page(title, body, back = "connections") {
             style="background:#f1f1f4;color:#333;border:none;padding:11px 18px;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer">Đóng tab này</button>
        </div></div>`,
     { headers: { "content-type": "text/html; charset=utf-8" } });
+}
+
+// ── CLOUDFLARE WORKERS AI: tra Account ID từ token (22/8) ────────────────────────────────────
+// Trình duyệt KHÔNG gọi thẳng api.cloudflare.com được (CORS chặn) -> dashboard gửi token vào đây,
+// Worker (server-side, miễn CORS) hỏi /accounts rồi trả về account đầu tiên. Token chỉ đi qua,
+// KHÔNG lưu ở đâu cả.
+async function apiCfAccounts(request) {
+  if (request.method !== "POST") return new Response(JSON.stringify({ error: "POST only" }), { status: 405 });
+  let tok = "";
+  try { tok = ((await request.json()) || {}).token || ""; } catch (e) {}
+  if (!tok || tok.length < 20) return new Response(JSON.stringify({ error: "thiếu token" }), { status: 400 });
+  const r = await fetch("https://api.cloudflare.com/client/v4/accounts", {
+    headers: { Authorization: "Bearer " + tok } });
+  const j = await r.json().catch(() => ({}));
+  const acc = ((j || {}).result || [])[0] || {};
+  return new Response(JSON.stringify({ ok: r.ok, status: r.status, id: acc.id || "", name: acc.name || "" }),
+    { headers: { "content-type": "application/json" } });
 }
