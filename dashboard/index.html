@@ -1577,7 +1577,7 @@
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
       signInWithEmailAndPassword, createUserWithEmailAndPassword }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query, where, orderBy, limit, doc, setDoc, addDoc, deleteDoc, getDocs, getDoc, disableNetwork, enableNetwork, getCountFromServer }
+    import { getFirestore, collection, onSnapshot, query, where, orderBy, limit, doc, setDoc, addDoc, deleteDoc, getDocs, getDoc, disableNetwork, enableNetwork, getCountFromServer, increment }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -1707,6 +1707,22 @@
       }, err);
       __subs.push(u); return u;
     }
+    // GHI PHẦN ĐỌC CỦA DASHBOARD VÀO SỔ QUOTA NGÀY (23/8): sổ trước đây chỉ đếm pipeline (356)
+    // trong khi thực tế B đã 51K — cửa "lật B2 chủ động ở 90%" vì thế bị MÙ. Cứ 5 phút (và lúc rời
+    // trang) cộng số lượt đã đọc vào render_stats/__rw__{owner} -> plan thấy CON SỐ THẬT.
+    window.__flushReads = async () => {
+      try {
+        const n = window.__reads - (window.__readsSent || 0);
+        if (n < 20) return;
+        const o = (window.__ownerUid || window.__uid); if (!o) return;
+        const day = new Date().toISOString().slice(0,10).replace(/-/g, "");
+        await setDoc(doc(dbJobs, "render_stats", "__rw__" + o),
+                     { [day]: { r: increment(n) } }, { merge: true });
+        window.__readsSent = window.__reads;
+      } catch(_) {}
+    };
+    setInterval(() => window.__flushReads(), 300000);
+    window.addEventListener("pagehide", () => { try { window.__flushReads(); } catch(_){} });
     window.__detach = () => { __subs.splice(0).forEach(u => { try { u(); } catch(_){} }); window.__detached = true;
       try { __readMeter(); } catch(_){} };
     function __readMeter(){
