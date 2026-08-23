@@ -1637,7 +1637,18 @@ async function apiR2Setup(request) {
     const err = ((jb || {}).errors || [])[0] || {};
     const dup = /exists|already|duplicate/i.test(String(err.message || ""));
     if (!rb.ok && !dup) {
-      return json({ error: `Không tạo được bucket: ${err.message || rb.status}. Token cần quyền 'Workers R2 Storage: Edit'.` });
+      const msg = String(err.message || rb.status);
+      // 23/8: phân biệt 2 ca hoàn toàn khác nhau — trước gộp làm một nên báo oan cho token.
+      if (/enable r2|not enabled|subscription/i.test(msg)) {
+        return json({ error: "Tài khoản Cloudflare này CHƯA BẬT R2 (token của anh vẫn tốt, không phải tạo lại).\n\n" +
+                             "Cách bật 1 lần: mở dash.cloudflare.com → menu R2 Object Storage bên trái → Enable/Purchase R2.\n" +
+                             "Cloudflare đòi gắn thẻ ở bước này nhưng KHÔNG trừ tiền khi dùng dưới 10GB.\n\n" +
+                             "Bật xong quay lại dán đúng token cũ và bấm lại nút này." });
+      }
+      if (/permission|denied|unauthorized|9109|authentication/i.test(msg)) {
+        return json({ error: `Token thiếu quyền: ${msg}. Tạo lại token và tick 'Workers R2 Storage: Edit'.` });
+      }
+      return json({ error: `Không tạo được bucket: ${msg}` });
     }
   } catch (e) { return json({ error: "Lỗi mạng khi tạo bucket: " + String(e).slice(0, 60) }); }
 

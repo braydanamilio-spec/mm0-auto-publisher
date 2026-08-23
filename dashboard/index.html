@@ -1949,7 +1949,17 @@
     window.__r2Auto = async (btn, inputId) => {
       const kf = document.getElementById(inputId || "rsKeyManual"), ef = document.getElementById("rsKeyEmail");
       const tok = ((kf || {}).value || "").trim();
-      if (tok.length < 20) { alert("Dán token Cloudflare (cfut_...) vào Ô KEY bên trên trước, rồi bấm nút này.\n\nTạo token ở: Cloudflare → My Profile → API Tokens → Create Token → Custom, tick 3 quyền:\n• Workers R2 Storage: Edit\n• API Tokens: Edit\n• Account Settings: Read"); return; }
+      // 23/8 (user: "sao R2 chưa nhảy ra link đăng ký"): chưa có token thì MỞ THẲNG trang tạo token
+      // ĐIỀN SẴN đủ 3 quyền — giống nút Cloudflare Workers AI — thay vì bắt anh tự mò menu.
+      if (tok.length < 20) {
+        const perms = encodeURIComponent(JSON.stringify([
+          { key: "workers_r2", type: "edit" },
+          { key: "api_tokens", type: "edit" },
+          { key: "account_settings", type: "read" }]));
+        window.open(`https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=${perms}&accountId=*&zoneId=all&name=MM0%20R2%20Park`, "_blank");
+        try { toastMsg("Đã mở trang tạo token R2 (đã điền sẵn 3 quyền). Bấm Continue to summary → Create Token → copy chuỗi cfut_ → dán vào ô rồi bấm lại nút này.", 12000); } catch (_) {}
+        return;
+      }
       const t0 = btn ? btn.textContent : ""; if (btn) { btn.textContent = "⏳ đang tạo bến R2…"; btn.disabled = true; }
       try {
         const r = await fetch(WORKER_URL + "/api/r2-setup", { method: "POST",
