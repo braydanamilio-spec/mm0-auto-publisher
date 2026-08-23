@@ -1591,6 +1591,22 @@
     const db = getFirestore(appFb);
     let dbJobs = db;   // Firestore cho render_jobs -> Project B (shard); lỗi init thì fallback A
     try { const appB = initializeApp(firebaseConfigB, "shardB"); dbJobs = getFirestore(appB); } catch(e){ dbJobs = db; }
+    // Nhớ lựa chọn B2 qua reload (TTL 6h) — sang phiên B khỏe lại thì tự quay về B chính.
+    try { const t = Number(localStorage.getItem("mm0_useB2_at") || 0);
+      if (Date.now() - t < 6*3600*1000) { window.__preferB2 = true; } else { localStorage.removeItem("mm0_useB2_at"); } } catch(_){}
+    // B2 DỰ PHÒNG (23/8): B cạn quota đọc -> client lật sang mm0-shard-b2 (pipeline gương sẵn kênh/config).
+    const firebaseConfigB2 = { apiKey:"AIzaSyCoElG81azYrRPDyMjmPrkR_4xwEjqlKTU", authDomain:"mm0-shard-b2.firebaseapp.com", projectId:"mm0-shard-b2", messagingSenderId:"532466103759", appId:"1:532466103759:web:76d9f99ca004b3a69c4eba" };
+    window.__useB2 = () => { try { const a2 = initializeApp(firebaseConfigB2, "shardB2"); dbJobs = getFirestore(a2); window.__b2on = true;
+      try { toastMsg("🔀 B chính nghẽn — dashboard chuyển đọc B2 dự phòng"); } catch(_){}
+      return true; } catch(e){ return false; } };
+    if (window.__preferB2) window.__useB2();
+    // Bắt lỗi cạn quota B ở bất kỳ đâu -> ghi cờ + reload 1 lần để mọi listener gắn lại vào B2.
+    window.__b2Trip = (e) => { try {
+      const s = String((e && (e.code || e.message)) || "");
+      if (!window.__b2on && /resource-exhausted/.test(s) && !sessionStorage.getItem("b2tripped")) {
+        sessionStorage.setItem("b2tripped", "1"); localStorage.setItem("mm0_useB2_at", String(Date.now()));
+        try { toastMsg("🔀 Quota B cạn — chuyển sang kho dự phòng B2…"); } catch(_){}
+        setTimeout(() => location.reload(), 1200); return true; } } catch(_){} return false; };
     // 🔀 3-PROJECT ROUTER: render META (config/channels/keys/storage/topics/requests) -> B (khớp pipeline SHARD_META).
     //    publish (videos/counters/quota/queues) TẠM giữ A cho tới khi mở rules C (dbPub). Shared -> A (mặc định).
     const dbMeta = dbJobs;  // B
@@ -2151,7 +2167,7 @@
           const base=(dbJobs!==db)?dbJobs:db;
           const tot=(await getCountFromServer(query(collection(base,"render_jobs"),where("owner","==",o),where("status","==","done")))).data().count;
           window.__cntCache=tot; if(sd) sd.textContent=tot;
-        }catch(e){ window.__cntAt=0; } })();   // 23/8: lỗi đếm (429 nhịp) thì MỞ KHOÁ ngay để lần render kế thử lại — trước đây kẹt 5' số cũ/thiếu
+        }catch(e){ window.__cntAt=0; try{window.__b2Trip&&window.__b2Trip(e);}catch(_){} } })();   // 23/8: lỗi đếm mở khoá retry + cạn quota thì lật B2
         if(sf){ sf.textContent=activeFails.length; sf.title=oldFails?`${oldFails} lỗi cũ đã khắc phục (không tính)`:""; }
         const today=new Date().toISOString().slice(0,10);
         const stt=document.getElementById("rsSumToday"); if(stt) stt.textContent=all.filter(j=>j.status==="done"&&(j.created_at||"").slice(0,10)===today).length;
