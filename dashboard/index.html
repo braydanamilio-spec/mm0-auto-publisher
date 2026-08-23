@@ -2243,6 +2243,21 @@
         // count() phía server = 1 lượt đọc/kho, chính xác tuyệt đối, làm mới tối đa 1 lần/5 phút.
         (async()=>{ try{ const now=Date.now(); if(now-(window.__cntAt||0)<300000) {const c=window.__cntCache; if(c&&sd){sd.textContent=c;} return;}
           window.__cntAt=now; const o=(window.__ownerUid||window.__uid);
+          // 23/8 — MỘT NGUỒN SỰ THẬT: đọc SỔ ĐẾM VIDEO ĐÃ LÊN KHO (pipeline cộng 1 mỗi lần đẩy
+          // THÀNH CÔNG). Trước đây đếm bản ghi job -> gộp cả video render lại + video CHƯA lên kho
+          // nên "Tổng 1755" trong khi thư viện chỉ 61. Đọc 1 doc: vừa khớp, vừa rẻ hơn 2 count().
+          try {
+            const pd = await getDoc(doc(dbJobs, "render_stats", "__pushed__" + o));
+            if (pd.exists()) {
+              const px = pd.data() || {};
+              const dayK = new Date().toISOString().slice(0,10).replace(/-/g,"");
+              window.__cntCache = px.total || 0; window.__pushedToday = px[dayK] || 0;
+              if (sd) sd.textContent = window.__cntCache;
+              const st2 = document.getElementById("rsSumToday");
+              if (st2 && window.__pushedToday) st2.textContent = window.__pushedToday;
+              return;
+            }
+          } catch(_) {}
           // CHỈ đếm kho B khi đã shard: đợt chia kho 19/8 SAO CHÉP job cũ A->B, đếm cả 2 là TÍNH TRÙNG
           // (22/8: hiện 1397 trong khi thật ~750 — user tưởng số ảo). B là tập đủ (job mới chỉ ghi B).
           const base=(dbJobs!==db)?dbJobs:db;
