@@ -748,8 +748,9 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
-          <div id="oauthPubBanner" style="display:none;background:#7c2d12;border:1px solid #ea580c;border-radius:10px;padding:10px 14px;margin-bottom:10px;line-height:1.6">
-            🔑 <b>Nâng cấp token vĩnh viễn</b> — hệ vừa đổi quyền Drive sang <code>drive.file</code> (không còn bị Google giới hạn 7 ngày). Kho nào token chết chỉ cần bấm <b>Kết nối lại</b> đúng 1 lần là nhận token đời mới <b>không bao giờ hết hạn</b>; kho đang khỏe thì đến khi rụng lần cuối mới cần bấm. <button class="btn-mini" style="margin-left:8px" onclick="localStorage.setItem('mm0_oauth_published','1');document.getElementById('oauthPubBanner').style.display='none'">Ẩn thông báo</button></div>
+          <!-- 23/8: ĐÃ GỠ banner "token vĩnh viễn / drive.file". Sáng 23/8 đổi scope sang drive.file làm
+     70 refresh_token cũ trả invalid_scope -> 180 video bị từ chối đẩy kho; đã rollback về
+     scope drive lúc 08:23Z. Banner còn sót lại nói SAI sự thật nên bỏ hẳn, không chỉ ẩn. -->
           <div id="deadTokBanner" style="display:none;background:#7f1d1d;border:1px solid #dc2626;border-radius:10px;padding:10px 14px;margin-bottom:10px;line-height:1.6"></div>
           <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 15:05 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -882,9 +883,10 @@
           <div class="p-head"><div class="p-title">🔑 API Keys (Gemini + Groq)</div><div class="p-sub">Nhiều key = quota free ×N, tự xoay vòng</div></div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
             <button class="btn-conn" onclick="window.__rsGeminiConnect&&window.__rsGeminiConnect()" title="1-click sẽ tự lưu Gmail tạo key">🔗 Kết nối Gemini (1-click · auto Gmail)</button>
-            <input id="rsKeyEmail" type="email" placeholder="Gmail tạo key (vd you@gmail.com)" style="min-width:220px"/><a href="https://console.groq.com/keys" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Groq free ~1.000 gọi/ngày/tài khoản — dán key gsk_... vào Ô KEY BÊN TRÊN như key Gemini, hệ tự nhận diện và chỉ dùng cho khâu VIẾT (vision/vẽ ảnh vẫn là Gemini)">⚡ Lấy key Groq — free ~1K gọi/ngày</a><a href="https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22workers_ai%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D&accountId=*&zoneId=all&name=MM0%20Render" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Bấm vào = mở form tạo token ĐIỀN SẴN đủ 2 quyền (Workers AI Edit + Account Settings Read). Chỉ việc: Continue to summary → Create Token → copy chuỗi cfut_ → dán vào ô key. Free 10K neuron/ngày ≈ ~170 ảnh FLUX 1024² (4 bước)/tài khoản — theo giá niêm yết CF.">⛅ Lấy key Cloudflare — free ~170 ảnh/ngày</a><a href="https://www.pexels.com/api/key/" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Đăng nhập Pexels bằng 1 Gmail bất kỳ -> trang này hiện NGAY 1 API key (mỗi tài khoản 1 key). Copy chuỗi 56 ký tự dán vào Ô KEY BÊN TRÊN, hệ tự nhận là key ảnh Pexels. Free 200 lượt/giờ · 20.000/tháng mỗi key — thêm nhiều Gmail = nhiều key, hệ tự xoay vòng.">🖼️ Lấy key Pexels — free 20K lượt/tháng</a><a href="https://pixabay.com/api/docs/" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Đăng nhập Pixabay bằng 1 Gmail bất kỳ rồi mở trang này — key hiện SẴN trong phần 'Your API key' ngay đầu tài liệu. Copy dán vào Ô KEY BÊN TRÊN, hệ tự nhận. Free 5.000 lượt/GIỜ mỗi key, ảnh dùng thương mại thoải mái, không cần ghi công.">🧩 Lấy key Pixabay — free 5K lượt/giờ</a><a id="bmGrabKey" href="javascript:(function(){var t=document.body.innerText,m=t.match(/\b\d{6,10}-[a-zA-Z0-9]{20,40}\b/);if(!m){m=t.match(/\b[A-Za-z0-9]{48,64}\b/);}if(!m){alert('Chua thay API key tren trang nay.\n- Pixabay: dang nhap roi mo pixabay.com/api/docs/\n- Pexels: mo pexels.com/api/key/');return;}var e='';var em=t.match(/[a-zA-Z0-9._%+-]+@gmail\.com/);if(em)e=em[0];var u='https://mm0-auto-publisher.web.app/?addkey='+encodeURIComponent(m[0])+(e?'&kmail='+encodeURIComponent(e):'')+'#render';window.open(u,'_blank');})();" class="btn-mini" style="text-decoration:none;white-space:nowrap;border:1px dashed #8b6cff" title="KÉO nút này lên THANH DẤU TRANG của Chrome (1 lần duy nhất). Sau đó: đăng nhập Pixabay/Pexels bằng Gmail bất kỳ → mở trang API key của họ → bấm nút dấu trang này → dashboard tự mở và TỰ THÊM key. Không phải copy-dán gì.">⭐ Kéo lên thanh dấu trang: LẤY KEY 1 CHẠM</a>
+            <input id="rsKeyEmail" type="email" placeholder="Gmail tạo key (vd you@gmail.com)" style="min-width:220px"/><a href="https://console.groq.com/keys" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Groq free ~1.000 gọi/ngày/tài khoản — dán key gsk_... vào Ô KEY BÊN TRÊN như key Gemini, hệ tự nhận diện và chỉ dùng cho khâu VIẾT (vision/vẽ ảnh vẫn là Gemini)">⚡ Lấy key Groq — free ~1K gọi/ngày</a><a href="https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22workers_ai%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D&accountId=*&zoneId=all&name=MM0%20Render" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Bấm vào = mở form tạo token ĐIỀN SẴN đủ 2 quyền (Workers AI Edit + Account Settings Read). Chỉ việc: Continue to summary → Create Token → copy chuỗi cfut_ → dán vào ô key. Free 10K neuron/ngày ≈ ~170 ảnh FLUX 1024² (4 bước)/tài khoản — theo giá niêm yết CF.">⛅ Lấy key Cloudflare — free ~170 ảnh/ngày</a><a href="https://www.pexels.com/api/key/" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Đăng nhập Pexels bằng 1 Gmail bất kỳ -> trang này hiện NGAY 1 API key (mỗi tài khoản 1 key). Copy chuỗi 56 ký tự dán vào Ô KEY BÊN TRÊN, hệ tự nhận là key ảnh Pexels. Free 200 lượt/giờ · 20.000/tháng mỗi key — thêm nhiều Gmail = nhiều key, hệ tự xoay vòng.">🖼️ Lấy key Pexels — free 20K lượt/tháng</a><button class="btn-mini" style="white-space:nowrap;border:1px solid #f6821f88" onclick="window.__r2Auto&&window.__r2Auto(this)" title="TỰ ĐỘNG: dán token Cloudflare (cfut_...) vào Ô KEY bên trên rồi bấm nút này. Hệ tự tạo bucket mm0-park, tự tạo khoá R2 và tự thêm vào hồ. Token cần 3 quyền khi tạo: Workers R2 Storage:Edit · API Tokens:Edit · Account Settings:Read. Mỗi tài khoản Cloudflare = 10GB free, thêm nhiều tài khoản thì hệ tự xoay vòng.">🅿️ Tạo bến R2 tự động (dán token CF rồi bấm)</button><a href="https://dash.cloudflare.com/?to=/:account/r2/api-tokens" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="BẾN PHỤ chứa video khi Drive từ chối. Mỗi tài khoản Cloudflare được 10GB free (nhiều bucket vẫn CHUNG 10GB đó — muốn 30-40GB thì tạo 3-4 TÀI KHOẢN). Các bước: R2 → Create bucket (đặt tên mm0-park) → API Tokens → Create Account API token (quyền Object Read & Write) → copy Access Key ID + Secret. Rồi dán vào ô key theo đúng dạng:  r2:<ACCOUNT_ID>:<ACCESS_KEY_ID>:<SECRET>:<BUCKET>">🅿️ Lấy key R2 — bến phụ 10GB/tài khoản</a><a id="bmGrabKey" href="javascript:(function(){var h=location.hostname;if(h.indexOf('mm0-auto-publisher')>-1){window.open('https://pixabay.com/api/docs/','_blank');return;}var it=document.body.innerText,ht=document.documentElement.innerHTML,d=/\b\d{6,10}-[a-zA-Z0-9]{20,40}\b/,l=/\b[A-Za-z0-9]{48,64}\b/;var m=it.match(d)||it.match(l)||ht.match(d);if(!m){alert('Chua thay key. Dang nhap roi mo pixabay.com/api/docs/ hoac pexels.com/api/key/');return;}var em=(it.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}/)||[''])[0];if(!em){var ua=document.querySelector('a[href*=\'/users/\'],a[href*=\'/@\']');if(ua)em=(ua.getAttribute('href')||'').split('/').filter(Boolean).pop();}window.open('https://mm0-auto-publisher.web.app/?addkey='+encodeURIComponent(m[0])+(em?'&kmail='+encodeURIComponent(em):'')+'#render','_blank');})();" class="btn-mini" style="text-decoration:none;white-space:nowrap;border:1px dashed #8b6cff" title="1 NÚT DUY NHẤT cho cả Pexels lẫn Pixabay. Lần đầu: KÉO nút này lên thanh dấu trang Chrome. Sau đó đăng nhập Pexels (pexels.com/api/key/) hoặc Pixabay (pixabay.com/api/docs/) bằng Gmail bất kỳ → bấm nút dấu trang → dashboard tự mở và TỰ THÊM key, không copy-dán. Bấm ngay tại dashboard thì nó mở sẵn trang Pixabay. Pexels 20K lượt/tháng · Pixabay 5K lượt/GIỜ mỗi key, hệ tự xoay vòng.">🔑 KEY ẢNH 1 CHẠM (Pexels + Pixabay) — kéo lên thanh dấu trang</a>
             <input id="rsKeyManual" placeholder="dán key: AIza... (Gemini) · gsk_... (Groq) · cfut_... (Cloudflare — tự nhận Account ID)" style="flex:1;min-width:240px"/>
             <button class="btn-conn" onclick="window.__rsAddKey&&window.__rsAddKey()">＋ Thêm key</button>
+            <button class="btn-conn" style="background:#16a34a;border-color:#16a34a;color:#fff" title="Cách nhanh nhất: bôi đen key trên trang Pixabay/Pexels → Ctrl+C (Cmd+C) → bấm nút này. Hệ tự đọc bộ nhớ tạm, tự nhận nhà cung cấp, tự đặt nhãn nếu trang không có Gmail, rồi thêm key ngay." onclick="window.__rsPasteKey&&window.__rsPasteKey()">📋 Dán key từ clipboard</button>
           </div>
           <div id="rsKeyHealth" style="margin:6px 0;padding:8px 10px;background:#ffffff0d;border-radius:8px;font-size:13px">⚪ Chưa health-check lần nào.</div>
           <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
@@ -1603,9 +1605,6 @@
       try { toastMsg("🔀 B chính nghẽn — dashboard chuyển đọc B2 dự phòng"); } catch(_){}
       return true; } catch(e){ return false; } };
     if (window.__preferB2) window.__useB2();
-    // Banner cảnh báo OAuth Testing (23/8 — bài học 70 kho token 7-ngày): hiện tới khi user xác nhận đã Publish.
-    try { if (localStorage.getItem("mm0_oauth_published") !== "1") {
-      const el = document.getElementById("oauthPubBanner"); if (el) el.style.display = "block"; } } catch(_){}
     // TỰ KIỂM TOKEN KHO 1 LẦN/NGÀY (23/8 — user: "kho >1 tuần mà chẳng ai báo"): token chết trước
     // giờ chỉ bị né âm thầm; giờ quét tự động rồi RÉO TÊN từng kho chết + hướng dẫn kết nối lại.
     window.__autoTokenSweep = async (force) => { try {
@@ -1621,7 +1620,7 @@
       if (dead.length) {
         el.innerHTML = `🔴 <b>${dead.length} kho token ĐÃ CHẾT</b> (hết hạn 7 ngày thời app Testing): `
           + dead.map(a=>`<code>${a}</code>`).join(" · ")
-          + `<br>→ Bấm <b>Kết nối lại</b> từng kho (1 lần — token đời mới drive.file là vĩnh viễn). Kho chưa cần dùng thì để sau cũng được — hệ đang tự né sang kho khỏe.`;
+          + `<br>→ Bấm <b>Kết nối lại</b> đúng kho đó (đăng nhập lại bằng Gmail của kho). Kho chưa cần dùng thì để sau cũng được — hệ tự né sang kho khỏe.`;
         el.style.display = "block";
         try { toastMsg(`🔴 ${dead.length} kho token chết — xem banner đỏ ở Hồ chứa`, 6000); } catch(_){}
       } else { el.style.display = "none"; }
@@ -1902,20 +1901,65 @@
         const q = new URLSearchParams(location.search);
         const k = (q.get("addkey") || "").trim();
         if (!k) return;
-        const mail = (q.get("kmail") || "").trim();
+        // 23/8 (SỬA LỖI "Pixabay vẫn lỗi"): trang pixabay.com/api/docs/ KHÔNG hiện Gmail nào, mà
+        // __rsAddKey bắt buộc có Gmail -> nó chặn im. Giờ thiếu Gmail thì TỰ ĐẶT NHÃN theo nhà
+        // cung cấp + 4 số cuối key (vd pixabay-0392@auto) để vẫn thêm được, vẫn phân biệt được key.
+        const _pb = /^(pb:)?\d{6,10}-[A-Za-z0-9]{20,40}$/.test(k);
+        const mail = (q.get("kmail") || "").trim() ||
+                     (_pb ? "pixabay-" : "pexels-") + k.slice(-4) + "@auto";
         const kf = document.getElementById("rsKeyManual"), ef = document.getElementById("rsKeyEmail");
         if (!kf) { setTimeout(() => window.__autoAddKeyFromUrl(), 2000); return; }
-        kf.value = k; if (ef && mail) ef.value = mail;
+        kf.value = k; if (ef) ef.value = mail;
         history.replaceState(null, "", location.pathname + location.hash);   // xoá key khỏi URL
         await window.__rsAddKey();
       } catch (e) { try { toastMsg("Không thêm được key từ đường dẫn: " + String(e).slice(0, 60)); } catch(_){} }
     };
     setTimeout(() => window.__autoAddKeyFromUrl(), 3500);
 
+    // ── DÁN 1 CHẠM (23/8): anh copy key ở trang Pixabay/Pexels rồi bấm nút — khỏi kéo bookmarklet,
+    // khỏi gõ Gmail. Đọc clipboard → tự nhận nhà cung cấp → tự đặt nhãn nếu thiếu Gmail → thêm luôn.
+    window.__rsPasteKey = async () => {
+      let v = "";
+      try { v = ((await navigator.clipboard.readText()) || "").trim(); }
+      catch (e) { alert("Trình duyệt chưa cho đọc bộ nhớ tạm. Bấm biểu tượng ổ khoá cạnh thanh địa chỉ → cho phép Clipboard, rồi bấm lại."); return; }
+      v = v.replace(/\s+/g, "");
+      if (v.length < 20) { alert("Bộ nhớ tạm chưa có key. Bôi đen key trên trang Pixabay/Pexels rồi Ctrl+C (Cmd+C) trước."); return; }
+      const kf = document.getElementById("rsKeyManual"), ef = document.getElementById("rsKeyEmail");
+      kf.value = v;
+      if (ef && !(ef.value || "").trim()) {
+        const pb = /^(pb:)?\d{6,10}-[A-Za-z0-9]{20,40}$/.test(v);
+        ef.value = (pb ? "pixabay-" : "pexels-") + v.slice(-4) + "@auto";
+      }
+      await window.__rsAddKey();
+    };
+    // TẠO BẾN R2 TỰ ĐỘNG (23/8) — anh chỉ dán token Cloudflare, phần còn lại hệ làm:
+    // tạo bucket -> tạo khoá S3 (Access Key = id token, Secret = SHA-256 giá trị token, theo quy tắc CF)
+    // -> tự thêm chuỗi r2:... vào hồ key. Làm lại với token của tài khoản khác = thêm 10GB nữa.
+    window.__r2Auto = async (btn) => {
+      const kf = document.getElementById("rsKeyManual"), ef = document.getElementById("rsKeyEmail");
+      const tok = ((kf || {}).value || "").trim();
+      if (tok.length < 20) { alert("Dán token Cloudflare (cfut_...) vào Ô KEY bên trên trước, rồi bấm nút này.\n\nTạo token ở: Cloudflare → My Profile → API Tokens → Create Token → Custom, tick 3 quyền:\n• Workers R2 Storage: Edit\n• API Tokens: Edit\n• Account Settings: Read"); return; }
+      const t0 = btn ? btn.textContent : ""; if (btn) { btn.textContent = "⏳ đang tạo bến R2…"; btn.disabled = true; }
+      try {
+        const r = await fetch(WORKER_URL + "/api/r2-setup", { method: "POST",
+          headers: { "content-type": "application/json" }, body: JSON.stringify({ token: tok }) });
+        const j = await r.json().catch(() => ({}));
+        if (!j.ok) { alert("Chưa tạo được bến R2:\n\n" + (j.error || "lỗi không rõ")); return; }
+        kf.value = j.key;
+        if (ef && !(ef.value || "").trim()) ef.value = "r2-" + String(j.account).slice(0, 6) + "@auto";
+        await window.__rsAddKey();
+        toastMsg("🅿️ Đã tạo bến R2 " + j.bucket + " (+10GB) và thêm khoá ✓", 7000);
+      } catch (e) { alert("Lỗi gọi worker: " + String(e).slice(0, 80)); }
+      finally { if (btn) { btn.textContent = t0; btn.disabled = false; } }
+    };
     window.__rsAddKey = async () => {
       const v=(document.getElementById("rsKeyManual").value||"").trim();
       const em=(document.getElementById("rsKeyEmail").value||"").trim();
       if(v.length<20) return alert("Key không hợp lệ.");
+      // 23/8: bấm 2 lần vào key Pixabay chỉ bôi được NỬA SAU (sau dấu gạch) -> chặn sớm, nói rõ chỗ thiếu.
+      if(/^[0-9a-f]{20,40}$/i.test(v) && !v.includes("-"))
+        return alert("Đây mới là NỬA SAU của key Pixabay.\n\nKey đủ có dạng:  57249977-" + v +
+                     "\n\nBôi đen CẢ dòng xanh trên trang Pixabay (gồm cả 8 chữ số đầu và dấu gạch) rồi dán lại.");
       if(!em) return alert("Nhập Gmail đã tạo key (để quản lý key theo tài khoản).");
       // Cloudflare Workers AI: dán "ACCOUNT_ID:API_TOKEN" (32 hex + ":" + token) -> lưu "cf:acc:token"
       // 23/8: KEY PEXELS = chuỗi 50-60 ký tự chữ+số, không phải gsk_/AIza/AQ./cf: -> tự gắn "px:"
@@ -1924,15 +1968,17 @@
       // nên trình duyệt ném TypeError và cả nút chết lặng. Giờ không đụng vào v, chỉ đặt cờ + tự
       // gắn tiền tố khi dựng `kv`. KEY PEXELS = chuỗi 48-64 ký tự chữ+số, không phải gsk_/AIza/AQ./cf:
       // KEY PIXABAY (23/8) = "<số>-<chuỗi 25-40 ký tự>" (vd 12345678-abc...); Pexels = 48-64 ký tự chữ+số
-      const isPb = v.startsWith("pb:") || /^\d{6,10}-[A-Za-z0-9]{20,40}$/.test(v);
-      const isPx = !isPb && (v.startsWith("px:") ||
+      // R2 (23/8) = bến phụ chứa video khi Drive từ chối. Dạng: r2:<account_id>:<akid>:<secret>:<bucket>
+      const isR2 = v.startsWith("r2:") && v.split(":").length >= 5;
+      const isPb = !isR2 && (v.startsWith("pb:") || /^\d{6,10}-[A-Za-z0-9]{20,40}$/.test(v));
+      const isPx = !isR2 && !isPb && (v.startsWith("px:") ||
         (/^[A-Za-z0-9]{48,64}$/.test(v) && !/^(gsk_|AIza|AQ\.)/.test(v) && !v.includes(":")));
-      const isCf = !isPx && !isPb && (/^[0-9a-f]{32}:\S{20,}$/i.test(v) || v.startsWith("cf:"));
-      let kv = isPb ? (v.startsWith("pb:") ? v : "pb:" + v)
+      const isCf = !isR2 && !isPx && !isPb && (/^[0-9a-f]{32}:\S{20,}$/i.test(v) || v.startsWith("cf:"));
+      let kv = isR2 ? v : isPb ? (v.startsWith("pb:") ? v : "pb:" + v)
              : isPx ? (v.startsWith("px:") ? v : "px:" + v)
              : (isCf && !v.startsWith("cf:") ? "cf:" + v : v);
       // Token Cloudflare (cfut_… hoặc token trần khác AIza/gsk_): TỰ GỌI CF lấy Account ID — user chỉ cần dán token
-      if(!isPx && !isPb && !isCf && !v.startsWith("AIza") && !v.startsWith("gsk_")){
+      if(!isR2 && !isPx && !isPb && !isCf && !v.startsWith("AIza") && !v.startsWith("gsk_")){
         let acc="";
         try{
           // qua Worker của mình (server-side) — trình duyệt gọi thẳng api.cloudflare.com bị CORS chặn
@@ -1951,7 +1997,7 @@
         }
       }
       try { await addDoc(collection(db,"gemini_keys"), {owner:RSowner(), key:kv, last4:kv.slice(-4),
-        email:em, source:"manual", provider:(kv.startsWith("gsk_")?"groq":kv.startsWith("cf:")?"cloudflare":kv.startsWith("px:")?"pexels":kv.startsWith("pb:")?"pixabay":"gemini"), created_at:new Date().toISOString()});
+        email:em, source:"manual", provider:(kv.startsWith("gsk_")?"groq":kv.startsWith("cf:")?"cloudflare":kv.startsWith("px:")?"pexels":kv.startsWith("pb:")?"pixabay":kv.startsWith("r2:")?"r2":"gemini"), created_at:new Date().toISOString()});
         document.getElementById("rsKeyManual").value=""; document.getElementById("rsKeyEmail").value="";
         toastMsg("✔ Đã thêm key cho "+em); window.__loadKeys&&window.__loadKeys(); } catch(e){ alert("Lỗi: "+e.message); } };
     window.__rsGeminiConnect = () => {
@@ -2762,13 +2808,14 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
             </div>
             <span style="display:flex;gap:8px;white-space:nowrap;flex:none">
               <button class="d" onclick="event.stopPropagation();window.rsShareLink('${esc(fid)}','${esc(acc)}',this)" style="background:none;border:1px solid #8b6cff55;color:#8b6cff;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Copy link full quyền">🔗</button>
+              <button class="d" onclick="event.stopPropagation();window.rsShowMeta('${esc(j.id||'')}','mt_${pid}')" style="background:none;border:1px solid #22d3ee55;color:#22d3ee;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Xem GÓI ĐĂNG: ảnh thumbnail to + tiêu đề + mô tả + tag/hashtag sẽ lên YouTube/FB">📋</button>
               <a href="${esc(pv)}" target="_blank" onclick="event.stopPropagation()" class="d" style="color:#8b6cff;font-size:12px;align-self:center">Drive ↗</a>
               <button class="d" onclick="event.stopPropagation();window.rsMarkFlaw('${esc(j.id||'')}',${j.flagged?'false':'true'})" style="background:none;border:1px solid ${j.flagged?'#f59e0b':'#8b6cff44'};color:${j.flagged?'#f59e0b':'#9aa6c0'};border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Đánh dấu lỗi / bỏ dấu">${j.flagged?'🚩':'⚐'}</button>
               ${j.rerender?`<span class="d" style="font-size:11px;color:#4ea1ff;align-self:center;white-space:nowrap">🔄 ${esc(j.rerender)}</span><button class="d" onclick="event.stopPropagation();window.rsCancelRerender('${esc(j.id||'')}')" style="background:none;border:1px solid #f59e0b66;color:#f59e0b;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Hủy render lại (chỉ khi chưa chạy)">⏹ Hủy</button>`:`<button class="d" onclick="event.stopPropagation();window.rsRerender('${esc(j.id||'')}')" style="background:none;border:1px solid #4ea1ff55;color:#4ea1ff;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Render lại + tự thay thế bản này">🔄</button>`}
               ${j.thumb_req?`<span class="d" style="font-size:11px;color:#22c55e;align-self:center;white-space:nowrap" title="Đã gửi yêu cầu — cron gom làm mỗi 30 phút">🖼 đã đặt</span>`:`<button class="d" onclick="event.stopPropagation();window.rsRedoThumb('${esc(j.id||'')}','${esc(fid)}','${esc(j.channel||'')}',this)" style="background:none;border:1px solid #22c55e55;color:#22c55e;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Tạo lại thumbnail (mỗi lần thử một kiểu khác)">🖼</button>`}
               <button class="d" onclick="event.stopPropagation();window.rsDeleteVideo('${esc(fid)}','${esc(acc)}','${esc(j.id||'')}',this)" style="background:none;border:1px solid #ff5a5a55;color:#ff8080;border-radius:6px;padding:3px 8px;font-size:12px;cursor:pointer" title="Xóa video khỏi Drive">🗑</button>
             </span>
-          </div><div id="${pid}"></div></div>`;
+          </div><div id="mt_${pid}"></div><div id="${pid}"></div></div>`;
       };
       const grp=(icon,label,arr)=> arr.length?`<div class="d" style="margin:8px 0 3px">${icon} ${label} (${arr.length})</div>${arr.map(item).join("")}`:"";
       const keyOf = view==="account" ? (j=>j.drive_account||"🔍 Chưa xác định kho") : (j=>j.channel||"?");
@@ -2821,6 +2868,37 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
           if(--pending===0&&!done) resolve(""); }); });
       if(found&&jobId){ try{ await setDoc(doc(dbJobs,"render_jobs",jobId),{drive_account:found},{merge:true}); }catch(_){} }
       return found;
+    };
+    // XEM GÓI ĐĂNG (23/8, user: "file videos đi kèm ảnh thumbnail + file upload để a check"):
+    // mở ngay dưới dòng video, dựng từ dữ liệu job ĐÃ NẠP -> KHÔNG tốn thêm lượt đọc Firestore nào.
+    window.rsShowMeta = async (jobId, boxId) => {
+      const box = document.getElementById(boxId); if (!box) return;
+      if (box.innerHTML) { box.innerHTML = ""; return; }                 // bấm lần 2 = đóng
+      const j = (window.__rsJobsData || []).find(x => x.id === jobId);
+      if (!j) { box.innerHTML = '<div class="d" style="padding:8px">Không thấy dữ liệu video này.</div>'; return; }
+      let tk = ""; try { tk = await window.__getIdToken(); } catch (_) {}   // __tokCache không tồn tại -> ảnh sẽ trắng
+      const timg = j.thumb_id || j.drive_id || "";
+      const thumb = timg ? `${WORKER_URL}/api/drive-thumb?t=${encodeURIComponent(tk)}${j.drive_account?`&account=${encodeURIComponent(j.drive_account)}`:""}&fileId=${encodeURIComponent(timg)}` : "";
+      const chips = (arr, pre) => (arr || []).slice(0, 14).map(x => `<span style="display:inline-block;background:#8b6cff22;border:1px solid #8b6cff44;border-radius:999px;padding:1px 9px;margin:2px 4px 2px 0;font-size:12px">${pre}${esc(String(x).replace(/^#/, ""))}</span>`).join("") || '<span class="d">— trống —</span>';
+      const row = (k, v) => `<div style="display:flex;gap:10px;padding:5px 0;border-top:1px solid #ffffff0f"><div class="d" style="width:96px;flex:none;font-size:12px">${k}</div><div style="min-width:0;flex:1;font-size:13px;line-height:1.55">${v}</div></div>`;
+      const warn = [];
+      if (!j.thumb_id) warn.push("thiếu ảnh thumbnail .jpg");
+      if (!(j.title || "").trim()) warn.push("thiếu tiêu đề");
+      if ((j.description || "").length < 60) warn.push("mô tả quá ngắn");
+      if (!(j.tags || []).length) warn.push("chưa có tag");
+      box.innerHTML = `<div style="display:flex;gap:14px;background:#ffffff08;border:1px solid #ffffff14;border-radius:10px;padding:12px;margin:8px 0">
+        <div style="width:${j.type === "long" ? 210 : 122}px;flex:none">
+          ${thumb ? `<img src="${thumb}" loading="lazy" style="width:100%;border-radius:8px;display:block" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'d',textContent:'(không tải được ảnh)'}))">` : '<div class="d">(chưa có ảnh)</div>'}
+          <div class="d" style="font-size:11px;margin-top:5px;text-align:center">${j.thumb_id ? "🖼 thumbnail thật" : "⚠️ khung tự sinh"}</div>
+        </div>
+        <div style="min-width:0;flex:1">
+          ${warn.length ? `<div style="background:#b4530922;border:1px solid #f59e0b66;color:#fbbf24;border-radius:8px;padding:6px 10px;margin-bottom:8px;font-size:12px">⚠️ ${warn.join(" · ")}</div>` : `<div style="background:#16a34a22;border:1px solid #22c55e55;color:#4ade80;border-radius:8px;padding:6px 10px;margin-bottom:8px;font-size:12px">✅ Gói đăng đủ: ảnh + tiêu đề + mô tả + tag</div>`}
+          ${row("Tiêu đề", `<b>${esc(j.title || "—")}</b> <span class="d">(${(j.title || "").length} ký tự)</span>`)}
+          ${row("Mô tả", `<div style="max-height:160px;overflow:auto;white-space:pre-wrap">${esc(j.description || "—")}</div>`)}
+          ${row("Hashtag", chips(j.hashtags, "#"))}
+          ${row("Tag", chips(j.tags, ""))}
+          ${row("Kỹ thuật", `${j.type === "long" ? "🎬 long" : "📱 short"} · ${rsFmtDur(j.dur)} · ${j.size_mb || "?"}MB · ${rsResLabel(j.res)}${j.score ? " · QC " + esc(j.score) : ""} · 📁 ${esc(j.drive_account || "?")}`)}
+        </div></div>`;
     };
     window.rsDeleteVideo=async(fileId,account,jobId,btn)=>{
       if(!fileId) return;
@@ -5651,7 +5729,13 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
           const st = r.unknown ? {ic:'⏳',cls:'',t:'chưa kiểm được (rate-limit) — bấm kiểm lại'} : (r.healthy===false ? {ic:'⚠️',cls:'bad',t:'token hỏng'} : (r.fullEdit===false ? {ic:'🔒',cls:'bad',t:'THIẾU QUYỀN edit'} : {ic:'✅',cls:'',t:'đủ quyền full'}));
           const needFix = r.healthy===false || (r.healthy && r.fullEdit===false);
           return `<span class="rw-chip ${st.cls}" title="${st.t}">${st.ic} ${esc(r.a)}${needFix?` <button class="btn-mini" style="margin-left:4px" onclick="connectChannel('${esc(r.a)}','drive')">Kết nối lại</button>`:''}</span>`;}).join("")}</div>
-        ${unknown.length?`<div class="p-sub" style="margin-top:8px">⏳ ${unknown.length} kho <b>chưa kiểm được</b> do rate-limit tạm (KHÔNG phải hỏng — video vẫn upload). Bấm 🩺 lại sau vài giây.</div>`:''}
+        ${unknown.length?`<div class="p-sub" style="margin-top:8px">⏳ ${unknown.length} kho <b>chưa kiểm được</b>${(()=>{
+          // 23/8: trước đây luôn đổ cho "rate-limit tạm" -> sai hướng khi thủ phạm thật là Firestore
+          // project A cạn quota ĐỌC (worker không lấy nổi thẻ kết nối). Nêu đúng nguyên nhân + cách xử.
+          const q = Object.values(window.__driveTok||{}).some(v=>/429|quota|Firestore read fail/i.test(String((v&&v.err)||"")));
+          return q ? ` vì <b>Firestore project A hết quota ĐỌC hôm nay</b> (không phải token hỏng, không phải lỗi Drive). Quota reset lúc 00:00 giờ Thái Bình Dương (~14:00 giờ VN). Render + đẩy kho VẪN CHẠY vì đi bản gương ở project B.`
+                   : ` do rate-limit tạm (KHÔNG phải hỏng — video vẫn upload). Bấm 🩺 lại sau vài giây.`;
+        })()}</div>`:''}
         ${noPerm.length?`<div class="p-sub" style="margin-top:8px;line-height:1.6">🔒 <b>${noPerm.length} kho thiếu quyền full Drive</b> — Kết nối lại + ở Google TÍCH ĐỦ ô quyền.</div>`:''}
         ${bad.length?`<div class="p-sub" style="margin-top:8px;line-height:1.6">💡 Token hết hạn (Testing=7 ngày): <a href="https://console.cloud.google.com/apis/credentials/consent?project=377166959818" target="_blank" style="color:var(--accent)">publish OAuth consent → Production</a></div>`:''}</div>`; };
 

@@ -39,6 +39,7 @@ export default {
       if (url.pathname === "/api/drive-has") return corsResp(await apiDriveHas(request, url, env));
       if (url.pathname === "/api/empty-trash") return corsResp(await apiEmptyTrash(request, url, env));
       if (url.pathname === "/api/cf-accounts") return corsResp(await apiCfAccounts(request));
+      if (url.pathname === "/api/r2-setup") return corsResp(await apiR2Setup(request));
       if (url.pathname === "/api/cf-flux") return corsResp(await apiCfFlux(request));
       if (url.pathname === "/api/drive-trash") return corsResp(await apiDriveTrash(request, url, env));
       if (url.pathname === "/api/drive-usage") return corsResp(await apiDriveUsage(request, url, env));
@@ -687,8 +688,19 @@ async function driveCtx(env, uid, account) {
   const c = _dctxCache[key];
   if (c && c.exp > Date.now()) return { conn: c.conn, dat: c.dat };
   const at = await saAccessToken(env);
-  const conn = await fsGet(env, at, `connections/${uid}__${account}__drive`);
-  if (!conn || !conn.refresh_token) throw new Error("Tài khoản kho chưa kết nối.");
+  // 23/8: Firestore project A có ngày cạn quota đọc -> fsGet ném 429 -> KHÔNG lấy được refresh_token
+  // -> pipeline tưởng "không kho nào đủ chỗ" (đúng vết sự cố 180 video). Nay đọc hụt thì lấy bản sao
+  // trong KV; đọc được thì ghi lại KV. KV không tính vào quota Firestore.
+  const kvKey = `conn:${uid}__${account}__drive`;
+  let conn = null, fsErr = null;
+  try { conn = await fsGet(env, at, `connections/${uid}__${account}__drive`); }
+  catch (e) { fsErr = e; }
+  if (conn && conn.refresh_token) {
+    if (env.MM0_CACHE) { try { await env.MM0_CACHE.put(kvKey, JSON.stringify(conn)); } catch (_) {} }
+  } else if (env.MM0_CACHE) {
+    try { const raw = await env.MM0_CACHE.get(kvKey); if (raw) conn = JSON.parse(raw); } catch (_) {}
+  }
+  if (!conn || !conn.refresh_token) throw new Error("Tài khoản kho chưa kết nối." + (fsErr ? " (" + String(fsErr).slice(0, 60) + ")" : ""));
   const dat = await ytAccessToken(conn.client_id, conn.client_secret, conn.refresh_token);
   _dctxCache[key] = { conn, dat, exp: Date.now() + 45 * 60 * 1000 };   // access token sống 1h -> cache 45' an toàn
   return { conn, dat };
@@ -1592,4 +1604,75 @@ async function apiCfFlux(request) {
   return new Response(JSON.stringify({ ok: r.ok, status: r.status,
     image: (((j || {}).result) || {}).image || "", err: JSON.stringify((j || {}).errors || "").slice(0, 200) }),
     { headers: { "content-type": "application/json" } });
+}
+
+// POST /api/r2-setup {token, bucket?} -> tạo bucket + khoá S3 cho R2, trả chuỗi "r2:acc:akid:secret:bucket"
+// 23/8 (user: "thêm phần get key R2 tự động như driver"): tự làm hết 3 việc tay — tạo bucket, tạo
+// API token cấp account với quyền R2, rồi đổi token đó thành cặp khoá S3.
+// Quy tắc của Cloudflare: Access Key ID = ID của token, Secret = SHA-256 của giá trị token.
+async function apiR2Setup(request) {
+  if (request.method !== "POST") return new Response(JSON.stringify({ error: "POST only" }), { status: 405 });
+  let body = {};
+  try { body = (await request.json()) || {}; } catch (e) {}
+  const tok = String(body.token || "").trim();
+  const bucket = String(body.bucket || "mm0-park").trim();
+  if (tok.length < 20) return json({ error: "Thiếu token Cloudflare." });
+  const H = { Authorization: "Bearer " + tok, "content-type": "application/json" };
+  const api = "https://api.cloudflare.com/client/v4";
+
+  // 1) account id — token cấp account chỉ thấy đúng account của nó
+  let acc = "";
+  try {
+    const r = await fetch(`${api}/accounts`, { headers: H });
+    const j = await r.json().catch(() => ({}));
+    acc = (((j || {}).result || [])[0] || {}).id || "";
+  } catch (e) {}
+  if (!acc) return json({ error: "Token không đọc được Account — khi tạo token nhớ tick 'Account Settings: Read'." });
+
+  // 2) bucket (đã có thì bỏ qua)
+  try {
+    const rb = await fetch(`${api}/accounts/${acc}/r2/buckets`, {
+      method: "POST", headers: H, body: JSON.stringify({ name: bucket }) });
+    const jb = await rb.json().catch(() => ({}));
+    const err = ((jb || {}).errors || [])[0] || {};
+    const dup = /exists|already|duplicate/i.test(String(err.message || ""));
+    if (!rb.ok && !dup) {
+      return json({ error: `Không tạo được bucket: ${err.message || rb.status}. Token cần quyền 'Workers R2 Storage: Edit'.` });
+    }
+  } catch (e) { return json({ error: "Lỗi mạng khi tạo bucket: " + String(e).slice(0, 60) }); }
+
+  // 3) nhóm quyền R2 (id khác nhau theo account nên phải tra, không hardcode được)
+  let pg = "";
+  try {
+    const rp = await fetch(`${api}/accounts/${acc}/tokens/permission_groups`, { headers: H });
+    const jp = await rp.json().catch(() => ({}));
+    const list = (jp || {}).result || [];
+    const hit = list.find(g => /r2/i.test(g.name || "") && /write|edit/i.test(g.name || ""))
+             || list.find(g => /r2/i.test(g.name || ""));
+    pg = (hit || {}).id || "";
+  } catch (e) {}
+  if (!pg) return json({ error: "Không tra được nhóm quyền R2 — token cần quyền 'API Tokens: Edit' để tự tạo khoá." });
+
+  // 4) tạo token cấp account -> đổi thành cặp khoá S3
+  try {
+    const rt = await fetch(`${api}/accounts/${acc}/tokens`, {
+      method: "POST", headers: H,
+      body: JSON.stringify({
+        name: `mm0-r2-${bucket}-${Math.random().toString(36).slice(2, 7)}`,
+        policies: [{ effect: "allow",
+                     permission_groups: [{ id: pg }],
+                     resources: { [`com.cloudflare.api.account.${acc}`]: "*" } }] }) });
+    const jt = await rt.json().catch(() => ({}));
+    if (!rt.ok || !((jt || {}).result || {}).value) {
+      const e0 = ((jt || {}).errors || [])[0] || {};
+      return json({ error: `Không tạo được khoá R2: ${e0.message || rt.status}. Token cần quyền 'API Tokens: Edit'.` });
+    }
+    const akid = jt.result.id;
+    const raw = jt.result.value;
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
+    const secret = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+    return json({ ok: true, key: `r2:${acc}:${akid}:${secret}:${bucket}`, bucket, account: acc });
+  } catch (e) {
+    return json({ error: "Lỗi tạo khoá R2: " + String(e).slice(0, 70) });
+  }
 }

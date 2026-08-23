@@ -13,3 +13,9 @@ FB_APP_ID = "3317605138408247"
 #   SA_PRIVATE_KEY      (private_key trong file JSON service account, cả -----BEGIN...-----)
 #   FIREBASE_PROJECT_ID (mm0-auto-publisher)
 #   ALLOW_EMAIL         (tuỳ chọn: chỉ email này mới được kết nối)
+
+# 23/8: KV lưu bản sao thẻ kết nối (refresh_token) — khi Firestore project A hết quota đọc (429)
+# worker vẫn lấy được token để đẩy Drive/đăng bài. Đây là lá chắn chống lặp lại sự cố 180 video.
+[[kv_namespaces]]
+binding = "MM0_CACHE"
+id = "3c2d6c85ed4d498ea83a2ea706c25e72"
