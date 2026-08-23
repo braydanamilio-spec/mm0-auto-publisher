@@ -1697,7 +1697,33 @@
     setTimeout(() => { if (!resolved){ document.getElementById("splash").classList.add("hide");
       document.getElementById("login").classList.remove("hide"); } }, 6000);
 
-    function sub(name, cb){ onSnapshot(query(collection(_appFor(name),name), where("owner","==",(window.__ownerUid||window.__uid))), cb, () => setLive(false)); }
+    // ── TIẾT KIỆM QUOTA ĐỌC (23/8 — dashboard là nguồn ăn quota lớn nhất: ~700 lượt/lần tải,
+    // và listener để mở còn ăn thêm 1 lượt cho MỖI cập nhật job khi 18 lane đang chạy) ────────
+    const __subs = []; window.__reads = 0;
+    function snapW(q_, cb, err){                     // bọc onSnapshot: đếm + nhớ hàm huỷ
+      const u = onSnapshot(q_, (s2) => {
+        try { window.__reads += (s2 && s2.docChanges ? s2.docChanges().length : 1); __readMeter(); } catch(_){}
+        cb(s2);
+      }, err);
+      __subs.push(u); return u;
+    }
+    window.__detach = () => { __subs.splice(0).forEach(u => { try { u(); } catch(_){} }); window.__detached = true;
+      try { __readMeter(); } catch(_){} };
+    function __readMeter(){
+      let el = document.getElementById("readMeter");
+      if (!el) { el = document.createElement("div"); el.id = "readMeter";
+        el.style.cssText = "position:fixed;left:10px;bottom:10px;z-index:9999;background:rgba(10,10,14,.82);" +
+          "color:#cbd5e1;font:600 11px/1.4 monospace;padding:6px 10px;border-radius:8px;border:1px solid #334155";
+        document.body.appendChild(el); }
+      el.textContent = "📖 " + window.__reads + " lượt đọc phiên này" + (window.__detached ? " · ⏸ đã ngắt" : "");
+    }
+    // Tab ẩn quá 90s -> NGẮT hết listener (không ăn quota khi anh không nhìn); quay lại thì nạp mới.
+    let __hidT = null;
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) { __hidT = setTimeout(() => window.__detach(), 90000); }
+      else { clearTimeout(__hidT); if (window.__detached) location.reload(); }
+    });
+    function sub(name, cb){ snapW(query(collection(_appFor(name),name), where("owner","==",(window.__ownerUid||window.__uid))), cb, () => setLive(false)); }
     let __subscribed=false;
     function subscribe(){
       // BẢO VỆ: onAuthStateChanged gọi subscribe() mỗi lần đăng nhập (kể cả đăng xuất rồi đăng nhập lại
@@ -1711,8 +1737,8 @@
       // FIX: cap 300 video MỚI NHẤT (đủ dùng cho gallery/theo dõi thực tế), fallback nếu thiếu index.
       const _vidsCb = s => { window.setData(s.docs.map(d=>({id:d.id,...d.data()})), null, null); setLive(true);
         const m={}; s.docs.forEach(d=>{ m[d.id]=d.data(); }); window.__pubByDrive=m; window.__rsRenderGallery&&window.__rsRenderGallery(); };
-      onSnapshot(query(collection(_appFor("videos"),"videos"), where("owner","==",(window.__ownerUid||window.__uid)), orderBy("updated_at","desc"), limit(200)), _vidsCb,
-        () => { onSnapshot(query(collection(_appFor("videos"),"videos"), where("owner","==",(window.__ownerUid||window.__uid))), _vidsCb, () => setLive(false)); });  // thiếu index -> lùi về không giới hạn (an toàn, hiếm khi cần)
+      snapW(query(collection(_appFor("videos"),"videos"), where("owner","==",(window.__ownerUid||window.__uid)), orderBy("updated_at","desc"), limit(80)), _vidsCb,
+        () => { snapW(query(collection(_appFor("videos"),"videos"), where("owner","==",(window.__ownerUid||window.__uid))), _vidsCb, () => setLive(false)); });  // thiếu index -> lùi về không giới hạn (an toàn, hiếm khi cần)
       // channels (stats/health) ĐỔI SANG load-once + tự refresh khi quay lại tab — đổi chậm (stats.yml 6h/lần),
       // realtime không cần thiết, giống storage_accounts (giảm đọc Firestore A).
       window.__loadChannels = async () => { try {
@@ -2131,7 +2157,7 @@
     function rsInit(){
       if(rsInited) return; const o=RSowner(); if(!o){ setTimeout(rsInit,800); return; } rsInited=true;
       const q=(name)=>query(collection(_appFor(name),name), where("owner","==",o));
-      onSnapshot(rsCfgDoc(), d=>{ const c=d.exists()?d.data():{}; window.__rsCfg=c; window.__rsPipeState&&window.__rsPipeState(); window.__rsRenderTrendScout&&window.__rsRenderTrendScout();
+      snapW(rsCfgDoc(), d=>{ const c=d.exists()?d.data():{}; window.__rsCfg=c; window.__rsPipeState&&window.__rsPipeState(); window.__rsRenderTrendScout&&window.__rsRenderTrendScout();
         if(c.qc_min) document.getElementById("rsQcMin").value=c.qc_min;
         const mr=document.getElementById("rsMaxRun"); if(mr&&document.activeElement!==mr) mr.value=c.max_per_run||"";
         (()=>{ const sel=document.getElementById("rsRoundPreset"), cl=document.getElementById("rsRoundLong"), cs=document.getElementById("rsRoundShort");
@@ -2156,7 +2182,7 @@
         window.__tsData={}; snap.docs.forEach(d=>{ const v=d.data(); if(v.channel) window.__tsData[v.channel]=v; });
       }catch(e){} window.__rsRenderTrendScout&&window.__rsRenderTrendScout(); };
       window.__loadTrendScout();
-      onSnapshot(q("render_channels"), s=>{
+      snapW(q("render_channels"), s=>{
         window.__rsChError=false; window.__rsChannelsData = s.docs.map(d=>({id:d.id,...d.data()}));
         // 23/8: ĐANG ĐỌC B2 mà KHÔNG có kênh nào -> gương chưa kịp đổ sang B2 (B2 mới dựng). B đã
         // hồi quota thì phải TỰ QUAY VỀ B, không thì dashboard trắng trơn suốt 6h TTL của cờ.
@@ -2290,10 +2316,10 @@
       // đốt hạn mức ĐỌC âm thầm. limit(300) không cần index nên vẫn chạy được khi thiếu index,
       // mà chi phí bị chặn cứng.
       /* A-side render_jobs ĐÔNG CỨNG từ 19/8 (job mới toàn ở B) -> 100 bản cũ nhất-gần-đây là đủ hiển thị, đỡ 200 đọc/lần mở */
-      onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(100)), s=>{ __jA=_mapJ(s); _mergeJobs(); },
-                 ()=>{ onSnapshot(query(collection(db,"render_jobs"), where("owner","==",o), limit(100)), s=>{__jA=_mapJ(s);_mergeJobs();}, ()=>{}); });
-      if(dbJobs!==db) onSnapshot(query(collection(dbJobs,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(200)), s=>{ __jB=_mapJ(s); _mergeJobs(); },
-                 ()=>{ onSnapshot(query(collection(dbJobs,"render_jobs"), where("owner","==",o), limit(200)), s=>{__jB=_mapJ(s);_mergeJobs();}, ()=>{}); });
+      snapW(query(collection(db,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(40)), s=>{ __jA=_mapJ(s); _mergeJobs(); },
+                 ()=>{ snapW(query(collection(db,"render_jobs"), where("owner","==",o), limit(40)), s=>{__jA=_mapJ(s);_mergeJobs();}, ()=>{}); });
+      if(dbJobs!==db) snapW(query(collection(dbJobs,"render_jobs"), where("owner","==",o), orderBy("created_at","desc"), limit(80)), s=>{ __jB=_mapJ(s); _mergeJobs(); },
+                 ()=>{ snapW(query(collection(dbJobs,"render_jobs"), where("owner","==",o), limit(80)), s=>{__jB=_mapJ(s);_mergeJobs();}, ()=>{}); });
       // Dữ liệu ĐĂNG (collection 'videos' keyed theo drive_id) -> chia trạng thái đã đăng/chưa/nền tảng.
       /* listener videos thứ 2 ĐÃ GỘP vào sub("videos") ở trên -> khỏi đọc collection videos 2 lần (tiết kiệm Firestore) */
       // ĐẾM tổng tài nguyên (Drive lưu trữ / YouTube / Facebook) — 19/8: PHÁT HIỆN lặp lại đúng lỗi đã fix
