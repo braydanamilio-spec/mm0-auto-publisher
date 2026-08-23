@@ -668,6 +668,7 @@
             <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;align-items:center">
               <input id="r2Token" placeholder="Dán token Cloudflare (cfut_...)" style="min-width:280px;flex:1" />
               <button class="btn-conn" style="background:#f6821f;border-color:#f6821f;color:#111;font-weight:700" onclick="window.__r2Auto&&window.__r2Auto(this,'r2Token')">🅿️ Tạo bến R2 tự động</button>
+              <a href="https://dash.cloudflare.com/?to=/:account/r2/overview" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="BƯỚC 0 — làm 1 lần cho mỗi tài khoản Cloudflare: bật dịch vụ R2. Cloudflare đòi gắn thẻ ở bước này nhưng KHÔNG trừ tiền khi dùng dưới 10GB. Bật xong quay lại dán token và bấm nút cam.">🔓 Bật R2 cho tài khoản (làm 1 lần)</a>
               <span id="r2List" class="d" style="font-size:12px"></span>
             </div>
             <div class="p-sub" style="margin-top:9px">Tạo token ở Cloudflare → My Profile → API Tokens → Create Token → Custom, tick 3 quyền: <b>Workers R2 Storage: Edit</b> · <b>API Tokens: Edit</b> · <b>Account Settings: Read</b>. Bấm nút là hệ tự tạo bucket, tự tạo khoá, tự thêm vào hồ. Thêm nhiều tài khoản = hệ tự xoay vòng. Video đậu ở đây được tự đẩy về Drive ở phiên sau rồi xoá khỏi R2.</div>
