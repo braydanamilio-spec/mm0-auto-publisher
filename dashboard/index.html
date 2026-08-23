@@ -882,7 +882,7 @@
           <div class="p-head"><div class="p-title">🔑 API Keys (Gemini + Groq)</div><div class="p-sub">Nhiều key = quota free ×N, tự xoay vòng</div></div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
             <button class="btn-conn" onclick="window.__rsGeminiConnect&&window.__rsGeminiConnect()" title="1-click sẽ tự lưu Gmail tạo key">🔗 Kết nối Gemini (1-click · auto Gmail)</button>
-            <input id="rsKeyEmail" type="email" placeholder="Gmail tạo key (vd you@gmail.com)" style="min-width:220px"/><a href="https://console.groq.com/keys" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Groq free ~1.000 gọi/ngày/tài khoản — dán key gsk_... vào Ô KEY BÊN TRÊN như key Gemini, hệ tự nhận diện và chỉ dùng cho khâu VIẾT (vision/vẽ ảnh vẫn là Gemini)">⚡ Lấy key Groq — free ~1K gọi/ngày</a><a href="https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22workers_ai%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D&accountId=*&zoneId=all&name=MM0%20Render" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Bấm vào = mở form tạo token ĐIỀN SẴN đủ 2 quyền (Workers AI Edit + Account Settings Read). Chỉ việc: Continue to summary → Create Token → copy chuỗi cfut_ → dán vào ô key. Free 10K neuron/ngày ≈ ~170 ảnh FLUX 1024² (4 bước)/tài khoản — theo giá niêm yết CF.">⛅ Lấy key Cloudflare — free ~170 ảnh/ngày</a>
+            <input id="rsKeyEmail" type="email" placeholder="Gmail tạo key (vd you@gmail.com)" style="min-width:220px"/><a href="https://console.groq.com/keys" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Groq free ~1.000 gọi/ngày/tài khoản — dán key gsk_... vào Ô KEY BÊN TRÊN như key Gemini, hệ tự nhận diện và chỉ dùng cho khâu VIẾT (vision/vẽ ảnh vẫn là Gemini)">⚡ Lấy key Groq — free ~1K gọi/ngày</a><a href="https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22workers_ai%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D&accountId=*&zoneId=all&name=MM0%20Render" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Bấm vào = mở form tạo token ĐIỀN SẴN đủ 2 quyền (Workers AI Edit + Account Settings Read). Chỉ việc: Continue to summary → Create Token → copy chuỗi cfut_ → dán vào ô key. Free 10K neuron/ngày ≈ ~170 ảnh FLUX 1024² (4 bước)/tài khoản — theo giá niêm yết CF.">⛅ Lấy key Cloudflare — free ~170 ảnh/ngày</a><a href="https://www.pexels.com/api/key/" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Đăng nhập Pexels bằng 1 Gmail bất kỳ -> trang này hiện NGAY 1 API key (mỗi tài khoản 1 key). Copy chuỗi 56 ký tự dán vào Ô KEY BÊN TRÊN, hệ tự nhận là key ảnh Pexels. Free 200 lượt/giờ · 20.000/tháng mỗi key — thêm nhiều Gmail = nhiều key, hệ tự xoay vòng.">🖼️ Lấy key Pexels — free 20K lượt/tháng</a>
             <input id="rsKeyManual" placeholder="dán key: AIza... (Gemini) · gsk_... (Groq) · cfut_... (Cloudflare — tự nhận Account ID)" style="flex:1;min-width:240px"/>
             <button class="btn-conn" onclick="window.__rsAddKey&&window.__rsAddKey()">＋ Thêm key</button>
           </div>
@@ -1899,6 +1899,11 @@
       if(v.length<20) return alert("Key không hợp lệ.");
       if(!em) return alert("Nhập Gmail đã tạo key (để quản lý key theo tài khoản).");
       // Cloudflare Workers AI: dán "ACCOUNT_ID:API_TOKEN" (32 hex + ":" + token) -> lưu "cf:acc:token"
+      // 23/8: KEY PEXELS = chuỗi 50-60 ký tự chữ+số, không phải gsk_/AIza/AQ./cf: -> tự gắn "px:"
+      // để pipeline nhận ra (dùng cho LẤY ẢNH THẬT, không dùng viết/vẽ).
+      const isPx = v.startsWith("px:") ||
+        (/^[A-Za-z0-9]{48,64}$/.test(v) && !/^(gsk_|AIza|AQ\.)/.test(v) && !v.includes(":"));
+      if (isPx && !v.startsWith("px:")) v = "px:" + v;
       const isCf = /^[0-9a-f]{32}:\S{20,}$/i.test(v) || v.startsWith("cf:");
       let kv = isCf && !v.startsWith("cf:") ? "cf:"+v : v;
       // Token Cloudflare (cfut_… hoặc token trần khác AIza/gsk_): TỰ GỌI CF lấy Account ID — user chỉ cần dán token
@@ -1921,7 +1926,7 @@
         }
       }
       try { await addDoc(collection(db,"gemini_keys"), {owner:RSowner(), key:kv, last4:kv.slice(-4),
-        email:em, source:"manual", provider:(kv.startsWith("gsk_")?"groq":kv.startsWith("cf:")?"cloudflare":"gemini"), created_at:new Date().toISOString()});
+        email:em, source:"manual", provider:(kv.startsWith("gsk_")?"groq":kv.startsWith("cf:")?"cloudflare":kv.startsWith("px:")?"pexels":"gemini"), created_at:new Date().toISOString()});
         document.getElementById("rsKeyManual").value=""; document.getElementById("rsKeyEmail").value="";
         toastMsg("✔ Đã thêm key cho "+em); window.__loadKeys&&window.__loadKeys(); } catch(e){ alert("Lỗi: "+e.message); } };
     window.__rsGeminiConnect = () => {
@@ -2029,6 +2034,8 @@
           // key Groq (gsk_) -> ping đúng nhà; key Gemini (AIza) -> Google như cũ
           const r = k.key.startsWith("gsk_")
             ? await fetch("https://api.groq.com/openai/v1/models", {headers:{Authorization:"Bearer "+k.key}})
+            : k.key.startsWith("px:")
+            ? await fetch("https://api.pexels.com/v1/search?query=test&per_page=1",{headers:{Authorization:k.key.slice(3)}})   // 23/8: kiểm key ảnh Pexels
             : k.key.startsWith("cf:")
             ? await fetch("https://mm0-connect.adisondurham-ef1.workers.dev/api/cf-accounts",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:k.key.split(":").slice(2).join(":")})})
             : await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(k.key)}`);
@@ -2062,10 +2069,10 @@
       if(sf) list=list.filter(k=> sf==="deadall"?(k._st==="dead"||k._st==="warn"||k._st==="replace") : k._st===sf);
       // LỌC THEO NHÀ CUNG CẤP (chia phần Groq riêng để soi lỗi dễ — kho vẫn chung, chỉ tách hiển thị)
       const pv=window.__rsKeyProv||"";
-      const provOf=k=>((k.key||"").startsWith("gsk_")||k.provider==="groq")?"groq":((k.key||"").startsWith("cf:")||k.provider==="cloudflare")?"cloudflare":"gemini";
+      const provOf=k=>((k.key||"").startsWith("gsk_")||k.provider==="groq")?"groq":((k.key||"").startsWith("cf:")||k.provider==="cloudflare")?"cloudflare":((k.key||"").startsWith("px:")||k.provider==="pexels")?"pexels":"gemini";
       if(pv) list=list.filter(k=>provOf(k)===pv);
       const nGem=ks.filter(k=>provOf(k)==="gemini").length, nGrq=ks.filter(k=>provOf(k)==="groq").length;
-      const provChips=`<div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">${[["","Tất cả "+ks.length],["gemini","◆ Gemini "+nGem],["groq","⚡ Groq "+nGrq],["cloudflare","⛅ CF "+ks.filter(k=>provOf(k)==="cloudflare").length]].map(([v,l])=>`<button class="btn-mini" style="${pv===v?"background:#8b6cff;color:#fff":""}" onclick="window.__rsKeyProv='${v}';window.__loadKeys&&window.__loadKeys()">${l}</button>`).join("")}</div>`;
+      const provChips=`<div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">${[["","Tất cả "+ks.length],["gemini","◆ Gemini "+nGem],["groq","⚡ Groq "+nGrq],["cloudflare","⛅ CF "+ks.filter(k=>provOf(k)==="cloudflare").length],["pexels","🖼️ Pexels "+ks.filter(k=>String(k.key||"").startsWith("px:")).length]].map(([v,l])=>`<button class="btn-mini" style="${pv===v?"background:#8b6cff;color:#fff":""}" onclick="window.__rsKeyProv='${v}';window.__loadKeys&&window.__loadKeys()">${l}</button>`).join("")}</div>`;
       const nowIso=new Date().toISOString();
       el.innerHTML=provChips+(q||sf||pv?`<div class="p-sub" style="margin-bottom:6px">🔎 ${list.length}/${ks.length} key khớp</div>`:"")
         +(list.length? list.map(k=>{ const cooling=k.cooling_until&&k.cooling_until>nowIso;
@@ -2084,7 +2091,7 @@
       const nGroq=ks.filter(k=>(k.key||"").startsWith("gsk_")||k.provider==="groq").length;
       const nCf=ks.filter(k=>(k.key||"").startsWith("cf:")||k.provider==="cloudflare").length;
       const capTotal=(ks.length-nGroq-nCf)*rpd + nGroq*rpdGroq;
-      const quotaLine=`<div style="margin-bottom:5px">📊 Hôm nay: <b>${totReq}</b> request · ${ks.length} key · ước còn <b style="color:#4ade80">~${Math.max(0,capTotal-totReq).toLocaleString()}</b> <span class="d">(Gemini ${rpd}/key · Groq ${rpdGroq}/key${nGroq?` · ${nGroq} key Groq`:""} — reset 07:00Z=14:00 VN)${nCf?` · ⛅ ${nCf} key CF ≈ ${(nCf*170).toLocaleString()} ảnh FLUX/ngày`:""}</span></div>`;
+      const quotaLine=`<div style="margin-bottom:5px">📊 Hôm nay: <b>${totReq}</b> request · ${ks.length} key · ước còn <b style="color:#4ade80">~${Math.max(0,capTotal-totReq).toLocaleString()}</b> <span class="d">(Gemini ${rpd}/key · Groq ${rpdGroq}/key${nGroq?` · ${nGroq} key Groq`:""} — reset 07:00Z=14:00 VN)${nCf?` · ⛅ ${nCf} key CF ≈ ${(nCf*170).toLocaleString()} ảnh FLUX/ngày`:""}${(()=>{const nPx=ks.filter(k=>String(k.key||"").startsWith("px:")).length;return nPx?` · 🖼️ ${nPx} key Pexels ≈ ${(nPx*20000).toLocaleString()} lượt ảnh/tháng`:"";})()}</span></div>`;
       if(kb) kb.innerHTML = quotaLine +
         (nRepl?`<div>🔴 <b style="color:#fff;background:#dc2626;padding:2px 7px;border-radius:6px">${nRepl} key chết >${Math.round(_dt.repl/24)} ngày — THAY NGAY</b></div>`:'')
         +(nWarn?`<div style="margin-top:4px">⚠️ <b style="color:#111;background:#f59e0b;padding:2px 7px;border-radius:6px">${nWarn} key chết >${_dt.warn}h — theo dõi</b></div>`:'')
