@@ -2052,7 +2052,10 @@
     window.__rsRenderChList = () => { const el=document.getElementById("rsChList"); if(!el) return;
       const ds=(window.__rsChannelsData||[]), jobs=(window.__rsJobsData||[]);
       const valid=new Set(ds.map(c=>c.id)); [...window.__rsSelCh].forEach(i=>{ if(!valid.has(i)) window.__rsSelCh.delete(i); });  // dọn id đã xóa
-      if(!ds.length){ el.innerHTML='<div class="d">Chưa cấu hình kênh render.</div>'; return; }
+      if(!ds.length){
+        const _sus = window.__rsChError || Object.keys(window.__chStats||{}).length;
+        el.innerHTML = _sus ? '<div class="d">⚠️ Không tải được danh sách kênh (quota đọc đang nghẽn) — kênh KHÔNG mất, tự hiện lại khi quota hồi.</div>'
+                            : '<div class="d">Chưa cấu hình kênh render.</div>'; return; }
       const sel=window.__rsSelCh.size, allOn=sel===ds.length;
       const bar=`<div class="row" style="display:flex;align-items:center;gap:10px;padding:6px 2px;border-bottom:1px solid var(--border);margin-bottom:4px">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600"><input type="checkbox" ${allOn?"checked":""} onchange="window.__rsToggleAll(this.checked)"> Chọn tất cả (${ds.length})</label>
@@ -2154,7 +2157,8 @@
       }catch(e){} window.__rsRenderTrendScout&&window.__rsRenderTrendScout(); };
       window.__loadTrendScout();
       onSnapshot(q("render_channels"), s=>{
-        window.__rsChannelsData = s.docs.map(d=>({id:d.id,...d.data()})); window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderChList&&window.__rsRenderChList(); }, ()=>{});
+        window.__rsChError=false; window.__rsChannelsData = s.docs.map(d=>({id:d.id,...d.data()})); window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderChList&&window.__rsRenderChList(); },
+        (e)=>{ window.__rsChError=true; try{window.__b2Trip&&window.__b2Trip(e);}catch(_){}; window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderChList&&window.__rsRenderChList(); });
       // DEBOUNCE 15s (22/8): phiên render 18 luồng đẩy cập nhật dồn dập -> màn hình "nhảy liên tục"
       // gây cảm giác tốn kém. Lượt ĐỌC không đổi (listener realtime chỉ tính doc THAY ĐỔI — chế độ rẻ
       // nhất); đây là gom các đợt vẽ UI lại còn tối đa 1 lần/15s cho êm mắt + nhẹ CPU tab.
@@ -2572,6 +2576,8 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
     function rsRenderPlan(){
       const host=document.getElementById("rsPlan"); if(!host) return;
       const chans=(window.__rsChannelsData||[]), jobs=(window.__rsJobsData||[]);
+      if(!chans.length && (window.__rsChError || Object.keys(window.__chStats||{}).length)){
+        host.innerHTML='<div class="d">⚠️ Danh sách kênh chưa tải được (quota nghẽn) — tạm khoá nút THÊM để tránh thêm trùng. Tự mở lại khi quota hồi.</div>'; return; }
       const byName={}; chans.forEach(c=>byName[(c.name||"").toUpperCase()]=c);
       const B={ideal:[],doing:[],done:[]};
       RS_PRESETS.forEach(p=>{
