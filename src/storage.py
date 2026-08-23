@@ -151,10 +151,9 @@ def firestore_pool_accounts() -> list[dict]:
     # 23/8: A cạn quota đọc CẢ NGÀY (không phải 1 nhịp) -> retry vô ích. Cứu cánh cuối: GƯƠNG
     # connections_mirror ở B (render plan chép sang mỗi phiên khi A còn thở; rules B khóa kín, chỉ
     # service account đọc). B sống độc lập A -> khâu đẩy kho hết điểm-chết-đơn.
-    try:
-        from firestore_state import client_render_jobs
+    def _mirror_rows(db, label):
         out = []
-        for d in client_render_jobs().collection("connections_mirror").stream():
+        for d in db.collection("connections_mirror").stream():
             c = d.to_dict() or {}
             if c.get("refresh_token") and c.get("root"):
                 out.append({
@@ -165,11 +164,29 @@ def firestore_pool_accounts() -> list[dict]:
                               "refresh_token": c["refresh_token"]},
                 })
         if out:
-            print(f"   🪞 A nghẽn — dùng GƯƠNG kho ở B: {len(out)} tài khoản.")
+            print(f"   🪞 A nghẽn — dùng GƯƠNG kho ở {label}: {len(out)} tài khoản.")
             _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), out
-            return out
+        return out
+    try:
+        from firestore_state import client_render_jobs
+        rows = _mirror_rows(client_render_jobs(), "B")
+        if rows:
+            return rows
     except Exception as e:
         print(f"   ⚠️ Gương kho B cũng lỗi: {str(e)[:70]}")
+    # 23/8: B cạn nốt -> thử B2 dự phòng (mm0-shard-b2, cùng service account B — pipeline gương sẵn)
+    try:
+        key = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_B")
+        if key and os.path.exists(key):
+            from google.oauth2 import service_account
+            from google.cloud import firestore as _fs
+            b2 = _fs.Client(project=os.environ.get("FIREBASE_PROJECT_ID_B2", "mm0-shard-b2"),
+                            credentials=service_account.Credentials.from_service_account_file(key))
+            rows = _mirror_rows(b2, "B2")
+            if rows:
+                return rows
+    except Exception as e:
+        print(f"   ⚠️ Gương kho B2 cũng lỗi: {str(e)[:70]}")
     print(f"   ⚠️ Đọc danh sách kho lỗi và chưa có đệm: {str(last)[:80]}")
     return []
 
