@@ -753,6 +753,7 @@
             Bấm <a href="https://console.cloud.google.com/auth/audience?project=mm0-auto-publisher" target="_blank" style="color:#fdba74;font-weight:700">PUBLISH APP tại đây (1 nút)</a> trước khi kết nối thêm bất kỳ kho/kênh nào; kho cũ thì "Kết nối lại" sau khi publish để nhận token vĩnh viễn.
             <button class="btn-mini" style="margin-left:8px" onclick="localStorage.setItem('mm0_oauth_published','1');document.getElementById('oauthPubBanner').style.display='none';toastMsg('✔ Đã ghi nhận app published — token mới từ giờ là vĩnh viễn')">✅ Tôi đã bấm Publish xong</button>
           </div>
+          <div id="deadTokBanner" style="display:none;background:#7f1d1d;border:1px solid #dc2626;border-radius:10px;padding:10px 14px;margin-bottom:10px;line-height:1.6"></div>
           <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 15:05 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
@@ -1608,6 +1609,27 @@
     // Banner cảnh báo OAuth Testing (23/8 — bài học 70 kho token 7-ngày): hiện tới khi user xác nhận đã Publish.
     try { if (localStorage.getItem("mm0_oauth_published") !== "1") {
       const el = document.getElementById("oauthPubBanner"); if (el) el.style.display = "block"; } } catch(_){}
+    // TỰ KIỂM TOKEN KHO 1 LẦN/NGÀY (23/8 — user: "kho >1 tuần mà chẳng ai báo"): token chết trước
+    // giờ chỉ bị né âm thầm; giờ quét tự động rồi RÉO TÊN từng kho chết + hướng dẫn kết nối lại.
+    window.__autoTokenSweep = async (force) => { try {
+      const last = Number(localStorage.getItem("mm0_tokchk_at") || 0);
+      if (!force && Date.now() - last < 22*3600*1000) return;
+      const accs = ((window.__STORAGE||{}).accounts||[]);
+      if (!accs.length) { setTimeout(()=>window.__autoTokenSweep(force), 30000); return; }
+      localStorage.setItem("mm0_tokchk_at", String(Date.now()));
+      await window.checkDriveTokens();
+      const tok = window.__driveTok || {};
+      const dead = Object.keys(tok).filter(a => tok[a] && tok[a].healthy === false);
+      const el = document.getElementById("deadTokBanner"); if (!el) return;
+      if (dead.length) {
+        el.innerHTML = `🔴 <b>${dead.length} kho token ĐÃ CHẾT</b> (hết hạn 7 ngày thời app Testing): `
+          + dead.map(a=>`<code>${a}</code>`).join(" · ")
+          + `<br>→ Sau khi PUBLISH APP, bấm <b>Kết nối lại</b> từng kho (1 lần là token vĩnh viễn). Kho chưa cần dùng thì để sau cũng được — hệ đang tự né sang kho khỏe.`;
+        el.style.display = "block";
+        try { toastMsg(`🔴 ${dead.length} kho token chết — xem banner đỏ ở Hồ chứa`, 6000); } catch(_){}
+      } else { el.style.display = "none"; }
+    } catch(_){} };
+    setTimeout(() => window.__autoTokenSweep(false), 15000);
     // Bắt lỗi cạn quota B ở bất kỳ đâu -> ghi cờ + reload 1 lần để mọi listener gắn lại vào B2.
     window.__b2Trip = (e) => { try {
       const s = String((e && (e.code || e.message)) || "");
