@@ -2157,7 +2157,15 @@
       }catch(e){} window.__rsRenderTrendScout&&window.__rsRenderTrendScout(); };
       window.__loadTrendScout();
       onSnapshot(q("render_channels"), s=>{
-        window.__rsChError=false; window.__rsChannelsData = s.docs.map(d=>({id:d.id,...d.data()})); window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderChList&&window.__rsRenderChList(); },
+        window.__rsChError=false; window.__rsChannelsData = s.docs.map(d=>({id:d.id,...d.data()}));
+        // 23/8: ĐANG ĐỌC B2 mà KHÔNG có kênh nào -> gương chưa kịp đổ sang B2 (B2 mới dựng). B đã
+        // hồi quota thì phải TỰ QUAY VỀ B, không thì dashboard trắng trơn suốt 6h TTL của cờ.
+        if (window.__b2on && s.docs.length === 0 && !sessionStorage.getItem("b2back")) {
+          sessionStorage.setItem("b2back","1"); localStorage.removeItem("mm0_useB2_at");
+          try{ toastMsg("↩️ B2 chưa có dữ liệu — quay lại kho chính B"); }catch(_){}
+          setTimeout(()=>location.reload(), 900); return;
+        }
+        window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderChList&&window.__rsRenderChList(); },
         (e)=>{ window.__rsChError=true; try{window.__b2Trip&&window.__b2Trip(e);}catch(_){}; window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderChList&&window.__rsRenderChList(); });
       // DEBOUNCE 15s (22/8): phiên render 18 luồng đẩy cập nhật dồn dập -> màn hình "nhảy liên tục"
       // gây cảm giác tốn kém. Lượt ĐỌC không đổi (listener realtime chỉ tính doc THAY ĐỔI — chế độ rẻ
