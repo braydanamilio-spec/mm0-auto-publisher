@@ -749,10 +749,7 @@
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
           <div id="oauthPubBanner" style="display:none;background:#7c2d12;border:1px solid #ea580c;border-radius:10px;padding:10px 14px;margin-bottom:10px;line-height:1.6">
-            ⚠️ <b>OAuth app đang ở chế độ Testing</b> — mọi kho kết nối lúc này sẽ nhận token <b>tự chết sau 7 ngày</b>.
-            Bấm <a href="https://console.cloud.google.com/auth/audience?project=mm0-auto-publisher" target="_blank" style="color:#fdba74;font-weight:700">PUBLISH APP tại đây (1 nút)</a> trước khi kết nối thêm bất kỳ kho/kênh nào; kho cũ thì "Kết nối lại" sau khi publish để nhận token vĩnh viễn.
-            <button class="btn-mini" style="margin-left:8px" onclick="localStorage.setItem('mm0_oauth_published','1');document.getElementById('oauthPubBanner').style.display='none';toastMsg('✔ Đã ghi nhận app published — token mới từ giờ là vĩnh viễn')">✅ Tôi đã bấm Publish xong</button>
-          </div>
+            🔑 <b>Nâng cấp token vĩnh viễn</b> — hệ vừa đổi quyền Drive sang <code>drive.file</code> (không còn bị Google giới hạn 7 ngày). Kho nào token chết chỉ cần bấm <b>Kết nối lại</b> đúng 1 lần là nhận token đời mới <b>không bao giờ hết hạn</b>; kho đang khỏe thì đến khi rụng lần cuối mới cần bấm. <button class="btn-mini" style="margin-left:8px" onclick="localStorage.setItem('mm0_oauth_published','1');document.getElementById('oauthPubBanner').style.display='none'">Ẩn thông báo</button></div>
           <div id="deadTokBanner" style="display:none;background:#7f1d1d;border:1px solid #dc2626;border-radius:10px;padding:10px 14px;margin-bottom:10px;line-height:1.6"></div>
           <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 15:05 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -1624,7 +1621,7 @@
       if (dead.length) {
         el.innerHTML = `🔴 <b>${dead.length} kho token ĐÃ CHẾT</b> (hết hạn 7 ngày thời app Testing): `
           + dead.map(a=>`<code>${a}</code>`).join(" · ")
-          + `<br>→ Sau khi PUBLISH APP, bấm <b>Kết nối lại</b> từng kho (1 lần là token vĩnh viễn). Kho chưa cần dùng thì để sau cũng được — hệ đang tự né sang kho khỏe.`;
+          + `<br>→ Bấm <b>Kết nối lại</b> từng kho (1 lần — token đời mới drive.file là vĩnh viễn). Kho chưa cần dùng thì để sau cũng được — hệ đang tự né sang kho khỏe.`;
         el.style.display = "block";
         try { toastMsg(`🔴 ${dead.length} kho token chết — xem banner đỏ ở Hồ chứa`, 6000); } catch(_){}
       } else { el.style.display = "none"; }

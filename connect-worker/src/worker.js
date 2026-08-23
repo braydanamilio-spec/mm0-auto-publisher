@@ -737,7 +737,7 @@ async function apiTokenCheck(request, url, env) {
         const ti = await fetch("https://oauth2.googleapis.com/tokeninfo?access_token=" + encodeURIComponent(tok));
         const tj = await ti.json();
         scopes = tj.scope || "";
-        fullEdit = /(^|\s)https:\/\/www\.googleapis\.com\/auth\/drive(\s|$)/.test(scopes);
+        fullEdit = /https:\/\/www\.googleapis\.com\/auth\/drive(\.file)?(\s|$)/.test(scopes);   // 23/8: drive.file cũng ĐỦ quyền (app chỉ đụng file mình tạo)
       } catch (_) { }
     }
     return json({ ok: true, healthy: true, scopes, fullEdit });
@@ -1093,7 +1093,12 @@ const YT_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email",
 ].join(" ");
 const DRIVE_SCOPES = [
-  "https://www.googleapis.com/auth/drive",
+  // 23/8: ĐỔI auth/drive (FULL = scope RESTRICTED -> app chưa verify bị Google phát token 7 NGÀY
+  // + mỗi account cấp quyền ăn 1 suất user-cap 100) sang drive.file (NON-SENSITIVE: token vĩnh
+  // viễn, không cần verify, không ăn cap). Đủ dùng vì hệ CHỈ đụng file do chính app tạo
+  // (_QUEUE/video/thumb/sidecar) — kể cả file cũ upload bằng token full trước đây vẫn thấy
+  // (drive.file tính "file của app" theo OAuth client, không theo scope lúc tạo).
+  "https://www.googleapis.com/auth/drive.file",
   "https://www.googleapis.com/auth/userinfo.email",
 ].join(" ");
 
