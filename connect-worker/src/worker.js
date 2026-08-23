@@ -1090,6 +1090,7 @@ const YT_SCOPES = [
   "https://www.googleapis.com/auth/youtube",
   "https://www.googleapis.com/auth/youtube.force-ssl",
   "https://www.googleapis.com/auth/yt-analytics.readonly",   // phân tích toàn kênh theo kỳ
+  "https://www.googleapis.com/auth/yt-analytics-monetary.readonly",   // 23/8: đọc DOANH THU (xin sẵn 1 lần — kênh connect sau này khỏi re-consent khi bật báo cáo tiền)
   "https://www.googleapis.com/auth/userinfo.email",
 ].join(" ");
 const DRIVE_SCOPES = [
