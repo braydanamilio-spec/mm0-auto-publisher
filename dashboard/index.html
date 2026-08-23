@@ -748,6 +748,11 @@
         <div class="kpis" id="stKpis"></div>
         <div id="stDeadWarn" style="display:none;margin-bottom:14px;background:#4a1f1f;border:1px solid #a33;border-radius:8px;padding:10px 14px;color:#ffc9c9;font-size:13px;line-height:1.7"></div>
         <div class="panel" style="margin-bottom:16px">
+          <div id="oauthPubBanner" style="display:none;background:#7c2d12;border:1px solid #ea580c;border-radius:10px;padding:10px 14px;margin-bottom:10px;line-height:1.6">
+            ⚠️ <b>OAuth app đang ở chế độ Testing</b> — mọi kho kết nối lúc này sẽ nhận token <b>tự chết sau 7 ngày</b>.
+            Bấm <a href="https://console.cloud.google.com/auth/audience?project=mm0-auto-publisher" target="_blank" style="color:#fdba74;font-weight:700">PUBLISH APP tại đây (1 nút)</a> trước khi kết nối thêm bất kỳ kho/kênh nào; kho cũ thì "Kết nối lại" sau khi publish để nhận token vĩnh viễn.
+            <button class="btn-mini" style="margin-left:8px" onclick="localStorage.setItem('mm0_oauth_published','1');document.getElementById('oauthPubBanner').style.display='none';toastMsg('✔ Đã ghi nhận app published — token mới từ giờ là vĩnh viễn')">✅ Tôi đã bấm Publish xong</button>
+          </div>
           <div class="p-head"><div class="p-title">💾 Hồ chứa (tài khoản Drive) <span class="d" id="mmBuild" style="font-size:10px;opacity:.55">build 22/08 15:05 UTC</span></div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
               <span class="p-sub" id="stMode"></span>
@@ -1600,6 +1605,9 @@
       try { toastMsg("🔀 B chính nghẽn — dashboard chuyển đọc B2 dự phòng"); } catch(_){}
       return true; } catch(e){ return false; } };
     if (window.__preferB2) window.__useB2();
+    // Banner cảnh báo OAuth Testing (23/8 — bài học 70 kho token 7-ngày): hiện tới khi user xác nhận đã Publish.
+    try { if (localStorage.getItem("mm0_oauth_published") !== "1") {
+      const el = document.getElementById("oauthPubBanner"); if (el) el.style.display = "block"; } } catch(_){}
     // Bắt lỗi cạn quota B ở bất kỳ đâu -> ghi cờ + reload 1 lần để mọi listener gắn lại vào B2.
     window.__b2Trip = (e) => { try {
       const s = String((e && (e.code || e.message)) || "");
