@@ -750,83 +750,83 @@
   "tagline": "America, in its own words."
  },
  "BALDBANDIT": {
-  "display": "BALD & BANDIT",
-  "niche": "US everyday-life comedy skits with Bald the patriotic eagle and Bandit the sly raccoon — original animated duo.",
+  "display": "THE REAL PRICE",
+  "niche": "hidden real cost behind everyday American purchases, explained with verified numbers.",
   "hashtags": [
-   "#comedy",
-   "#animation",
+   "#money",
    "#usa",
-   "#funny"
+   "#explained",
+   "#truecost"
   ],
-  "category": "23",
-  "accent": "#B91C1C",
-  "tagline": "One eagle. One raccoon. Zero chill.",
-  "handle": "@baldandbandit",
-  "motif": "toon",
+  "category": "27",
+  "accent": "#B45309",
+  "tagline": "What it actually costs you.",
+  "handle": "@therealpriceusa",
+  "motif": "essay",
   "layout": "center"
  },
  "HANKTOWN": {
-  "display": "HANKTOWN",
-  "niche": "retro American suburb comedy — Hank the BBQ dad and Dale the nosy neighbor, 1950s cartoon style.",
+  "display": "BODY RULES",
+  "niche": "strange rules your body runs on — sleep, memory, hunger, pain, immunity, backed by studies.",
   "hashtags": [
-   "#comedy",
-   "#retro",
-   "#suburbs",
-   "#animation"
+   "#health",
+   "#science",
+   "#body",
+   "#facts"
   ],
-  "category": "23",
-  "accent": "#B45309",
-  "tagline": "Welcome to the neighborhood.",
-  "handle": "@hanktownusa",
-  "motif": "toon",
+  "category": "27",
+  "accent": "#0F766E",
+  "tagline": "Your body has rules. Nobody told you.",
+  "handle": "@bodyrulesusa",
+  "motif": "essay",
   "layout": "left"
  },
  "TRUETALES": {
-  "display": "TRUE TALES USA",
-  "niche": "narrated dramatic everyday-American stories — porch-Americana cartoon characters (PEARL), twist endings, one narrator.",
+  "display": "DEAD WRONG",
+  "niche": "beliefs Americans hold that peer-reviewed evidence flips.",
   "hashtags": [
-   "#storytime",
-   "#animation",
+   "#myths",
+   "#facts",
    "#usa",
-   "#drama"
+   "#science"
   ],
-  "category": "24",
+  "category": "27",
   "accent": "#DC2626",
-  "tagline": "Every town has a story.",
-  "handle": "@truetalesusa",
-  "motif": "toon",
+  "tagline": "Everything you believed. Flipped.",
+  "handle": "@deadwrongusa",
+  "motif": "essay",
   "layout": "center"
  },
  "DUMBHISTORY": {
   "display": "DUMB HISTORY",
-  "niche": "absurd-but-true moments of American history — vintage woodcut cartoon reenactments hosted by Professor Bison, witty narrator.",
+  "niche": "absurd-but-true turning points in American history, told as visual metaphors.",
   "hashtags": [
    "#history",
-   "#funny",
    "#usa",
-   "#animation"
+   "#facts",
+   "#wild"
   ],
   "category": "27",
   "accent": "#92400E",
   "tagline": "It really happened. Unfortunately.",
   "handle": "@dumbhistoryusa",
-  "motif": "toon",
+  "motif": "essay",
   "layout": "left"
  },
  "EXPLAINUSA": {
   "display": "EXPLAIN THIS, AMERICA",
-  "niche": "deadpan comedic explainers of things only America has — tipping, medical bills, imperial units.",
+  "niche": "why everyday American systems work the way they do — with real numbers.",
   "hashtags": [
+   "#america",
    "#explained",
-   "#usa",
-   "#comedy",
-   "#facts"
+   "#money",
+   "#culture"
   ],
   "category": "27",
   "accent": "#0369A1",
   "tagline": "Making sense of the nonsense.",
   "handle": "@explainthisusa",
-  "motif": "toon",
+  "motif": "essay",
   "layout": "center"
  }
 }
