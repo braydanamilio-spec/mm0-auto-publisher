@@ -102,7 +102,7 @@ def _resolve(acc: dict) -> dict | None:
 
 
 _POOL_CACHE = {"at": 0.0, "val": None}
-POOL_TTL = 600     # giây
+POOL_TTL = 1800    # giây (23/8: 10' -> 30'; danh sách kho gần như bất biến, kho mới nhận sau ≤30')
 
 
 def firestore_pool_accounts() -> list[dict]:
@@ -125,6 +125,24 @@ def firestore_pool_accounts() -> list[dict]:
     # lần/video nên đợi rẻ hơn nhiều so với vứt video), vẫn lỗi thì dùng ĐỆM CŨ dù quá hạn TTL
     # (danh sách kho gần như không đổi trong phiên); chỉ khi cả đời tiến trình chưa từng đọc được
     # mới đành trả [].
+    # ĐỌC SNAPSHOT 1-DOC TRƯỚC (23/8 — cắt ~14.000 đọc/phiên trên A): render plan gói cả danh sách
+    # kho vào connections_mirror/__snap__ ở B. 1 lượt đọc thay vì quét 70 doc, lại KHÔNG đụng A.
+    try:
+        from firestore_state import client_render_jobs
+        _sd = client_render_jobs().collection("connections_mirror").document("__snap__").get()
+        if _sd.exists:
+            _sx = _sd.to_dict() or {}
+            _out = [{"name": c.get("channel", "drive"), "root": c["root"], "cap_gb": c.get("cap_gb", 14),
+                     "owner": c.get("owner"), "email": c.get("email", ""),
+                     "creds": {"client_id": c["client_id"], "client_secret": c["client_secret"],
+                               "refresh_token": c["refresh_token"]}}
+                    for c in (_sx.get("accs") or [])
+                    if c.get("refresh_token") and c.get("root") and c.get("client_id")]
+            if _out:
+                _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), _out
+                return _out
+    except Exception:
+        pass
     last = None
     for wait in (0, 8, 25):
         if wait:
