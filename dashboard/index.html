@@ -1901,13 +1901,16 @@
       // Cloudflare Workers AI: dán "ACCOUNT_ID:API_TOKEN" (32 hex + ":" + token) -> lưu "cf:acc:token"
       // 23/8: KEY PEXELS = chuỗi 50-60 ký tự chữ+số, không phải gsk_/AIza/AQ./cf: -> tự gắn "px:"
       // để pipeline nhận ra (dùng cho LẤY ẢNH THẬT, không dùng viết/vẽ).
+      // 23/8 (SỬA LỖI nút Thêm key không ăn): `v` là HẰNG (const) — bản trước gán lại v = "px:"+v
+      // nên trình duyệt ném TypeError và cả nút chết lặng. Giờ không đụng vào v, chỉ đặt cờ + tự
+      // gắn tiền tố khi dựng `kv`. KEY PEXELS = chuỗi 48-64 ký tự chữ+số, không phải gsk_/AIza/AQ./cf:
       const isPx = v.startsWith("px:") ||
         (/^[A-Za-z0-9]{48,64}$/.test(v) && !/^(gsk_|AIza|AQ\.)/.test(v) && !v.includes(":"));
-      if (isPx && !v.startsWith("px:")) v = "px:" + v;
-      const isCf = /^[0-9a-f]{32}:\S{20,}$/i.test(v) || v.startsWith("cf:");
-      let kv = isCf && !v.startsWith("cf:") ? "cf:"+v : v;
+      const isCf = !isPx && (/^[0-9a-f]{32}:\S{20,}$/i.test(v) || v.startsWith("cf:"));
+      let kv = isPx ? (v.startsWith("px:") ? v : "px:" + v)
+             : (isCf && !v.startsWith("cf:") ? "cf:" + v : v);
       // Token Cloudflare (cfut_… hoặc token trần khác AIza/gsk_): TỰ GỌI CF lấy Account ID — user chỉ cần dán token
-      if(!isCf && !v.startsWith("AIza") && !v.startsWith("gsk_")){
+      if(!isPx && !isCf && !v.startsWith("AIza") && !v.startsWith("gsk_")){
         let acc="";
         try{
           // qua Worker của mình (server-side) — trình duyệt gọi thẳng api.cloudflare.com bị CORS chặn
