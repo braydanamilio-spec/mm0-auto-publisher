@@ -28,7 +28,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload, MediaInMemoryUpload
 
-SCOPES = ["https://www.googleapis.com/auth/drive.file"]  # 23/8: đồng bộ scope drive.file với worker
+SCOPES = ["https://www.googleapis.com/auth/drive"]  # 23/8 ROLLBACK: PHẢI khớp scope của token đang lưu (xem BUG LOG)
 VIDEO_MIME = ("video/mp4", "video/quicktime", "video/x-matroska", "video/webm")
 TOKEN_URI = "https://oauth2.googleapis.com/token"
 _RETRIES = 5   # googleapiclient tự backoff cho 429/5xx khi execute(num_retries=...)

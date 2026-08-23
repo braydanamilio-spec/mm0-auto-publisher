@@ -21,7 +21,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 YT_SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
              "https://www.googleapis.com/auth/youtube",
              "https://www.googleapis.com/auth/youtube.force-ssl"]  # captions/phụ đề
-DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive.file"]  # 23/8: drive.file (non-sensitive) — token vĩnh viễn, xem worker.js
+DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive"]  # 23/8 ROLLBACK: token 70 kho hiện có được cấp với scope này; refresh bằng scope khác -> invalid_scope
 
 
 def main():

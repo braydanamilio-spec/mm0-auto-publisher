@@ -262,6 +262,13 @@ def _free_cached(acc):
         free = account_status(acc)["free_under_cap"]
     except Exception as e:
         msg = str(e)
+        if "invalid_scope" in msg:
+            # 23/8: lỗi CẤU HÌNH của chính mình (code đổi scope ≠ scope của token đang lưu) — KHÔNG
+            # phải kho hỏng. Trước đây rơi vào nhánh "không đọc được" rồi im lặng bỏ kho -> cả 70 kho
+            # biến mất, mọi video bị từ chối đẩy mà log chỉ ghi "không kho nào đủ chỗ".
+            print(f"  🚨 SCOPE SAI ({acc.get('name')}): code đang xin scope KHÁC với token đã lưu -> "
+                  f"MỌI kho sẽ chết. Sửa DRIVE_SCOPES/worker về đúng scope cũ rồi chạy lại. {msg[:90]}")
+            return None
         if "invalid_grant" in msg or "expired or revoked" in msg or "unauthorized" in msg.lower():
             _DEAD_ACCS[root] = msg[:80]
             print(f"  ⛔ kho {acc.get('name')}: token hỏng -> BỎ QUA hẳn phiên này (cần kết nối lại)")

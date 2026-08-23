@@ -1099,7 +1099,11 @@ const DRIVE_SCOPES = [
   // viễn, không cần verify, không ăn cap). Đủ dùng vì hệ CHỈ đụng file do chính app tạo
   // (_QUEUE/video/thumb/sidecar) — kể cả file cũ upload bằng token full trước đây vẫn thấy
   // (drive.file tính "file của app" theo OAuth client, không theo scope lúc tạo).
-  "https://www.googleapis.com/auth/drive.file",
+  // 23/8 ROLLBACK: quay lại 'drive' FULL. Lý do: 70 kho đang chạy có refresh_token cấp theo scope
+  // 'drive'; đổi scope trong code làm MỌI lần refresh trả invalid_scope -> toàn bộ kho chết ngay
+  // lập tức (đo thật: "Không tài khoản kho nào đủ chỗ" trên mọi lane). Muốn dùng drive.file thì
+  // phải đổi TỪNG KHO ĐÚNG LÚC RECONNECT, không được đổi đồng loạt trong code.
+  "https://www.googleapis.com/auth/drive",
   "https://www.googleapis.com/auth/userinfo.email",
 ].join(" ");
 
