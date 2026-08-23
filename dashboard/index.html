@@ -661,6 +661,17 @@
             <button class="btn-conn" id="btnConnDrive">🔗 <span data-i18n="connect_drive">Connect Google Drive</span></button>
           </div>
           <div class="p-sub" style="margin-top:9px" data-i18n="st_hint">Click → sign in Drive account → grant → auto-creates store folder + saves token. Combine many = 150GB/1TB.</div>
+          <!-- 23/8: BẾN PHỤ R2 đặt NGAY ĐÂY (user: "R2 ở chỗ nào, sao a chưa thấy") — trước chỉ nằm
+               ở khu API Keys nên tìm không ra. Cùng khối với kho Drive vì cùng là chỗ chứa video. -->
+          <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border)">
+            <div class="p-title" style="font-size:15px">🅿️ Bến phụ Cloudflare R2 <span class="d" style="font-weight:400;font-size:12px">— chỗ đậu tạm khi kho Drive từ chối (+10GB free / tài khoản)</span></div>
+            <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;align-items:center">
+              <input id="r2Token" placeholder="Dán token Cloudflare (cfut_...)" style="min-width:280px;flex:1" />
+              <button class="btn-conn" style="background:#f6821f;border-color:#f6821f;color:#111;font-weight:700" onclick="window.__r2Auto&&window.__r2Auto(this,'r2Token')">🅿️ Tạo bến R2 tự động</button>
+              <span id="r2List" class="d" style="font-size:12px"></span>
+            </div>
+            <div class="p-sub" style="margin-top:9px">Tạo token ở Cloudflare → My Profile → API Tokens → Create Token → Custom, tick 3 quyền: <b>Workers R2 Storage: Edit</b> · <b>API Tokens: Edit</b> · <b>Account Settings: Read</b>. Bấm nút là hệ tự tạo bucket, tự tạo khoá, tự thêm vào hồ. Thêm nhiều tài khoản = hệ tự xoay vòng. Video đậu ở đây được tự đẩy về Drive ở phiên sau rồi xoá khỏi R2.</div>
+          </div>
         </div>
         <div class="panel" style="margin-bottom:16px">
           <div class="p-head"><div class="p-title">🎬 Kho tổng video (tất cả kênh &amp; kho)</div><div class="p-sub">Tìm nhanh video/kênh/kho · xem trực quan · bấm phát ngay · <span id="stVaultCount"></span></div></div>
@@ -1935,8 +1946,8 @@
     // TẠO BẾN R2 TỰ ĐỘNG (23/8) — anh chỉ dán token Cloudflare, phần còn lại hệ làm:
     // tạo bucket -> tạo khoá S3 (Access Key = id token, Secret = SHA-256 giá trị token, theo quy tắc CF)
     // -> tự thêm chuỗi r2:... vào hồ key. Làm lại với token của tài khoản khác = thêm 10GB nữa.
-    window.__r2Auto = async (btn) => {
-      const kf = document.getElementById("rsKeyManual"), ef = document.getElementById("rsKeyEmail");
+    window.__r2Auto = async (btn, inputId) => {
+      const kf = document.getElementById(inputId || "rsKeyManual"), ef = document.getElementById("rsKeyEmail");
       const tok = ((kf || {}).value || "").trim();
       if (tok.length < 20) { alert("Dán token Cloudflare (cfut_...) vào Ô KEY bên trên trước, rồi bấm nút này.\n\nTạo token ở: Cloudflare → My Profile → API Tokens → Create Token → Custom, tick 3 quyền:\n• Workers R2 Storage: Edit\n• API Tokens: Edit\n• Account Settings: Read"); return; }
       const t0 = btn ? btn.textContent : ""; if (btn) { btn.textContent = "⏳ đang tạo bến R2…"; btn.disabled = true; }
@@ -1945,12 +1956,20 @@
           headers: { "content-type": "application/json" }, body: JSON.stringify({ token: tok }) });
         const j = await r.json().catch(() => ({}));
         if (!j.ok) { alert("Chưa tạo được bến R2:\n\n" + (j.error || "lỗi không rõ")); return; }
-        kf.value = j.key;
+        const kmain = document.getElementById("rsKeyManual");
+        if (kmain) kmain.value = j.key;
+        if (inputId && kf !== kmain) kf.value = "";
         if (ef && !(ef.value || "").trim()) ef.value = "r2-" + String(j.account).slice(0, 6) + "@auto";
         await window.__rsAddKey();
         toastMsg("🅿️ Đã tạo bến R2 " + j.bucket + " (+10GB) và thêm khoá ✓", 7000);
       } catch (e) { alert("Lỗi gọi worker: " + String(e).slice(0, 80)); }
       finally { if (btn) { btn.textContent = t0; btn.disabled = false; } }
+    };
+    // Đếm bến R2 đang có -> hiện ngay cạnh nút, để anh biết đã thêm được mấy bến.
+    window.__r2Refresh = () => {
+      const el = document.getElementById("r2List"); if (!el) return;
+      const n = (window.__rsKeysData || []).filter(k => String(k.key || "").startsWith("r2:")).length;
+      el.textContent = n ? `✓ đang có ${n} bến (~${n * 10}GB)` : "chưa có bến nào";
     };
     window.__rsAddKey = async () => {
       const v=(document.getElementById("rsKeyManual").value||"").trim();
@@ -2270,7 +2289,7 @@
         const sb=document.getElementById("rsSafetyStop");
         if(sb){ if(c.last_safety_stop){ sb.style.display="block"; sb.textContent="🛡️ "+c.last_safety_stop; } else sb.style.display="none"; } }, ()=>{});
       // KEY đổi CHẬM -> đọc 1 LẦN + refresh khi bấm (thay realtime) -> cắt việc đọc lại 44 key mỗi lần health-check/đổi key.
-      window.__loadKeys = async () => { try{ const snap=await getDocs(q("gemini_keys")); window.__rsKeysData=snap.docs.map(d=>({id:d.id,...d.data()})); const mk=document.getElementById("rsTotKeys"); if(mk) mk.textContent=snap.docs.length; window.__rsRenderKeys&&window.__rsRenderKeys(); }catch(e){} };
+      window.__loadKeys = async () => { try{ const snap=await getDocs(q("gemini_keys")); window.__rsKeysData=snap.docs.map(d=>({id:d.id,...d.data()})); const mk=document.getElementById("rsTotKeys"); if(mk) mk.textContent=snap.docs.length; window.__rsRenderKeys&&window.__rsRenderKeys(); window.__r2Refresh&&window.__r2Refresh(); }catch(e){} };
       window.__loadKeys();
       // Trend Scout: nguồn/gu đổi CHẬM (tuần) -> load-once + tự refresh khi quay lại tab (thay realtime, đỡ tốn đọc).
       window.__loadTrendScout = async () => { try{
