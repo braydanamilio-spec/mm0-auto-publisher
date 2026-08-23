@@ -127,6 +127,48 @@ def firestore_pool_accounts() -> list[dict]:
     # mới đành trả [].
     # ĐỌC SNAPSHOT 1-DOC TRƯỚC (23/8 — cắt ~14.000 đọc/phiên trên A): render plan gói cả danh sách
     # kho vào connections_mirror/__snap__ ở B. 1 lượt đọc thay vì quét 70 doc, lại KHÔNG đụng A.
+    # 23/8 chiều: B CŨNG cạn quota đọc -> lượt đọc snapshot này ném 429 -> rơi xuống nhánh A (cũng
+    # cạn) -> enqueue nhận [] -> "Không kho nào đủ chỗ" -> render xong mà vứt. Nên thử B TRƯỚC, hụt
+    # thì thử thẳng B2 (bản gương, plan cập nhật mỗi phiên) trước khi đụng A.
+    def _snap_from(_cl):
+        _sd = _cl.collection("connections_mirror").document("__snap__").get()
+        if not _sd.exists:
+            return []
+        _sx = _sd.to_dict() or {}
+        return [{"name": c.get("channel", "drive"), "root": c["root"], "cap_gb": c.get("cap_gb", 14),
+                 "owner": c.get("owner"), "email": c.get("email", ""),
+                 "creds": {"client_id": c["client_id"], "client_secret": c["client_secret"],
+                           "refresh_token": c["refresh_token"]}}
+                for c in (_sx.get("accs") or [])
+                if c.get("refresh_token") and c.get("root") and c.get("client_id")]
+
+    def _b2_client():
+        pid = os.environ.get("FIREBASE_PROJECT_ID_B2")
+        sa = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_B")
+        if not (pid and sa and os.path.exists(sa)):
+            return None
+        from google.cloud import firestore as _fs
+        from google.oauth2 import service_account as _sa
+        return _fs.Client(project=pid, credentials=_sa.Credentials.from_service_account_file(sa))
+
+    for _which in ("B", "B2"):
+        try:
+            if _which == "B":
+                from firestore_state import client_render_jobs
+                _cl = client_render_jobs()
+            else:
+                _cl = _b2_client()
+                if _cl is None:
+                    continue
+            _out = _snap_from(_cl)
+            if _out:
+                if _which == "B2":
+                    print(f"   🔀 danh sách kho lấy từ B2 (B nghẽn) — {len(_out)} kho")
+                _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), _out
+                return _out
+        except Exception as e:
+            print(f"   ⚠️ đọc danh sách kho ở {_which} hụt ({str(e)[:60]})")
+
     try:
         from firestore_state import client_render_jobs
         _sd = client_render_jobs().collection("connections_mirror").document("__snap__").get()
