@@ -78,11 +78,23 @@ def main() -> int:
     a = ap.parse_args()
 
     accs = storage.pool_accounts()
+    # 23/8: kho khai trong storage.yaml (env) dùng refresh_token cũ, có cái đã bị thu hồi
+    # (ADISONDURHAM -> invalid_grant) và vì trùng root nên bản Firestore MỚI bị loại ở bước dedupe
+    # -> kho đó không dọn được. Giữ sẵn bản Firestore theo root để thử lại khi bản env chết.
+    alt = {}
+    try:
+        for r in storage.firestore_pool_accounts():
+            alt.setdefault(r["root"], r)
+    except Exception as e:
+        print(f"⚠️ không đọc được danh sách kho dự phòng: {str(e)[:70]}")
     print(f"🧹 Dọn [{a.scope}] trên {len(accs)} kho {'(CHẠY THỬ)' if a.dry_run else ''}", flush=True)
     tot_seen = tot_done = 0
     loi = []
     for i, acc in enumerate(accs, 1):
         seen, done, err = _wipe_account(acc, a.dry_run, a.scope)
+        if err and alt.get(acc.get("root")) and alt[acc["root"]].get("creds") != acc.get("creds"):
+            print(f"      ↻ {acc.get('name')}: thử lại bằng thẻ kết nối mới từ Firestore")
+            seen, done, err = _wipe_account(alt[acc["root"]], a.dry_run, a.scope)
         tot_seen += seen
         tot_done += done
         if err:
