@@ -27,7 +27,33 @@ from google.cloud import firestore
 from google.oauth2 import service_account
 
 
-_CAN_QUOTA = {"den": 0.0}     # mốc NGỪNG thử lại sau khi đã xác định cạn hạn mức (xem _retry)
+# Mốc NGỪNG thử lại, TÁCH RIÊNG TỪNG PROJECT (xem _retry).
+# 24/8 — lỗi tiềm ẩn do chính bản vá "đệm âm" ban đầu gây ra: dùng MỘT mốc chung cho cả 3 project.
+# A cạn hạn mức (chuyện đang xảy ra hằng ngày) sẽ khoá luôn đường thử-lại của B và C suốt 30 phút,
+# trong khi B/C vẫn còn hạn mức và cơn 429 của chúng chỉ là burst thoáng qua — thử lại là qua.
+# Hậu quả nếu để nguyên: một nhịp nghẽn ở C là RỚT LUÔN lượt đăng của video đó, không thử lại.
+_CAN_QUOTA_P: dict = {}
+
+
+class _CanQuotaCompat(dict):
+    """Giữ tên cũ `_CAN_QUOTA["den"]` chạy được (test/di sản) — trỏ vào bucket chung '?'."""
+    def __getitem__(self, k):
+        return _CAN_QUOTA_P.get("?", {}).get(k, 0.0)
+
+    def __setitem__(self, k, v):
+        _CAN_QUOTA_P.setdefault("?", {})[k] = v
+
+
+_CAN_QUOTA = _CanQuotaCompat()
+
+
+def _moc(p: str) -> float:
+    return float(_CAN_QUOTA_P.get(p, {}).get("den", 0.0))
+
+
+def _retry_C(fn, tries: int = 5):
+    """Lối thử-lại cho project C (yt_queue/videos) — sổ nghỉ riêng, không dính mốc của A."""
+    return _retry(fn, tries, p="C")
 
 
 def _la_quota(e) -> bool:
@@ -36,7 +62,7 @@ def _la_quota(e) -> bool:
             or type(e).__name__ == "ResourceExhausted")
 
 
-def _retry(fn, tries: int = 5):
+def _retry(fn, tries: int = 5, p: str = "A"):
     """Thử lại khi Firestore 429/RESOURCE_EXHAUSTED (burst đọc/ghi dồn, hết quota tạm) -> KHÔNG để
     burst thoáng qua làm CRASH cả tiến trình (đã gây publish.yml/stats.yml lỗi 'Quota exceeded' hoàn
     toàn không cần thiết — quota tự hồi trong vài giây). Cùng mẫu với render-pipeline/firestore_bridge.py."""
@@ -54,13 +80,14 @@ def _retry(fn, tries: int = 5):
         except Exception as e:
             s = str(e)
             _la_quota = ("RESOURCE_EXHAUSTED" in s or "Quota exceeded" in s or "429" in s)
-            if _la_quota and _t.time() < _CAN_QUOTA["den"]:
-                raise                       # đang trong 30' nghỉ -> đừng thử lại, đừng đốt thêm
+            if _la_quota and _t.time() < _moc(p):
+                raise                       # project này đang nghỉ -> đừng thử lại, đừng đốt thêm
             if _la_quota and i < tries - 1:
                 _t.sleep(1.5 * (i + 1)); continue
             if _la_quota:
-                _CAN_QUOTA["den"] = _t.time() + 1800
-                print("   ⛔ Firestore cạn hạn mức — ngừng thử lại 30 phút (mỗi lượt hỏng vẫn tính vào trần).")
+                _CAN_QUOTA_P.setdefault(p, {})["den"] = _t.time() + 1800
+                print(f"   ⛔ Project {p} cạn hạn mức — ngừng thử lại 30 phút "
+                      f"(mỗi lượt hỏng vẫn tính vào trần). Project khác KHÔNG bị ảnh hưởng.")
             raise
 
 
@@ -126,12 +153,12 @@ class State:
 
     # ---------- VIDEOS (OWNED -> C) ----------
     def get_video(self, file_id: str) -> dict | None:
-        doc = _retry(lambda: self.pub.collection("videos").document(file_id).get())
+        doc = _retry_C(lambda: self.pub.collection("videos").document(file_id).get())
         return doc.to_dict() if doc.exists else None
 
     def upsert_video(self, file_id: str, data: dict):
         data = {**data, "updated_at": datetime.now(timezone.utc).isoformat()}
-        _retry(lambda: self.pub.collection("videos").document(file_id).set(data, merge=True))
+        _retry_C(lambda: self.pub.collection("videos").document(file_id).set(data, merge=True))
 
     def sig_exists(self, channel: str, sig: str, owner: str | None = None) -> str | None:
         """Đã ingest video có vân tay này cho kênh này chưa? Trả drive_file_id nếu có."""
@@ -160,7 +187,7 @@ class State:
 
     def get_counters(self, channel: str, day: datetime, owner: str | None = None) -> dict:
         cid = self._counter_id(channel, day, owner)
-        doc = _retry(lambda: self.pub.collection("counters").document(cid).get())
+        doc = _retry_C(lambda: self.pub.collection("counters").document(cid).get())
         return doc.to_dict() if doc.exists else {"yt": 0, "fb": 0, "last_upload_at": None}
 
     def bump_counters(self, channel: str, day: datetime, yt: int = 0, fb: int = 0,
@@ -174,7 +201,7 @@ class State:
         }
         if owner:
             data["owner"] = owner
-        _retry(lambda: self.pub.collection("counters").document(cid).set(data, merge=True))
+        _retry_C(lambda: self.pub.collection("counters").document(cid).set(data, merge=True))
 
     # ---------- QUOTA THEO OAuth CLIENT (mỗi project 10.000/ngày ~ 6 upload) (OWNED -> C) ----------
     def _client_qid(self, client_id: str, day: datetime) -> str:
@@ -182,7 +209,7 @@ class State:
         return f"{safe}_{day.strftime('%Y%m%d')}"
 
     def client_uploads_today(self, client_id: str, day: datetime) -> int:
-        d = _retry(lambda: self.pub.collection("quota").document(self._client_qid(client_id, day)).get())
+        d = _retry_C(lambda: self.pub.collection("quota").document(self._client_qid(client_id, day)).get())
         return (d.to_dict() or {}).get("uploads", 0) if d.exists else 0
 
     def bump_client_uploads(self, client_id: str, day: datetime, owner: str | None = None):
@@ -190,7 +217,7 @@ class State:
                 "updated_at": datetime.now(timezone.utc).isoformat()}
         if owner:
             data["owner"] = owner
-        _retry(lambda: self.pub.collection("quota").document(self._client_qid(client_id, day)).set(data, merge=True))
+        _retry_C(lambda: self.pub.collection("quota").document(self._client_qid(client_id, day)).set(data, merge=True))
 
     def last_upload_at(self, channel: str, day: datetime, owner: str | None = None):
         c = self.get_counters(channel, day, owner)
@@ -207,7 +234,7 @@ class State:
         return out
 
     def update_queue(self, doc_id: str, patch: dict):
-        _retry(lambda: self.pub.collection("social_queue").document(doc_id).set(
+        _retry_C(lambda: self.pub.collection("social_queue").document(doc_id).set(
             {**patch, "updated_at": datetime.now(timezone.utc).isoformat()}, merge=True))
 
     # ---------- HÀNG ĐỢI ĐĂNG YOUTUBE TỪ DRIVE (Content Hub, yt_queue) (OWNED -> C) ----------
@@ -219,7 +246,7 @@ class State:
         return out
 
     def update_yt_queue(self, doc_id: str, patch: dict):
-        _retry(lambda: self.pub.collection("yt_queue").document(doc_id).set(
+        _retry_C(lambda: self.pub.collection("yt_queue").document(doc_id).set(
             {**patch, "updated_at": datetime.now(timezone.utc).isoformat()}, merge=True))
 
     # ---------- KHOÁ CHỐNG ĐĂNG TRÙNG (claim atomic qua transaction) (OWNED -> C) ----------
@@ -247,7 +274,7 @@ class State:
                     transaction.update(ref, {"status": "processing", "lease_at": now.isoformat()})
                     return True
             return False
-        return _retry(lambda: _claim(tx))   # 429 giữa transaction -> KHÔNG commit gì, retry an toàn (idempotent)
+        return _retry_C(lambda: _claim(tx))   # 429 giữa transaction -> KHÔNG commit gì, retry an toàn (idempotent)
 
     # ---------- DOC tổng quát (settings/config, storage/pool ...) (SHARED -> A) ----------
     def get_doc(self, collection: str, doc_id: str) -> dict | None:
@@ -415,7 +442,7 @@ class State:
         return out
 
     def set_video_stats(self, doc_id: str, stats: dict):
-        _retry(lambda: self.pub.collection("videos").document(doc_id).set(
+        _retry_C(lambda: self.pub.collection("videos").document(doc_id).set(
             {"stats": {**stats, "updated_at": datetime.now(timezone.utc).isoformat()}},
             merge=True,
         ))

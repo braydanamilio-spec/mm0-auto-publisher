@@ -179,11 +179,13 @@ def run(dry_run: bool = False):
         print(f"  ⚠️ lối nhanh hỏng ({str(e)[:70]}) -> quét kiểu cũ lượt này")
 
     need_sweep = not fast_ok
+    _da_tung_quet = False
     sweep_ref = q_db.collection("counters").document("__enqueue_sweep__")
     if fast_ok:
         try:
             sd = sweep_ref.get()
             last = (sd.to_dict() or {}).get("at", "") if sd.exists else ""
+            _da_tung_quet = bool(last)
             if not last:
                 need_sweep = True
             else:
@@ -194,7 +196,16 @@ def run(dry_run: bool = False):
 
     # PHANH QUOTA: quét vét là việc PHỤ (chỉ bắt doc cũ trước ngày có cờ). Hạn mức B đã đi sâu thì
     # bỏ lượt quét này — thà chậm bắt vài doc cũ còn hơn ăn nốt phần hạn mức mà việc ĐĂNG BÀI cần.
-    if need_sweep and fast_ok and not _QG.du_suc("B", can_doc=len(ready) * SCAN_LIMIT):
+    #
+    # NGOẠI TRỪ LẦN QUÉT ĐẦU TIÊN (24/8 — lỗi tiềm ẩn của chính bản vá này):
+    # mọi video 'done' render TRƯỚC hôm nay đều KHÔNG có trường `queued`, nên lối nhanh không thấy
+    # chúng; chỉ quét vét mới bắt được. Nếu lần quét đầu bị phanh chặn, mốc `at` không bao giờ được
+    # ghi -> lượt sau lại "chưa từng quét" -> lại bị chặn -> **số video cũ đó KHÔNG BAO GIỜ ĐƯỢC ĐĂNG**.
+    # Phanh sinh ra để hoãn việc phụ, không phải để bỏ rơi video. Lần đầu tính là THIẾT YẾU.
+    _lan_dau = need_sweep and fast_ok and not _da_tung_quet
+    if _lan_dau:
+        print("  🔑 quét vét LẦN ĐẦU (bắt video cũ chưa có cờ queued) — tính là việc thiết yếu, không hoãn.")
+    if need_sweep and fast_ok and not _lan_dau and not _QG.du_suc("B", can_doc=len(ready) * SCAN_LIMIT):
         print(f"  ⏸ hoãn quét vét — {_QG.bao_cao('B')} (để dành hạn mức cho việc đăng)")
         need_sweep = False
 
