@@ -151,9 +151,15 @@ def firestore_pool_accounts() -> list[dict]:
                 if c.get("refresh_token") and c.get("root") and c.get("client_id")]
 
     def _b2_client():
-        pid = os.environ.get("FIREBASE_PROJECT_ID_B2")
+        # 24/8 tối — B2 BỊ BỎ QUA IM LẶNG. Bước "Sao lưu kho key" của job plan không truyền
+        # `FIREBASE_PROJECT_ID_B2`, nên hàm này trả None và vòng lặp `continue` KHÔNG in gì; log chỉ
+        # có đúng một dòng "đọc danh sách kho ở B hụt" rồi thẳng tới "❌ không đọc được kho Drive
+        # nào". Nhìn log thì tưởng đã thử cả B2. Mà ngay trong FILE NÀY, khối B2 phía dưới lại
+        # MẶC ĐỊNH "mm0-shard-b2" khi thiếu env — hai chỗ cùng việc, hai hành vi khác nhau.
+        pid = os.environ.get("FIREBASE_PROJECT_ID_B2") or "mm0-shard-b2"
         sa = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_B")
-        if not (pid and sa and os.path.exists(sa)):
+        if not (sa and os.path.exists(sa)):
+            print("   ⚠️ B2: thiếu GOOGLE_APPLICATION_CREDENTIALS_B -> bỏ qua đường dự phòng B2.")
             return None
         from google.cloud import firestore as _fs
         from google.oauth2 import service_account as _sa
@@ -167,7 +173,7 @@ def firestore_pool_accounts() -> list[dict]:
             else:
                 _cl = _b2_client()
                 if _cl is None:
-                    continue
+                    continue          # lý do đã in trong _b2_client, không im lặng nữa
             _out = _snap_from(_cl)
             if _out:
                 if _which == "B2":
