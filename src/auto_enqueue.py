@@ -128,7 +128,10 @@ def run(dry_run: bool = False):
 
     now = datetime.now(timezone.utc)
 
-    def next_slot(ch: str, vtype: str) -> str:
+    # long job id -> giờ đăng đã cấp cho chính long đó (trong lượt chạy này)
+    gio_long: dict = {}
+
+    def next_slot(ch: str, vtype: str, khong_som_hon: str = "") -> str:
         """Ngày TRỐNG kế tiếp theo MIX template: short<short_pd/ngày; long<=1/ngày & <=long_pw/tuần. Giờ = best_times US."""
         t = tcache[ch]; tz = t["tz"]
         times = t["t_short"] if vtype == "short" else t["t_long"]
@@ -154,6 +157,13 @@ def run(dry_run: bool = False):
                 utc = loc.astimezone(timezone.utc)
                 if utc <= now:
                     utc = now + timedelta(minutes=5)
+                # SHORT KHÔNG ĐƯỢC LÊN TRƯỚC LONG CỦA NÓ (24/8, anh: "3 short đó liên quan tới
+                # long kia"). Nhịp long (vd 1/tuần) khác nhịp short (3/ngày), nên tuy thứ tự trong
+                # hàng đã đúng, short vẫn có thể rơi vào ô giờ SỚM HƠN bản dài mà nó dẫn về —
+                # người xem bấm short, đi tìm long, chưa có. Gặp thì bỏ ô này, tìm ngày kế tiếp.
+                if khong_som_hon and utc.isoformat() < khong_som_hon:
+                    day = day + timedelta(days=1)
+                    continue
                 dd[vtype] = idx + 1
                 if vtype == "long" and wiso:
                     wk_long[ch][wiso] = wk_long[ch].get(wiso, 0) + 1
@@ -282,7 +292,10 @@ def run(dry_run: bool = False):
                     rj.collection("render_jobs").document(d.id).set({"queued": True}, merge=True)
                 continue
             vtype = "long" if (j.get("type") == "long") else "short"
-            when = next_slot(ch, vtype)
+            _cha = str(j.get("cha") or "")
+            when = next_slot(ch, vtype, khong_som_hon=gio_long.get(_cha, "") if _cha else "")
+            if vtype == "long":
+                gio_long[d.id] = when
             item = {"owner": owner, "channel": ch, "drive_file_id": fid,
                     "drive_account": j.get("drive_account", ""), "type": vtype,
                     "title": j.get("title", ""),
