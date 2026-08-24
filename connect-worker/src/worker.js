@@ -103,7 +103,7 @@ async function authCtx(request, url, env) {
   let conn = null;
   try { conn = await fsGet(env, at, `connections/${uid}__${channel}__youtube`); } catch (_) {}
   if (conn && conn.refresh_token) {
-    if (env.MM0_CACHE) { try { await env.MM0_CACHE.put(kvY, JSON.stringify(conn)); } catch (_) {} }
+    await kvPutKhacNhau(env, kvY, conn);        // chỉ ghi khi KHÁC — xem kvPutKhacNhau()
   } else if (env.MM0_CACHE) {
     try { const raw = await env.MM0_CACHE.get(kvY); if (raw) conn = JSON.parse(raw); } catch (_) {}
   }
@@ -700,6 +700,22 @@ async function apiDisconnect(request, url, env) {
 
 // Lấy access token của 1 tài khoản KHO (Drive) thuộc uid — dùng chung cho files/file-action
 let _dctxCache = {};   // CACHE {uid__account: {conn, dat, exp}} ~45' -> thumb/stream/check lặp KHỎI đọc Firestore + đổi token mỗi lần (tiết kiệm read, chống cạn quota).
+// GHI KV CÓ ĐIỀU KIỆN (24/8) — KV free chỉ cho **1.000 lượt GHI/ngày** (đọc thì 100.000).
+// `driveCtx`/`ytCtx` trước đây `put()` MỖI LẦN đọc Firestore thành công. Mỗi tấm thumbnail trên
+// dashboard là một lượt gọi -> tải một trang thư viện 40 ảnh có thể tốn 40 lượt ghi KV. Vài lần mở
+// trang là chạm trần, rồi bản sao thẻ kết nối NGỪNG cập nhật — đúng lúc cần nhất (khi Firestore cạn)
+// thì nó lại là bản cũ. Thẻ kết nối gần như không đổi, nên: ĐỌC trước, GIỐNG thì THÔI GHI.
+// Đổi 1 lượt ghi (trần 1.000) lấy 1 lượt đọc (trần 100.000) — rẻ hơn 100 lần.
+async function kvPutKhacNhau(env, key, obj) {
+  if (!env.MM0_CACHE) return false;
+  const moi = JSON.stringify(obj);
+  try {
+    const cu = await env.MM0_CACHE.get(key);
+    if (cu === moi) return false;                 // y hệt -> không tốn lượt ghi nào
+  } catch (_) {}
+  try { await env.MM0_CACHE.put(key, moi); return true; } catch (_) { return false; }
+}
+
 async function driveCtx(env, uid, account) {
   const key = `${uid}__${account}`;
   const c = _dctxCache[key];
@@ -713,7 +729,7 @@ async function driveCtx(env, uid, account) {
   try { conn = await fsGet(env, at, `connections/${uid}__${account}__drive`); }
   catch (e) { fsErr = e; }
   if (conn && conn.refresh_token) {
-    if (env.MM0_CACHE) { try { await env.MM0_CACHE.put(kvKey, JSON.stringify(conn)); } catch (_) {} }
+    await kvPutKhacNhau(env, kvKey, conn);      // chỉ ghi khi KHÁC — xem kvPutKhacNhau()
   } else if (env.MM0_CACHE) {
     try { const raw = await env.MM0_CACHE.get(kvKey); if (raw) conn = JSON.parse(raw); } catch (_) {}
   }
@@ -793,6 +809,47 @@ async function apiHot(request, env) {
           `SELECT channel, vtype, COUNT(*) AS n FROM render_job
              WHERE owner=?1 AND status='done' AND drive_id IS NOT NULL AND drive_id<>''
              GROUP BY channel, vtype`).bind(p.owner).all();
+        return json({ rows: (r && r.results) || [] });
+      }
+      // ══ HẠN MỨC ĐĂNG YOUTUBE — CHỌN DỰ ÁN CÒN CHỖ, VÀ ĐẾM CHO ĐÚNG ══════════════════════
+      // YouTube: 10.000 đơn vị/ngày mỗi DỰ ÁN Google Cloud · 1 lần đăng = 1.600 -> ~6 video/ngày.
+      // Trần CỨNG, không nới bằng code. Thiết kế để thêm dự án là CẮM VÀO CHẠY.
+      case "yt_con_cho": {
+        const r = await db.prepare(
+          `SELECT p.client_id, p.ten, p.tran_ngay, COALESCE(u.da_dung,0) AS da_dung
+             FROM yt_project p LEFT JOIN yt_dung u
+               ON u.client_id=p.client_id AND u.ngay=?1
+            WHERE p.bat=1 AND COALESCE(u.da_dung,0) < p.tran_ngay
+            ORDER BY COALESCE(u.da_dung,0) ASC`).bind(p.ngay).all();
+        const rows = (r && r.results) || [];
+        const con = rows.reduce((a, x) => a + (x.tran_ngay - x.da_dung), 0);
+        return json({ rows, con });
+      }
+      case "yt_ghi_dang": {
+        await db.batch([
+          db.prepare(`INSERT INTO yt_dung (ngay,client_id,da_dung) VALUES (?1,?2,1)
+                        ON CONFLICT(ngay,client_id) DO UPDATE SET da_dung=da_dung+1`)
+            .bind(p.ngay, p.client_id),
+          db.prepare(`INSERT OR REPLACE INTO yt_da_dang (drive_id,owner,channel,vtype,client_id,luc)
+                        VALUES (?1,?2,?3,?4,?5,?6)`)
+            .bind(p.drive_id, p.owner, p.channel, p.vtype || "", p.client_id, p.luc),
+        ]);
+        return json({ ok: true });
+      }
+      // ---- KÊNH NÀO ĐÓI NHẤT: chia đều slot, không để một kênh nuốt hết ----
+      case "yt_kenh_doi": {
+        const r = await db.prepare(
+          `SELECT channel, MAX(luc) AS lan_cuoi, COUNT(*) AS tong
+             FROM yt_da_dang WHERE owner=?1 GROUP BY channel`).bind(p.owner).all();
+        return json({ rows: (r && r.results) || [] });
+      }
+      // ---- TỒN KHO theo kênh: để PHẢN ÁP LỰC ngược lên khâu render ----
+      case "ton_kho": {
+        const r = await db.prepare(
+          `SELECT j.channel, COUNT(*) AS ton FROM render_job j
+             WHERE j.owner=?1 AND j.status='done' AND j.drive_id IS NOT NULL AND j.drive_id<>''
+               AND j.drive_id NOT IN (SELECT drive_id FROM yt_da_dang WHERE owner=?1)
+             GROUP BY j.channel`).bind(p.owner).all();
         return json({ rows: (r && r.results) || [] });
       }
       // ---- DỌN JOB MA: đang-chạy nhưng đã im quá lâu -> tiến trình chết từ đời nào ----
