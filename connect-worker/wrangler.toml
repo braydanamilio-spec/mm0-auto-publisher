@@ -19,3 +19,12 @@ FB_APP_ID = "3317605138408247"
 [[kv_namespaces]]
 binding = "MM0_CACHE"
 id = "3c2d6c85ed4d498ea83a2ea706c25e72"
+
+# 24/8 — D1 "mm0-hot": chuyển các bảng NÓNG khỏi Firestore.
+# Hạn mức free: 5.000.000 dòng ĐỌC/ngày (Firestore 50.000 -> 100×) · 100.000 dòng GHI (5×) · 5 GB.
+# Chỉ chứa thứ đọc/ghi nhiều mà KHÔNG cần realtime, KHÔNG cần rules trình duyệt.
+# Dashboard vẫn ở Firestore vì nó sống nhờ hai thứ đó.
+[[d1_databases]]
+binding = "HOT"
+database_name = "mm0-hot"
+database_id = "feb1cd95-1113-4f26-a136-27ffe42d63d7"

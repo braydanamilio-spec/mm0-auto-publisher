@@ -45,6 +45,7 @@ export default {
       if (url.pathname === "/api/drive-usage") return corsResp(await apiDriveUsage(request, url, env));
       if (url.pathname === "/api/token-check") return corsResp(await apiTokenCheck(request, url, env));
       if (url.pathname === "/api/key-probe") return corsResp(await apiKeyProbe(request, url, env));
+      if (url.pathname === "/api/hot") return corsResp(await apiHot(request, env));
       if (url.pathname === "/api/upload-init") return corsResp(await apiUploadInit(request, url, env));
       if (url.pathname === "/api/upload-chunk") return corsResp(await apiUploadChunk(request, url, env));
       if (url.pathname === "/api/upload-done") return corsResp(await apiUploadDone(request, url, env));
@@ -738,6 +739,97 @@ async function apiFiles(request, url, env) {
 // "Failed to fetch", không phân biệt được key sai với key đúng. Người dùng dán key rồi mà
 // không có cách nào biết nó sống hay chết. Worker gọi hộ, trả về mã HTTP thật.
 // Chỉ nhận key gửi lên trong request (không đọc kho key) -> không lộ thêm gì.
+// ══ CỬA DUY NHẤT VÀO D1 "mm0-hot" (24/8/2026) ═══════════════════════════════════════════════
+// Vì sao đi qua Worker mà không nối thẳng: D1 không có API HTTP cho client ngoài, và quan trọng
+// hơn — để CHỈ CÓ MỘT CHỖ biết cách ghi. Bài học B/B2 đêm nay: nhiều nơi cùng ghi thì không phải
+// "đồng bộ", đó là nhiều sự thật.
+//
+// An toàn:
+//   • Chỉ nhận các LỆNH CÓ TÊN đã định nghĩa sẵn — KHÔNG nhận SQL tự do từ ngoài. Không có đường
+//     nào để một lời gọi bịa ra câu lệnh phá bảng.
+//   • Bắt buộc có khoá chia sẻ (secret HOT_KEY) -> chỉ pipeline của mình gọi được.
+//   • Mọi lệnh dùng tham số ràng buộc (?1, ?2...), không ghép chuỗi -> không có SQL injection.
+async function apiHot(request, env) {
+  if (!env.HOT) return json({ error: "D1 chưa gắn (binding HOT)" }, 500);
+  let body = {};
+  try { body = await request.json(); } catch (_) {}
+  const khoa = request.headers.get("x-hot-key") || body.key || "";
+  if (!env.HOT_KEY || khoa !== env.HOT_KEY) return json({ error: "sai khoá" }, 403);
+
+  const lenh = String(body.lenh || "");
+  const p = body.tham || {};
+  const db = env.HOT;
+  try {
+    switch (lenh) {
+      // ---- ĐẾM video đã xong của 1 kênh (truy vấn NÓNG NHẤT: plan gọi ~110 lần mỗi phiên) ----
+      case "dem_xong": {
+        const r = await db.prepare(
+          "SELECT COUNT(*) AS n FROM render_job WHERE owner=?1 AND channel=?2 AND vtype=?3 AND status='done' AND drive_id IS NOT NULL AND drive_id<>''")
+          .bind(p.owner, p.channel, p.vtype).first();
+        return json({ n: (r && r.n) || 0 });
+      }
+      // ---- GHI trạng thái job (UPSERT: 1 dòng/job, không đẻ bản ghi rác) ----
+      case "ghi_job": {
+        await db.prepare(
+          `INSERT INTO render_job (id,owner,channel,vtype,status,step,title,drive_id,queued,created_at,updated_at)
+           VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?10)
+           ON CONFLICT(id) DO UPDATE SET status=?5, step=?6, title=COALESCE(?7,title),
+             drive_id=COALESCE(?8,drive_id), queued=?9, updated_at=?10`)
+          .bind(p.id, p.owner, p.channel, p.vtype, p.status, p.step || "", p.title || null,
+                p.drive_id || null, p.queued ? 1 : 0, p.at).run();
+        return json({ ok: true });
+      }
+      // ---- video MỚI chưa xếp lịch đăng (thay cho việc quét 40 doc × 55 kênh) ----
+      case "job_chua_xep": {
+        const r = await db.prepare(
+          "SELECT id,channel,vtype,title,drive_id FROM render_job WHERE owner=?1 AND status='done' AND queued=0 AND drive_id IS NOT NULL LIMIT ?2")
+          .bind(p.owner, p.limit || 300).all();
+        return json({ rows: (r && r.results) || [] });
+      }
+      // ---- SỔ NGHỈ KEY dùng chung 18 máy ----
+      case "key_nghi_doc": {
+        const r = await db.prepare("SELECT kid,loai,den FROM key_nghi WHERE den > ?1").bind(p.gio).all();
+        return json({ rows: (r && r.results) || [] });
+      }
+      case "key_nghi_ghi": {
+        await db.prepare(
+          "INSERT INTO key_nghi (kid,loai,den) VALUES (?1,?2,?3) ON CONFLICT(kid,loai) DO UPDATE SET den=max(den,?3)")
+          .bind(p.kid, p.loai, p.den).run();
+        return json({ ok: true });
+      }
+      // ---- HÀNG CHỜ: lấy việc kế NGUYÊN TỬ. SQLite chạy tuần tự nên UPDATE...RETURNING đủ chắc ----
+      case "cho_dat": {
+        const st = db.prepare("INSERT OR IGNORE INTO hang_cho (owner,channel,phien) VALUES (?1,?2,?3)");
+        await db.batch((p.channels || []).map(c => st.bind(p.owner, c, p.phien)));
+        return json({ ok: true, n: (p.channels || []).length });
+      }
+      case "cho_lay": {
+        const r = await db.prepare(
+          `UPDATE hang_cho SET lay_boi=?3, lay_luc=?4
+             WHERE rowid = (SELECT rowid FROM hang_cho WHERE owner=?1 AND phien=?2 AND lay_boi IS NULL LIMIT 1)
+           RETURNING channel`).bind(p.owner, p.phien, p.may, p.gio).first();
+        return json({ channel: (r && r.channel) || "" });
+      }
+      // ---- NGÂN SÁCH: cộng dồn để bức tường nhìn được TỔNG của cả hệ ----
+      case "ngan_sach_cong": {
+        await db.prepare(
+          "INSERT INTO ngan_sach (ngay,doc,ghi) VALUES (?1,?2,?3) ON CONFLICT(ngay) DO UPDATE SET doc=doc+?2, ghi=ghi+?3")
+          .bind(p.ngay, p.doc || 0, p.ghi || 0).run();
+        return json({ ok: true });
+      }
+      case "ngan_sach_doc": {
+        const r = await db.prepare("SELECT doc,ghi FROM ngan_sach WHERE ngay=?1").bind(p.ngay).first();
+        return json({ doc: (r && r.doc) || 0, ghi: (r && r.ghi) || 0 });
+      }
+      default:
+        return json({ error: "lệnh không có trong danh sách cho phép: " + lenh }, 400);
+    }
+  } catch (e) {
+    return json({ error: String((e && e.message) || e).slice(0, 200) }, 500);
+  }
+}
+
+
 async function apiKeyProbe(request, url) {
   const kind = (url.searchParams.get("kind") || "").toLowerCase();
   const key = url.searchParams.get("key") || "";
