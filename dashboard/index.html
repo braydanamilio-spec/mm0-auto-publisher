@@ -2108,7 +2108,8 @@
       // rơi vào nhánh Cloudflare -> báo "Token KHÔNG hợp lệ". Nay bỏ MỌI khoảng trắng bên trong.
       const v=(document.getElementById("rsKeyManual").value||"").replace(/\s+/g, "");
       const em=(document.getElementById("rsKeyEmail").value||"").trim();
-      if(v.length<20) return alert("Key không hợp lệ.");
+      // 24/8: public key DVIDS chỉ 17 ký tự ("key-" + 13) -> chốt ≥20 cũ chặn oan, thêm mãi không vào.
+      if(v.length < 20 && !/^key-[0-9a-f]{10,20}$/i.test(v)) return alert("Key không hợp lệ.");
       // 23/8: bấm 2 lần vào key Pixabay chỉ bôi được NỬA SAU (sau dấu gạch) -> chặn sớm, nói rõ chỗ thiếu.
       if(/^[0-9a-f]{20,40}$/i.test(v) && !v.includes("-"))
         return alert("Đây mới là NỬA SAU của key Pixabay.\n\nKey đủ có dạng:  57249977-" + v +
@@ -2130,7 +2131,12 @@
       // 24/8 (user dán key DVIDS không được): key DVIDS có dạng "key-<hex dài>" — không phải 40 ký
       // tự chữ+số nên nhánh hỏi-NARA bên dưới không bắt, lại rơi vào nhánh Cloudflare -> báo
       // "Token KHÔNG hợp lệ". Dạng này ĐẶC TRƯNG, nhận thẳng không cần hỏi.
-      if (/^key-[0-9a-f]{30,80}$/i.test(v)) { _v = "dvids:" + v; }
+      // 24/8 — BẪY DVIDS: cột "Public Key/Private Key" hiện HAI khoá DÍNH LIỀN nhau
+      // (public = "key-" + 13 ký tự = 17 ký tự · private = 40 ký tự). Copy cả ô ra chuỗi 57 ký tự,
+      // gửi lên API trả 403 "API key is not in a valid format". Đo thật: cắt 17 ký tự đầu -> 200 OK.
+      // Nay tự tách, chỉ giữ PUBLIC KEY (phần API cần).
+      if (/^key-[0-9a-f]{53}$/i.test(v)) { _v = "dvids:" + v.slice(0, 17); }
+      else if (/^key-[0-9a-f]{10,20}$/i.test(v)) { _v = "dvids:" + v; }
       else if (/^[A-Za-z0-9]{40}$/.test(v) && !/^(gsk_|AIza|AQ\.|cfut_)/.test(v)) {
         if (confirm("Chuỗi 40 ký tự này là key NARA (api.data.gov) phải không?\n\n" +
                     "• OK  = lưu thành key NARA (tư liệu lưu trữ Mỹ)\n" +
@@ -2279,6 +2285,14 @@
             ? await fetch("https://api.pexels.com/v1/search?query=test&per_page=1",{headers:{Authorization:k.key.slice(3)}})
             : k.key.startsWith("pb:")
             ? await fetch("https://pixabay.com/api/?key="+encodeURIComponent(k.key.slice(3))+"&q=test&per_page=3")   // 23/8: kiểm key ảnh Pexels
+            // 24/8 — BẪY: key nguồn tư liệu (nara:/dvids:) rơi xuống nhánh Gemini cuối chuỗi ->
+            // Google trả 403 -> bộ kiểm ghi alive:false dead_kind:"permanent" = GIẾT OAN key vừa thêm.
+            // Hai nhà này lại không trả header CORS nên trình duyệt không tự gọi được -> đi qua Worker.
+            : (k.key.startsWith("nara:") || k.key.startsWith("dvids:"))
+            ? await fetch("https://mm0-connect.adisondurham-ef1.workers.dev/api/key-probe?kind="
+                + k.key.split(":")[0] + "&key=" + encodeURIComponent(k.key.split(":").slice(1).join(":")))
+                .then(async rr => { const jj = await rr.json().catch(()=>({}));
+                  return { ok: !!jj.ok, status: jj.status || 0, text: async () => String(jj.body || "") }; })
             : k.key.startsWith("cf:")
             ? await fetch("https://mm0-connect.adisondurham-ef1.workers.dev/api/cf-accounts",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:k.key.split(":").slice(2).join(":")})})
             : await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(k.key)}`);

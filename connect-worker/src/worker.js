@@ -44,6 +44,7 @@ export default {
       if (url.pathname === "/api/drive-trash") return corsResp(await apiDriveTrash(request, url, env));
       if (url.pathname === "/api/drive-usage") return corsResp(await apiDriveUsage(request, url, env));
       if (url.pathname === "/api/token-check") return corsResp(await apiTokenCheck(request, url, env));
+      if (url.pathname === "/api/key-probe") return corsResp(await apiKeyProbe(request, url, env));
       if (url.pathname === "/api/upload-init") return corsResp(await apiUploadInit(request, url, env));
       if (url.pathname === "/api/upload-chunk") return corsResp(await apiUploadChunk(request, url, env));
       if (url.pathname === "/api/upload-done") return corsResp(await apiUploadDone(request, url, env));
@@ -732,6 +733,43 @@ async function apiFiles(request, url, env) {
 }
 
 // GET /api/token-check?account=<drive> HOẶC ?channel=<yt> -> kiểm tra token còn sống không (nhẹ).
+// KIỂM KEY NGUỒN ẢNH/PHIM (24/8/2026) — chạy phía Worker vì trình duyệt bị CORS chặn.
+// Vì sao cần: NARA (catalog.archives.gov) KHÔNG trả header CORS -> dashboard fetch luôn ra
+// "Failed to fetch", không phân biệt được key sai với key đúng. Người dùng dán key rồi mà
+// không có cách nào biết nó sống hay chết. Worker gọi hộ, trả về mã HTTP thật.
+// Chỉ nhận key gửi lên trong request (không đọc kho key) -> không lộ thêm gì.
+async function apiKeyProbe(request, url) {
+  const kind = (url.searchParams.get("kind") || "").toLowerCase();
+  const key = url.searchParams.get("key") || "";
+  if (!key) return json({ error: "thiếu key" }, 400);
+  const DICH = {
+    nara:   { u: "https://catalog.archives.gov/api/v2/records/search?q=moon&limit=1", h: k => ({ "x-api-key": k }) },
+    dvids:  { u: k => "https://api.dvidshub.net/search?q=navy&max_results=1&api_key=" + encodeURIComponent(k) },
+    pexels: { u: "https://api.pexels.com/v1/search?query=city&per_page=1", h: k => ({ Authorization: k }) },
+    pixabay:{ u: k => "https://pixabay.com/api/?key=" + encodeURIComponent(k) + "&q=city&per_page=3" },
+  };
+  const d = DICH[kind];
+  if (!d) return json({ error: "kind phải là nara|dvids|pexels|pixabay" }, 400);
+  try {
+    const dest = typeof d.u === "function" ? d.u(key) : d.u;
+    const hd = Object.assign({ "user-agent": "Mozilla/5.0 (MM0 key probe)", accept: "application/json" },
+                             d.h ? d.h(key) : {});
+    const r = await fetch(dest, { headers: hd });
+    const body = (await r.text()).slice(0, 200);
+    // 24/8 — ĐO THẬT: key DVIDS trả 200 từ trình duyệt và từ curl, nhưng 403 + trang HTML khi Worker
+    // gọi mà KHÔNG kèm User-Agent (Worker mặc định không gửi) -> tường lửa DVIDS chặn. Thêm UA ở trên
+    // là hết 403. Vẫn giữ nhánh này làm lưới: hễ nhà cung cấp trả trang HTML chặn thay vì JSON thì
+    // báo status 0 ("chưa rõ") chứ không phải 403, để bộ kiểm key không đánh chết oan key đang tốt.
+    if (r.status !== 200 && /^\s*<(!doctype|html)/i.test(body)) {
+      return json({ ok: null, status: 0, kind, chan: true,
+                    body: "nha cung cap chan IP Cloudflare (khong ket luan duoc key)" });
+    }
+    return json({ ok: r.status === 200, status: r.status, kind, body });
+  } catch (e) {
+    return json({ ok: false, status: 0, kind, body: String(e && e.message || e).slice(0, 200) });
+  }
+}
+
 async function apiTokenCheck(request, url, env) {
   const t = url.searchParams.get("t"); const account = url.searchParams.get("account"); const channel = url.searchParams.get("channel");
   const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
