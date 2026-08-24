@@ -183,6 +183,7 @@ def run_queue(state, now, dry_run=False):
         else:
             errs_ig_skip = False
         public_url, errs, leaked = None, [], False
+        errs_fb_skip = False        # FB hết nhịp -> HOÃN, không tính là lần thất bại (24/8)
         try:
             public_url = drv.make_public(fid)
             if want_fb:
@@ -192,12 +193,16 @@ def run_queue(state, now, dry_run=False):
                     if fb_comment and r.get("id"):
                         FB.post_comment(r["id"], fb_comment, conn["page_token"])
                         print("     💬 Đã đăng bình luận link tiếp thị (FB)")
+                except FB.HetNhip as e:
+                    errs_fb_skip = True; print(f"     ⏸ {e} -> để cron sau (KHÔNG tính thất bại).")
                 except Exception as e:
                     errs.append(f"FB: {e}"); print(f"     ❌ Facebook: {e}")
             if want_ig:
                 try:
                     r = IG.upload(public_url, ig_meta, conn["ig_user_id"], conn["page_token"])
                     results["instagram"] = r; print(f"     ✅ Instagram: {r.get('url')}")
+                except FB.HetNhip as e:
+                    errs_ig_skip = True; print(f"     ⏸ IG {e} -> để cron sau.")
                 except Exception as e:
                     errs.append(f"IG: {e}"); print(f"     ❌ Instagram: {e}")
             # QUAN TRỌNG: chờ FB KÉO XONG video (file_url tải ngầm) TRƯỚC khi thu hồi link,
@@ -219,12 +224,12 @@ def run_queue(state, now, dry_run=False):
         # Đã xong TẤT CẢ nền tảng được yêu cầu? (IG bị HOÃN do trần ngày -> CHƯA xong)
         fully_done = ((not want_fb) or results.get("facebook", {}).get("id")) and \
                      ((not want_ig) or results.get("instagram", {}).get("id")) and \
-                     not errs_ig_skip
+                     not errs_ig_skip and not errs_fb_skip
         attempts = it.get("attempts", 0) + 1
         # IG bị hoãn do trần ngày KHÔNG tính là lần thất bại (khỏi dead-letter oan)
         if fully_done:
             status = "posted"; posted_run += 1
-        elif errs_ig_skip and not errs:
+        elif (errs_ig_skip or errs_fb_skip) and not errs:
             status = "pending"; attempts = it.get("attempts", 0)   # giữ nguyên, chờ quota IG
         elif attempts >= 3:          # bỏ cuộc sau 3 lần (dead-letter)
             status = "failed"
@@ -313,6 +318,10 @@ def _post_one(it, pages, fb_map, do_fb, do_ig, state, now, dry_run, aff_cfg=None
                 if fb_comment and r.get("id"):
                     FB.post_comment(r["id"], fb_comment, page["page_token"])
                     print("     💬 Đã đăng bình luận link tiếp thị (FB)")
+            except FB.HetNhip as e:
+                # Trần theo APP (mã 4) dùng chung cho cả IG -> thử IG nữa cũng chặn, chỉ tốn lượt gọi.
+                want_ig = False
+                print(f"     ⏸ {e} -> giữ pending, cron sau đăng lại.")
             except Exception as e:
                 print(f"     ❌ Facebook lỗi: {e}")
         if want_ig:
