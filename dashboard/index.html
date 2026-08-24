@@ -2242,6 +2242,59 @@
     function __nextBatchTime(){ const hrs=((window.__rsCfg||{}).batch_hours)||[0,4,8,12,16,20]; const now=new Date(); const uh=now.getUTCHours();
       let nh=hrs.find(h=>h>uh), d=new Date(now); if(nh==null){ nh=hrs[0]; d.setUTCDate(d.getUTCDate()+1); } d.setUTCHours(nh,0,0,0);
       return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+    // ── SOI CHỮ CHỒNG CHÉO — 0 LƯỢT ĐỌC FIRESTORE (24/8) ───────────────────────────────────
+    // Lỗi: lớp hook (số to) đè lên băng phụ đề. Bố cục hook chọn bằng BĂM (stat+line)%4 nên đúng
+    // 1/4 số video dính — biết trước được bằng phép tính, KHÔNG cần mở video ra xem, cũng KHÔNG cần
+    // đọc thêm Firestore: trang này đã tải sẵn toàn bộ job (kèm kịch bản) vào window.__rsJobsData
+    // để hiển thị. Tính ngay trên dữ liệu có sẵn = tốn 0 quota.
+    // Chép NGUYÊN SI hàm băm của Cinematic.tsx — lệch một chi tiết là tìm nhầm video.
+    const __bamBoCuc = (stat, line) => { const t=(stat||"")+(line||""); let h=0;
+      for(let k=0;k<t.length;k++) h=(h*31+t.charCodeAt(k))>>>0; return h%4; };
+    const __hookCua = (sc) => { let d=sc; if(typeof d==="string"){ try{d=JSON.parse(d);}catch(_){return null;} }
+      if(!d||typeof d!=="object") return null;
+      const st=String(d.thumb_stat||"").trim().slice(0,8), ln=String(d.thumb_hook||"").trim().slice(0,22);
+      return (st||ln)?{st,ln}:null; };
+    window.__rsSoiChongCheo = (xepHang) => {
+      const all=(window.__rsJobsData||[]).filter(j=>j.status==="done"&&j.drive_id&&!j.rerender);
+      const dinh=[], khongHook=[];
+      for(const j of all){ const hk=__hookCua(j.script);
+        if(!hk){ khongHook.push(j); continue; }
+        if(__bamBoCuc(hk.st,hk.ln)===2) dinh.push({j,st:hk.st}); }
+      const coHook=all.length-khongHook.length;
+      const dong=[`📊 Soi ${all.length} video (0 lượt đọc thêm — dùng dữ liệu đã tải)`,
+                  `   ${khongHook.length} không có lớp hook → không dính lỗi này`,
+                  `🎯 DÍNH chữ chồng chéo: ${dinh.length}/${coHook} video có hook`
+                  + (coHook?` (${Math.round(dinh.length*100/coHook)}% — lý thuyết ~25%)`:"")];
+      const theoKenh={}; dinh.forEach(x=>{const c=x.j.channel||"?"; theoKenh[c]=(theoKenh[c]||0)+1;});
+      dong.push("   theo kênh: "+Object.entries(theoKenh).sort((a,b)=>b[1]-a[1])
+                  .map(([k,v])=>`${k}=${v}`).join(" "));
+      console.log(dong.join("\n"));
+      try{ toastMsg(`🔍 ${dinh.length} video dính chữ chồng chéo (xem chi tiết ở Console)`); }catch(_){}
+      if(!xepHang) return {soi:all.length, dinh:dinh.length, theoKenh};
+      // CHỐNG XẾP TRÙNG (24/8 — đã mắc thật): lần chạy đầu bị treo giữa chừng nên tưởng thất bại,
+      // chạy lại 2 lần nữa -> 7 video thành 21 yêu cầu render lại. Cờ `rerender` trên job KHÔNG
+      // chặn được vì `__rsJobsData` là ảnh chụp trong bộ nhớ, chưa kịp làm tươi sau lượt ghi.
+      // Nay chốt bằng SỔ TRONG TRANG: đã xếp trong phiên này thì thôi, và không cho hai lượt chạy
+      // chồng lên nhau.
+      window.__xhDaXep = window.__xhDaXep || new Set();
+      if(window.__xhDangChay){ console.warn("⏳ đang xếp hàng dở — bỏ lượt gọi này (chống trùng)"); return {dangChay:true}; }
+      window.__xhDangChay = true;
+      return (async()=>{ const o=RSowner(); let n=0, bo=0;
+        try{
+        for(const {j} of dinh){ if(window.__xhDaXep.has(j.id)){ bo++; continue; } try{
+          const ref=await addDoc(collection(dbMeta,"render_requests"),{owner:o,channel:j.channel||"",
+            type:j.type||"short",seed:(j.title||""),replace_id:j.drive_id,
+            replace_account:(j.drive_account||""),status:"pending",created_at:new Date().toISOString()});
+          await setDoc(doc(dbJobs,"render_jobs",j.id),{flagged:true,rerender:"chờ render lại (chữ chồng chéo)",
+            rerender_req:ref.id},{merge:true}); window.__xhDaXep.add(j.id); n++;
+        }catch(e){ console.warn("xếp hàng hụt",j.channel,e); } }
+        } finally { window.__xhDangChay = false; }
+        if(bo) console.log(`⏭ bỏ qua ${bo} video đã xếp trong phiên này (chống trùng)`);
+        if(n) await setDoc(rsCfgDoc(),{owner:o,enabled:true,run_now:new Date().toISOString()},{merge:true});
+        console.log(`✅ Đã xếp hàng render lại ${n} video (dựng lại từ kịch bản đã lưu — 0 lượt gọi AI).`);
+        try{ toastMsg(`🔄 Đã xếp hàng render lại ${n} video`); }catch(_){}
+        return {xepHang:n}; })();
+    };
     window.__rsPipeState=()=>{ const el=document.getElementById("rsPipeState"); if(!el) return; const c=window.__rsCfg||{};
       // 24/8 — "⚙️ Đang chạy: 0" TRONG KHI 8 LUỒNG ĐANG CHẠY THẬT.
       // Nguyên nhân: B nghẽn -> mọi luồng lật sang B2 và ghi trạng thái job vào ĐÓ, còn trang này
