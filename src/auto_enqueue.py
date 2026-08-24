@@ -96,7 +96,16 @@ def run(dry_run: bool = False):
     day_cnt: dict[str, dict[str, dict[str, int]]] = {}      # {kênh: {ngày-ET: {"short":n,"long":n}}}
     wk_long: dict[str, dict[str, int]] = {}                 # {kênh: {tuần-ISO: số long}}
     try:
-        for d in q_db.collection("yt_queue").where("owner", "==", owner).stream():
+        # 24/8 — QUẢ BOM PROJECT C: vòng này trước đây quét TOÀN BỘ yt_queue, KHÔNG giới hạn.
+        # Mà yt_queue chỉ PHÌNH: xếp lịch thì nhanh, còn đăng bị YouTube chặn ở ~6 video/ngày.
+        # Tính ngay hôm nay: 644 mục × 96 lượt cron/ngày = 61.824 lượt đọc = **123% trần C** —
+        # tức C ĐÃ vỡ sẵn, chỉ chưa ai nhìn tới. Sau 7 ngày là 392%.
+        # Chỉ cần các mục CHƯA ĐĂNG để dựng lịch và chống trùng; mục đã 'posted' thì vô dụng ở đây.
+        # Số mục chưa đăng luôn nhỏ (bị trần YouTube giữ lại), nên truy vấn này KHÔNG phình theo kho.
+        # Video đã đăng vẫn không bị xếp lại nhờ cờ `queued` trên render_job (chốt thứ hai).
+        for d in (q_db.collection("yt_queue").where("owner", "==", owner)
+                      .where("status", "in", ["pending", "processing", "scheduled"])
+                      .limit(2000).stream()):
             data = d.to_dict()
             fid = data.get("drive_file_id")
             if fid:
