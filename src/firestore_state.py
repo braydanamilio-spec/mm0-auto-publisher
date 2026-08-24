@@ -106,11 +106,27 @@ def _sa_client(key_env: str, proj_env: str):
             print(f"⚠️ {key_env}: file rỗng (secret chưa set) -> fallback Project A"); return None
         creds = service_account.Credentials.from_service_account_file(key)
         c = firestore.Client(project=project, credentials=creds)
-        next(c.collection("_ping").limit(1).stream(), None)   # ép kiểm database TỒN TẠI ngay (Client() không tự validate) -> lộ lỗi sớm, không đợi tới lúc dùng thật mới vỡ
-        return c
     except Exception as e:
+        print(f"⚠️ {proj_env} ({project}) không tạo được client ({e}) -> fallback Project A — "
+              f"KIỂM: key đúng project chưa?")
+        return None
+    try:
+        next(c.collection("_ping").limit(1).stream(), None)   # ép kiểm database TỒN TẠI ngay (Client() không tự validate) -> lộ lỗi sớm
+    except Exception as e:
+        _s = str(e)
+        if "429" in _s or "RESOURCE_EXHAUSTED" in _s or "Quota exceeded" in _s:
+            # 24/8 tối — PHÁ THẾ CÁCH LY: lượt ping hỏng vì shard CẠN HẠN MỨC NGÀY, nhưng nhánh này
+            # xử như "cấu hình sai" rồi trả None ⇒ mọi lệnh của shard đó đổ sang **project A**.
+            # Tức B cạn là kéo A cạn theo — đúng cái vòng luẩn quẩn "một project cạn giết cả hệ" mà
+            # kiến trúc 3-project sinh ra để chặn. Cạn hạn mức KHÁC cấu hình sai: project vẫn đúng,
+            # client vẫn dùng được, chỉ là hôm nay hết lượt. Trả client về cho tầng trên tự
+            # retry/failover sang B2 — KHÔNG rơi về A.
+            print(f"⚠️ {proj_env} ({project}) CẠN HẠN MỨC ngày (429) — vẫn dùng client này, "
+                  f"KHÔNG rơi về Project A (giữ thế cách ly). Tầng trên sẽ retry / lật gương.")
+            return c
         print(f"⚠️ {proj_env} ({project}) lỗi kết nối thật ({e}) -> fallback Project A — KIỂM: key đúng project chưa? Firestore database đã tạo trong project này chưa?")
         return None
+    return c
 
 
 def _dem(p: str, r: int = 0, w: int = 0) -> None:
