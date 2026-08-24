@@ -1642,9 +1642,22 @@ async function startAuth(url, env) {
   }
 
   // Chọn OAuth client: YouTube xoay vòng nhiều project (chia quota); Drive dùng client đầu.
+  // 24/8 — CHỌN ĐÚNG DỰ ÁN CỦA KÊNH ĐÓ, KHÔNG XOAY VÒNG MÙ.
+  // Bối cảnh: mỗi kênh YouTube nằm trên MỘT TÀI KHOẢN GOOGLE RIÊNG (giống 72 kho Drive). Mỗi tài
+  // khoản tự tạo dự án Cloud của mình -> **hạn mức riêng 10.000 đơn vị/ngày cho kênh của mình**.
+  // Đó không phải lách hạn mức, mà là mỗi nhà xài phần của nhà nấy.
+  // Xoay vòng round-robin lại gán bừa: kênh A có thể bị nối bằng dự án của tài khoản B, thế là hai
+  // kênh ăn chung một bình 6 lượt trong khi bình của A ngồi không.
+  // Nay cho chỉ định `?client=<id hoặc số thứ tự>` lúc nối kênh — người nối biết kênh này thuộc tài
+  // khoản nào thì chọn đúng dự án đó. Không chỉ định thì giữ nguyên xoay vòng như cũ.
   const clients = ytClients(env);
   let ci = 0;
-  if (kind === "youtube" && clients.length > 1) {
+  const chon = (url.searchParams.get("client") || "").trim();
+  if (kind === "youtube" && chon) {
+    const byId = clients.findIndex((c) => c.id === chon || String(c.id).startsWith(chon));
+    const bySo = /^\d+$/.test(chon) ? Number(chon) : -1;
+    ci = byId >= 0 ? byId : (bySo >= 0 && bySo < clients.length ? bySo : 0);
+  } else if (kind === "youtube" && clients.length > 1) {
     const at = await saAccessToken(env);
     ci = await nextClientIdx(env, at, clients.length);
   }
