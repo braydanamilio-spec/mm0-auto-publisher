@@ -104,9 +104,13 @@ async function authCtx(request, url, env) {
   let conn = null;
   try { conn = await fsGet(env, at, `connections/${uid}__${channel}__youtube`); } catch (_) {}
   if (conn && conn.refresh_token) {
-    await kvPutKhacNhau(env, kvY, conn);        // chỉ ghi khi KHÁC — xem kvPutKhacNhau()
-  } else if (env.MM0_CACHE) {
-    try { const raw = await env.MM0_CACHE.get(kvY); if (raw) conn = JSON.parse(raw); } catch (_) {}
+    await tknGhi(env, kvY, uid, channel, "youtube", conn);
+    await kvPutKhacNhau(env, kvY, conn);
+  } else {
+    conn = await tknDoc(env, kvY);
+    if (!conn && env.MM0_CACHE) {
+      try { const raw = await env.MM0_CACHE.get(kvY); if (raw) conn = JSON.parse(raw); } catch (_) {}
+    }
   }
   if (!conn || !conn.refresh_token) throw new Error("Kênh chưa kết nối YouTube.");
   const yat = await ytAccessToken(conn.client_id, conn.client_secret, conn.refresh_token);
@@ -707,6 +711,33 @@ let _dctxCache = {};   // CACHE {uid__account: {conn, dat, exp}} ~45' -> thumb/s
 // trang là chạm trần, rồi bản sao thẻ kết nối NGỪNG cập nhật — đúng lúc cần nhất (khi Firestore cạn)
 // thì nó lại là bản cũ. Thẻ kết nối gần như không đổi, nên: ĐỌC trước, GIỐNG thì THÔI GHI.
 // Đổi 1 lượt ghi (trần 1.000) lấy 1 lượt đọc (trần 100.000) — rẻ hơn 100 lần.
+// 24/8 — DỜI BỘ NHỚ ĐỆM THẺ KẾT NỐI TỪ KV SANG D1.
+// KV free chỉ **1.000 lượt GHI/ngày** — chật nhất trong mọi đồng hồ Cloudflare, và không nới được
+// nếu không trả tiền. D1 cho **100.000 lượt ghi/ngày**, tức gấp **100 lần**, mà mình đã có sẵn.
+// Nên cách "tăng trần" đúng không phải là xin thêm hạn mức KV, mà là DỜI KHỎI dịch vụ chật nhất.
+// Vẫn giữ KV làm lớp đọc thứ hai (dữ liệu cũ còn nằm đó), nhưng lượt GHI thì đi D1.
+async function tknGhi(env, khoa, uid, ten, loai, obj) {
+  if (!env.HOT) return false;
+  const moi = JSON.stringify(obj);
+  try {
+    const cu = await env.HOT.prepare("SELECT du_lieu FROM the_ket_noi WHERE khoa=?1").bind(khoa).first();
+    if (cu && cu.du_lieu === moi) return false;          // y hệt -> không tốn lượt ghi nào
+    await env.HOT.prepare(
+      `INSERT INTO the_ket_noi (khoa,uid,ten,loai,du_lieu,luc) VALUES (?1,?2,?3,?4,?5,?6)
+         ON CONFLICT(khoa) DO UPDATE SET du_lieu=?5, luc=?6`)
+      .bind(khoa, uid, ten, loai, moi, new Date().toISOString()).run();
+    return true;
+  } catch (_) { return false; }
+}
+
+async function tknDoc(env, khoa) {
+  if (!env.HOT) return null;
+  try {
+    const r = await env.HOT.prepare("SELECT du_lieu FROM the_ket_noi WHERE khoa=?1").bind(khoa).first();
+    return r && r.du_lieu ? JSON.parse(r.du_lieu) : null;
+  } catch (_) { return null; }
+}
+
 async function kvPutKhacNhau(env, key, obj) {
   if (!env.MM0_CACHE) return false;
   const moi = JSON.stringify(obj);
@@ -730,9 +761,13 @@ async function driveCtx(env, uid, account) {
   try { conn = await fsGet(env, at, `connections/${uid}__${account}__drive`); }
   catch (e) { fsErr = e; }
   if (conn && conn.refresh_token) {
-    await kvPutKhacNhau(env, kvKey, conn);      // chỉ ghi khi KHÁC — xem kvPutKhacNhau()
-  } else if (env.MM0_CACHE) {
-    try { const raw = await env.MM0_CACHE.get(kvKey); if (raw) conn = JSON.parse(raw); } catch (_) {}
+    await tknGhi(env, kvKey, uid, account, "drive", conn);   // GHI vào D1 (trần 100× KV)
+    await kvPutKhacNhau(env, kvKey, conn);                   // KV giữ làm lớp đọc thứ hai
+  } else {
+    conn = await tknDoc(env, kvKey);                          // D1 trước (bản mới nhất)
+    if (!conn && env.MM0_CACHE) {
+      try { const raw = await env.MM0_CACHE.get(kvKey); if (raw) conn = JSON.parse(raw); } catch (_) {}
+    }
   }
   if (!conn || !conn.refresh_token) throw new Error("Tài khoản kho chưa kết nối." + (fsErr ? " (" + String(fsErr).slice(0, 60) + ")" : ""));
   const dat = await ytAccessToken(conn.client_id, conn.client_secret, conn.refresh_token);
