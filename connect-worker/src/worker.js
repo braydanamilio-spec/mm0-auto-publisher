@@ -94,7 +94,19 @@ async function authCtx(request, url, env) {
   if (!channel) throw new Error("Thiếu channel.");
   const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
   const at = await saAccessToken(env);
-  const conn = await fsGet(env, at, `connections/${uid}__${channel}__youtube`);
+  // 24/8 — CACHE KV CHO TOKEN YOUTUBE (Drive đã có từ 23/8, YouTube thì CHƯA).
+  // Hậu quả của việc thiếu: project A cạn hạn mức đọc -> `fsGet` ném 429 -> KHÔNG lấy nổi
+  // refresh_token -> **khâu đăng bài chết cứng cho tới lúc quota reset**, dù render vẫn chạy và
+  // video vẫn lên kho đều. Đúng cảnh 24/8: A cạn từ 09:18Z, publish nằm im hơn 7 tiếng.
+  // Đường Drive đã chống được đúng bệnh này, chỉ là chưa ai làm cho YouTube.
+  const kvY = `conn:${uid}__${channel}__youtube`;
+  let conn = null;
+  try { conn = await fsGet(env, at, `connections/${uid}__${channel}__youtube`); } catch (_) {}
+  if (conn && conn.refresh_token) {
+    if (env.MM0_CACHE) { try { await env.MM0_CACHE.put(kvY, JSON.stringify(conn)); } catch (_) {} }
+  } else if (env.MM0_CACHE) {
+    try { const raw = await env.MM0_CACHE.get(kvY); if (raw) conn = JSON.parse(raw); } catch (_) {}
+  }
   if (!conn || !conn.refresh_token) throw new Error("Kênh chưa kết nối YouTube.");
   const yat = await ytAccessToken(conn.client_id, conn.client_secret, conn.refresh_token);
   return { body, g, uid, channel, at, yat };
@@ -988,7 +1000,7 @@ async function apiJunkScan(request, env) {
 
   const goc = (t) => t.replace(/\.(mp4|jpe?g|png|json|txt)$/i, "");
   const TAM = /\.new\.|\.tmp$|\.part$/i;
-  const daXep = new Set(), rac = [], dem = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, vd = {};
+  const daXep = new Set(), rac = [], dem = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, vd = {}, thieu = [];
   const xep = (f, loai, nhan) => {
     if (daXep.has(f.id)) return;
     daXep.add(f.id); dem[loai]++; rac.push({ id: f.id, loai, ten: nhan || f.name });
@@ -1013,6 +1025,9 @@ async function apiJunkScan(request, env) {
     if (co && co < 300 * 1024) { xep(mp4, 4, `${mp4.name} (${Math.round(co / 1024)}KB)`); continue; }
     if (!daXep.has(mp4.id) && !m[".json"] && !m[".jpg"] && !m[".jpeg"] && !m[".png"]) {
       dem[5]++; (vd[5] = vd[5] || []).length < 3 && vd[5].push(mp4.name);       // 5: KHÔNG xoá
+      // 24/8: trả kèm id + cỡ để còn quyết được: sửa phần phụ hay render lại. Chỉ có tên thì
+      // không biết video có nguyên vẹn không — mà file đứt giữa chừng thì sửa sidecar là vô ích.
+      thieu.push({ id: mp4.id, ten: mp4.name, co: parseInt(mp4.size || "0", 10) });
     }
   }
 
@@ -1028,7 +1043,7 @@ async function apiJunkScan(request, env) {
       } catch (_) {}
     }
   }
-  return json({ account, soFile: files.length, dem, viDu: vd, daDon });
+  return json({ account, soFile: files.length, dem, viDu: vd, daDon, thieu });
 }
 
 
