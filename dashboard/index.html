@@ -2243,7 +2243,17 @@
       let nh=hrs.find(h=>h>uh), d=new Date(now); if(nh==null){ nh=hrs[0]; d.setUTCDate(d.getUTCDate()+1); } d.setUTCHours(nh,0,0,0);
       return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
     window.__rsPipeState=()=>{ const el=document.getElementById("rsPipeState"); if(!el) return; const c=window.__rsCfg||{};
-      const active=(window.__rsJobsData||[]).filter(j=>["queued","running","writing","rendering","qc"].includes(j.status)).length;
+      // 24/8 — "⚙️ Đang chạy: 0" TRONG KHI 8 LUỒNG ĐANG CHẠY THẬT.
+      // Nguyên nhân: B nghẽn -> mọi luồng lật sang B2 và ghi trạng thái job vào ĐÓ, còn trang này
+      // đọc B -> không thấy job nào. Pipeline nay để lại "nhịp sống" gộp trong 1 doc ở B
+      // (render_stats/__live__<owner>), vì failover là do cạn hạn mức ĐỌC, hạn mức GHI của B vẫn còn.
+      // Lấy mức LỚN HƠN giữa hai nguồn: bình thường sổ job ở B là đủ, lúc failover thì nhịp sống cứu.
+      const _a1=(window.__rsJobsData||[]).filter(j=>["queued","running","writing","rendering","qc"].includes(j.status)).length;
+      let _a2=0;
+      try{ const lv=window.__rsLive||{}; const cut=Date.now()-45*60*1000;   // im >45' coi như đã chết
+        _a2=Object.values(lv).filter(v=>v&&v.at&&new Date(v.at).getTime()>cut
+              &&["queued","running","writing","rendering","qc"].includes(v.st)).length; }catch(_){}
+      const active=Math.max(_a1,_a2);
       let t,col;
       if(active>0){ t=`⚙️ ĐANG RENDER · ${active} luồng`; col="#4ade80"; }
       else if(c.stop){ t="⛔ Đã dừng"; col="#ff8080"; }
@@ -2511,6 +2521,12 @@
           // THÀNH CÔNG). Trước đây đếm bản ghi job -> gộp cả video render lại + video CHƯA lên kho
           // nên "Tổng 1755" trong khi thư viện chỉ 61. Đọc 1 doc: vừa khớp, vừa rẻ hơn 2 count().
           try {
+            // NHỊP SỐNG LUỒNG (24/8): 1 doc, đọc cùng lúc với sổ đếm nên gần như không thêm chi phí.
+            // Cần nó để "⚙️ Đang chạy" đúng cả khi pipeline đang chạy trên B2 (xem __rsPipeState).
+            try {
+              const lv = await gdocGate(doc(dbJobs, "render_stats", "__live__" + o));
+              window.__rsLive = lv.exists() ? (lv.data() || {}) : {};
+            } catch(_) { window.__rsLive = window.__rsLive || {}; }
             const pd = await gdocGate(doc(dbJobs, "render_stats", "__pushed__" + o));
             if (pd.exists()) {
               const px = pd.data() || {};
