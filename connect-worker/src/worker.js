@@ -47,6 +47,8 @@ export default {
       if (url.pathname === "/api/key-probe") return corsResp(await apiKeyProbe(request, url, env));
       if (url.pathname === "/api/hot") return corsResp(await apiHot(request, env));
       if (url.pathname === "/api/hot-stat") return corsResp(await apiHotStat(url, env));
+      if (url.pathname === "/api/junk-list") return corsResp(await apiJunkList(request, env));
+      if (url.pathname === "/api/junk-scan") return corsResp(await apiJunkScan(request, env));
       if (url.pathname === "/api/upload-init") return corsResp(await apiUploadInit(request, url, env));
       if (url.pathname === "/api/upload-chunk") return corsResp(await apiUploadChunk(request, url, env));
       if (url.pathname === "/api/upload-done") return corsResp(await apiUploadDone(request, url, env));
@@ -927,6 +929,106 @@ async function apiHotStat(url, env) {
   } catch (e) {
     return json({ error: String((e && e.message) || e).slice(0, 160) }, 500);
   }
+}
+
+
+// ══ SOI RÁC TRONG KHO — CHẠY TRÊN WORKER, KHÔNG ĐỤNG FIRESTORE (24/8/2026) ═══════════════════
+// Vì sao phải làm đường này: `find_junk.py` chạy trong CI lấy danh sách kho từ Firestore — mà cả
+// A lẫn B đều đang cạn hạn mức đọc, nên nó chết ngay bước đầu. Nhưng Worker có **bản sao thẻ kết
+// nối trong KV** (dựng 23/8 để chống đúng cảnh này), và KV thì **liệt kê được**. Vậy là có đường
+// đi trọn vẹn mà không hỏi Firestore một câu nào.
+// Cần HOT_KEY vì nhánh dọn có quyền bỏ file vào thùng rác.
+
+function _junkUid(k) { const m = /^conn:([^_]+)__(.+)__drive$/.exec(k); return m ? { uid: m[1], acc: m[2] } : null; }
+
+async function apiJunkList(request, env) {
+  let b = {}; try { b = await request.json(); } catch (_) {}
+  if (!env.HOT_KEY || (request.headers.get("x-hot-key") || b.key) !== env.HOT_KEY)
+    return json({ error: "sai khoá" }, 403);
+  if (!env.MM0_CACHE) return json({ error: "KV chưa gắn" }, 500);
+  const out = []; let cursor;
+  do {
+    const r = await env.MM0_CACHE.list({ prefix: "conn:", cursor });
+    for (const k of r.keys) { const x = _junkUid(k.name); if (x) out.push(x); }
+    cursor = r.list_complete ? null : r.cursor;
+  } while (cursor);
+  return json({ accounts: out });
+}
+
+async function apiJunkScan(request, env) {
+  let b = {}; try { b = await request.json(); } catch (_) {}
+  if (!env.HOT_KEY || (request.headers.get("x-hot-key") || b.key) !== env.HOT_KEY)
+    return json({ error: "sai khoá" }, 403);
+  const { uid, account, don } = b;
+  if (!uid || !account) return json({ error: "thiếu uid/account" }, 400);
+  const { conn, dat } = await driveCtx(env, uid, account);
+  const root = conn.root;
+  if (!root) return json({ error: "kho chưa có thư mục gốc" }, 400);
+
+  // đi đệ quy, giữ thư mục cha của từng file (để bắt trùng tên CÙNG thư mục)
+  const files = [];
+  async function quet(folder, sau) {
+    if (sau > 4) return;
+    let tok = "";
+    do {
+      const u = "https://www.googleapis.com/drive/v3/files?q=" +
+        encodeURIComponent(`'${folder}' in parents and trashed=false`) +
+        "&fields=" + encodeURIComponent("nextPageToken,files(id,name,size,mimeType,createdTime)") +
+        "&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true" +
+        (tok ? "&pageToken=" + tok : "");
+      const j = await (await fetch(u, { headers: { Authorization: `Bearer ${dat}` } })).json();
+      for (const f of (j.files || [])) {
+        if (f.mimeType === "application/vnd.google-apps.folder") await quet(f.id, sau + 1);
+        else { f._tm = folder; files.push(f); }
+      }
+      tok = j.nextPageToken || "";
+    } while (tok);
+  }
+  await quet(root, 0);
+
+  const goc = (t) => t.replace(/\.(mp4|jpe?g|png|json|txt)$/i, "");
+  const TAM = /\.new\.|\.tmp$|\.part$/i;
+  const daXep = new Set(), rac = [], dem = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, vd = {};
+  const xep = (f, loai, nhan) => {
+    if (daXep.has(f.id)) return;
+    daXep.add(f.id); dem[loai]++; rac.push({ id: f.id, loai, ten: nhan || f.name });
+    (vd[loai] = vd[loai] || []).length < 3 && vd[loai].push(nhan || f.name);
+  };
+  const theoTen = {}, theoGoc = {};
+  for (const f of files) {
+    (theoTen[f._tm + "|" + f.name] = theoTen[f._tm + "|" + f.name] || []).push(f);
+    const k = f._tm + "|" + goc(f.name), d = (f.name.match(/\.[a-z0-9]+$/i) || [""])[0].toLowerCase();
+    (theoGoc[k] = theoGoc[k] || {})[d] = f;
+  }
+  for (const f of files) if (TAM.test(f.name)) xep(f, 1);                      // 1: file tạm
+  for (const k in theoTen) {                                                    // 2: trùng tên
+    const ds = theoTen[k]; if (ds.length < 2) continue;
+    ds.sort((a, c) => String(c.createdTime || "").localeCompare(String(a.createdTime || "")));
+    for (const f of ds.slice(1)) xep(f, 2, `${f.name} (bỏ ${ds.length - 1} bản cũ)`);
+  }
+  for (const k in theoGoc) {
+    const m = theoGoc[k], mp4 = m[".mp4"];
+    if (!mp4) { for (const d of [".jpg", ".jpeg", ".png", ".json", ".txt"]) if (m[d]) xep(m[d], 3); continue; }
+    const co = parseInt(mp4.size || "0", 10);
+    if (co && co < 300 * 1024) { xep(mp4, 4, `${mp4.name} (${Math.round(co / 1024)}KB)`); continue; }
+    if (!daXep.has(mp4.id) && !m[".json"] && !m[".jpg"] && !m[".jpeg"] && !m[".png"]) {
+      dem[5]++; (vd[5] = vd[5] || []).length < 3 && vd[5].push(mp4.name);       // 5: KHÔNG xoá
+    }
+  }
+
+  let daDon = 0;
+  if (don) {
+    for (const r of rac) {                    // chỉ loại 1-4; loại 5 không nằm trong `rac`
+      try {
+        await fetch(`https://www.googleapis.com/drive/v3/files/${r.id}?supportsAllDrives=true`, {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${dat}`, "content-type": "application/json" },
+          body: JSON.stringify({ trashed: true }) });
+        daDon++;
+      } catch (_) {}
+    }
+  }
+  return json({ account, soFile: files.length, dem, viDu: vd, daDon });
 }
 
 
