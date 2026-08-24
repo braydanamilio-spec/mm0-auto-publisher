@@ -64,6 +64,16 @@ def _sa_client(key_env: str, proj_env: str):
         return None
 
 
+def _dem(p: str, r: int = 0, w: int = 0) -> None:
+    """Ghi nhận lượt đọc/ghi vào sổ quota. Nhập muộn để tránh vòng import (quota_guard cần
+    chính module này để lấy client). Sổ hỏng thì im lặng — không được làm gãy việc chính."""
+    try:
+        import quota_guard
+        quota_guard.dem(p, r=r, w=w)
+    except Exception:
+        pass
+
+
 def client() -> firestore.Client:
     """Project A (SHARED config: settings/connections/channels/storage_reservations)."""
     key = os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
@@ -220,23 +230,53 @@ class State:
     # ---------- DOC tổng quát (settings/config, storage/pool ...) (SHARED -> A) ----------
     def get_doc(self, collection: str, doc_id: str) -> dict | None:
         d = _retry(lambda: self.db.collection(collection).document(doc_id).get())
+        _dem("A", r=1)
         return d.to_dict() if d.exists else None
 
     def set_doc(self, collection: str, doc_id: str, data: dict):
         _retry(lambda: self.db.collection(collection).document(doc_id).set(
             {**data, "updated_at": datetime.now(timezone.utc).isoformat()}, merge=True))
+        _dem("A", w=1)
 
     # ---------- CONNECTIONS (token do Cloudflare Worker ghi) (SHARED -> A) ----------
+    #
+    # 24/8 — THỦ PHẠM LÀM PROJECT A CẠN 50K ĐỌC/NGÀY (publish chết 11/12 lượt gần nhất, thoát ngay
+    # ở lệnh đọc ĐẦU TIÊN với 429). Đo trên code + số lượt cron 24h qua:
+    #   publish 36 lượt · publish_social 33 · thumbnail_requests 37 · guardian 20 · stats 4 ≈ 130 lượt
+    #   mỗi lượt gọi list_connections 2-3 LẦN (main.py 451/452, publish_social 55/59/122,
+    #   storage.py 195) — mỗi lần QUÉT LẠI cả bảng (~55 youtube / ~73 drive), CHƯA kể
+    #   get_connection gọi RIÊNG cho từng kênh trong vòng lặp 55 kênh.
+    #   => ~250-300 lượt đọc A cho MỘT lượt cron × 130 lượt/ngày ≈ 35-40K, cộng dashboard là vỡ trần.
+    # Bản chất: connections CHỈ đổi khi người dùng bấm kết nối/ngắt (vài lần/tuần), mà ta đọc lại
+    # hàng trăm lần mỗi ngày. Nay đệm THEO TIẾN TRÌNH: quét đúng 1 lần/loại/tiến trình, mọi lời gọi
+    # sau ăn đệm; get_connection lấy từ chính đệm đó thay vì đọc doc lẻ.
+    #   1 lượt publish: ~300 đọc -> ~128 đọc (giảm 57%), không đổi hành vi vì token không đổi giữa chừng.
+    _CONN_CACHE: dict = {}
+
     def get_connection(self, channel: str, kind: str = "youtube") -> dict | None:
-        """Đọc token đã kết nối qua dashboard. None nếu chưa kết nối."""
+        """Đọc token đã kết nối qua dashboard. None nếu chưa kết nối.
+
+        Lấy từ đệm danh sách nếu đã quét loại này rồi -> 0 lượt đọc thêm. Chưa quét thì đọc doc lẻ
+        (rẻ hơn quét cả bảng khi chỉ cần 1 kênh)."""
+        cached = self._CONN_CACHE.get(kind)
+        if cached is not None:
+            return cached.get(f"{channel}_{kind}")
         doc = _retry(lambda: self.db.collection("connections").document(f"{channel}_{kind}").get())
+        _dem("A", r=1)
         return doc.to_dict() if doc.exists else None
 
-    def list_connections(self, kind: str) -> list[dict]:
-        """Danh sách connection theo loại (vd 'drive') do Worker ghi."""
+    def list_connections(self, kind: str, force: bool = False) -> list[dict]:
+        """Danh sách connection theo loại (vd 'drive') do Worker ghi. ĐỆM 1 lần/tiến trình.
+
+        force=True để đọc lại thật (dùng khi vừa ghi xong và cần thấy ngay)."""
+        if not force and kind in self._CONN_CACHE:
+            return list(self._CONN_CACHE[kind].values())
         q = self.db.collection("connections").where("kind", "==", kind)
         # kèm _id: cần doc id để ghi ngược trạng thái sức khoẻ (set_drive_health) mà KHÔNG phải đọc lại.
-        return [{**(d.to_dict() or {}), "_id": d.id} for d in _retry(lambda: list(q.stream()))]
+        rows = [{**(d.to_dict() or {}), "_id": d.id} for d in _retry(lambda: list(q.stream()))]
+        self._CONN_CACHE[kind] = {r["_id"]: r for r in rows}
+        _dem("A", r=max(1, len(rows)))
+        return rows
 
     def set_drive_health(self, conn_id: str, owner: str, name: str, ok: bool, err: str = "", prev=None):
         """Ghi sức khoẻ 1 kho Drive — CHỈ KHI ĐỔI TRẠNG THÁI, nên bình thường tốn 0 lượt ghi.
@@ -313,3 +353,23 @@ class State:
             {"stats": {**stats, "updated_at": datetime.now(timezone.utc).isoformat()}},
             merge=True,
         ))
+
+def chan_doan_429() -> str:
+    """CẠN QUOTA THÌ PHẢI BIẾT CẠN Ở ĐÂU (24/8).
+
+    Trước đây publish chỉ in "Firestore hết hạn mức hôm nay (429 Quota exceeded)" — không nói project
+    nào, nên mỗi lần sự cố lại mất hàng giờ đoán A hay B hay C. Ba project có ba trần riêng và ba
+    thủ phạm khác nhau; đoán sai là sửa nhầm chỗ.
+    Khi đã dính 429 thì thêm 3 lượt đọc thăm dò không đáng gì, mà đổi lại biết chính xác chỗ nghẽn.
+    """
+    ra = []
+    for ten, fn in (("A (dashboard/keys/connections)", client),
+                    ("B (render_jobs)", client_render_jobs),
+                    ("C (yt_queue/videos)", client_publish)):
+        try:
+            fn().collection("_ping").document("probe").get()
+            ra.append(f"   {ten}: còn hạn mức")
+        except Exception as e:
+            xau = "CẠN 429" if ("429" in str(e) or type(e).__name__ == "ResourceExhausted") else f"lỗi {str(e)[:40]}"
+            ra.append(f"   {ten}: ❌ {xau}")
+    return "\n".join(ra)

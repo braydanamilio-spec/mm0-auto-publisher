@@ -655,6 +655,13 @@ def main():
     except Exception as e:
         print(f"  (settings write skip: {e})")
 
+    # SỔ QUOTA — in mỗi lượt để nhìn log là biết còn bao nhiêu, khỏi phải mở console Firebase.
+    # (24/8: publish chết 11/12 lượt vì cạn hạn mức project A mà không ai thấy trước.)
+    try:
+        import quota_guard as QG
+        print("\n📊 " + " | ".join(QG.bao_cao(x) for x in ("A", "B", "C")))
+    except Exception:
+        pass
     print("\n✔ Hoàn tất lần chạy.")
 
 
@@ -669,6 +676,11 @@ def _run_guarded(fn):
     except Exception as e:
         if type(e).__name__ == "ResourceExhausted" or "429 Quota exceeded" in str(e):
             print("\n⏳ Firestore hết hạn mức hôm nay -> bỏ lượt này, cron sau tự chạy lại.")
+            try:
+                from firestore_state import chan_doan_429
+                print(chan_doan_429())     # 24/8: nói RÕ project nào cạn, khỏi đoán
+            except Exception:
+                pass
             print(f"   ({str(e)[:110]})")
             raise SystemExit(0)
         raise

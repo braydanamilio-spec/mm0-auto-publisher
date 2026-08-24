@@ -18,6 +18,7 @@ from datetime import datetime, timezone, timedelta
 
 sys.path.insert(0, os.path.dirname(__file__))
 from firestore_state import State, client_render_jobs
+import quota_guard as _QG
 
 try:
     import yaml
@@ -152,6 +153,99 @@ def run(dry_run: bool = False):
         return (now + timedelta(minutes=5)).isoformat()
 
     added = 0
+
+    # ================== 24/8: TÌM VIDEO MỚI BẰNG CỜ, KHÔNG QUÉT MÙ ==================
+    # Vì sao đổi: vòng lặp cũ quét SCAN_LIMIT(40) doc 'done' mới nhất của TỪNG kênh, MỖI lượt cron.
+    #   55 kênh × 40 doc × 48 lượt/ngày ≈ 105.000 lượt đọc project B — một mình nó gấp đôi trần
+    #   50K/ngày, và đó là lý do B cạn hạn mức. Mà 39/40 doc quét được đều đã xếp lịch từ lâu:
+    #   ta trả tiền để đọc đi đọc lại đúng những doc không dùng tới.
+    # Nay: firestore_bridge.update_job đóng `queued=False` ngay khi job sang 'done' -> ở đây chỉ cần
+    #   MỘT truy vấn `status==done AND queued==False`, trả về ĐÚNG số video mới (thường 0-20).
+    #   Truy vấn toàn bằng-nhau nên Firestore ghép được từ chỉ mục đơn — KHÔNG cần tạo composite index.
+    # Doc 'done' tạo TRƯỚC hôm nay chưa có trường `queued` nên truy vấn nhanh không thấy -> giữ lối
+    #   quét cũ làm QUÉT VÉT, chạy tối đa 6 giờ/lần. Vòng lặp bên dưới luôn đóng dấu queued=True cho
+    #   mọi doc nó chạm tới, nên mỗi doc cũ chỉ phải quét đúng MỘT lần trong đời rồi vào lối nhanh.
+    FAST_LIMIT = 300
+    SWEEP_EVERY_H = 6
+    docs_all, fast_ok = [], False
+    try:
+        docs_all = list(rj.collection("render_jobs").where("owner", "==", owner)
+                        .where("status", "==", "done").where("queued", "==", False)
+                        .limit(FAST_LIMIT).stream())
+        fast_ok = True
+        _QG.dem("B", r=max(1, len(docs_all)))
+        print(f"  ⚡ auto-enqueue lối nhanh: {len(docs_all)} video mới (bấy nhiêu lượt đọc, thay vì ~{len(ready)*SCAN_LIMIT})")
+    except Exception as e:
+        print(f"  ⚠️ lối nhanh hỏng ({str(e)[:70]}) -> quét kiểu cũ lượt này")
+
+    need_sweep = not fast_ok
+    sweep_ref = q_db.collection("counters").document("__enqueue_sweep__")
+    if fast_ok:
+        try:
+            sd = sweep_ref.get()
+            last = (sd.to_dict() or {}).get("at", "") if sd.exists else ""
+            if not last:
+                need_sweep = True
+            else:
+                gio = (now - datetime.fromisoformat(str(last).replace("Z", "+00:00"))).total_seconds() / 3600
+                need_sweep = gio >= SWEEP_EVERY_H
+        except Exception:
+            need_sweep = True          # không đọc được mốc -> quét vét cho chắc, thà tốn còn hơn sót
+
+    # PHANH QUOTA: quét vét là việc PHỤ (chỉ bắt doc cũ trước ngày có cờ). Hạn mức B đã đi sâu thì
+    # bỏ lượt quét này — thà chậm bắt vài doc cũ còn hơn ăn nốt phần hạn mức mà việc ĐĂNG BÀI cần.
+    if need_sweep and fast_ok and not _QG.du_suc("B", can_doc=len(ready) * SCAN_LIMIT):
+        print(f"  ⏸ hoãn quét vét — {_QG.bao_cao('B')} (để dành hạn mức cho việc đăng)")
+        need_sweep = False
+
+    if need_sweep:
+        print(f"  🧹 quét vét (6h/lần, bắt doc cũ chưa có cờ queued): {len(ready)} kênh")
+        if not dry_run:
+            try:
+                sweep_ref.set({"at": now.isoformat()}, merge=True)
+            except Exception:
+                pass
+        docs_all = docs_all + _quet_vet(rj, owner, ready)
+
+    by_ch: dict[str, list] = {}
+    for d in docs_all:
+        c = (d.to_dict() or {}).get("channel") or ""
+        if c in ready:
+            by_ch.setdefault(c, []).append(d)
+
+    for ch, docs in by_ch.items():
+        for d in docs:
+            j = d.to_dict()
+            if j.get("queued"):
+                continue
+            fid = j.get("drive_id")
+            if not fid or fid in queued_ids:
+                if fid and not dry_run:
+                    rj.collection("render_jobs").document(d.id).set({"queued": True}, merge=True)
+                continue
+            vtype = "long" if (j.get("type") == "long") else "short"
+            when = next_slot(ch, vtype)
+            item = {"owner": owner, "channel": ch, "drive_file_id": fid,
+                    "drive_account": j.get("drive_account", ""), "type": vtype,
+                    "title": j.get("title", ""),
+                    "drive_name": j.get("drive_name") or ((j.get("title") or fid) + ".mp4"),
+                    "description": j.get("description", ""), "hashtags": j.get("hashtags") or [],
+                    "tags": j.get("tags") or [], "status": "pending", "attempts": 0,
+                    "created_at": now.isoformat(), "publish_at": when}
+            if dry_run:
+                print(f"  (dry) {ch} [{vtype}] -> {when[:16]} · {(item['title'] or fid)[:38]}"); added += 1; continue
+            q_db.collection("yt_queue").add(item)
+            rj.collection("render_jobs").document(d.id).set({"queued": True}, merge=True)
+            queued_ids.add(fid); added += 1
+
+    print(f"✔ auto-enqueue: xếp lịch {added} video (theo template)." if added else "✔ auto-enqueue: không có video mới.")
+    return added
+
+
+def _quet_vet(rj, owner, ready):
+    """LỐI CŨ giữ lại làm quét vét: 40 doc 'done' mới nhất mỗi kênh. Đắt (≈55×40 lượt đọc) nên chỉ
+    chạy 6 giờ/lần, đủ để bắt các doc tạo trước ngày có cờ `queued`."""
+    out = []
     for ch in ready:
         try:
             q = (rj.collection("render_jobs").where("owner", "==", owner)
@@ -169,34 +263,12 @@ def run(dry_run: bool = False):
                 docs = list(q.order_by("created_at", direction=Query.DESCENDING).limit(SCAN_LIMIT).stream())
             except Exception:
                 docs = list(q.limit(SCAN_LIMIT).stream())
+            out.extend(docs)
+            _QG.dem("B", r=max(1, len(docs)))
         except Exception as e:
             print(f"  ⚠️ auto-enqueue đọc render_jobs {ch} lỗi: {e}"); continue
+    return out
 
-        for d in docs:
-            j = d.to_dict()
-            if j.get("queued"):
-                continue
-            fid = j.get("drive_id")
-            if not fid or fid in queued_ids:
-                if fid and not dry_run:
-                    rj.collection("render_jobs").document(d.id).set({"queued": True}, merge=True)
-                continue
-            vtype = "long" if (j.get("type") == "long") else "short"
-            when = next_slot(ch, vtype)                     # RẢI theo MIX template -> không quá mix/ngày
-            item = {"owner": owner, "channel": ch, "drive_file_id": fid,
-                    "drive_account": j.get("drive_account", ""), "type": vtype,
-                    "title": j.get("title", ""),
-                    "drive_name": j.get("drive_name") or ((j.get("title") or fid) + ".mp4"),
-                    "description": j.get("description", ""), "hashtags": j.get("hashtags") or [],
-                    "tags": j.get("tags") or [], "status": "pending", "attempts": 0,
-                    "created_at": now.isoformat(), "publish_at": when}
-            if dry_run:
-                print(f"  (dry) {ch} [{vtype}] -> {when[:16]} · {(item['title'] or fid)[:38]}"); added += 1; continue
-            q_db.collection("yt_queue").add(item)
-            rj.collection("render_jobs").document(d.id).set({"queued": True}, merge=True)
-            queued_ids.add(fid); added += 1
-
-    print(f"✔ auto-enqueue: xếp lịch {added} video (theo template)." if added else "✔ auto-enqueue: không có video mới.")
 
 
 def _run_guarded(fn):
@@ -208,6 +280,11 @@ def _run_guarded(fn):
     except Exception as e:
         if type(e).__name__ == "ResourceExhausted" or "429 Quota exceeded" in str(e):
             print("\n⏳ Firestore hết hạn mức -> bỏ lượt này, cron sau tự chạy lại.")
+            try:
+                from firestore_state import chan_doan_429
+                print(chan_doan_429())     # 24/8: nói RÕ project nào cạn, khỏi đoán
+            except Exception:
+                pass
             raise SystemExit(0)
         raise
 
