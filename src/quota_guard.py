@@ -86,8 +86,19 @@ def da_dung(p: str) -> dict[str, int]:
                 x = (d.to_dict() or {}) if d.exists else {}
                 goc = {"r": int(x.get("r", 0) or 0), "w": int(x.get("w", 0) or 0)}
                 goc["r"] += 1                       # chính lượt đọc sổ này
-            except Exception:
-                pass
+            except Exception as e:
+                # 24/8 tối — CON SỐ DỐI. Log lượt publish 18:25Z: `⛔ Project A cạn hạn mức` xuất
+                # hiện 114 lần, mà dòng tổng kết vẫn in `project A: đọc 0/50,000 (0%)`. Lý do: đọc
+                # sổ hỏng thì coi như 0 — "thà cho chạy còn hơn tự khoá mình". Cho chạy tiếp thì
+                # đúng, nhưng BÁO CÁO 0% khi đã chạm trần là nói dối người vận hành, và `du_suc()`
+                # còn mở cửa cho mọi việc phụ đúng lúc project đã hết sạch.
+                # Đọc sổ hỏng VÌ 429 = bằng chứng chắc chắn nhất rằng project đã cạn. Ghi nhận đúng
+                # như vậy thay vì 0.
+                _s = str(e)
+                if "429" in _s or "RESOURCE_EXHAUSTED" in _s or "Quota exceeded" in _s:
+                    goc = {"r": TRAN_DOC, "w": 0, "_can": 1}
+                    print(f"   📟 Project {p}: không đọc nổi sổ vì 429 -> coi như ĐÃ CẠN "
+                          f"(không phải 0%). Việc phụ sẽ bị chặn, việc thiết yếu vẫn chạy.")
         _DA_DOC[p] = goc
     cua_ta = _DEM.get(p, {"r": 0, "w": 0})
     return {"r": goc["r"] + cua_ta["r"], "w": goc["w"] + cua_ta["w"]}
@@ -113,9 +124,14 @@ def du_suc(p: str, can_doc: int = 0, can_ghi: int = 0, thiet_yeu: bool = False) 
 
 
 def bao_cao(p: str) -> str:
+    """Một dòng trạng thái. Project cạn tới mức không đọc nổi sổ thì nói THẲNG là cạn — đừng in
+    "0%" chỉ vì không đọc được số (xem `da_dung`)."""
     d = da_dung(p)
-    return (f"project {p}: đọc {d['r']:,}/{TRAN_DOC:,} ({d['r']*100//TRAN_DOC}%) · "
-            f"ghi {d['w']:,}/{TRAN_GHI:,} ({d['w']*100//TRAN_GHI}%)")
+    if (_DA_DOC.get(p) or {}).get("_can"):
+        doc = "CẠN (429 — không đọc nổi sổ)"
+    else:
+        doc = f"{d['r']:,}/{TRAN_DOC:,} ({d['r'] * 100 // TRAN_DOC}%)"
+    return f"project {p}: đọc {doc} · ghi {d['w']:,}/{TRAN_GHI:,} ({d['w'] * 100 // TRAN_GHI}%)"
 
 
 def xa_so() -> None:

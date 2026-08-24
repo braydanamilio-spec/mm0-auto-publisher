@@ -346,6 +346,8 @@ class State:
         _dem("A", r=1)
         return doc.to_dict() if doc.exists else None
 
+    _GUONG_CHET: dict = {}      # loại -> đã biết gương hỏng ở lượt chạy này (xem _guong_connections)
+
     def _guong_connections(self, kind: str) -> list[dict]:
         """Đọc connection từ GƯƠNG ở project B khi A cạn hạn mức.
 
@@ -355,6 +357,13 @@ class State:
         đơn của cả khâu đăng bài — đúng cảnh "render làm gì khi không đăng được".
         Gương `connections_mirror` do render plan chép mỗi phiên; rules B khoá kín nên token không
         lộ thêm. Đọc gương là 1 lượt quét trên B (B còn hạn mức) thay vì chết cứng."""
+        # 24/8 tối — MỘT LƯỢT PUBLISH DỘI 112 LẦN VÀO ĐÂY. Log lượt 18:25Z có đúng 112 dòng
+        # `⚠️ gương connections ở B cũng lỗi: 429`. Hàm này được gọi cho TỪNG kênh, và khi cả A lẫn
+        # B đều cạn thì mỗi kênh lại đi hỏi B một lần nữa — 112 lượt đọc hỏng, mà **lượt hỏng vẫn bị
+        # trừ hạn mức**, cộng thêm mấy vòng `_retry` 1,5s mỗi lượt. Hỏng vì cạn hạn mức là trạng thái
+        # của CẢ TIẾN TRÌNH, biết một lần là đủ.
+        if self._GUONG_CHET.get(kind):
+            return []
         try:
             out = []
             for d in client_render_jobs().collection("connections_mirror").stream():
@@ -366,7 +375,9 @@ class State:
                 self._CONN_CACHE[kind] = {r["_id"]: r for r in out}
             return out
         except Exception as e:
-            print(f"   ⚠️ gương connections ở B cũng lỗi: {str(e)[:70]}")
+            self._GUONG_CHET[kind] = True
+            print(f"   ⚠️ gương connections ở B cũng lỗi: {str(e)[:70]} "
+                  f"— NGỪNG hỏi gương cho loại '{kind}' ở lượt chạy này (mỗi lượt hỏng vẫn bị trừ hạn mức).")
             return []
 
     def list_connections(self, kind: str, force: bool = False) -> list[dict]:
