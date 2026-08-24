@@ -180,7 +180,7 @@ def run(dry_run: bool = False):
 
     need_sweep = not fast_ok
     _da_tung_quet = False
-    sweep_ref = q_db.collection("counters").document("__enqueue_sweep__")
+    sweep_ref = q_db.collection("counters").document("enqueue_sweep")
     if fast_ok:
         try:
             sd = sweep_ref.get()

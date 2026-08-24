@@ -138,7 +138,7 @@ def firestore_pool_accounts() -> list[dict]:
     # cạn) -> enqueue nhận [] -> "Không kho nào đủ chỗ" -> render xong mà vứt. Nên thử B TRƯỚC, hụt
     # thì thử thẳng B2 (bản gương, plan cập nhật mỗi phiên) trước khi đụng A.
     def _snap_from(_cl):
-        _sd = _cl.collection("connections_mirror").document("__snap__").get()
+        _sd = _cl.collection("connections_mirror").document("snap_kho").get()
         if not _sd.exists:
             return []
         _sx = _sd.to_dict() or {}
@@ -178,7 +178,7 @@ def firestore_pool_accounts() -> list[dict]:
 
     try:
         from firestore_state import client_render_jobs
-        _sd = client_render_jobs().collection("connections_mirror").document("__snap__").get()
+        _sd = client_render_jobs().collection("connections_mirror").document("snap_kho").get()
         if _sd.exists:
             _sx = _sd.to_dict() or {}
             _out = [{"name": c.get("channel", "drive"), "root": c["root"], "cap_gb": c.get("cap_gb", 14),
