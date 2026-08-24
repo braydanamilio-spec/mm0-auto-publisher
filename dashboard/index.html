@@ -886,7 +886,7 @@
           <div class="p-head"><div class="p-title">🔑 API Keys (Gemini + Groq)</div><div class="p-sub">Nhiều key = quota free ×N, tự xoay vòng</div></div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
             <button class="btn-conn" onclick="window.__rsGeminiConnect&&window.__rsGeminiConnect()" title="1-click sẽ tự lưu Gmail tạo key">🔗 Kết nối Gemini (1-click · auto Gmail)</button>
-            <input id="rsKeyEmail" type="email" placeholder="Gmail tạo key (vd you@gmail.com)" style="min-width:220px"/><a href="https://console.groq.com/keys" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Groq free ~1.000 gọi/ngày/tài khoản — dán key gsk_... vào Ô KEY BÊN TRÊN như key Gemini, hệ tự nhận diện và chỉ dùng cho khâu VIẾT (vision/vẽ ảnh vẫn là Gemini)">⚡ Lấy key Groq — free ~1K gọi/ngày</a><a href="https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22workers_ai%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D&accountId=*&zoneId=all&name=MM0%20Render" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Bấm vào = mở form tạo token ĐIỀN SẴN đủ 2 quyền (Workers AI Edit + Account Settings Read). Chỉ việc: Continue to summary → Create Token → copy chuỗi cfut_ → dán vào ô key. Free 10K neuron/ngày ≈ ~170 ảnh FLUX 1024² (4 bước)/tài khoản — theo giá niêm yết CF.">⛅ Lấy key Cloudflare — free ~170 ảnh/ngày</a><a href="https://www.pexels.com/api/key/" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Đăng nhập Pexels bằng 1 Gmail bất kỳ -> trang này hiện NGAY 1 API key (mỗi tài khoản 1 key). Copy chuỗi 56 ký tự dán vào Ô KEY BÊN TRÊN, hệ tự nhận là key ảnh Pexels. Free 200 lượt/giờ · 20.000/tháng mỗi key — thêm nhiều Gmail = nhiều key, hệ tự xoay vòng.">🖼️ Lấy key Pexels — free 20K lượt/tháng</a><a id="bmGrabKey" href="javascript:(function(){var h=location.hostname;if(h.indexOf('mm0-auto-publisher')>-1){window.open('https://pixabay.com/api/docs/','_blank');return;}var it=document.body.innerText,ht=document.documentElement.innerHTML,d=/\b\d{6,10}-[a-zA-Z0-9]{20,40}\b/,l=/\b[A-Za-z0-9]{48,64}\b/;var m=it.match(d)||it.match(l)||ht.match(d);if(!m){alert('Chua thay key. Dang nhap roi mo pixabay.com/api/docs/ hoac pexels.com/api/key/');return;}var em=(it.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}/)||[''])[0];if(!em){var ua=document.querySelector('a[href*=\'/users/\'],a[href*=\'/@\']');if(ua)em=(ua.getAttribute('href')||'').split('/').filter(Boolean).pop();}window.open('https://mm0-auto-publisher.web.app/?addkey='+encodeURIComponent(m[0])+(em?'&kmail='+encodeURIComponent(em):'')+'#render','_blank');})();" class="btn-mini" style="text-decoration:none;white-space:nowrap;border:1px dashed #8b6cff" title="1 NÚT DUY NHẤT cho cả Pexels lẫn Pixabay. Lần đầu: KÉO nút này lên thanh dấu trang Chrome. Sau đó đăng nhập Pexels (pexels.com/api/key/) hoặc Pixabay (pixabay.com/api/docs/) bằng Gmail bất kỳ → bấm nút dấu trang → dashboard tự mở và TỰ THÊM key, không copy-dán. Bấm ngay tại dashboard thì nó mở sẵn trang Pixabay. Pexels 20K lượt/tháng · Pixabay 5K lượt/GIỜ mỗi key, hệ tự xoay vòng.">🔑 KEY ẢNH 1 CHẠM (Pexels + Pixabay) — kéo lên thanh dấu trang</a>
+            <input id="rsKeyEmail" type="email" placeholder="Gmail tạo key (vd you@gmail.com)" style="min-width:220px"/><a href="https://console.groq.com/keys" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Groq free ~1.000 gọi/ngày/tài khoản — dán key gsk_... vào Ô KEY BÊN TRÊN như key Gemini, hệ tự nhận diện và chỉ dùng cho khâu VIẾT (vision/vẽ ảnh vẫn là Gemini)">⚡ Lấy key Groq — free ~1K gọi/ngày</a><a href="https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22workers_ai%22%2C%22type%22%3A%22edit%22%7D%2C%7B%22key%22%3A%22account_settings%22%2C%22type%22%3A%22read%22%7D%5D&accountId=*&zoneId=all&name=MM0%20Render" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Bấm vào = mở form tạo token ĐIỀN SẴN đủ 2 quyền (Workers AI Edit + Account Settings Read). Chỉ việc: Continue to summary → Create Token → copy chuỗi cfut_ → dán vào ô key. Free 10K neuron/ngày ≈ ~170 ảnh FLUX 1024² (4 bước)/tài khoản — theo giá niêm yết CF.">⛅ Lấy key Cloudflare — free ~170 ảnh/ngày</a><a href="https://www.pexels.com/api/key/" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="Đăng nhập Pexels bằng 1 Gmail bất kỳ -> trang này hiện NGAY 1 API key (mỗi tài khoản 1 key). Copy chuỗi 56 ký tự dán vào Ô KEY BÊN TRÊN, hệ tự nhận là key ảnh Pexels. Free 200 lượt/giờ · 20.000/tháng mỗi key — thêm nhiều Gmail = nhiều key, hệ tự xoay vòng.">🖼️ Lấy key Pexels — free 20K lượt/tháng</a><a href="https://api.data.gov/signup/" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="TƯ LIỆU LƯU TRỮ QUỐC GIA MỸ (NARA) — phim/ảnh công cộng, không vướng bản quyền. Chỉ cần TÊN + EMAIL, key gửi ngay về hộp thư, hạn mức 1.000 lượt/GIỜ. Dán vào ô key theo dạng:  nara:<KEY>">🏛 Lấy key NARA — tư liệu Mỹ, 1K lượt/giờ</a><a href="https://api.dvidshub.net/accounts/create" target="_blank" class="btn-mini" style="text-decoration:none;white-space:nowrap" title="24/8: link ĐI THẲNG tới trang tạo App Account — key KHÔNG nằm ở trang tài liệu (chỗ user tìm mãi không thấy). Các bước: điền Account Name (vd MM0 Render) · Description · Website -> kéo xuống tick Developer Agreement -> Save. Key hiện ngay trong danh sách My Accounts. Dán vào ô key: dvids:<KEY> (hoặc dán trần, hệ sẽ hỏi).">🎖 Lấy key DVIDS — mở thẳng trang tạo key</a><a id="bmGrabKey" href="javascript:(function(){var h=location.hostname;if(h.indexOf('mm0-auto-publisher')>-1){window.open('https://pixabay.com/api/docs/','_blank');return;}var it=document.body.innerText,ht=document.documentElement.innerHTML,d=/\b\d{6,10}-[a-zA-Z0-9]{20,40}\b/,l=/\b[A-Za-z0-9]{48,64}\b/;var m=it.match(d)||it.match(l)||ht.match(d);if(!m){alert('Chua thay key. Dang nhap roi mo pixabay.com/api/docs/ hoac pexels.com/api/key/');return;}var em=(it.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-z]{2,}/)||[''])[0];if(!em){var ua=document.querySelector('a[href*=\'/users/\'],a[href*=\'/@\']');if(ua)em=(ua.getAttribute('href')||'').split('/').filter(Boolean).pop();}window.open('https://mm0-auto-publisher.web.app/?addkey='+encodeURIComponent(m[0])+(em?'&kmail='+encodeURIComponent(em):'')+'#render','_blank');})();" class="btn-mini" style="text-decoration:none;white-space:nowrap;border:1px dashed #8b6cff" title="1 NÚT DUY NHẤT cho cả Pexels lẫn Pixabay. Lần đầu: KÉO nút này lên thanh dấu trang Chrome. Sau đó đăng nhập Pexels (pexels.com/api/key/) hoặc Pixabay (pixabay.com/api/docs/) bằng Gmail bất kỳ → bấm nút dấu trang → dashboard tự mở và TỰ THÊM key, không copy-dán. Bấm ngay tại dashboard thì nó mở sẵn trang Pixabay. Pexels 20K lượt/tháng · Pixabay 5K lượt/GIỜ mỗi key, hệ tự xoay vòng.">🔑 KEY ẢNH 1 CHẠM (Pexels + Pixabay) — kéo lên thanh dấu trang</a>
             <input id="rsKeyManual" placeholder="dán key: AIza... (Gemini) · gsk_... (Groq) · cfut_... (Cloudflare — tự nhận Account ID)" style="flex:1;min-width:240px"/>
             <button class="btn-conn" onclick="window.__rsAddKey&&window.__rsAddKey()">＋ Thêm key</button>
             <button class="btn-conn" style="background:#16a34a;border-color:#16a34a;color:#fff" title="Cách nhanh nhất: bôi đen key trên trang Pixabay/Pexels → Ctrl+C (Cmd+C) → bấm nút này. Hệ tự đọc bộ nhớ tạm, tự nhận nhà cung cấp, tự đặt nhãn nếu trang không có Gmail, rồi thêm key ngay." onclick="window.__rsPasteKey&&window.__rsPasteKey()">📋 Dán key từ clipboard</button>
@@ -1682,7 +1682,7 @@
         // ---- RBAC: xác định workspace (chủ hay là thành viên của ai) ----
         window.__ownerUid = user.uid; window.__role = "owner"; window.__workspaces = [];
         try {
-          const ms = await getDocs(query(collection(db,"team_members"), where("member_uid","==",user.uid)));
+          const ms = await gdGate(query(collection(db,"team_members"), where("member_uid","==",user.uid)));
           window.__workspaces = ms.docs.map(d=>({id:d.id, ...d.data()}));
           if (window.__workspaces.length){
             const saved = localStorage.mm0ws;
@@ -1702,10 +1702,80 @@
     // ── TIẾT KIỆM QUOTA ĐỌC (23/8 — dashboard là nguồn ăn quota lớn nhất: ~700 lượt/lần tải,
     // và listener để mở còn ăn thêm 1 lượt cho MỖI cập nhật job khi 18 lane đang chạy) ────────
     const __subs = []; window.__reads = 0;
-    function snapW(q_, cb, err){                     // bọc onSnapshot: đếm + nhớ hàm huỷ
+    // ── 24/8 — MỘT TAB LÀM CHỦ (bản làm ĐÚNG) ──────────────────────────────────────────────
+    // Lần trước chỉ chặn subscribe() nên tab phụ vẫn tốn 184 lượt đọc: hoá ra lượt đọc đến từ
+    // getDocs/getDoc một-lần (nạp key, kênh, job...) chứ không riêng onSnapshot. Nay chặn ở CẢ HAI
+    // cửa. Tab phụ đọc dữ liệu từ bộ nhớ chung do tab chủ ghi (BroadcastChannel + localStorage),
+    // nên mở bao nhiêu tab cũng chỉ 1 tab thật sự đọc Firestore.
+    const _KHOA = "mm0_tab_chu", _TABID = Math.random().toString(36).slice(2);
+    const _docChu = () => { try { return JSON.parse(localStorage.getItem(_KHOA) || "{}"); } catch(_) { return {}; } };
+    const _nhanChu = () => { try { localStorage.setItem(_KHOA, JSON.stringify({ id: _TABID, at: Date.now() })); } catch(_){} };
+    (function bauTabChu(){
+      const c = _docChu();
+      window.__laTabPhu = !!(c.id && c.id !== _TABID && (Date.now() - (c.at || 0) < 15000));
+      if (!window.__laTabPhu) { _nhanChu(); setInterval(_nhanChu, 5000); }
+      window.addEventListener("pagehide", () => { try { if (_docChu().id === _TABID) localStorage.removeItem(_KHOA); } catch(_){} });
+      // Tab chủ đóng/treo -> tab phụ tự lên thay sau 15s (nhịp tim tắt), không cần anh bấm gì.
+      setInterval(() => {
+        if (!window.__laTabPhu) return;
+        const c = _docChu();
+        if (!c.id || Date.now() - (c.at || 0) > 15000) {
+          _nhanChu(); window.__laTabPhu = false;
+          try { toastMsg("🔗 Tab chính đã đóng — tab này lên làm chủ, đang nối dữ liệu…", 6000); } catch(_){}
+          location.reload();          // lên chủ 1 lần duy nhất: nạp đủ dữ liệu rồi giữ listener
+        }
+      }, 5000);
+    })();
+    const _kenh = (() => { try { return new BroadcastChannel("mm0_data"); } catch(_) { return null; } })();
+    window.__phatDL = (ten, dl) => { if (_kenh && !window.__laTabPhu) { try { _kenh.postMessage({ ten, dl }); } catch(_){} } };
+    if (_kenh && window.__laTabPhu) _kenh.onmessage = (e) => {
+      try { const { ten, dl } = e.data || {}; (window.__choDL[ten] || []).forEach(f => f(dl)); } catch(_){}
+    };
+    window.__choDL = {};
+
+    // 24/8: bọc getDocs/getDoc — đây mới là chỗ ngốn phần lớn lượt đọc (nạp key/kênh/job một lần).
+    // Tab chủ đọc thật rồi ghi kết quả vào localStorage; tab phụ lấy từ đó, KHÔNG gọi Firestore.
+    const _getDocsGoc = getDocs, _getDocGoc = getDoc;   // giữ bản gốc (import là hằng, không gán đè được)
+    const _khoaDem = (q_) => { try { return "mm0dl:" + (q_ && q_._query ? String(q_._query.path) + JSON.stringify(q_._query.filters || "") : "x"); } catch(_) { return "mm0dl:x"; } };
+    const _gia = (docs) => ({ docs: docs.map(d => ({ id: d.id, data: () => d, ...d })), size: docs.length, empty: !docs.length,
+                              forEach(f){ this.docs.forEach(f); } });
+    const gdGate = async (q_) => {
+      const k = _khoaDem(q_);
+      if (window.__laTabPhu) {
+        try { const c = JSON.parse(localStorage.getItem(k) || "null"); if (c) return _gia(c); } catch(_){}
+        return _gia([]);                                   // chưa có đệm -> rỗng, KHÔNG đọc Firestore
+      }
+      const s2 = await _getDocsGoc(q_);
+      try { window.__reads += s2.size || 0; __readMeter(); } catch(_){}
+      try { localStorage.setItem(k, JSON.stringify(s2.docs.map(d => ({ id: d.id, ...d.data() })))); } catch(_){}
+      return s2;
+    };
+    const gdocGate = async (r_) => {
+      const k = "mm0dl1:" + (r_ && r_.path ? r_.path : "x");
+      if (window.__laTabPhu) {
+        try { const c = JSON.parse(localStorage.getItem(k) || "null");
+          if (c) return { exists: () => true, id: c.id, data: () => c }; } catch(_){}
+        return { exists: () => false, data: () => ({}) };
+      }
+      const d = await _getDocGoc(r_);
+      try { window.__reads += 1; __readMeter(); } catch(_){}
+      try { if (d.exists()) localStorage.setItem(k, JSON.stringify({ id: d.id, ...d.data() })); } catch(_){}
+      return d;
+    };
+
+    function snapW(q_, cb, err, ten){                 // bọc onSnapshot: đếm + nhớ hàm huỷ
+      if (window.__laTabPhu) {                       // 24/8: tab phụ = 0 lượt đọc
+        const k = ten || (q_ && q_._query && String(q_._query.path)) || "chung";
+        (window.__choDL[k] = window.__choDL[k] || []).push(cb);
+        return () => {};
+      }
       const u = onSnapshot(q_, (s2) => {
         try { window.__reads += (s2 && s2.docChanges ? s2.docChanges().length : 1); __readMeter(); } catch(_){}
         cb(s2);
+        try {                                        // phát cho tab phụ (không tốn lượt đọc nào)
+          const k = ten || (q_ && q_._query && String(q_._query.path)) || "chung";
+          window.__phatDL(k, { __docs: s2.docs.map(d => ({ id: d.id, ...d.data() })) });
+        } catch(_){}
       }, err);
       __subs.push(u); return u;
     }
@@ -1738,8 +1808,17 @@
     // Tab ẩn quá 90s -> NGẮT hết listener (không ăn quota khi anh không nhìn); quay lại thì nạp mới.
     let __hidT = null;
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden) { __hidT = setTimeout(() => window.__detach(), 90000); }
-      else { clearTimeout(__hidT); if (window.__detached) location.reload(); }
+      // 24/8: hạ 90s -> 45s để cắt quota sớm hơn khi anh rời tab
+      if (document.hidden) { __hidT = setTimeout(() => window.__detach(), 45000); }
+      else { clearTimeout(__hidT);
+        // 24/8 (user: "web cứ tự F5, có tốn quota không") — CÓ, mỗi lần reload nạp lại toàn bộ
+        // kênh/key/video ≈ 200 lượt đọc. Trước đây quay lại tab là `location.reload()`. Nay chỉ
+        // NỐI LẠI listener: dữ liệu cũ vẫn nằm trong bộ nhớ trang, Firestore chỉ gửi phần THAY ĐỔI.
+        if (window.__detached) {
+          window.__detached = false;
+          try { __subscribed = false; subscribe(); } catch(_) { location.reload(); }
+          try { __readMeter(); } catch(_){}
+        } }
     });
     function sub(name, cb){ snapW(query(collection(_appFor(name),name), where("owner","==",(window.__ownerUid||window.__uid))), cb, () => setLive(false)); }
     let __subscribed=false;
@@ -1749,7 +1828,12 @@
       // onSnapshot mới (videos/counters/settings/fb_pages/quota/social_queue/yt_queue/tasks/links) CHỒNG lên
       // bộ cũ (không huỷ), cộng dồn focus-listener -> đọc Firestore tăng dần mỗi lần đổi tài khoản, và callback
       // của các listener cũ (owner cũ) có thể ghi đè dữ liệu owner mới. Cùng lớp lỗi với rsInit()'s rsInited.
-      if(__subscribed) return; __subscribed=true;
+      if(__subscribed) return;
+      // 24/8: ĐÃ THỬ cơ chế "một tab làm chủ" (localStorage bầu chủ, tab phụ không mở listener)
+      // -> KHÔNG ăn: đo thật vẫn 184 lượt đọc ở tab phụ, vì listener còn được mở ở nhiều chỗ khác
+      // ngoài subscribe() (render studio, snapW rời rạc). Muốn làm đúng phải bọc TẤT CẢ điểm mở
+      // listener, không chỉ hàm này. Đã gỡ để không để lại code nửa vời.
+      __subscribed=true;
       // "videos" TRƯỚC ĐÂY không giới hạn (limit) -> nghe realtime TOÀN BỘ lịch sử video, càng ngày càng phình
       // (mỗi video enqueue mới, mỗi lần đổi trạng thái đăng đều tính) — phát hiện 19/8 lúc rà lại quota.
       // FIX: cap 300 video MỚI NHẤT (đủ dùng cho gallery/theo dõi thực tế), fallback nếu thiếu index.
@@ -1760,7 +1844,7 @@
       // channels (stats/health) ĐỔI SANG load-once + tự refresh khi quay lại tab — đổi chậm (stats.yml 6h/lần),
       // realtime không cần thiết, giống storage_accounts (giảm đọc Firestore A).
       window.__loadChannels = async () => { try {
-        const snap = await getDocs(query(collection(_appFor("channels"),"channels"), where("owner","==",(window.__ownerUid||window.__uid))));
+        const snap = await gdGate(query(collection(_appFor("channels"),"channels"), where("owner","==",(window.__ownerUid||window.__uid))));
         const c={}; snap.docs.forEach(d=>{const v=d.data();c[v.channel||d.id]=v;}); window.setData(null,c,null);
         if(window.__maybeAutoEnableApis) setTimeout(window.__maybeAutoEnableApis,1500); } catch(e){} };
       window.__loadChannels();
@@ -1769,7 +1853,7 @@
       // storage_accounts ĐỔI SANG load-once (67 tài khoản, đổi chậm) + tự refresh khi quay lại tab
       // (đúng lúc kết nối kho mới xong ở tab popup rồi quay về) -> khỏi cần realtime, tiết kiệm đọc Firestore.
       window.__loadStorage = async () => {
-        try { const snap = await getDocs(query(collection(_appFor("storage_accounts"),"storage_accounts"), where("owner","==",(window.__ownerUid||window.__uid))));
+        try { const snap = await gdGate(query(collection(_appFor("storage_accounts"),"storage_accounts"), where("owner","==",(window.__ownerUid||window.__uid))));
           // health/health_at/health_err do publisher tự ghi mỗi phiên (chỉ khi ĐỔI trạng thái) -> hiện
           // token sống/chết mà KHÔNG phải đọc thêm collection nào, cũng không cần bấm nút 🩺.
           const accounts = snap.docs.map(d=>{const v=d.data();return {name:v.name, email:v.email, root:v.root||v.folder_id||"", used:v.used||0, cap:(v.cap_gb||14)*1e9, connected_at:v.connected_at||"", health:v.health||"", health_at:v.health_at||"", health_err:v.health_err||""};});
@@ -1795,18 +1879,18 @@
     window.__teamInvite = async (role) => { const code=(Math.random().toString(36).slice(2,7)+Math.random().toString(36).slice(2,6)).toUpperCase();
       await addDoc(collection(db,"team_invites"), {owner:window.__uid, owner_name:(window.__uEmail||""), role, code, created_at:new Date().toISOString()}); return code; };
     window.__teamList = async () => { const [inv,mem]=await Promise.all([
-        getDocs(query(collection(db,"team_invites"), where("owner","==",window.__uid))),
-        getDocs(query(collection(db,"team_members"), where("owner","==",window.__uid)))]);
+        gdGate(query(collection(db,"team_invites"), where("owner","==",window.__uid))),
+        gdGate(query(collection(db,"team_members"), where("owner","==",window.__uid)))]);
       return { invites:inv.docs.map(d=>({id:d.id,...d.data()})), members:mem.docs.map(d=>({id:d.id,...d.data()})) }; };
     window.__teamRevokeInvite = async (id) => { await deleteDoc(doc(db,"team_invites",id)); };
     window.__teamRemoveMember = async (id) => { await deleteDoc(doc(db,"team_members",id)); };
-    window.__teamSetRole = async (id, role) => { const d=await getDoc(doc(db,"team_members",id)); if(d.exists()) await setDoc(doc(db,"team_members",id), {...d.data(), role}, {merge:true}); };
-    window.__teamJoin = async (code) => { const q=await getDocs(query(collection(db,"team_invites"), where("code","==",code.trim().toUpperCase())));
+    window.__teamSetRole = async (id, role) => { const d=await gdocGate(doc(db,"team_members",id)); if(d.exists()) await setDoc(doc(db,"team_members",id), {...d.data(), role}, {merge:true}); };
+    window.__teamJoin = async (code) => { const q=await gdGate(query(collection(db,"team_invites"), where("code","==",code.trim().toUpperCase())));
       if(q.empty) throw new Error("Mã mời không hợp lệ"); const inv=q.docs[0].data(), invId=q.docs[0].id;
       if(inv.owner===window.__uid) throw new Error("Đây là workspace của chính bạn");
       await setDoc(doc(db,"team_members", inv.owner+"__"+window.__uid), { owner:inv.owner, member_uid:window.__uid, member_email:window.__uEmail||"", role:inv.role, invite_id:invId, joined_at:new Date().toISOString() }); return inv; };
     window.__teamLeave = async (ownerUid) => { await deleteDoc(doc(db,"team_members", ownerUid+"__"+window.__uid)); };
-    window.__wsMembers = async () => { const s=await getDocs(query(collection(db,"team_members"), where("owner","==",(window.__ownerUid||window.__uid)))); return s.docs.map(d=>d.data()); };
+    window.__wsMembers = async () => { const s=await gdGate(query(collection(db,"team_members"), where("owner","==",(window.__ownerUid||window.__uid)))); return s.docs.map(d=>d.data()); };
     window.__switchWorkspace = (ownerUid) => { try{ localStorage.mm0ws=ownerUid||""; }catch(_){} location.reload(); };
     // Ghi/xoá hàng đợi đăng FB/IG độc lập (client tự tạo item của mình)
     window.__socQueueAdd = async (data) => { await addDoc(collection(dbPub,"social_queue"), {owner:(window.__ownerUid||window.__uid), status:"pending", attempts:0, created_at:new Date().toISOString(), ...data}); };
@@ -1852,7 +1936,7 @@
       code=(code||"").trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
       if(!code) throw new Error("Mã chỉ gồm chữ thường/số/gạch (vd: aura, deal1).");
       if(!/^https?:\/\//i.test((url||"").trim())) throw new Error("Link đích phải bắt đầu http:// hoặc https://");
-      const ref=doc(db,"links",code); const cur=await getDoc(ref);
+      const ref=doc(db,"links",code); const cur=await gdocGate(ref);
       if(cur.exists() && cur.data().owner!==(window.__ownerUid||window.__uid)) throw new Error(`Mã "${code}" đã có người dùng — chọn mã khác.`);
       await setDoc(ref,{owner:(window.__ownerUid||window.__uid),code,url:url.trim(),
         clicks:cur.exists()?(cur.data().clicks||0):0,created_at:new Date().toISOString()},{merge:true}); };
@@ -1867,7 +1951,7 @@
         model:document.getElementById("rsModel").value, updated_at:new Date().toISOString() }, {merge:true});
         toastMsg("✔ Đã lưu rule (GitHub sẽ đọc theo)"); } catch(e){ alert("Lỗi: "+e.message); } };
     window.__rsToggle = async () => {
-      try { const d=await getDoc(rsCfgDoc()); const on=!(d.exists()&&d.data().enabled);
+      try { const d=await gdocGate(rsCfgDoc()); const on=!(d.exists()&&d.data().enabled);
         await setDoc(rsCfgDoc(), {owner:RSowner(), enabled:on}, {merge:true});
         toastMsg(on?"▶ Đã BẬT cron render đêm":"⏸ Đã TẮT"); } catch(e){ alert("Lỗi: "+e.message); } };
     window.__rsRunNow = async () => {
@@ -2035,16 +2119,29 @@
       // gắn tiền tố khi dựng `kv`. KEY PEXELS = chuỗi 48-64 ký tự chữ+số, không phải gsk_/AIza/AQ./cf:
       // KEY PIXABAY (23/8) = "<số>-<chuỗi 25-40 ký tự>" (vd 12345678-abc...); Pexels = 48-64 ký tự chữ+số
       // R2 (23/8) = bến phụ chứa video khi Drive từ chối. Dạng: r2:<account_id>:<akid>:<secret>:<bucket>
-      const isR2 = v.startsWith("r2:") && v.split(":").length >= 5;
-      const isPb = !isR2 && (v.startsWith("pb:") || /^\d{6,10}-[A-Za-z0-9]{20,40}$/.test(v));
+      // 24/8 — TƯ LIỆU MỸ: nara:<key api.data.gov> · dvids:<key dvidshub>
+      // 24/8 (user dán key NARA TRẦN -> bị nhận nhầm là token Cloudflare, báo "Token KHÔNG hợp lệ"):
+      // key api.data.gov là 40 ký tự chữ+số, TRÙNG dạng với token Cloudflare nên không thể đoán chắc.
+      // Giải pháp: HỎI THẲNG anh 1 câu thay vì đoán sai rồi báo lỗi khó hiểu.
+      let _v = v;
+      if (/^[A-Za-z0-9]{40}$/.test(v) && !/^(gsk_|AIza|AQ\.|cfut_)/.test(v)) {
+        if (confirm("Chuỗi 40 ký tự này là key NARA (api.data.gov) phải không?\n\n" +
+                    "• OK  = lưu thành key NARA (tư liệu lưu trữ Mỹ)\n" +
+                    "• Cancel = coi như token Cloudflare như trước")) {
+          _v = "nara:" + v;
+        }
+      }
+      const isGov = /^(nara|dvids):/i.test(_v);
+      const isR2 = !isGov && _v.startsWith("r2:") && _v.split(":").length >= 5;
+      const isPb = !isGov && !isR2 && (v.startsWith("pb:") || /^\d{6,10}-[A-Za-z0-9]{20,40}$/.test(v));
       const isPx = !isR2 && !isPb && (v.startsWith("px:") ||
         (/^[A-Za-z0-9]{48,64}$/.test(v) && !/^(gsk_|AIza|AQ\.)/.test(v) && !v.includes(":")));
       const isCf = !isR2 && !isPx && !isPb && (/^[0-9a-f]{32}:\S{20,}$/i.test(v) || v.startsWith("cf:"));
-      let kv = isR2 ? v : isPb ? (v.startsWith("pb:") ? v : "pb:" + v)
+      let kv = isGov ? (_v.replace(/^(nara|dvids):/i, m=>m.toLowerCase())) : isR2 ? _v : isPb ? (v.startsWith("pb:") ? v : "pb:" + v)
              : isPx ? (v.startsWith("px:") ? v : "px:" + v)
              : (isCf && !v.startsWith("cf:") ? "cf:" + v : v);
       // Token Cloudflare (cfut_… hoặc token trần khác AIza/gsk_): TỰ GỌI CF lấy Account ID — user chỉ cần dán token
-      if(!isR2 && !isPx && !isPb && !isCf && !v.startsWith("AIza") && !v.startsWith("gsk_")){
+      if(!isGov && !isR2 && !isPx && !isPb && !isCf && !v.startsWith("AIza") && !v.startsWith("gsk_")){
         let acc="";
         try{
           // qua Worker của mình (server-side) — trình duyệt gọi thẳng api.cloudflare.com bị CORS chặn
@@ -2063,7 +2160,7 @@
         }
       }
       try { await addDoc(collection(db,"gemini_keys"), {owner:RSowner(), key:kv, last4:kv.slice(-4),
-        email:em, source:"manual", provider:(kv.startsWith("gsk_")?"groq":kv.startsWith("cf:")?"cloudflare":kv.startsWith("px:")?"pexels":kv.startsWith("pb:")?"pixabay":kv.startsWith("r2:")?"r2":"gemini"), created_at:new Date().toISOString()});
+        email:em, source:"manual", provider:(kv.startsWith("gsk_")?"groq":kv.startsWith("cf:")?"cloudflare":kv.startsWith("px:")?"pexels":kv.startsWith("pb:")?"pixabay":kv.startsWith("r2:")?"r2":kv.startsWith("nara:")?"nara":kv.startsWith("dvids:")?"dvids":"gemini"), created_at:new Date().toISOString()});
         document.getElementById("rsKeyManual").value=""; document.getElementById("rsKeyEmail").value="";
         toastMsg("✔ Đã thêm key cho "+em); window.__loadKeys&&window.__loadKeys(); } catch(e){ alert("Lỗi: "+e.message); } };
     window.__rsGeminiConnect = () => {
@@ -2208,10 +2305,10 @@
       if(sf) list=list.filter(k=> sf==="deadall"?(k._st==="dead"||k._st==="warn"||k._st==="replace") : k._st===sf);
       // LỌC THEO NHÀ CUNG CẤP (chia phần Groq riêng để soi lỗi dễ — kho vẫn chung, chỉ tách hiển thị)
       const pv=window.__rsKeyProv||"";
-      const provOf=k=>((k.key||"").startsWith("gsk_")||k.provider==="groq")?"groq":((k.key||"").startsWith("cf:")||k.provider==="cloudflare")?"cloudflare":((k.key||"").startsWith("px:")||k.provider==="pexels")?"pexels":((k.key||"").startsWith("pb:")||k.provider==="pixabay")?"pixabay":"gemini";
+      const provOf=k=>((k.key||"").startsWith("nara:")||k.provider==="nara")?"nara":((k.key||"").startsWith("dvids:")||k.provider==="dvids")?"dvids":((k.key||"").startsWith("gsk_")||k.provider==="groq")?"groq":((k.key||"").startsWith("cf:")||k.provider==="cloudflare")?"cloudflare":((k.key||"").startsWith("px:")||k.provider==="pexels")?"pexels":((k.key||"").startsWith("pb:")||k.provider==="pixabay")?"pixabay":"gemini";
       if(pv) list=list.filter(k=>provOf(k)===pv);
       const nGem=ks.filter(k=>provOf(k)==="gemini").length, nGrq=ks.filter(k=>provOf(k)==="groq").length;
-      const provChips=`<div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">${[["","Tất cả "+ks.length],["gemini","◆ Gemini "+nGem],["groq","⚡ Groq "+nGrq],["cloudflare","⛅ CF "+ks.filter(k=>provOf(k)==="cloudflare").length],["pexels","🖼️ Pexels "+ks.filter(k=>String(k.key||"").startsWith("px:")).length],["pixabay","🧩 Pixabay "+ks.filter(k=>String(k.key||"").startsWith("pb:")).length]].map(([v,l])=>`<button class="btn-mini" style="${pv===v?"background:#8b6cff;color:#fff":""}" onclick="window.__rsKeyProv='${v}';window.__loadKeys&&window.__loadKeys()">${l}</button>`).join("")}</div>`;
+      const provChips=`<div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">${[["","Tất cả "+ks.length],["gemini","◆ Gemini "+nGem],["groq","⚡ Groq "+nGrq],["cloudflare","⛅ CF "+ks.filter(k=>provOf(k)==="cloudflare").length],["pexels","🖼️ Pexels "+ks.filter(k=>String(k.key||"").startsWith("px:")).length],["pixabay","🧩 Pixabay "+ks.filter(k=>String(k.key||"").startsWith("pb:")).length],["nara","🏛 NARA "+ks.filter(k=>provOf(k)==="nara").length],["dvids","🎖 DVIDS "+ks.filter(k=>provOf(k)==="dvids").length]].map(([v,l])=>`<button class="btn-mini" style="${pv===v?"background:#8b6cff;color:#fff":""}" onclick="window.__rsKeyProv='${v}';window.__loadKeys&&window.__loadKeys()">${l}</button>`).join("")}</div>`;
       const nowIso=new Date().toISOString();
       el.innerHTML=provChips+(q||sf||pv?`<div class="p-sub" style="margin-bottom:6px">🔎 ${list.length}/${ks.length} key khớp</div>`:"")
         +(list.length? list.map(k=>{ const cooling=k.cooling_until&&k.cooling_until>nowIso;
@@ -2336,11 +2433,11 @@
         const sb=document.getElementById("rsSafetyStop");
         if(sb){ if(c.last_safety_stop){ sb.style.display="block"; sb.textContent="🛡️ "+c.last_safety_stop; } else sb.style.display="none"; } }, ()=>{});
       // KEY đổi CHẬM -> đọc 1 LẦN + refresh khi bấm (thay realtime) -> cắt việc đọc lại 44 key mỗi lần health-check/đổi key.
-      window.__loadKeys = async () => { try{ const snap=await getDocs(q("gemini_keys")); window.__rsKeysData=snap.docs.map(d=>({id:d.id,...d.data()})); const mk=document.getElementById("rsTotKeys"); if(mk) mk.textContent=snap.docs.length; window.__rsRenderKeys&&window.__rsRenderKeys(); window.__r2Refresh&&window.__r2Refresh(); }catch(e){} };
+      window.__loadKeys = async () => { try{ const snap=await gdGate(q("gemini_keys")); window.__rsKeysData=snap.docs.map(d=>({id:d.id,...d.data()})); const mk=document.getElementById("rsTotKeys"); if(mk) mk.textContent=snap.docs.length; window.__rsRenderKeys&&window.__rsRenderKeys(); window.__r2Refresh&&window.__r2Refresh(); }catch(e){} };
       window.__loadKeys();
       // Trend Scout: nguồn/gu đổi CHẬM (tuần) -> load-once + tự refresh khi quay lại tab (thay realtime, đỡ tốn đọc).
       window.__loadTrendScout = async () => { try{
-        const snap=await getDocs(query(collection(dbMeta,"trend_scout"), where("owner","==",o)));
+        const snap=await gdGate(query(collection(dbMeta,"trend_scout"), where("owner","==",o)));
         window.__tsData={}; snap.docs.forEach(d=>{ const v=d.data(); if(v.channel) window.__tsData[v.channel]=v; });
       }catch(e){} window.__rsRenderTrendScout&&window.__rsRenderTrendScout(); };
       window.__loadTrendScout();
@@ -2393,7 +2490,7 @@
           // THÀNH CÔNG). Trước đây đếm bản ghi job -> gộp cả video render lại + video CHƯA lên kho
           // nên "Tổng 1755" trong khi thư viện chỉ 61. Đọc 1 doc: vừa khớp, vừa rẻ hơn 2 count().
           try {
-            const pd = await getDoc(doc(dbJobs, "render_stats", "__pushed__" + o));
+            const pd = await gdocGate(doc(dbJobs, "render_stats", "__pushed__" + o));
             if (pd.exists()) {
               const px = pd.data() || {};
               const dayK = new Date().toISOString().slice(0,10).replace(/-/g,"");
@@ -2467,7 +2564,7 @@
       // của MỌI kênh với đúng 1 lượt đọc/5' — một nguồn sự thật cho mọi ô số, hết "rối tùm lum".
       (async function _loadStats(){ try{
         const o=(window.__ownerUid||window.__uid); if(!o) return;
-        const snap=await getDoc(doc(dbJobs!==db?dbJobs:db,"render_stats",o));
+        const snap=await gdocGate(doc(dbJobs!==db?dbJobs:db,"render_stats",o));
         if(snap.exists()){ const d=snap.to_dict?snap.to_dict():snap.data(); delete d.up; window.__chStats=d; try{_mergeJobs();}catch(_){}}
       }catch(e){} finally{ setTimeout(_loadStats, 300000); } })();
       // TẢI THÊM THEO YÊU CẦU (22/8): danh sách thường trực chỉ 100(A)+200(B) doc cho rẻ; muốn xem
@@ -2479,7 +2576,7 @@
         const oldest=cur.reduce((m,j)=>((j.created_at&&j.created_at<m)?j.created_at:m),"9999");
         let got=0;
         for(const base of (dbJobs!==db?[dbJobs,db]:[db])){
-          const snap=await getDocs(query(collection(base,"render_jobs"),where("owner","==",o),
+          const snap=await gdGate(query(collection(base,"render_jobs"),where("owner","==",o),
             where("created_at","<",oldest),orderBy("created_at","desc"),limit(150)));
           snap.docs.forEach(d=>{ if(!window.__jX[d.id]){window.__jX[d.id]={id:d.id,...d.data()};got++;} });
         }
@@ -2503,8 +2600,8 @@
       // ở Content-Hub (onSnapshot realtime cho storage_accounts/channels đổi CHẬM, không cần realtime) —
       // đoạn NÀY thêm sau nên bị sót, âm thầm mở thêm listener y hệt, đốt quota gấp đôi mỗi ngày dashboard
       // mở tab Render Studio. FIX: load-once (getDocs) + refresh khi quay lại tab, giống hệt pattern đã có.
-      const cntOnce=async(coll,elid)=>{ try{ const s=await getDocs(q(coll)); const e=document.getElementById(elid); if(e)e.textContent=s.size; return s; }catch(_){ return null; } };
-      const loadDriveTotal=async()=>{ const s=await getDocs(q("storage_accounts")); const d=document.getElementById("rsTotDrive"); if(d)d.textContent=s.size;
+      const cntOnce=async(coll,elid)=>{ try{ const s=await gdGate(q(coll)); const e=document.getElementById(elid); if(e)e.textContent=s.size; return s; }catch(_){ return null; } };
+      const loadDriveTotal=async()=>{ const s=await gdGate(q("storage_accounts")); const d=document.getElementById("rsTotDrive"); if(d)d.textContent=s.size;
         let used=0,cap=0; s.docs.forEach(x=>{const a=x.data();used+=(a.used||0);cap+=(a.cap_gb||15)*1e9;});
         const pct=cap?Math.round(used/cap*100):0;
         const pe=document.getElementById("rsDrivePct"); if(pe)pe.textContent=`💾 Kho: ${(used/1e9).toFixed(1)}/${(cap/1e9).toFixed(0)} GB (${pct}% đầy) · ${s.size} tài khoản`;
@@ -2847,7 +2944,13 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       const CAP=40, over=done.length>CAP && !q && !dv && !chF; const disp=over?done.slice(0,CAP):done;
       const totMB=done.reduce((s,j)=>s+(Number(j.size_mb)||0),0), totStr=totMB>=1000?(totMB/1000).toFixed(1)+"GB":totMB.toFixed(0)+"MB";
       const _svTot=(!dv&&!q&&!chF&&(view==="channel"||view==="account")&&window.__cntCache&&window.__cntCache>done.length)?window.__cntCache:null;
-      const cnt=document.getElementById(countId); if(cnt) cnt.textContent=`📤 ${_svTot?`${_svTot} video trong kho · đang nạp ${done.length}`:`${done.length} video`} · ${tL} long · ${tS} short${totMB?` · 💾 ${totStr}`:""}${unk?` · 🔍 ${unk} chưa rõ kho`:""}${(()=>{const n=done.filter(j=>!j.thumb_id).length;return n?` · 🖼 ${n} thiếu thumb`:""})()}${over?` · hiện ${CAP} mới nhất`:""}${window.__jobsCapped?` · ⚠️ chỉ nạp 600 job mới nhất — tổng thật lớn hơn`:""}`;
+      const cnt=document.getElementById(countId); if(cnt) cnt.textContent=`📤 ${
+        // 24/8 — NÓI ĐÚNG SỰ THẬT: dashboard chỉ NẠP 120 bản ghi mới nhất (giới hạn tiết kiệm
+        // quota), nên `done.length` KHÔNG phải kích thước kho. Số kho thật lấy từ sổ đếm máy chủ.
+        // Trước đây in mỗi `done.length` -> anh thấy "93 video" trong khi kho có 414 -> tưởng mất.
+        (_svTot && _svTot > done.length)
+          ? `${_svTot} video trong kho · đang hiện ${done.length} mới nhất`
+          : `${done.length} video`}` + ` · ${tL} long · ${tS} short${totMB?` · 💾 ${totStr}`:""}${unk?` · 🔍 ${unk} chưa rõ kho`:""}${(()=>{const n=done.filter(j=>!j.thumb_id).length;return n?` · 🖼 ${n} thiếu thumb`:""})()}${over?` · hiện ${CAP} mới nhất`:""}${window.__jobsCapped?` · ⚠️ chỉ nạp 600 job mới nhất — tổng thật lớn hơn`:""}`;
       const _pubEmpty={unposted:"✓ Không có video chưa đăng.",scheduled:"Chưa có video đang lên lịch đăng.",youtube:"Chưa có video đã đăng YouTube (kết nối kênh + đăng thì hiện ở đây).",fbig:"Chưa có video đã đăng FB/IG.",both:"Chưa có video đã đăng cả 2 nền tảng."};
       if(!done.length){ host.innerHTML='<div class="d">'+(_pubEmpty[view]||(view==="flawed"?'✓ Không có video nghi lỗi/bản cũ — tất cả đều là bản mới nhất.':(q?`Không tìm thấy video khớp "${esc(q)}".`:'Chưa có video hoàn tất — render xong + đẩy Drive là hiện ở đây.')))+'</div>'; return; }
       let tk=""; try{ tk=await window.__getIdToken(); }catch(_){}
@@ -2865,7 +2968,7 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         return `<div style="border-bottom:1px solid #ffffff0f;padding:6px 0">
           <div style="display:flex;gap:11px;align-items:center;cursor:pointer" onclick="window.rsPlay('${pid}','${esc(acc)}','${esc(fid)}','${pv}',${tall},'${esc(j.id||'')}')">
             <div style="position:relative;width:${tw}px;height:68px;flex:none;border-radius:7px;overflow:hidden;background:linear-gradient(135deg,#8b6cff55,#4ea1ff33);display:flex;align-items:center;justify-content:center">
-              ${thumb?`<img src="${thumb}" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.remove()">`:""}${j.thumb_id?"":`<span title="Chưa có ảnh thumbnail .jpg đi kèm — đang hiện khung tự sinh của Drive" style="position:absolute;left:3px;top:3px;background:#b45309ee;color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:5px">🖼 thiếu</span>`}
+              ${thumb?`<img data-src="${thumb}" loading="eager" decoding="async" style="width:100%;height:100%;object-fit:cover" onerror="this.remove()">`:""}${j.thumb_id?"":`<span title="Chưa có ảnh thumbnail .jpg đi kèm — đang hiện khung tự sinh của Drive" style="position:absolute;left:3px;top:3px;background:#b45309ee;color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:5px">🖼 thiếu</span>`}
               <span style="position:absolute;color:#fff;font-size:20px;text-shadow:0 1px 5px #000">▶</span>
             </div>
             <div style="min-width:0;flex:1">
@@ -2889,6 +2992,7 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       const _flawBanner = (view==="flawed" && done.length) ? `<div style="background:#ef444422;border:1px solid #ef4444;border-radius:10px;padding:11px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><b style="color:#ff9a9a">🚩 ${done.length} video nghi lỗi/bản cũ${(()=>{const n=done.filter(j=>j.rerender).length;return n?` — trong đó <span style="color:#fbbf24">${n} đang CHỜ RENDER LẠI (nút xoá sẽ tự chừa ra)</span>`:" — xem thumbnail + tiêu đề bên dưới, kiểm xong bấm xóa";})()}</b><button class="btn-conn" style="background:#ef4444;border:none;color:#fff;font-weight:700" onclick="window.rsCleanOldExec&&window.rsCleanOldExec(this)">🗑 Xóa hết ${done.length} video</button></div>` : "";
       host.innerHTML = _flawBanner + Object.keys(groups).sort().map(g=>{
         const js=groups[g].sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""));
+      try { window.__rsLoadThumbs && window.__rsLoadThumbs(host); } catch(_){}   // rót ảnh từng đợt 6 cái
         const longs=js.filter(j=>j.type==="long"), shorts=js.filter(j=>j.type!=="long");
         const _av=window.rsAvatarUri?`<img src="${window.rsAvatarUri(g,64)}" style="width:22px;height:22px;border-radius:5px;vertical-align:middle;margin-right:6px;object-fit:cover">`:"";
         const head = view==="account"
@@ -2908,6 +3012,28 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
     // DEBOUNCE + chỉ render gallery ĐANG HIỆN (tránh treo trang khi job cập nhật dồn dập).
     let _galT=null;
     function _visible(id){ const el=document.getElementById(id); if(!el) return false; const sec=el.closest(".content"); return !(sec&&sec.classList.contains("hide")); }
+    // 24/8 — VÌ SAO KHÔNG THẤY THUMBNAIL: 40 thẻ <img> cùng gọi worker (worker phải lấy bytes từ
+    // Drive nên mỗi ảnh mất 1-3s). Trình duyệt chỉ mở 6 kết nối/host -> toàn bộ xếp hàng, thẻ ảnh
+    // TREO vô hạn (không onload, không onerror — đã đo). fetch() lẻ thì vẫn 200 nên nhìn tưởng ổn.
+    // Nay rót từng đợt 6 ảnh, xong cái nào rót cái kế -> ảnh hiện dần thay vì trắng toàn bộ.
+    window.__rsLoadThumbs = (host) => {
+      const cho = [...(host || document).querySelectorAll('img[data-src]')];
+      let dangChay = 0, i = 0;
+      const rot = () => {
+        while (dangChay < 6 && i < cho.length) {
+          const im = cho[i++]; const u = im.getAttribute('data-src'); im.removeAttribute('data-src');
+          dangChay++;
+          im.onload = im.onerror = () => { dangChay--; rot(); };
+          setTimeout(() => { if (!im.complete) { dangChay--; rot(); } }, 12000);   // ảnh treo quá lâu -> nhường chỗ
+          im.src = u;
+        }
+      };
+      rot();
+    };
+    // 24/8: gallery được dựng ở NHIỀU nhánh khác nhau, gắn lời gọi vào từng nhánh dễ sót (đã sót
+    // đúng nhánh kho tổng). Cho quét định kỳ: thấy ảnh nào còn chờ thì rót, không thấy thì thôi.
+    // Rẻ: chỉ là querySelectorAll trên DOM, KHÔNG đụng Firestore.
+    setInterval(() => { try { if (document.querySelector('img[data-src]')) window.__rsLoadThumbs(document); } catch(_){} }, 2000);
     window.__rsRenderGallery=()=>{ if(_galT) return; _galT=setTimeout(()=>{ _galT=null;
       if(_visible("rsGallery")) rsGalInto("rsGallery","rsGalSearch","rsGalView","rsGalCount","rsGalChannel","rsGalDate");
       if(_visible("stVault"))  rsGalInto("stVault","stVaultSearch","stVaultView","stVaultCount","stVaultChannel","stVaultDate");
@@ -2954,7 +3080,7 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       if (!(j.tags || []).length) warn.push("chưa có tag");
       box.innerHTML = `<div style="display:flex;gap:14px;background:#ffffff08;border:1px solid #ffffff14;border-radius:10px;padding:12px;margin:8px 0">
         <div style="width:${j.type === "long" ? 210 : 122}px;flex:none">
-          ${thumb ? `<img src="${thumb}" loading="lazy" style="width:100%;border-radius:8px;display:block" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'d',textContent:'(không tải được ảnh)'}))">` : '<div class="d">(chưa có ảnh)</div>'}
+          ${thumb ? `<img data-src="${thumb}" loading="eager" decoding="async" style="width:100%;border-radius:8px;display:block" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'d',textContent:'(không tải được ảnh)'}))">` : '<div class="d">(chưa có ảnh)</div>'}
           <div class="d" style="font-size:11px;margin-top:5px;text-align:center">${j.thumb_id ? "🖼 thumbnail thật" : "⚠️ khung tự sinh"}</div>
         </div>
         <div style="min-width:0;flex:1">
@@ -3060,7 +3186,7 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
     // HỦY render lại — chỉ khi CHƯA bắt đầu (status còn 'pending').
     window.rsCancelRerender=async(jobId)=>{
       const j=(window.__rsJobsData||[]).find(x=>x.id===jobId); if(!j||!j.rerender_req){ try{toastMsg("Không có yêu cầu để hủy.");}catch(_){}; return; }
-      try{ const rd=await getDoc(doc(dbMeta,"render_requests",j.rerender_req)); const st=rd.exists()?(rd.data().status||""):"";
+      try{ const rd=await gdocGate(doc(dbMeta,"render_requests",j.rerender_req)); const st=rd.exists()?(rd.data().status||""):"";
         if(st!=="pending"){ try{toastMsg("⚠️ Đang render lại hoặc đã xong — KHÔNG hủy được nữa.");}catch(_){}; return; }
         if(!confirm("Hủy yêu cầu render lại video này?")) return;
         await deleteDoc(doc(dbMeta,"render_requests",j.rerender_req));
