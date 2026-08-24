@@ -27,18 +27,34 @@ from google.cloud import firestore
 from google.oauth2 import service_account
 
 
+_CAN_QUOTA = {"den": 0.0}     # mốc NGỪNG thử lại sau khi đã xác định cạn hạn mức (xem _retry)
+
+
 def _retry(fn, tries: int = 5):
     """Thử lại khi Firestore 429/RESOURCE_EXHAUSTED (burst đọc/ghi dồn, hết quota tạm) -> KHÔNG để
     burst thoáng qua làm CRASH cả tiến trình (đã gây publish.yml/stats.yml lỗi 'Quota exceeded' hoàn
     toàn không cần thiết — quota tự hồi trong vài giây). Cùng mẫu với render-pipeline/firestore_bridge.py."""
     import time as _t
+    # 24/8 — PHÂN BIỆT "BURST THOÁNG QUA" VỚI "CẠN HẠN MỨC CẢ NGÀY".
+    # Hai thứ này cùng ra mã 429 nhưng chữa ngược nhau: burst thì thử lại vài giây là qua, còn cạn
+    # hạn mức ngày thì thử lại 5 lần chỉ để đốt thêm 5 lượt đọc (lượt hỏng VẪN TÍNH vào hạn mức) và
+    # kéo dài mỗi lệnh thêm ~22s. Đo phiên 08:47: A cạn từ 09:18 mà cả hệ vẫn đập vào A suốt phiên —
+    # sáng hôm sau vừa reset là bị đốt lại ngay, đúng cảnh "khởi động ngày mới cái đốt sạch quota".
+    # Nay: gặp 429 lần đầu là ghi nhớ; trong 30' sau đó KHÔNG thử lại nữa, ném luôn cho tầng trên
+    # chuyển sang gương/đệm. Burst thật vẫn được thử lại như cũ (vì mốc nghỉ chỉ đặt khi ĐÃ hết lượt).
     for i in range(tries):
         try:
             return fn()
         except Exception as e:
             s = str(e)
-            if ("RESOURCE_EXHAUSTED" in s or "Quota exceeded" in s or "429" in s) and i < tries - 1:
+            _la_quota = ("RESOURCE_EXHAUSTED" in s or "Quota exceeded" in s or "429" in s)
+            if _la_quota and _t.time() < _CAN_QUOTA["den"]:
+                raise                       # đang trong 30' nghỉ -> đừng thử lại, đừng đốt thêm
+            if _la_quota and i < tries - 1:
                 _t.sleep(1.5 * (i + 1)); continue
+            if _la_quota:
+                _CAN_QUOTA["den"] = _t.time() + 1800
+                print("   ⛔ Firestore cạn hạn mức — ngừng thử lại 30 phút (mỗi lượt hỏng vẫn tính vào trần).")
             raise
 
 

@@ -102,6 +102,13 @@ def _resolve(acc: dict) -> dict | None:
 
 
 _POOL_CACHE = {"at": 0.0, "val": None}
+_A_CAN = {"den": 0.0}      # mốc thời gian NGỪNG hỏi project A (đặt khi A trả 429)
+
+
+def _het_han_muc(e) -> bool:
+    t = str(e).lower()
+    return ("429" in t or "quota exceeded" in t or "resource_exhausted" in t
+            or type(e).__name__ == "ResourceExhausted")
 POOL_TTL = 1800    # giây (23/8: 10' -> 30'; danh sách kho gần như bất biến, kho mới nhận sau ≤30')
 
 
@@ -186,7 +193,17 @@ def firestore_pool_accounts() -> list[dict]:
     except Exception:
         pass
     last = None
-    for wait in (0, 8, 25):
+    # 24/8 — ĐỆM ÂM: KHI A ĐÃ CẠN THÌ ĐỪNG ĐẬP VÀO A NỮA.
+    # Đo ở phiên 08:47: mọi luồng in `🪞 A nghẽn — dùng GƯƠNG kho ở B` ngay từ 09:18, tức A chết
+    # chưa đầy 90 phút sau mốc reset. Nhưng code vẫn thử lại A: mỗi luồng, mỗi 30' (hết TTL đệm),
+    # 3 lần liên tiếp × ~73 doc = 18 luồng × 5 lần × 3 × 73 ≈ 20.000 LƯỢT ĐỌC HỎNG mỗi phiên, cộng
+    # 33s ngủ chờ mỗi vòng. Lượt đọc hỏng vì hết hạn mức VẪN TÍNH VÀO hạn mức -> hệ tự đập cho A
+    # chết sâu hơn, và sáng hôm sau vừa reset là bị đốt lại ngay.
+    # Nay: hễ biết A cạn thì cả tiến trình đi thẳng sang GƯƠNG ở B, không thử lại A nữa.
+    _thu_A = not (_A_CAN["den"] and _t.time() < _A_CAN["den"])
+    if not _thu_A:
+        last = "A đang trong 30' nghỉ (vừa cạn hạn mức) — đi thẳng sang đệm/gương"
+    for wait in ((0, 8, 25) if _thu_A else ()):
         if wait:
             _t.sleep(wait)
         try:
@@ -205,6 +222,11 @@ def firestore_pool_accounts() -> list[dict]:
             return out
         except Exception as e:
             last = e
+            if _het_han_muc(e):
+                # cạn hạn mức thì thử lại chỉ tổ đốt thêm — nghỉ A 30' rồi dùng gương
+                _A_CAN["den"] = _t.time() + 1800
+                print("   ⛔ A đã cạn hạn mức — ngừng hỏi A 30 phút, dùng gương ở B.")
+                break
     if _POOL_CACHE["val"] is not None:
         print(f"   ⚠️ Đọc danh sách kho lỗi ({str(last)[:60]}) — dùng đệm cũ {len(_POOL_CACHE['val'])} kho.")
         return _POOL_CACHE["val"]
