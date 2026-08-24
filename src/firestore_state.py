@@ -30,6 +30,12 @@ from google.oauth2 import service_account
 _CAN_QUOTA = {"den": 0.0}     # mốc NGỪNG thử lại sau khi đã xác định cạn hạn mức (xem _retry)
 
 
+def _la_quota(e) -> bool:
+    t = str(e)
+    return ("RESOURCE_EXHAUSTED" in t or "Quota exceeded" in t or "429" in t
+            or type(e).__name__ == "ResourceExhausted")
+
+
 def _retry(fn, tries: int = 5):
     """Thử lại khi Firestore 429/RESOURCE_EXHAUSTED (burst đọc/ghi dồn, hết quota tạm) -> KHÔNG để
     burst thoáng qua làm CRASH cả tiến trình (đã gây publish.yml/stats.yml lỗi 'Quota exceeded' hoàn
@@ -245,7 +251,16 @@ class State:
 
     # ---------- DOC tổng quát (settings/config, storage/pool ...) (SHARED -> A) ----------
     def get_doc(self, collection: str, doc_id: str) -> dict | None:
-        d = _retry(lambda: self.db.collection(collection).document(doc_id).get())
+        # 24/8: lượt publish 11:50Z chết ngay ở dòng đầu `get_doc("settings","overrides")` — một doc
+        # CẤU HÌNH TUỲ CHỌN, thiếu nó thì chạy mặc định là xong, mà lại đủ sức giết cả lượt đăng.
+        # A cạn -> trả None và báo, để lượt đăng vẫn đi tiếp bằng gương/mặc định.
+        try:
+            d = _retry(lambda: self.db.collection(collection).document(doc_id).get())
+        except Exception as e:
+            if not _la_quota(e):
+                raise
+            print(f"   ⚠️ A cạn hạn mức — bỏ qua {collection}/{doc_id}, chạy bằng mặc định.")
+            return None
         _dem("A", r=1)
         return d.to_dict() if d.exists else None
 
@@ -277,9 +292,39 @@ class State:
         cached = self._CONN_CACHE.get(kind)
         if cached is not None:
             return cached.get(f"{channel}_{kind}")
-        doc = _retry(lambda: self.db.collection("connections").document(f"{channel}_{kind}").get())
+        try:
+            doc = _retry(lambda: self.db.collection("connections").document(f"{channel}_{kind}").get())
+        except Exception as e:
+            if not _la_quota(e):
+                raise
+            # A cạn -> kéo cả loại này từ gương một lần, các kênh sau ăn đệm (0 lượt đọc A)
+            return (self._CONN_CACHE.get(kind) or {}).get(f"{channel}_{kind}") \
+                if self._guong_connections(kind) else None
         _dem("A", r=1)
         return doc.to_dict() if doc.exists else None
+
+    def _guong_connections(self, kind: str) -> list[dict]:
+        """Đọc connection từ GƯƠNG ở project B khi A cạn hạn mức.
+
+        24/8 — vì sao bắt buộc: chẩn đoán lượt publish 11:50Z in rõ `A ❌ CẠN · B còn · C còn`.
+        Token YouTube/Facebook chỉ nằm ở A, nên A cạn là **không đăng được video nào** dù render
+        vẫn chạy và kho Drive vẫn đẩy được (khâu Drive đã có gương từ 23/8). A trở thành điểm chết
+        đơn của cả khâu đăng bài — đúng cảnh "render làm gì khi không đăng được".
+        Gương `connections_mirror` do render plan chép mỗi phiên; rules B khoá kín nên token không
+        lộ thêm. Đọc gương là 1 lượt quét trên B (B còn hạn mức) thay vì chết cứng."""
+        try:
+            out = []
+            for d in client_render_jobs().collection("connections_mirror").stream():
+                c = d.to_dict() or {}
+                if str(c.get("kind", "")) == kind and c.get("refresh_token"):
+                    out.append({**c, "_id": d.id})
+            if out:
+                print(f"   🪞 A cạn — dùng GƯƠNG connections ở B: {len(out)} bản ghi '{kind}'.")
+                self._CONN_CACHE[kind] = {r["_id"]: r for r in out}
+            return out
+        except Exception as e:
+            print(f"   ⚠️ gương connections ở B cũng lỗi: {str(e)[:70]}")
+            return []
 
     def list_connections(self, kind: str, force: bool = False) -> list[dict]:
         """Danh sách connection theo loại (vd 'drive') do Worker ghi. ĐỆM 1 lần/tiến trình.
@@ -289,7 +334,12 @@ class State:
             return list(self._CONN_CACHE[kind].values())
         q = self.db.collection("connections").where("kind", "==", kind)
         # kèm _id: cần doc id để ghi ngược trạng thái sức khoẻ (set_drive_health) mà KHÔNG phải đọc lại.
-        rows = [{**(d.to_dict() or {}), "_id": d.id} for d in _retry(lambda: list(q.stream()))]
+        try:
+            rows = [{**(d.to_dict() or {}), "_id": d.id} for d in _retry(lambda: list(q.stream()))]
+        except Exception as e:
+            if not _la_quota(e):
+                raise
+            return self._guong_connections(kind)      # A cạn -> gương ở B, đừng chết cả lượt đăng
         self._CONN_CACHE[kind] = {r["_id"]: r for r in rows}
         _dem("A", r=max(1, len(rows)))
         return rows
