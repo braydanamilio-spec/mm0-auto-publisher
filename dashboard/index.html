@@ -2306,7 +2306,8 @@
       try{ const lv=window.__rsLive||{}; const cut=Date.now()-45*60*1000;   // im >45' coi như đã chết
         _a2=Object.values(lv).filter(v=>v&&v.at&&new Date(v.at).getTime()>cut
               &&["queued","running","writing","rendering","qc"].includes(v.st)).length; }catch(_){}
-      const active=Math.max(_a1,_a2);
+      // ưu tiên số từ D1 (đếm lại từ bản ghi, không phụ thuộc shard nào đang sống)
+      const active=Math.max(_a1,_a2, (typeof window.__d1DangChay==="number"?window.__d1DangChay:0));
       let t,col;
       if(active>0){ t=`⚙️ ĐANG RENDER · ${active} luồng`; col="#4ade80"; }
       else if(c.stop){ t="⛔ Đã dừng"; col="#ff8080"; }
@@ -2580,6 +2581,28 @@
               const lv = await gdocGate(doc(dbJobs, "render_stats", "__live__" + o));
               window.__rsLive = lv.exists() ? (lv.data() || {}) : {};
             } catch(_) { window.__rsLive = window.__rsLive || {}; }
+            // 24/8 — SỐ ĐẾM LẤY TỪ D1, ĐẾM LẠI TỪ BẢN GHI THẬT (không cộng dồn).
+            // `__pushed__` là bộ đếm Increment: cộng thiếu khi lượt ghi rơi, cộng thừa khi rót ngược
+            // từ bản sao B2 — và một khi lệch thì lệch VĨNH VIỄN vì không có gì đối chiếu lại.
+            // D1 đếm thẳng "status=done AND có drive_id", mỗi lần hỏi là một lần đếm lại từ sự thật.
+            // Hỏng thì im lặng rơi về `__pushed__` như cũ, không làm trắng bảng.
+            try {
+              const ng = new Date().toISOString().slice(0,10);
+              const m45 = new Date(Date.now()-45*60*1000).toISOString();
+              // cổng CHỈ-ĐỌC-SỐ: không cần khoá ghi, không trả về dòng dữ liệu nào
+              const rr = await fetch("https://mm0-connect.adisondurham-ef1.workers.dev/api/hot-stat?"
+                + new URLSearchParams({owner:o, ngay:ng, moc45:m45}));
+              const tk = await rr.json();
+              if (tk && typeof tk.tong === "number" && tk.tong > 0) {
+                window.__cntCache = tk.tong; window.__pushedToday = tk.homnay;
+                window.__d1Stat = tk;
+                // "Đang chạy" và "Lỗi" cũng lấy từ đây -> hết cảnh ba ô đo ba thứ khác nhau
+                window.__d1DangChay = tk.dangchay; window.__d1Loi = tk.loi;
+                if (sd) sd.textContent = tk.tong;
+                const _st = document.getElementById("rsSumToday");
+                if (_st) _st.textContent = tk.homnay;
+              }
+            } catch(_) {}
             const pd = await gdocGate(doc(dbJobs, "render_stats", "__pushed__" + o));
             if (pd.exists()) {
               const px = pd.data() || {};

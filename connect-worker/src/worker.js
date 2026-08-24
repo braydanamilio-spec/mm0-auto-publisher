@@ -46,6 +46,7 @@ export default {
       if (url.pathname === "/api/token-check") return corsResp(await apiTokenCheck(request, url, env));
       if (url.pathname === "/api/key-probe") return corsResp(await apiKeyProbe(request, url, env));
       if (url.pathname === "/api/hot") return corsResp(await apiHot(request, env));
+      if (url.pathname === "/api/hot-stat") return corsResp(await apiHotStat(url, env));
       if (url.pathname === "/api/upload-init") return corsResp(await apiUploadInit(request, url, env));
       if (url.pathname === "/api/upload-chunk") return corsResp(await apiUploadChunk(request, url, env));
       if (url.pathname === "/api/upload-done") return corsResp(await apiUploadDone(request, url, env));
@@ -780,6 +781,49 @@ async function apiHot(request, env) {
              GROUP BY channel, vtype`).bind(p.owner).all();
         return json({ rows: (r && r.results) || [] });
       }
+      // ---- DỌN JOB MA: đang-chạy nhưng đã im quá lâu -> tiến trình chết từ đời nào ----
+      // 24/8 — đo được 75 bản ghi kẹt ở rendering/writing/qc/ratelimited, cái mới nhất cũng đã im
+      // 11 TIẾNG. Chúng nói dối về trạng thái: ô "đang chạy" sai, và người nhìn không biết tin gì.
+      // Ngưỡng 6 giờ: một phiên dài nhất bị GitHub cắt ở 165 phút, nên quá 6h chắc chắn là đã chết.
+      // KHÔNG XOÁ, chỉ đổi sang 'failed' — vẫn giữ để còn soi nguyên nhân, chỉ thôi nói dối.
+      case "don_job_ma": {
+        const r = await db.prepare(
+          `UPDATE render_job SET status='failed', step='job ma: im quá 6h, tiến trình đã chết'
+             WHERE owner=?1 AND status IN ('queued','running','writing','rendering','qc','ratelimited')
+               AND updated_at < ?2`).bind(p.owner, p.moc).run();
+        return json({ ok: true, doi: (r && r.meta && r.meta.changes) || 0 });
+      }
+      // ---- THỐNG KÊ CHO DASHBOARD: ĐẾM TỪ BẢN GHI, KHÔNG CỘNG DỒN ----
+      // 24/8 — GỐC của "số nhảy tùm lum": `__pushed__` là bộ đếm CỘNG DỒN bằng Increment. Kiểu đó
+      // sai được theo hai chiều và KHÔNG BAO GIỜ tự sửa được:
+      //   • cộng thiếu khi lượt ghi rơi (quota chết, _soft nuốt) -> số thấp hơn thực tế;
+      //   • cộng thừa khi rót ngược từ bản sao B2 -> số cao hơn thực tế.
+      //   Và một khi đã lệch thì lệch vĩnh viễn, vì không có gì để đối chiếu lại.
+      // Nay đếm THẲNG từ bảng render_job: "video có thật" = status done VÀ có drive_id. Sai lệch
+      // không tích luỹ được, vì mỗi lần hỏi là một lần đếm lại từ sự thật.
+      case "thong_ke": {
+        const tong = await db.prepare(
+          `SELECT COUNT(*) AS n FROM render_job
+             WHERE owner=?1 AND status='done' AND drive_id IS NOT NULL AND drive_id<>''`)
+          .bind(p.owner).first();
+        const homnay = await db.prepare(
+          `SELECT COUNT(*) AS n FROM render_job
+             WHERE owner=?1 AND status='done' AND drive_id IS NOT NULL AND drive_id<>''
+               AND substr(updated_at,1,10)=?2`).bind(p.owner, p.ngay || "").first();
+        const loi = await db.prepare(
+          "SELECT COUNT(*) AS n FROM render_job WHERE owner=?1 AND status='failed'").bind(p.owner).first();
+        const dangchay = await db.prepare(
+          `SELECT COUNT(*) AS n FROM render_job WHERE owner=?1
+             AND status IN ('queued','running','writing','rendering','qc')
+             AND updated_at > ?2`).bind(p.owner, p.moc45 || "").first();
+        const kenh = await db.prepare(
+          `SELECT channel, vtype, COUNT(*) AS n FROM render_job
+             WHERE owner=?1 AND status='done' AND drive_id IS NOT NULL AND drive_id<>''
+             GROUP BY channel, vtype`).bind(p.owner).all();
+        return json({ tong: (tong && tong.n) || 0, homnay: (homnay && homnay.n) || 0,
+                      loi: (loi && loi.n) || 0, dangchay: (dangchay && dangchay.n) || 0,
+                      kenh: (kenh && kenh.results) || [] });
+      }
       // ---- GHI NHIỀU JOB TRONG MỘT LỆNH (gộp nhịp ghi của cả luồng) ----
       case "ghi_job_loat": {
         const st = db.prepare(
@@ -851,6 +895,37 @@ async function apiHot(request, env) {
     }
   } catch (e) {
     return json({ error: String((e && e.message) || e).slice(0, 200) }, 500);
+  }
+}
+
+
+// CỔNG CHỈ-ĐỌC-SỐ cho dashboard (24/8) — KHÔNG cần HOT_KEY.
+// Vì sao tách riêng: dashboard chạy trong trình duyệt, nhét HOT_KEY vào đó là ai mở trang cũng đọc
+// được khoá ghi của cả kho nóng — hạ cấp bảo mật để lấy một con số thì không đáng.
+// Cổng này chỉ chạy ĐÚNG các phép ĐẾM, không trả về một dòng dữ liệu nào: không key, không token,
+// không tiêu đề video. Lộ ra ngoài thì người ta chỉ biết "kho có bao nhiêu video" — chấp nhận được.
+async function apiHotStat(url, env) {
+  if (!env.HOT) return json({ error: "D1 chưa gắn" }, 500);
+  const owner = url.searchParams.get("owner") || "";
+  if (!owner) return json({ error: "thiếu owner" }, 400);
+  const ngay = (url.searchParams.get("ngay") || "").slice(0, 10);
+  const moc45 = url.searchParams.get("moc45") || "";
+  const db = env.HOT;
+  try {
+    const q = async (sql, ...b) => ((await db.prepare(sql).bind(...b).first()) || {}).n || 0;
+    const CO_FILE = "status='done' AND drive_id IS NOT NULL AND drive_id<>''";
+    const tong = await q(`SELECT COUNT(*) AS n FROM render_job WHERE owner=?1 AND ${CO_FILE}`, owner);
+    const homnay = await q(
+      `SELECT COUNT(*) AS n FROM render_job WHERE owner=?1 AND ${CO_FILE} AND substr(updated_at,1,10)=?2`,
+      owner, ngay);
+    const loi = await q("SELECT COUNT(*) AS n FROM render_job WHERE owner=?1 AND status='failed'", owner);
+    const dangchay = await q(
+      `SELECT COUNT(*) AS n FROM render_job WHERE owner=?1
+         AND status IN ('queued','running','writing','rendering','qc') AND updated_at > ?2`,
+      owner, moc45);
+    return json({ tong, homnay, loi, dangchay });
+  } catch (e) {
+    return json({ error: String((e && e.message) || e).slice(0, 160) }, 500);
   }
 }
 
@@ -1644,7 +1719,9 @@ function corsResp(res) {
   const h = new Headers(res.headers);
   h.set("Access-Control-Allow-Origin", "*");
   h.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  h.set("Access-Control-Allow-Headers", "content-type,x-mm0-range");
+  // 24/8: thêm x-hot-key — thiếu nó thì preflight chặn, trình duyệt báo "Failed to fetch"
+  // (trông y như mất mạng, không hề giống lỗi quyền -> rất dễ chẩn nhầm).
+  h.set("Access-Control-Allow-Headers", "content-type,x-mm0-range,x-hot-key");
   h.set("Access-Control-Max-Age", "86400");
   return new Response(res.body, { status: res.status, headers: h });
 }
