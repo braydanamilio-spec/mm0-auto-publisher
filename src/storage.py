@@ -102,6 +102,7 @@ def _resolve(acc: dict) -> dict | None:
 
 
 _POOL_CACHE = {"at": 0.0, "val": None}
+_RAI = {"n": 0}      # bộ đếm lượt đẩy -> rải kho không dồn một chỗ (xem ranked_accounts)
 _A_CAN = {"den": 0.0}      # mốc thời gian NGỪNG hỏi project A (đặt khi A trả 429)
 
 
@@ -413,9 +414,18 @@ def ranked_accounts(need_bytes: int = 0, cfg: dict | None = None,
     scored.sort(key=lambda x: -x[1])
     result = [(a, f) for (a, f) in scored if f >= max(0, need_bytes)]
     if seed and len(result) > 1:
+        # 24/8 — XOAY THEO KÊNH **CỘNG** SỐ LẦN ĐẨY, không chỉ theo tên kênh.
+        # Bản cũ băm mỗi tên kênh -> mỗi kênh LUÔN bắt đầu ở đúng MỘT vị trí, đời đời không đổi.
+        # Đo thật: 55 kênh chỉ rơi vào 35 vị trí trong 72 -> **37 kho không kênh nào chạm tới**,
+        # và kênh đẻ nhiều video thì mọi video dồn quanh cùng một chỗ. Số liệu khớp: kho nhiều nhất
+        # 119 file, kho ít nhất (khác 0) 18 file — chênh 6,6 lần, 3 kho còn nguyên 0 file.
+        # Thêm bộ đếm lượt đẩy của tiến trình: mỗi lần đẩy nhích một bước -> cùng một kênh cũng rải
+        # ra nhiều kho. Vẫn giữ phần băm-theo-kênh để 18 luồng song song không cùng đâm vào một kho
+        # tại cùng thời điểm (đó là lý do gốc của seed).
         import hashlib
-        k = int(hashlib.md5(str(seed).encode()).hexdigest(), 16) % len(result)
-        result = result[k:] + result[:k]   # xoay điểm bắt đầu theo kênh -> rải đều, song song không đụng nhau
+        _RAI["n"] += 1
+        k = (int(hashlib.md5(str(seed).encode()).hexdigest(), 16) + _RAI["n"]) % len(result)
+        result = result[k:] + result[:k]
     return result
 
 
