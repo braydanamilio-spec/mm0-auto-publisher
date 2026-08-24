@@ -768,6 +768,31 @@ async function apiHot(request, env) {
           .bind(p.owner, p.channel, p.vtype).first();
         return json({ n: (r && r.n) || 0 });
       }
+      // ---- ĐẾM TẤT CẢ KÊNH TRONG MỘT LỆNH (thay 110 lời gọi riêng lẻ) ----
+      // Đo thật 24/8: mỗi lời gọi Worker mất ~0,22s (DB ở APAC, runner GitHub ở Mỹ).
+      // 110 lệnh đếm riêng = ~33 GIÂY chỉ để đếm — CHẬM HƠN cả Firestore.
+      // Và Worker free chỉ 100.000 lượt/ngày: chuyển thẳng 1-1 không gộp thì 30 phiên/ngày là VỠ
+      // trần Worker (111%), dù D1 mới dùng vài phần trăm. Trần thật nằm ở Worker, không phải D1.
+      case "dem_tat_ca": {
+        const r = await db.prepare(
+          `SELECT channel, vtype, COUNT(*) AS n FROM render_job
+             WHERE owner=?1 AND status='done' AND drive_id IS NOT NULL AND drive_id<>''
+             GROUP BY channel, vtype`).bind(p.owner).all();
+        return json({ rows: (r && r.results) || [] });
+      }
+      // ---- GHI NHIỀU JOB TRONG MỘT LỆNH (gộp nhịp ghi của cả luồng) ----
+      case "ghi_job_loat": {
+        const st = db.prepare(
+          `INSERT INTO render_job (id,owner,channel,vtype,status,step,title,drive_id,queued,created_at,updated_at)
+           VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?10)
+           ON CONFLICT(id) DO UPDATE SET status=?5, step=?6, title=COALESCE(?7,title),
+             drive_id=COALESCE(?8,drive_id), queued=?9, updated_at=?10`);
+        const ds = (p.jobs || []).slice(0, 100);
+        if (ds.length) await db.batch(ds.map(j => st.bind(
+          j.id, p.owner, j.channel || "", j.vtype || "", j.status || "", j.step || "",
+          j.title || null, j.drive_id || null, j.queued ? 1 : 0, j.at)));
+        return json({ ok: true, n: ds.length });
+      }
       // ---- GHI trạng thái job (UPSERT: 1 dòng/job, không đẻ bản ghi rác) ----
       case "ghi_job": {
         await db.prepare(
