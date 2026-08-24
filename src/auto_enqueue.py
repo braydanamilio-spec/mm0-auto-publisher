@@ -178,9 +178,18 @@ def run(dry_run: bool = False):
     SWEEP_EVERY_H = 6
     docs_all, fast_ok = [], False
     try:
-        docs_all = list(rj.collection("render_jobs").where("owner", "==", owner)
-                        .where("status", "==", "done").where("queued", "==", False)
-                        .limit(FAST_LIMIT).stream())
+        # 24/8 (anh chỉ ra) — THIẾU `order_by`: Firestore trả về theo thứ tự ID doc, tức gần như
+        # ngẫu nhiên. Hệ quả: hôm nay có thể lấy một short ở tận cuối kho lên đăng, mai lấy cái ở
+        # giữa — kênh nhìn vào không có mạch nào. Nay sắp theo `created_at` TĂNG DẦN = đăng theo
+        # đúng thứ tự làm ra, cái cũ nhất trước, liền mạch.
+        _q = (rj.collection("render_jobs").where("owner", "==", owner)
+                .where("status", "==", "done").where("queued", "==", False))
+        try:
+            from google.cloud.firestore_v1 import Query as _Q
+            docs_all = list(_q.order_by("created_at", direction=_Q.ASCENDING).limit(FAST_LIMIT).stream())
+        except Exception:
+            docs_all = sorted(list(_q.limit(FAST_LIMIT).stream()),
+                              key=lambda d: str((d.to_dict() or {}).get("created_at") or ""))
         fast_ok = True
         _QG.dem("B", r=max(1, len(docs_all)))
         print(f"  ⚡ auto-enqueue lối nhanh: {len(docs_all)} video mới (bấy nhiêu lượt đọc, thay vì ~{len(ready)*SCAN_LIMIT})")
@@ -232,6 +241,35 @@ def run(dry_run: bool = False):
         c = (d.to_dict() or {}).get("channel") or ""
         if c in ready:
             by_ch.setdefault(c, []).append(d)
+
+    # ── GOM LONG VỚI SHORT CỦA CHÍNH NÓ (24/8, anh chỉ ra) ──────────────────────────────────
+    # Luật 1 long : 3 short đang được ép ở khâu RENDER, nhưng tới khâu ĐĂNG thì chúng là 4 bản ghi
+    # rời rạc — hôm nay dễ thành: long của chủ đề A + 3 short của chủ đề B, C, D. Người xem bấm vào
+    # short thấy hay, đi tìm bản dài thì không có -> mất trọn ý đồ "short kéo người về long".
+    # `new_job` nay ghi `cha` (id của long) và `thu_tu` cho mỗi short. Ở đây sắp lại: LONG trước,
+    # ngay sau là các short mang `cha` = long đó, theo đúng thu_tu. Short mồ côi (format chỉ-short
+    # hoặc video cũ chưa có trường này) giữ nguyên thứ tự thời gian ở cuối.
+    for c, ds in by_ch.items():
+        _long = [d for d in ds if (d.to_dict() or {}).get("type") == "long"]
+        _short = [d for d in ds if (d.to_dict() or {}).get("type") != "long"]
+        _theo_cha: dict[str, list] = {}
+        _mo_coi = []
+        for d in _short:
+            cha = str((d.to_dict() or {}).get("cha") or "")
+            if cha:
+                _theo_cha.setdefault(cha, []).append(d)
+            else:
+                _mo_coi.append(d)
+        xep = []
+        for L in _long:
+            xep.append(L)
+            con = sorted(_theo_cha.pop(L.id, []),
+                         key=lambda x: int((x.to_dict() or {}).get("thu_tu") or 0))
+            xep.extend(con)
+        for con in _theo_cha.values():          # short có cha nhưng long chưa/không còn -> giữ lại
+            xep.extend(con)
+        xep.extend(_mo_coi)
+        by_ch[c] = xep
 
     for ch, docs in by_ch.items():
         for d in docs:
