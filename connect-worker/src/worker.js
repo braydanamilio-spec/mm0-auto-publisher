@@ -48,6 +48,7 @@ export default {
       if (url.pathname === "/api/hot") return corsResp(await apiHot(request, env));
       if (url.pathname === "/api/hot-stat") return corsResp(await apiHotStat(url, env));
       if (url.pathname === "/api/junk-list") return corsResp(await apiJunkList(request, env));
+      if (url.pathname === "/api/drive-pool") return corsResp(await apiDrivePool(request, env));
       if (url.pathname === "/api/junk-scan") return corsResp(await apiJunkScan(request, env));
       if (url.pathname === "/api/upload-init") return corsResp(await apiUploadInit(request, url, env));
       if (url.pathname === "/api/upload-chunk") return corsResp(await apiUploadChunk(request, url, env));
@@ -1009,6 +1010,39 @@ async function apiHotStat(url, env) {
 // Cần HOT_KEY vì nhánh dọn có quyền bỏ file vào thùng rác.
 
 function _junkUid(k) { const m = /^conn:([^_]+)__(.+)__drive$/.exec(k); return m ? { uid: m[1], acc: m[2] } : null; }
+
+// ══ DANH SÁCH KHO DRIVE LẤY TỪ KV — CỨU KHÂU ĐẨY KHO KHI FIRESTORE CẠN (24/8/2026) ══════════
+// Sự cố đo được lúc 16:0x: 26 video render xong đều mang bước "chưa đẩy Drive". Vì `pool_accounts`
+// lấy danh sách kho qua Firestore (A cạn) rồi gương ở B (cũng cạn) rồi B2 (gương cũ) -> trắng tay
+// -> enqueue hiểu là "không có kho nào" -> video nằm lại trong artifact, không lên kho.
+// Nhưng Worker CÓ bản sao thẻ kết nối trong KV và KV liệt kê được — đường này hoàn toàn không
+// đụng Firestore. Trả về đúng những trường `pool_accounts` cần, không hơn.
+// Cần HOT_KEY: có kèm refresh_token, đúng mức tin cậy mà pipeline vốn đã có.
+async function apiDrivePool(request, env) {
+  let b = {}; try { b = await request.json(); } catch (_) {}
+  if (!env.HOT_KEY || (request.headers.get("x-hot-key") || b.key) !== env.HOT_KEY)
+    return json({ error: "sai khoá" }, 403);
+  if (!env.MM0_CACHE) return json({ error: "KV chưa gắn" }, 500);
+  const out = []; let cursor;
+  do {
+    const r = await env.MM0_CACHE.list({ prefix: "conn:", cursor });
+    for (const k of r.keys) {
+      const m = /^conn:([^_]+)__(.+)__drive$/.exec(k.name);
+      if (!m) continue;
+      try {
+        const c = JSON.parse(await env.MM0_CACHE.get(k.name) || "null");
+        if (!c || !c.refresh_token || !c.root || !c.client_id) continue;
+        out.push({ name: c.channel || m[2], root: c.root, cap_gb: c.cap_gb || 14,
+                   owner: c.owner || m[1], email: c.email || "",
+                   creds: { client_id: c.client_id, client_secret: c.client_secret,
+                            refresh_token: c.refresh_token } });
+      } catch (_) {}
+    }
+    cursor = r.list_complete ? null : r.cursor;
+  } while (cursor);
+  return json({ accounts: out, n: out.length });
+}
+
 
 async function apiJunkList(request, env) {
   let b = {}; try { b = await request.json(); } catch (_) {}

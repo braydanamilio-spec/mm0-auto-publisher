@@ -269,6 +269,33 @@ def firestore_pool_accounts() -> list[dict]:
                 return rows
     except Exception as e:
         print(f"   ⚠️ Gương kho B2 cũng lỗi: {str(e)[:70]}")
+    # ── LỚP CỨU CUỐI: KHO LẤY TỪ KV CỦA WORKER (24/8) ──────────────────────────────────────
+    # Sự cố 16:0x — 26 video render xong đều mang bước "chưa đẩy Drive": A cạn, gương B cạn,
+    # B2 cũ -> trắng tay -> enqueue hiểu là "không có kho nào" -> video nằm lại trong artifact.
+    # Nhưng Worker CÓ bản sao thẻ kết nối trong KV, và KV **không đụng Firestore một câu nào**.
+    # Đây là đường sống cuối cùng, chỉ dùng khi mọi đường Firestore đã tắt.
+    try:
+        import json as _json
+        import urllib.request as _u
+        _k = os.environ.get("HOT_KEY", "")
+        if _k:
+            _req = _u.Request(
+                os.environ.get("HOT_URL", "https://mm0-connect.adisondurham-ef1.workers.dev/api/hot")
+                .replace("/api/hot", "/api/drive-pool"),
+                method="POST", data=b"{}",
+                headers={"content-type": "application/json", "x-hot-key": _k,
+                         # thiếu User-Agent thì Cloudflare chặn mã 1010, trả 403 y như sai khoá
+                         "user-agent": "MM0-Pipeline/1.0"})
+            with _u.urlopen(_req, timeout=20) as _r:
+                _d = _json.loads(_r.read().decode("utf-8", "ignore")) or {}
+            _accs = _d.get("accounts") or []
+            if _accs:
+                print(f"   🆘 KHO LẤY TỪ KV CỦA WORKER: {len(_accs)} tài khoản "
+                      f"(Firestore tắt cả 3 đường — đây là lớp cứu cuối, KHÔNG đụng Firestore).")
+                _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), _accs
+                return _accs
+    except Exception as _e:
+        print(f"   ⚠️ lớp cứu KV cũng hụt: {str(_e)[:70]}")
     print(f"   ⚠️ Đọc danh sách kho lỗi và chưa có đệm: {str(last)[:80]}")
     return []
 
