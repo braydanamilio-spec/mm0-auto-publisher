@@ -2103,7 +2103,10 @@
         `<span style="color:${st && st.warn ? "#f59e0b" : "inherit"}">${extra}</span>`;
     };
     window.__rsAddKey = async () => {
-      const v=(document.getElementById("rsKeyManual").value||"").trim();
+      // 24/8 — KEY DÍNH XUỐNG DÒNG: bảng key của DVIDS hiển thị key TRÀN 2 DÒNG, bôi đen copy là
+      // dính ký tự xuống dòng vào giữa chuỗi. `.trim()` chỉ cắt hai đầu nên mẫu nhận dạng trượt ->
+      // rơi vào nhánh Cloudflare -> báo "Token KHÔNG hợp lệ". Nay bỏ MỌI khoảng trắng bên trong.
+      const v=(document.getElementById("rsKeyManual").value||"").replace(/\s+/g, "");
       const em=(document.getElementById("rsKeyEmail").value||"").trim();
       if(v.length<20) return alert("Key không hợp lệ.");
       // 23/8: bấm 2 lần vào key Pixabay chỉ bôi được NỬA SAU (sau dấu gạch) -> chặn sớm, nói rõ chỗ thiếu.
