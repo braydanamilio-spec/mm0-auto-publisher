@@ -2124,7 +2124,11 @@
       // key api.data.gov là 40 ký tự chữ+số, TRÙNG dạng với token Cloudflare nên không thể đoán chắc.
       // Giải pháp: HỎI THẲNG anh 1 câu thay vì đoán sai rồi báo lỗi khó hiểu.
       let _v = v;
-      if (/^[A-Za-z0-9]{40}$/.test(v) && !/^(gsk_|AIza|AQ\.|cfut_)/.test(v)) {
+      // 24/8 (user dán key DVIDS không được): key DVIDS có dạng "key-<hex dài>" — không phải 40 ký
+      // tự chữ+số nên nhánh hỏi-NARA bên dưới không bắt, lại rơi vào nhánh Cloudflare -> báo
+      // "Token KHÔNG hợp lệ". Dạng này ĐẶC TRƯNG, nhận thẳng không cần hỏi.
+      if (/^key-[0-9a-f]{30,80}$/i.test(v)) { _v = "dvids:" + v; }
+      else if (/^[A-Za-z0-9]{40}$/.test(v) && !/^(gsk_|AIza|AQ\.|cfut_)/.test(v)) {
         if (confirm("Chuỗi 40 ký tự này là key NARA (api.data.gov) phải không?\n\n" +
                     "• OK  = lưu thành key NARA (tư liệu lưu trữ Mỹ)\n" +
                     "• Cancel = coi như token Cloudflare như trước")) {
