@@ -1,6 +1,21 @@
-google-api-python-client>=2.120
-google-auth>=2.29
-google-auth-oauthlib>=1.2
-google-cloud-firestore>=2.16
-requests>=2.31
-PyYAML>=6.0
+# GHIM CẢ SÀN LẪN TRẦN (24/8/2026 tối).
+#
+# Sự cố đắt nhất đêm 24/8: gương B→B2 hỏng SUỐT 16 TIẾNG vì
+#   '_UnaryStreamMultiCallable' object has no attribute '_retry'
+# — không phải lỗi code mình, mà là một bản phát hành mới của thư viện Google làm gãy
+# `.stream(timeout=...)`. `render-pipeline/constraints.txt` đã ghim, nhưng file này thì chỉ có SÀN
+# (`>=2.16`) không có TRẦN, mà 13 workflow còn lại (publish · publish_social · stats · wipe_queue …)
+# đều cài qua đây ⇒ khâu ĐĂNG BÀI vẫn có thể vớ đúng bản hỏng vào bất kỳ ngày nào.
+#
+# Nguyên tắc: sàn = phiên bản đã chạy qua selftest; trần = chặn nhảy MAJOR. Patch trong khoảng vẫn
+# tự cập nhật để nhận vá bảo mật. Mã nguồn không đổi mà hành vi đổi theo ngày cài đặt thì không thể
+# suy luận được sự cố — đó là lý do có trần.
+google-api-python-client>=2.120,<3
+google-auth>=2.29,<3
+google-auth-oauthlib>=1.2,<2
+google-cloud-firestore>=2.27,<3
+google-api-core>=2.30,<3
+grpcio>=1.70,<2
+protobuf>=5,<7
+requests>=2.31,<3
+PyYAML>=6.0,<7
