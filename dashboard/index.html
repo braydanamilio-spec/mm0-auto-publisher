@@ -1582,7 +1582,7 @@
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
       signInWithEmailAndPassword, createUserWithEmailAndPassword }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, query, where, orderBy, limit, doc, setDoc, addDoc, deleteDoc, getDocs, getDoc, disableNetwork, enableNetwork, getCountFromServer, increment }
+    import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, query, where, orderBy, limit, doc, setDoc, addDoc, deleteDoc, getDocs, getDoc, disableNetwork, enableNetwork, getCountFromServer, increment }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -1596,15 +1596,30 @@
     // 🔀 SHARD: render_jobs (nặng nhất) đọc từ Project B -> giảm tải quota project A. Rules B public (job = metadata không nhạy cảm) nên khỏi auth.
     const firebaseConfigB = { apiKey:"AIzaSyDTIlSNoApulSCCozwKTCbAelu5gYaoRFs", authDomain:"mm0-shard-b.firebaseapp.com", projectId:"mm0-shard-b", storageBucket:"mm0-shard-b.firebasestorage.app", messagingSenderId:"893314701198", appId:"1:893314701198:web:f261226c5be8e57b14f6df" };
     const auth = getAuth(appFb);
-    const db = getFirestore(appFb);
+    // BỘ NHỚ ĐỆM BỀN (IndexedDB) — 25/8, anh hỏi "F5 hay treo trình duyệt có tốn quota vô ích không".
+    // CÓ, và đây là khoản lớn nhất còn lại: `getFirestore()` trần chỉ đệm trong BỘ NHỚ TRANG, nên
+    // mỗi lần F5 là nạp lại từ server toàn bộ kênh + key + job (~200-500 lượt đọc/lần; F5 20 lần
+    // một ngày là 10.000 lượt, bằng 1/5 trần của cả một project).
+    // Với đệm bền: F5 dựng lại từ IndexedDB, listener chỉ kéo phần THAY ĐỔI kể từ ảnh chụp cũ —
+    // mở lại trang gần như 0 lượt đọc. `persistentMultipleTabManager` cho nhiều tab dùng chung một
+    // đệm (khớp với cơ chế "tab phụ = 0 lượt đọc" đã có). Trình duyệt chặn IndexedDB (ẩn danh,
+    // chặn cookie) thì rơi về `getFirestore` như cũ — chỉ mất phần tối ưu, không hỏng gì.
+    const _fs = (app) => {
+      try {
+        return initializeFirestore(app, {
+          localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+        });
+      } catch (e) { try { console.warn("đệm bền không bật được:", e && e.message); } catch(_){} return getFirestore(app); }
+    };
+    const db = _fs(appFb);
     let dbJobs = db;   // Firestore cho render_jobs -> Project B (shard); lỗi init thì fallback A
-    try { const appB = initializeApp(firebaseConfigB, "shardB"); dbJobs = getFirestore(appB); } catch(e){ dbJobs = db; }
+    try { const appB = initializeApp(firebaseConfigB, "shardB"); dbJobs = _fs(appB); } catch(e){ dbJobs = db; }
     // Nhớ lựa chọn B2 qua reload (TTL 6h) — sang phiên B khỏe lại thì tự quay về B chính.
     try { const t = Number(localStorage.getItem("mm0_useB2_at") || 0);
       if (Date.now() - t < 6*3600*1000) { window.__preferB2 = true; } else { localStorage.removeItem("mm0_useB2_at"); } } catch(_){}
     // B2 DỰ PHÒNG (23/8): B cạn quota đọc -> client lật sang mm0-shard-b2 (pipeline gương sẵn kênh/config).
     const firebaseConfigB2 = { apiKey:"AIzaSyCoElG81azYrRPDyMjmPrkR_4xwEjqlKTU", authDomain:"mm0-shard-b2.firebaseapp.com", projectId:"mm0-shard-b2", messagingSenderId:"532466103759", appId:"1:532466103759:web:76d9f99ca004b3a69c4eba" };
-    window.__useB2 = () => { try { const a2 = initializeApp(firebaseConfigB2, "shardB2"); dbJobs = getFirestore(a2); window.__b2on = true;
+    window.__useB2 = () => { try { const a2 = initializeApp(firebaseConfigB2, "shardB2"); dbJobs = _fs(a2); window.__b2on = true;
       try { toastMsg("🔀 B chính nghẽn — dashboard chuyển đọc B2 dự phòng"); } catch(_){}
       return true; } catch(e){ return false; } };
     if (window.__preferB2) window.__useB2();
@@ -1641,7 +1656,7 @@
     const dbMeta = dbJobs;  // B
     const firebaseConfigC = { apiKey:"AIzaSyAVEj7RUMx5jRtxN0o2eOzh4r7Pjjm-zBk", authDomain:"mm0-shard-c.firebaseapp.com", projectId:"mm0-shard-c", storageBucket:"mm0-shard-c.firebasestorage.app", messagingSenderId:"443486296227", appId:"1:443486296227:web:e5607766466c3bf6cd8716" };
     let dbPub = db;  // C: publish (videos/counters/quota/queues); lỗi init -> fallback A
-    try { const appC = initializeApp(firebaseConfigC, "shardC"); dbPub = getFirestore(appC); } catch(e){ dbPub = db; }
+    try { const appC = initializeApp(firebaseConfigC, "shardC"); dbPub = _fs(appC); } catch(e){ dbPub = db; }
     const META_B = new Set(["render_config","render_channels","render_topics","render_requests"]);  // gemini_keys + storage_accounts GIỮ ở A: keys cần auth (không public B); storage_accounts do Worker (bên ngoài, chỉ biết A) quản lý connect/sync/xoá -> phải cùng project với Worker
     const PUB_C  = new Set(["videos","counters","quota","social_queue","yt_queue"]);   // publish -> C
     const _appFor = (name) => PUB_C.has(name) ? dbPub : (META_B.has(name) ? dbMeta : db);
@@ -1739,15 +1754,28 @@
     const _khoaDem = (q_) => { try { return "mm0dl:" + (q_ && q_._query ? String(q_._query.path) + JSON.stringify(q_._query.filters || "") : "x"); } catch(_) { return "mm0dl:x"; } };
     const _gia = (docs) => ({ docs: docs.map(d => ({ id: d.id, data: () => d, ...d })), size: docs.length, empty: !docs.length,
                               forEach(f){ this.docs.forEach(f); } });
-    const gdGate = async (q_) => {
+    const gdGate = async (q_, tuoiGiay) => {
       const k = _khoaDem(q_);
       if (window.__laTabPhu) {
         try { const c = JSON.parse(localStorage.getItem(k) || "null"); if (c) return _gia(c); } catch(_){}
         return _gia([]);                                   // chưa có đệm -> rỗng, KHÔNG đọc Firestore
       }
+      // 25/8 — ĐỆM-TRƯỚC cho cả TAB CHÍNH. `getDocs` mặc định LUÔN hỏi server dù đệm bền có sẵn,
+      // nên riêng __loadKeys là 220 lượt đọc MỖI LẦN MỞ TRANG (đo thật sau khi bật IndexedDB:
+      // F5 vẫn 538 lượt server, gần hết là các getDocs một-phát). Key/kênh đổi theo thao tác tay,
+      // không theo giây: trong hạn tuổi thì trả đệm (0 lượt), chỗ cần tươi truyền tuoiGiay=0.
+      // Sau thêm/xoá đã có __rsKeyThem/__rsKeyBo sửa tại chỗ nên đệm không che dữ liệu mới.
+      const tuoi = (tuoiGiay === undefined ? 1800 : tuoiGiay);
+      if (tuoi > 0) {
+        try { const luc = Number(localStorage.getItem(k + ":luc") || 0);
+          if (luc && (Date.now() - luc) < tuoi * 1000) {
+            const c = JSON.parse(localStorage.getItem(k) || "null"); if (c) return _gia(c); }
+        } catch(_){}
+      }
       const s2 = await _getDocsGoc(q_);
       try { window.__reads += s2.size || 0; __readMeter(); } catch(_){}
-      try { localStorage.setItem(k, JSON.stringify(s2.docs.map(d => ({ id: d.id, ...d.data() })))); } catch(_){}
+      try { localStorage.setItem(k, JSON.stringify(s2.docs.map(d => ({ id: d.id, ...d.data() }))));
+            localStorage.setItem(k + ":luc", String(Date.now())); } catch(_){}
       return s2;
     };
     const gdocGate = async (r_) => {
@@ -1770,7 +1798,11 @@
         return () => {};
       }
       const u = onSnapshot(q_, (s2) => {
-        try { window.__reads += (s2 && s2.docChanges ? s2.docChanges().length : 1); __readMeter(); } catch(_){}
+        // 25/8 — MÁY ĐO PHẢI BIẾT PHÂN BIỆT ĐỆM VÀ SERVER. Từ khi bật đệm bền (IndexedDB),
+        // snapshot ĐẦU của mỗi listener phát ra từ đệm (fromCache=true, server không tính tiền),
+        // rồi server mới phát phần thay đổi. Đếm cả hai thì F5 đo ra 875 "lượt đọc" trong khi
+        // server chỉ tính phần chênh — máy đo tự dọa mình. Chỉ đếm bản phát có xác nhận server.
+        try { if (!(s2 && s2.metadata && s2.metadata.fromCache)) { window.__reads += (s2 && s2.docChanges ? s2.docChanges().length : 1); __readMeter(); } } catch(_){}
         cb(s2);
         try {                                        // phát cho tab phụ (không tốn lượt đọc nào)
           const k = ten || (q_ && q_._query && String(q_._query.path)) || "chung";
@@ -2172,15 +2204,19 @@
           return;
         }
       }
-      try { await addDoc(collection(db,"gemini_keys"), {owner:RSowner(), key:kv, last4:kv.slice(-4),
+      try { const _ref = await addDoc(collection(db,"gemini_keys"), {owner:RSowner(), key:kv, last4:kv.slice(-4),
         email:em, source:"manual", provider:(kv.startsWith("gsk_")?"groq":kv.startsWith("cf:")?"cloudflare":kv.startsWith("px:")?"pexels":kv.startsWith("pb:")?"pixabay":kv.startsWith("r2:")?"r2":kv.startsWith("nara:")?"nara":kv.startsWith("dvids:")?"dvids":"gemini"), created_at:new Date().toISOString()});
         document.getElementById("rsKeyManual").value=""; document.getElementById("rsKeyEmail").value="";
-        toastMsg("✔ Đã thêm key cho "+em); window.__loadKeys&&window.__loadKeys(); } catch(e){ alert("Lỗi: "+e.message); } };
+        toastMsg("✔ Đã thêm key cho "+em);
+        // vẽ lại từ dữ liệu đang có + đúng 1 dòng vừa thêm (0 lượt đọc), thay vì tải lại 166 key
+        if(window.__rsKeyThem) window.__rsKeyThem(_ref.id, {owner:RSowner(), key:kv, last4:kv.slice(-4), email:em, source:"manual", alive:true});
+        else window.__loadKeys&&window.__loadKeys(); } catch(e){ alert("Lỗi: "+e.message); } };
     window.__rsGeminiConnect = () => {
       // 1-click OAuth cần Worker (đang dựng). Tạm: mở trang tạo key để dán thủ công.
       window.open("https://aistudio.google.com/apikey","_blank");
       toastMsg("Tạo key rồi dán vào ô bên cạnh + Thêm key (1-click tự động đang được dựng)"); };
-    window.__rsDelKey = async (id) => { if(confirm("Xoá key này?")){ await deleteDoc(doc(db,"gemini_keys",id)); window.__loadKeys&&window.__loadKeys(); } };
+    window.__rsDelKey = async (id) => { if(confirm("Xoá key này?")){ await deleteDoc(doc(db,"gemini_keys",id));
+      if(window.__rsKeyBo) window.__rsKeyBo(id); else window.__loadKeys&&window.__loadKeys(); } };
     window.__rsExportKeys = () => {
       const ks=(window.__rsKeysData||[]); if(!ks.length) return alert("Chưa có key để backup.");
       const txt="# MM0 Gemini API keys backup — "+new Date().toISOString()+"\n"+
@@ -2368,7 +2404,7 @@
         }catch(e){ corsN++; }   // CORS/mạng -> chưa rõ, bỏ qua
         await new Promise(res=>setTimeout(res,1100));   // GIÃN 1.1s -> tuần tự, không dội
       }
-      window.__checkingKeys=false; if(btn) btn.textContent=_t0||"⚡ Kiểm ngay (tuần tự)"; window.__loadKeys&&window.__loadKeys();   // refresh sau khi kiểm (không realtime nữa)
+      window.__checkingKeys=false; if(btn) btn.textContent=_t0||"⚡ Kiểm ngay (tuần tự)"; window.__loadKeys&&window.__loadKeys(true);   // refresh sau khi kiểm (không realtime nữa)
       try{ if(corsN===ks.length) toastMsg("⚠️ Trình duyệt bị chặn (CORS) — dùng nút 🩺 Qua pipeline nhé.");
         else toastMsg(`✅ Kiểm xong ${done}: 🟢${aliveN} sống · 🔴${deadN} chết · 😴${rateN} bận · ${corsN} chưa rõ`); }catch(_){}
     };
@@ -2393,7 +2429,7 @@
       const provOf=k=>((k.key||"").startsWith("nara:")||k.provider==="nara")?"nara":((k.key||"").startsWith("dvids:")||k.provider==="dvids")?"dvids":((k.key||"").startsWith("gsk_")||k.provider==="groq")?"groq":((k.key||"").startsWith("cf:")||k.provider==="cloudflare")?"cloudflare":((k.key||"").startsWith("px:")||k.provider==="pexels")?"pexels":((k.key||"").startsWith("pb:")||k.provider==="pixabay")?"pixabay":"gemini";
       if(pv) list=list.filter(k=>provOf(k)===pv);
       const nGem=ks.filter(k=>provOf(k)==="gemini").length, nGrq=ks.filter(k=>provOf(k)==="groq").length;
-      const provChips=`<div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">${[["","Tất cả "+ks.length],["gemini","◆ Gemini "+nGem],["groq","⚡ Groq "+nGrq],["cloudflare","⛅ CF "+ks.filter(k=>provOf(k)==="cloudflare").length],["pexels","🖼️ Pexels "+ks.filter(k=>String(k.key||"").startsWith("px:")).length],["pixabay","🧩 Pixabay "+ks.filter(k=>String(k.key||"").startsWith("pb:")).length],["nara","🏛 NARA "+ks.filter(k=>provOf(k)==="nara").length],["dvids","🎖 DVIDS "+ks.filter(k=>provOf(k)==="dvids").length]].map(([v,l])=>`<button class="btn-mini" style="${pv===v?"background:#8b6cff;color:#fff":""}" onclick="window.__rsKeyProv='${v}';window.__loadKeys&&window.__loadKeys()">${l}</button>`).join("")}</div>`;
+      const provChips=`<div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">${[["","Tất cả "+ks.length],["gemini","◆ Gemini "+nGem],["groq","⚡ Groq "+nGrq],["cloudflare","⛅ CF "+ks.filter(k=>provOf(k)==="cloudflare").length],["pexels","🖼️ Pexels "+ks.filter(k=>String(k.key||"").startsWith("px:")).length],["pixabay","🧩 Pixabay "+ks.filter(k=>String(k.key||"").startsWith("pb:")).length],["nara","🏛 NARA "+ks.filter(k=>provOf(k)==="nara").length],["dvids","🎖 DVIDS "+ks.filter(k=>provOf(k)==="dvids").length]].map(([v,l])=>`<button class="btn-mini" style="${pv===v?"background:#8b6cff;color:#fff":""}" onclick="window.__rsKeyProv='${v}';(window.__rsKeyVeLai||window.__loadKeys)()">${l}</button>`).join("")}</div>`;
       const nowIso=new Date().toISOString();
       el.innerHTML=provChips+(q||sf||pv?`<div class="p-sub" style="margin-bottom:6px">🔎 ${list.length}/${ks.length} key khớp</div>`:"")
         +(list.length? list.map(k=>{ const cooling=k.cooling_until&&k.cooling_until>nowIso;
@@ -2518,7 +2554,25 @@
         const sb=document.getElementById("rsSafetyStop");
         if(sb){ if(c.last_safety_stop){ sb.style.display="block"; sb.textContent="🛡️ "+c.last_safety_stop; } else sb.style.display="none"; } }, ()=>{});
       // KEY đổi CHẬM -> đọc 1 LẦN + refresh khi bấm (thay realtime) -> cắt việc đọc lại 44 key mỗi lần health-check/đổi key.
-      window.__loadKeys = async () => { try{ const snap=await gdGate(q("gemini_keys")); window.__rsKeysData=snap.docs.map(d=>({id:d.id,...d.data()})); const mk=document.getElementById("rsTotKeys"); if(mk) mk.textContent=snap.docs.length; window.__rsRenderKeys&&window.__rsRenderKeys(); window.__r2Refresh&&window.__r2Refresh(); }catch(e){} };
+      // CẬP NHẬT TẠI CHỖ, KHÔNG ĐỌC LẠI CẢ BẢNG (25/8 — anh hỏi "thêm api key có tốn quota vô ích
+      // không"). CÓ: `__loadKeys()` là một `getDocs` trọn bộ `gemini_keys` — với 166 key thì mỗi lần
+      // THÊM hoặc XOÁ một key là 166 lượt đọc, trong khi thứ vừa đổi chỉ có ĐÚNG MỘT dòng.
+      // Thêm/xoá vài key liên tiếp là đi mất cả nghìn lượt của project A — chính project đang cạn.
+      window.__rsKeyThem = (id, d) => {
+        window.__rsKeysData = [...(window.__rsKeysData||[]), {id, ...d}];
+        window.__rsKeyVeLai();
+      };
+      window.__rsKeyBo = (id) => {
+        window.__rsKeysData = (window.__rsKeysData||[]).filter(k => k.id !== id);
+        window.__rsKeyVeLai();
+      };
+      window.__rsKeyVeLai = () => {
+        const mk=document.getElementById("rsTotKeys");
+        if(mk) mk.textContent=(window.__rsKeysData||[]).length;
+        window.__rsRenderKeys&&window.__rsRenderKeys();
+        window.__r2Refresh&&window.__r2Refresh();
+      };
+      window.__loadKeys = async (ep) => { try{ const snap=await gdGate(q("gemini_keys"), ep ? 0 : undefined); window.__rsKeysData=snap.docs.map(d=>({id:d.id,...d.data()})); const mk=document.getElementById("rsTotKeys"); if(mk) mk.textContent=snap.docs.length; window.__rsRenderKeys&&window.__rsRenderKeys(); window.__r2Refresh&&window.__r2Refresh(); }catch(e){} };
       window.__loadKeys();
       // Trend Scout: nguồn/gu đổi CHẬM (tuần) -> load-once + tự refresh khi quay lại tab (thay realtime, đỡ tốn đọc).
       window.__loadTrendScout = async () => { try{
@@ -2568,7 +2622,13 @@
         // 25/8 — `done.length` là số đếm từ DANH SÁCH tải về (giới hạn 200 doc) nên luôn thiếu.
         // Chỉ dùng khi D1 im; D1 sống thì nó đã đặt số đúng, đừng ghi đè (bệnh lặp ở 3 ô).
         if(sd && !window.__d1OK) sd.textContent=done.length;
-        if(sr)sr.textContent=active;
+        // 25/8 — HAI Ô NÀY TRƯỚC ĐÂY BỎ QUÊN D1. Dòng ghi `window.__d1DangChay/__d1Loi` đã có từ
+        // 24/8 kèm chú thích "Đang chạy và Lỗi cũng lấy từ đây", nhưng KHÔNG chỗ nào đọc lại: cả
+        // hai ô vẫn đếm trên danh sách 200 doc Firestore. Hậu quả đo được: "⚙️ Đang chạy 0" trong
+        // khi D1 thấy 13 job đang chạy thật, và "❌ 21 lỗi MỚI" trỏ về sự cố 19/8 đã xong từ lâu.
+        // D1 sống thì D1 là sự thật (nó hỏi TOÀN bảng); D1 im thì mới rơi về danh sách như cũ.
+        if(sr)sr.textContent = (window.__d1OK && typeof window.__d1DangChay === "number")
+                                 ? window.__d1DangChay : active;
         // TỔNG THẬT bằng ĐẾM SERVER (22/8): danh sách chỉ tải 100(A)+200(B) doc để tiết kiệm đọc,
         // đếm theo danh sách làm "Tổng cộng dồn" TỤT ẢO (528 -> 217) khiến user tưởng bị xóa video.
         // count() phía server = 1 lượt đọc/kho, chính xác tuyệt đối, làm mới tối đa 1 lần/5 phút.
@@ -2602,6 +2662,12 @@
                 window.__d1Stat = tk;
                 // "Đang chạy" và "Lỗi" cũng lấy từ đây -> hết cảnh ba ô đo ba thứ khác nhau
                 window.__d1DangChay = tk.dangchay; window.__d1Loi = tk.loi;
+                window.__d1LoiMoi = tk.loi_moi;
+                // VẼ LẠI NGAY: phần đồng bộ ở trên đã chạy xong TRƯỚC khi fetch này về, lúc đó
+                // __d1OK còn undefined nên hai ô đã kịp hiện số của danh sách Firestore. Không vẽ
+                // lại thì mãi tới lượt làm mới sau (5 phút) mới thấy số đúng.
+                if (typeof tk.dangchay === "number" && sr) sr.textContent = tk.dangchay;
+                if (typeof tk.loi_moi === "number" && sf) sf.textContent = tk.loi_moi;
                 if (sd) {
                   sd.textContent = tk.tong;
                   // 25/8 — HIỆN RÕ SỐ NÀY TỪ ĐÂU. Có hai nguồn (D1 đếm thật từ Drive · bộ đếm cộng
@@ -2646,7 +2712,13 @@
           const tot=(await getCountFromServer(query(collection(base,"render_jobs"),where("owner","==",o),where("status","==","done")))).data().count;
           window.__cntCache=tot; if(sd) sd.textContent=tot;
         }catch(e){ window.__cntAt=0; try{window.__b2Trip&&window.__b2Trip(e);}catch(_){} } })();   // 23/8: lỗi đếm mở khoá retry + cạn quota thì lật B2
-        if(sf){ sf.textContent=activeFails.length; sf.title=oldFails?`${oldFails} lỗi cũ đã khắc phục (không tính)`:""; }
+        if(sf){
+          const d1m = (window.__d1OK && typeof window.__d1LoiMoi === "number") ? window.__d1LoiMoi : null;
+          sf.textContent = d1m !== null ? d1m : activeFails.length;
+          sf.title = d1m !== null
+            ? `Lỗi xảy ra SAU lần render xong gần nhất (đếm toàn bảng D1). ${window.__d1Loi||0} lỗi trong 2 ngày qua tính cả lỗi đã có bản thay thế.`
+            : (oldFails?`${oldFails} lỗi cũ đã khắc phục (không tính)`:"");
+        }
         const today=new Date().toISOString().slice(0,10);
         // 25/8 — CÙNG BỆNH VỚI Ô "TỔNG": D1 đã cho số HÔM NAY đúng (đếm live, mọi video), rồi dòng
         // này ghi đè bằng số đếm từ danh sách Firestore — mà danh sách đó chỉ tải 200 doc nên ngày
@@ -2682,11 +2754,21 @@
         }).join("") : '<div class="d">Chưa có dữ liệu — chạy pipeline để thấy tiến trình từng kênh.</div>'; }
         const al=document.getElementById("rsAlert");
         if(al){
-          if(activeFails.length){                     // CÓ lỗi mới (sau lần xong gần nhất) -> cảnh báo ĐỎ
+          // 25/8 — BĂNG RÔN PHẢI CÙNG NGUỒN VỚI Ô ❌. Ô Lỗi đã chuyển sang D1 `loi_moi` (đếm toàn
+          // bảng) nhưng băng rôn vẫn đếm `activeFails` trên danh sách 200 doc bị cắt ⇒ màn hình
+          // vừa hiện "❌ 0" vừa hét "⚠️ 21 lỗi MỚI — STATEWARS 19/8". Một trang hai giọng thì
+          // người vận hành không tin được giọng nào. D1 sống thì D1 quyết; D1 im mới về danh sách.
+          const soLoiMoi = (window.__d1OK && typeof window.__d1LoiMoi === "number")
+                             ? window.__d1LoiMoi : activeFails.length;
+          if(soLoiMoi && activeFails.length){                     // CÓ lỗi mới (sau lần xong gần nhất) -> cảnh báo ĐỎ
             const lf=activeFails.slice().sort((a,b)=>(b.created_at||"").localeCompare(a.created_at||""))[0];
             al.style.display="block"; al.style.background="#4a1a1a"; al.style.borderColor="#a33"; al.style.color="#ffbcbc";
-            al.innerHTML="⚠️ <b>"+activeFails.length+" lỗi MỚI</b> (chưa khắc phục). Gần nhất: "+esc(lf.channel||"")+" — "+esc((lf.step||"lỗi").slice(0,130))
+            al.innerHTML="⚠️ <b>"+soLoiMoi+" lỗi MỚI</b> (chưa khắc phục). Gần nhất: "+esc(lf.channel||"")+" — "+esc((lf.step||"lỗi").slice(0,130))
               +(oldFails?` <span style="opacity:.8">· ${oldFails} lỗi cũ đã fix</span>`:"");
+          } else if(soLoiMoi){
+            // D1 thấy lỗi mới nhưng danh sách cắt không chứa doc lỗi -> vẫn phải báo, kèm số D1
+            al.style.display="block"; al.style.background="#4a1a1a"; al.style.borderColor="#a33"; al.style.color="#ffbcbc";
+            al.innerHTML="⚠️ <b>"+soLoiMoi+" lỗi MỚI</b> (sau lần render xong gần nhất — theo sổ D1).";
           } else if(done.length){                     // KHÔNG lỗi mới + đã có video -> XANH "đang mượt"
             al.style.display="block"; al.style.background="#123a1e"; al.style.borderColor="#2e7d46"; al.style.color="#b7f0c8";
             al.innerHTML="✅ <b>Đang chạy mượt</b> — "+done.length+" video xong, KHÔNG lỗi mới."
@@ -3047,25 +3129,110 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
     window.__rsRenderPlan=rsRenderPlan;
 
     // ===== 🎬 THƯ VIỆN VIDEO — chia theo kênh, xem inline như mở Drive =====
+    // LẤY DANH SÁCH VIDEO TỪ D1 THEO KHOẢNG NGÀY. Đệm 5 phút cho mỗi mốc lọc: người dùng gạt qua
+    // lại giữa Hôm nay/7/30 ngày không làm bắn thêm truy vấn nào. <=400 dòng/lượt, 3 mốc lọc
+    // => trần lý thuyết ~345K dòng đọc/ngày trên 5.000.000 của gói D1 free (6,9%).
+    window.__d1JobsCache = window.__d1JobsCache || {};
+    async function rsD1Jobs(dv){
+      const o = (window.__ownerUid||window.__uid); if(!o) return null;
+      const c = window.__d1JobsCache[dv];
+      if(c && Date.now()-c.at < 300000) return c.rows;
+      const q = new URLSearchParams({owner:o, gh:"400"});
+      if(dv==="today") q.set("ngay", new Date().toISOString().slice(0,10));
+      else q.set("tu", new Date(Date.now()-Number(dv)*86400000).toISOString());
+      const r = await fetch("https://mm0-connect.adisondurham-ef1.workers.dev/api/hot-jobs?"+q);
+      const t = await r.json();
+      if(!t || !Array.isArray(t.jobs)) { console.warn("hot-jobs hỏng:", t && t.error); return null; }
+      window.__d1JobsCache[dv] = {at:Date.now(), rows:t.jobs};
+      return t.jobs;
+    }
+
+    // ĐẾM THEO KÊNH TỪ D1 — cùng nguồn, cùng mốc ngày với số tổng. Đệm 5' mỗi mốc lọc (~85 dòng).
+    window.__d1ChanCache = window.__d1ChanCache || {};
+    async function rsD1Chans(dv){
+      const o = (window.__ownerUid||window.__uid); if(!o) return null;
+      const k = dv||"all", c = window.__d1ChanCache[k];
+      if(c && Date.now()-c.at < 300000) return c.val;
+      const q = new URLSearchParams({owner:o});
+      if(dv==="today") q.set("ngay", new Date().toISOString().slice(0,10));
+      else if(dv) q.set("tu", new Date(Date.now()-Number(dv)*86400000).toISOString());
+      const r = await fetch("https://mm0-connect.adisondurham-ef1.workers.dev/api/hot-chan?"+q);
+      const t = await r.json();
+      if(!t || !Array.isArray(t.chans)) { console.warn("hot-chan hỏng:", t && t.error); return null; }
+      const m = {}; t.chans.forEach(x=>{ m[String(x.channel||"?").toUpperCase()] = x.n||0; });
+      const val = {map:m, tong:t.tong||0};
+      window.__d1ChanCache[k] = {at:Date.now(), val};
+      return val;
+    }
+
     async function rsGalInto(hostId, searchId, viewId, countId, channelId, dateId){
       const host=document.getElementById(hostId); if(!host) return;
       let all=(window.__rsJobsData||[]).filter(j=>j.status==="done" && (j.drive_id||j.preview));
-      // LỌC THEO NGÀY (theo created_at): "" mọi lúc · today hôm nay · 7/30 ngày gần nhất
+      // LỌC THEO NGÀY: "" mọi lúc · today hôm nay · 7/30 ngày gần nhất
       const dv=((document.getElementById(dateId)||{}).value)||"";
-      if(dv){ if(dv==="today"){ const t=new Date().toISOString().slice(0,10); all=all.filter(j=>(j.created_at||"").slice(0,10)===t); }
-        else { const cut=new Date(Date.now()-Number(dv)*86400000).toISOString(); all=all.filter(j=>(j.created_at||"")>=cut); } }
+      // 25/8 — "Tất cả kênh (0)" khi lọc Hôm nay, mà 7 ngày vẫn ra 85. Biểu thức lọc không sai:
+      // NGUỒN sai. `__rsJobsData` đọc từ Firestore B, mà hôm nay B ăn 429 nên 399 video làm trong
+      // ngày không hề có bản ghi ở B — chúng nằm ở D1. Lọc "hôm nay" trên danh sách chỉ còn video
+      // của những ngày trước thì đúng bằng 0. D1 luôn đủ (pipeline ghi thẳng), nên khi có lọc ngày
+      // thì D1 là nguồn chính, bản ghi Firestore chỉ dùng để bù các cột D1 không giữ (ảnh nền,
+      // điểm QC, kho chứa). Lọc ngày do SQL của Worker làm, ĐÚNG cột và ĐÚNG mốc như ô "📅 Hôm nay"
+      // -> hai chỗ không thể ra hai con số khác nhau nữa.
+      let d1rows = null;
+      if(dv && window.__d1OK){ try{ d1rows = await rsD1Jobs(dv); }catch(_){ d1rows = null; } }
+      if(d1rows){
+        const co = new Map(all.map(j=>[j.id, j]));
+        // 25/8 — D1 giờ mang cả kho chứa/thumbnail/size/QC (4 cột mới): hết cảnh video làm lúc
+        // Firestore nghẽn bị hiện "kho chưa rõ"/"thiếu thumbnail" oan. Bản ghi Firestore (nếu có)
+        // vẫn thắng vì nó đầy đủ nhất.
+        all = d1rows.map(r=>Object.assign({ id:r.id, channel:r.channel, type:r.vtype, title:r.title,
+                                            drive_id:r.drive_id, created_at:r.created_at,
+                                            updated_at:r.updated_at, status:"done",
+                                            drive_account:r.drive_account||undefined,
+                                            thumb_id:r.thumb_id||undefined,
+                                            size_mb:r.size_mb||undefined, score:r.qc||undefined },
+                                          co.get(r.id) || {}));
+      } else if(dv){
+        // D1 im -> lọc như cũ trên danh sách Firestore (thà thiếu còn hơn trắng bảng)
+        if(dv==="today"){ const t=new Date().toISOString().slice(0,10); all=all.filter(j=>(j.updated_at||j.created_at||"").slice(0,10)===t); }
+        else { const cut=new Date(Date.now()-Number(dv)*86400000).toISOString(); all=all.filter(j=>(j.updated_at||j.created_at||"")>=cut); }
+      }
       const chSel=document.getElementById(channelId);   // dropdown lọc kênh — liệt kê mọi kênh đã có video
       if(chSel){
         // 23/8: danh sách kênh TỪNG chỉ lấy từ ~300 doc đã nạp -> xổ ra vỏn vẹn 10 kênh chạy gần
         // nhất, 40+ kênh còn lại "tàng hình". Hợp nhất thêm kênh từ sổ thống kê render_stats (có
         // đủ mọi kênh đã từng ra video) — chỉ khi KHÔNG lọc ngày (lọc ngày phải đếm theo tập nạp).
+        // 25/8 — Ô XỔ PHẢI TỰ CỘNG ĐÚNG. Ảnh chụp: "Tất cả kênh (2084)" mà từng dòng chỉ 7-15,
+        // cộng lại chưa tới 600. Vì tổng đếm ở kho Drive còn số mỗi kênh đếm trên `__chStats` /
+        // danh sách Firestore ~200 doc đã cắt — hai nguồn khác nhau thì không bao giờ khớp.
+        // Nay CẢ HAI lấy từ một truy vấn GROUP BY trên D1, cùng mốc ngày. Chênh với kho Drive
+        // (video làm trước khi bật sổ D1) nói rõ ở tooltip thay vì giấu vào con số.
+        let _d1c = null;
+        try{ _d1c = await rsD1Chans(dv); }catch(_){ _d1c = null; }
         const _st=dv?{}:(window.__chStats||{});
-        const chans=[...new Set([...all.map(j=>j.channel||"?"), ...Object.keys(_st)])].sort();
-        const _cnt=c=>{ const v=_st[String(c||"").toUpperCase()]; return v?((v.l||0)+(v.s||0)):all.filter(j=>(j.channel||"?")===c).length; };
+        const chans=[...new Set([...all.map(j=>j.channel||"?"),
+                                 ...(_d1c?Object.keys(_d1c.map):[]),
+                                 ...Object.keys(_st)])].sort();
+        const _cnt=c=>{ const K=String(c||"").toUpperCase();
+          if(_d1c && K in _d1c.map) return _d1c.map[K];
+          const v=_st[K]; return v?((v.l||0)+(v.s||0)):all.filter(j=>(j.channel||"?")===c).length; };
         // Tổng "Tất cả kênh": ưu tiên SỐ ĐẾM SERVER (đủ cả kho, kể cả kênh chưa vào sổ thống kê);
         // sổ thống kê chỉ là dự phòng (nó thiếu kênh chưa chạy lane từ lúc sổ ra đời -> 810 < thật).
-        const _tot=dv?all.length:(window.__cntCache||(Object.keys(_st).length?Object.values(_st).reduce((a,v)=>a+((v&&v.l)||0)+((v&&v.s)||0),0):all.length));
+        // TỔNG = ĐÚNG TỔNG CÁC DÒNG BÊN DƯỚI, không phải số đếm kho (số kho nằm ở ô "✅ Video
+        // trong kho"). Một ô xổ không cộng đúng chính nó thì không con số nào còn đáng tin.
+        const _tot=_d1c?_d1c.tong
+                  :(dv?all.length:(window.__cntCache||(Object.keys(_st).length?Object.values(_st).reduce((a,v)=>a+((v&&v.l)||0)+((v&&v.s)||0),0):all.length)));
         const opts='<option value="">Tất cả kênh ('+_tot+')</option>'+chans.map((c,i)=>`<option value="${esc(c)}">${String(i+1).padStart(2,"0")}. ${esc(c)} (${_cnt(c)})</option>`).join("");
+        // NÓI RÕ KHI DANH SÁCH BỊ CẮT: D1 trả tối đa 400 dòng mỗi lượt. Nếu ô "📅 Hôm nay" báo
+        // nhiều hơn số thẻ đang hiện thì phải nói ra, đừng để người xem tưởng mất video.
+        if(chSel){
+          const ghiChu=[];
+          if(dv==="today" && typeof window.__pushedToday==="number" && window.__pushedToday>all.length)
+            ghiChu.push(`Đang hiện ${all.length} video mới nhất của hôm nay; tổng hôm nay là ${window.__pushedToday}.`);
+          if(!dv && _d1c && typeof window.__cntCache==="number" && window.__cntCache>_d1c.tong)
+            ghiChu.push(`${_d1c.tong} video có bản ghi chi tiết theo kênh. Kho Drive có ${window.__cntCache} file — `
+                      + `chênh ${window.__cntCache-_d1c.tong} cái làm trước khi bật sổ D1 nên chưa quy được về kênh.`);
+          chSel.title = ghiChu.join(" ");
+        }
         if(chSel.getAttribute("data-opts")!==opts){ const cur=chSel.value; chSel.innerHTML=opts; chSel.setAttribute("data-opts",opts); if(chans.includes(cur)) chSel.value=cur; try{window.rsSelectWithAvatars(chSel);}catch(_){} } }
       const chF=(chSel&&chSel.value)||"";
       let done = chF ? all.filter(j=>(j.channel||"?")===chF) : all;
@@ -3112,7 +3279,7 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         return `<div style="border-bottom:1px solid #ffffff0f;padding:6px 0">
           <div style="display:flex;gap:11px;align-items:center;cursor:pointer" onclick="window.rsPlay('${pid}','${esc(acc)}','${esc(fid)}','${pv}',${tall},'${esc(j.id||'')}')">
             <div style="position:relative;width:${tw}px;height:68px;flex:none;border-radius:7px;overflow:hidden;background:linear-gradient(135deg,#8b6cff55,#4ea1ff33);display:flex;align-items:center;justify-content:center">
-              ${thumb?`<img data-src="${thumb}" loading="eager" decoding="async" style="width:100%;height:100%;object-fit:cover" onerror="this.remove()">`:""}${j.thumb_id?"":`<span title="Chưa có ảnh thumbnail .jpg đi kèm — đang hiện khung tự sinh của Drive" style="position:absolute;left:3px;top:3px;background:#b45309ee;color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:5px">🖼 thiếu</span>`}
+              ${thumb?`<img data-src="${thumb}" loading="eager" decoding="async" style="width:100%;height:100%;object-fit:cover" onerror="this.remove()">`:""}${j.thumb_id||!(j.preview||j.score!==undefined)?"":`<span title="Bản ghi không thấy ảnh thumbnail .jpg đi kèm — lúc ĐĂNG YouTube hệ vẫn tự tìm .jpg theo tên trên Drive nên thường không sao; nhãn này chỉ là audit bản ghi" style="position:absolute;left:3px;top:3px;background:#b45309ee;color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:5px">🖼 thiếu?</span>`}
               <span style="position:absolute;color:#fff;font-size:20px;text-shadow:0 1px 5px #000">▶</span>
             </div>
             <div style="min-width:0;flex:1">
