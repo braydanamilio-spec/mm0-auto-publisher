@@ -2565,7 +2565,10 @@
         const oldFails=failed.length-activeFails.length;
         if(bd) bd.textContent=active;
         const sd=document.getElementById("rsSumDone"),sr=document.getElementById("rsSumRun"),sf=document.getElementById("rsSumFail");
-        if(sd)sd.textContent=done.length; if(sr)sr.textContent=active;
+        // 25/8 — `done.length` là số đếm từ DANH SÁCH tải về (giới hạn 200 doc) nên luôn thiếu.
+        // Chỉ dùng khi D1 im; D1 sống thì nó đã đặt số đúng, đừng ghi đè (bệnh lặp ở 3 ô).
+        if(sd && !window.__d1OK) sd.textContent=done.length;
+        if(sr)sr.textContent=active;
         // TỔNG THẬT bằng ĐẾM SERVER (22/8): danh sách chỉ tải 100(A)+200(B) doc để tiết kiệm đọc,
         // đếm theo danh sách làm "Tổng cộng dồn" TỤT ẢO (528 -> 217) khiến user tưởng bị xóa video.
         // count() phía server = 1 lượt đọc/kho, chính xác tuyệt đối, làm mới tối đa 1 lần/5 phút.
@@ -2638,16 +2641,22 @@
           } catch(_) {}
           // CHỈ đếm kho B khi đã shard: đợt chia kho 19/8 SAO CHÉP job cũ A->B, đếm cả 2 là TÍNH TRÙNG
           // (22/8: hiện 1397 trong khi thật ~750 — user tưởng số ảo). B là tập đủ (job mới chỉ ghi B).
+          if(window.__d1OK) return;      // D1 đã cho số đúng -> đừng đếm lại rồi ghi đè (25/8)
           const base=(dbJobs!==db)?dbJobs:db;
           const tot=(await getCountFromServer(query(collection(base,"render_jobs"),where("owner","==",o),where("status","==","done")))).data().count;
           window.__cntCache=tot; if(sd) sd.textContent=tot;
         }catch(e){ window.__cntAt=0; try{window.__b2Trip&&window.__b2Trip(e);}catch(_){} } })();   // 23/8: lỗi đếm mở khoá retry + cạn quota thì lật B2
         if(sf){ sf.textContent=activeFails.length; sf.title=oldFails?`${oldFails} lỗi cũ đã khắc phục (không tính)`:""; }
         const today=new Date().toISOString().slice(0,10);
-        const stt=document.getElementById("rsSumToday"); if(stt) stt.textContent=all.filter(j=>j.status==="done"&&(j.created_at||"").slice(0,10)===today).length;
+        // 25/8 — CÙNG BỆNH VỚI Ô "TỔNG": D1 đã cho số HÔM NAY đúng (đếm live, mọi video), rồi dòng
+        // này ghi đè bằng số đếm từ danh sách Firestore — mà danh sách đó chỉ tải 200 doc nên ngày
+        // nào >200 video là đếm thiếu (anh thấy 110 trong khi thật 313). Chỉ dùng khi D1 im.
+        const stt=document.getElementById("rsSumToday");
+        if(stt && !window.__d1OK) stt.textContent=all.filter(j=>j.status==="done"&&(j.created_at||"").slice(0,10)===today).length;
         // HÔM NAY đếm SERVER (22/8): danh sách chỉ tải 200 doc B — ngày >200 video là đếm thiếu.
         // Index (owner,status,created_at) đã deploy lên B; lỗi/awaiting-index -> giữ số theo danh sách.
-        (async()=>{ try{ const now=Date.now(); if(now-(window.__cntTdAt||0)<300000){ if(window.__cntTd!=null&&stt) stt.textContent=window.__cntTd; return; }
+        (async()=>{ if(window.__d1OK) return;   // D1 đã cho số hôm nay -> đừng đếm lại rồi ghi đè
+          try{ const now=Date.now(); if(now-(window.__cntTdAt||0)<300000){ if(window.__cntTd!=null&&stt) stt.textContent=window.__cntTd; return; }
           window.__cntTdAt=now; const o=(window.__ownerUid||window.__uid); const base=(dbJobs!==db)?dbJobs:db;
           const c=(await getCountFromServer(query(collection(base,"render_jobs"),where("owner","==",o),where("status","==","done"),where("created_at",">=",today)))).data().count;
           window.__cntTd=c; if(stt) stt.textContent=c;
