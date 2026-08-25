@@ -2185,8 +2185,21 @@
       let kv = isGov ? (_v.replace(/^(nara|dvids):/i, m=>m.toLowerCase())) : isR2 ? _v : isPb ? (v.startsWith("pb:") ? v : "pb:" + v)
              : isPx ? (v.startsWith("px:") ? v : "px:" + v)
              : (isCf && !v.startsWith("cf:") ? "cf:" + v : v);
+      // 25/8 — KEY DẠNG "AQ." BỊ NHẬN NHẦM LÀ TOKEN CLOUDFLARE. Anh dán một chuỗi bắt đầu bằng
+      // `AQ.` (token Google) nhưng nhánh dưới coi "mọi thứ không phải AIza/gsk_" là token
+      // Cloudflare -> gọi CF -> CF từ chối -> báo "⛅ Token KHÔNG hợp lệ", sai hoàn toàn nguyên
+      // nhân. Đáng chú ý: chính regex Pexels ở trên ĐÃ liệt kê `AQ\.` như một tiền tố đã biết —
+      // tức code biết dạng này tồn tại mà không có nhánh nào nhận nó.
+      // Xử đúng: đây là khoá của Google -> xếp vào nhóm Gemini, và NÓI RÕ rủi ro thay vì chặn.
+      if(v.startsWith("AQ.")){
+        kv = v;
+        toastMsg("🔑 Nhận khoá Google dạng AQ. — đã thêm vào nhóm Gemini.\n\n"
+               + "⚠️ Lưu ý: khoá Gemini BỀN có dạng AIza… (AI Studio → Get API key). "
+               + "Chuỗi AQ.… thường là token OAuth và sẽ HẾT HẠN sau ~1 giờ. "
+               + "Nếu key báo chết sớm, hãy lấy lại khoá AIza… nhé.", 12000);
+      }
       // Token Cloudflare (cfut_… hoặc token trần khác AIza/gsk_): TỰ GỌI CF lấy Account ID — user chỉ cần dán token
-      if(!isGov && !isR2 && !isPx && !isPb && !isCf && !v.startsWith("AIza") && !v.startsWith("gsk_")){
+      else if(!isGov && !isR2 && !isPx && !isPb && !isCf && !v.startsWith("AIza") && !v.startsWith("gsk_")){
         let acc="";
         try{
           // qua Worker của mình (server-side) — trình duyệt gọi thẳng api.cloudflare.com bị CORS chặn
