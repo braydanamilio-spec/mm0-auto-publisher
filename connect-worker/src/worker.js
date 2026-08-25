@@ -951,11 +951,16 @@ async function apiHot(request, env) {
       }
       // ---- SỐ VIDEO THẬT TRONG KHO (plan đếm từ Drive mỗi ngày rồi ghi vào đây) ----
       case "kho_that_ghi": {
+        // `nen` = số bản ghi done-có-file NGAY LÚC ĐẾM, để sau này biết đã làm thêm bao nhiêu.
+        const nen = ((await db.prepare(
+          `SELECT COUNT(*) AS n FROM render_job
+             WHERE owner=?1 AND status='done' AND drive_id IS NOT NULL AND drive_id<>''`)
+          .bind(p.owner).first()) || {}).n || 0;
         await db.prepare(
-          `INSERT INTO kho_that (owner,tong,luc) VALUES (?1,?2,?3)
-             ON CONFLICT(owner) DO UPDATE SET tong=?2, luc=?3`)
-          .bind(p.owner, p.tong | 0, p.luc || new Date().toISOString()).run();
-        return json({ ok: true });
+          `INSERT INTO kho_that (owner,tong,luc,nen) VALUES (?1,?2,?3,?4)
+             ON CONFLICT(owner) DO UPDATE SET tong=?2, luc=?3, nen=?4`)
+          .bind(p.owner, p.tong | 0, p.luc || new Date().toISOString(), nen).run();
+        return json({ ok: true, nen });
       }
       // ---- GHI NHIỀU JOB TRONG MỘT LỆNH (gộp nhịp ghi của cả luồng) ----
       case "ghi_job_loat": {
@@ -1065,11 +1070,21 @@ async function apiHotStat(url, env) {
     // SỐ THẬT TỪ DRIVE thắng số đếm-lại-từ-bản-ghi: D1 chỉ có job từ lúc bật chế độ D1 (đo: 1.475)
     // trong khi kho Drive có 1.996 file thật. `kho_that` do plan ghi mỗi ngày sau khi đi hết 72 kho.
     // Quá 26 giờ không cập nhật thì coi như cũ, quay về đếm bản ghi.
+    // NEO VÀO SỰ THẬT RỒI CỘNG TIẾP THEO THỜI GIAN THỰC (25/8).
+    // Lượt đi đếm 72 kho chỉ chạy 1 lần/ngày, nên nếu chỉ hiện con số đó thì cả ngày ô "Tổng" đứng
+    // im dù video vẫn ra đều — người xem lại tưởng hỏng. Cách đúng: lưu kèm `nen` = số bản ghi
+    // done-có-file trong D1 NGAY LÚC ĐẾM, rồi hiển thị
+    //     tổng = số_thật_đếm_từ_Drive + (số_bản_ghi_hiện_tại − nen)
+    // tức phần chênh là số video làm THÊM kể từ lượt đếm — luôn tươi, mà vẫn neo vào sự thật.
     let tongThat = null;
     try {
-      const kt = await db.prepare("SELECT tong, luc FROM kho_that WHERE owner=?1").bind(owner).first();
+      const kt = await db.prepare("SELECT tong, luc, nen FROM kho_that WHERE owner=?1")
+        .bind(owner).first();
       const moc26h = new Date(Date.now() - 26 * 36e5).toISOString();
-      if (kt && kt.tong > 0 && kt.luc > moc26h) tongThat = kt.tong;
+      if (kt && kt.tong > 0 && kt.luc > moc26h) {
+        const them = Math.max(0, tong - (kt.nen || 0));
+        tongThat = kt.tong + them;
+      }
     } catch (_) {}
     return json({ tong: tongThat !== null ? tongThat : tong,
                   tong_nguon: tongThat !== null ? "drive" : "banghi",
