@@ -369,7 +369,7 @@ def _free_cached(acc):
     kho chết đó một lần, vừa phí vừa rác log (đúng trường hợp kho ADISONDURHAM ngày 20-21/8)."""
     import time as _t
     root = acc["root"]
-    if root in _DEAD_ACCS:
+    if root in _DEAD_ACCS or root in _kho_chet_chung():
         return None
     hit = _STATUS_CACHE.get(root)
     if hit and (_t.time() - hit[0]) < STATUS_TTL:
@@ -388,11 +388,56 @@ def _free_cached(acc):
         if "invalid_grant" in msg or "expired or revoked" in msg or "unauthorized" in msg.lower():
             _DEAD_ACCS[root] = msg[:80]
             print(f"  ⛔ kho {acc.get('name')}: token hỏng -> BỎ QUA hẳn phiên này (cần kết nối lại)")
+            _bao_kho_chet(root, acc.get("name", ""), msg)
         else:
             print(f"  ⚠️  Không đọc được dung lượng {acc.get('name')}: {msg[:70]}")
         return None
     _STATUS_CACHE[root] = (_t.time(), free)
     return free
+
+
+# ── KHO TOKEN CHẾT: NHỚ CHUNG GIỮA MỌI TIẾN TRÌNH (25/8/2026) ────────────────────────────────
+# Anh chỉ ra: `⚠️ kho ADISONDURHAM hụt: invalid_grant` rồi NGAY SAU đó `✅ đã cất ở kho ADISONDURHAM`
+# — tức tài khoản VẪN SỐNG, chỉ là đang có HAI bản ghi cùng tên và một bản mang refresh_token cũ.
+# `_DEAD_ACCS` chỉ nhớ trong MỘT tiến trình, nên mỗi lane/mỗi lượt publish lại đi tông vào bản chết
+# một lần nữa: rác log, chậm, và mỗi lượt hỏng vẫn tính vào hạn mức Google.
+# Ghi vào D1 qua đúng lệnh `key_nghi_ghi` đã có sẵn (không cần đổi bảng, không cần deploy Worker).
+# Nghỉ 12 tiếng rồi tự thử lại — anh kết nối lại là nó tự sống, không phải nhớ xoá cờ.
+_KHO_CHET_CACHE = {"at": 0.0, "val": set()}
+
+
+def _hot():
+    import importlib
+    return importlib.import_module("hot_db")
+
+
+def _bao_kho_chet(root: str, ten: str, msg: str) -> None:
+    try:
+        import datetime as _d
+        den = (_d.datetime.now(_d.timezone.utc) + _d.timedelta(hours=12)).isoformat()
+        _hot().key_nghi_ghi(f"kho:{root}", "token_chet", den)
+        print(f"     📣 đã báo chung: bản ghi kho {ten} có token hỏng -> mọi tiến trình bỏ qua 12h "
+              f"(kết nối lại là tự sống).")
+    except Exception:
+        pass          # chưa bật D1 -> giữ nguyên hành vi cũ (nhớ trong tiến trình)
+
+
+def _kho_chet_chung() -> set:
+    import time as _t
+    if _t.time() - _KHO_CHET_CACHE["at"] < 300:
+        return _KHO_CHET_CACHE["val"]
+    ra = set()
+    try:
+        import datetime as _d
+        gio = _d.datetime.now(_d.timezone.utc).isoformat()
+        for r in (_hot().key_nghi_doc(gio) or []):
+            k = str(r.get("kid") or "")
+            if k.startswith("kho:"):
+                ra.add(k[4:])
+    except Exception:
+        pass
+    _KHO_CHET_CACHE["at"], _KHO_CHET_CACHE["val"] = _t.time(), ra
+    return ra
 
 
 def ranked_accounts(need_bytes: int = 0, cfg: dict | None = None,

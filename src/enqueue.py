@@ -47,7 +47,7 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
             thumbnail: str | None = None, pool="auto",
             subtitle: str | None = None, subtitle_lang: str | None = None,
             playlist: str | None = None, dedup: bool = True,
-            owner: str | None = None) -> dict:
+            owner: str | None = None, script: str | None = None) -> dict:
     cfg = _load_channels()
     ch = cfg["channels"].get(channel)
     if not ch:
@@ -103,6 +103,15 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
     }
     if publish_at:
         sidecar["publish_at"] = publish_at
+    if script:
+        # KỊCH BẢN ĐI CÙNG VIDEO, KHÔNG CHỈ NẰM Ở FIRESTORE (25/8/2026).
+        # Muốn render lại một video thì cần đúng kịch bản đã sinh ra nó. Trước đây kịch bản CHỈ nằm
+        # trong `render_jobs` trên Firestore ⇒ hôm nào Firestore cạn hạn mức là mất luôn đường
+        # resume, và hệ phải gọi AI viết lại một bài ĐÃ CÓ (xem luật 7.cp — dòng "♻️ Dùng lại kịch
+        # bản đã lưu" chưa từng xuất hiện lần nào).
+        # Drive thì luôn đọc được (có gương + lớp cứu KV), lại là nơi chính video đang nằm. Nhét vào
+        # sidecar là kịch bản đi CÙNG video, không thể lạc nhau, và không tốn thêm một lượt ghi nào.
+        sidecar["script"] = script[:400_000]
     if playlist:
         sidecar["playlist"] = playlist
     vbase = os.path.basename(video).rsplit(".", 1)[0]
