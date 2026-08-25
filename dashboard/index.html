@@ -2593,7 +2593,8 @@
               const rr = await fetch("https://mm0-connect.adisondurham-ef1.workers.dev/api/hot-stat?"
                 + new URLSearchParams({owner:o, ngay:ng, moc45:m45}));
               const tk = await rr.json();
-              if (tk && typeof tk.tong === "number" && tk.tong > 0) {
+              window.__d1OK = !!(tk && typeof tk.tong === "number" && tk.tong > 0);
+              if (window.__d1OK) {
                 window.__cntCache = tk.tong; window.__pushedToday = tk.homnay;
                 window.__d1Stat = tk;
                 // "Đang chạy" và "Lỗi" cũng lấy từ đây -> hết cảnh ba ô đo ba thứ khác nhau
@@ -2603,8 +2604,13 @@
                 if (_st) _st.textContent = tk.homnay;
               }
             } catch(_) {}
-            const pd = await gdocGate(doc(dbJobs, "render_stats", "__pushed__" + o));
-            if (pd.exists()) {
+            // 25/8 — GỐC CỦA "TỔNG 2070 mà kho chỉ có 1.971" và "Hôm nay: 0".
+            // Khối D1 phía trên ĐÃ lấy đúng số (đếm lại từ bản ghi thật), nhưng ngay sau đó khối này
+            // chạy VÔ ĐIỀU KIỆN và GHI ĐÈ bằng `__pushed__` — bộ đếm Increment chỉ cộng, không trừ:
+            // render lại +1, dọn rác vẫn +1, xoá tay vẫn +1. Tức số đúng bị vứt đi mỗi lần tải trang.
+            // `__pushed__` từ nay chỉ là ĐƯỜNG LÙI khi D1 không trả lời được.
+            const pd = window.__d1OK ? null : await gdocGate(doc(dbJobs, "render_stats", "__pushed__" + o));
+            if (pd && pd.exists()) {
               const px = pd.data() || {};
               const dayK = new Date().toISOString().slice(0,10).replace(/-/g,"");
               window.__cntCache = px.total || 0; window.__pushedToday = px[dayK] || 0;
