@@ -114,6 +114,17 @@ def _sa_client(key_env: str, proj_env: str):
         next(c.collection("_ping").limit(1).stream(), None)   # ép kiểm database TỒN TẠI ngay (Client() không tự validate) -> lộ lỗi sớm
     except Exception as e:
         _s = str(e)
+        # 25/8 — LƯỢT PING TỰ LOẠI CLIENT TỐT. Ba lượt `kiem_kho` liên tiếp chết vì
+        # `400 Invalid database id (default)` NGAY Ở LƯỢT PING NÀY, trong khi render_cron dùng đúng
+        # secret đó vẫn đọc/ghi B bình thường — vì `firestore_bridge._db_jobs()` dựng client
+        # KHÔNG ping. Tức chính lượt kiểm "cho chắc" mới là thứ làm hỏng: nó gặp một lỗi mà đường
+        # dùng thật không gặp, rồi kết luận client hỏng và trả None.
+        # Ping chỉ để LỘ LỖI SỚM, không phải để phán quyết. Lỗi 400 ở đây -> ghi nhận rồi TRẢ CLIENT
+        # về cho tầng trên tự thử; hỏng thật thì tầng trên sẽ thấy khi dùng.
+        if "400" in _s or "invalid database" in _s.lower():
+            print(f"⚠️ {proj_env} ({project}) lượt ping trả 400 ({_s[:70]}) — VẪN dùng client này; "
+                  f"đường dùng thật (không ping) có thể chạy bình thường.")
+            return c
         if "429" in _s or "RESOURCE_EXHAUSTED" in _s or "Quota exceeded" in _s:
             # 24/8 tối — PHÁ THẾ CÁCH LY: lượt ping hỏng vì shard CẠN HẠN MỨC NGÀY, nhưng nhánh này
             # xử như "cấu hình sai" rồi trả None ⇒ mọi lệnh của shard đó đổ sang **project A**.
