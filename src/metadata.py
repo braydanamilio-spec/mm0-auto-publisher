@@ -32,8 +32,21 @@ RISKY_WORDS = [
 
 
 def slug_to_topic(filename: str) -> str:
-    """`how-i-went-broke_short.mp4` -> `How I Went Broke`."""
+    """`how-i-went-broke_short.mp4` -> `How I Went Broke`.
+
+    25/8/2026 — BÓC TIỀN TỐ MÁY TRƯỚC. Từ khi dùng tên chuẩn
+    `KENH__YYYYMMDD__seri__S1__tieu-de[-bam]`, hàm này (dùng khi video KHÔNG có sidecar) trả ra
+    `'DEFENSEUSA 20260825 Ab3xk9 S1 Where The Money Goes'` — và đó là thứ được đem đặt LÀM TIÊU ĐỀ
+    YOUTUBE. Người xem thấy mã kênh, ngày, mã chùm, số thứ tự dán trước tiêu đề thật.
+    Tên chuẩn có mốc rõ ràng nên bóc được chắc chắn: bỏ mọi đoạn trước ô vai trò `L`/`S<n>`, và bỏ
+    đuôi băm 4 ký tự nếu tiêu đề từng bị cắt."""
     name = re.sub(r"\.(mp4|mov|mkv|webm)$", "", filename, flags=re.I)
+    if "__" in name:
+        phan = name.split("__")
+        vai = [i for i, x in enumerate(phan) if re.fullmatch(r"(L|S\d*)", x, re.I)]
+        if vai:
+            name = "__".join(phan[vai[-1] + 1:]) or phan[-1]
+            name = re.sub(r"-[0-9a-f]{4}$", "", name)      # đuôi băm chống đụng tên
     name = re.sub(r"[_\-]+(short|long|s|l)$", "", name, flags=re.I)
     name = name.replace("_", " ").replace("-", " ").strip()
     return " ".join(w.capitalize() if w.islower() else w for w in name.split())
