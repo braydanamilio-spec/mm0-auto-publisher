@@ -917,8 +917,14 @@ async function apiHot(request, env) {
           `SELECT COUNT(*) AS n FROM render_job
              WHERE owner=?1 AND status='done' AND drive_id IS NOT NULL AND drive_id<>''
                AND substr(updated_at,1,10)=?2`).bind(p.owner, p.ngay || "").first();
+        // 25/8 — Ô "❌ Lỗi" TRƯỚC ĐÂY ĐẾM CẢ ĐỜI: mọi lần QC loại từ trước tới nay đều cộng vào,
+        // không bao giờ giảm (đo được: 218). Người vận hành nhìn con số chỉ-tăng thì hoặc hoảng
+        // hoặc bỏ qua hẳn — cả hai đều vô dụng. Giới hạn 2 NGÀY: đúng thứ cần biết là "gần đây có
+        // gì hỏng không", còn lịch sử thì đã nằm trong bản ghi job.
         const loi = await db.prepare(
-          "SELECT COUNT(*) AS n FROM render_job WHERE owner=?1 AND status='failed'").bind(p.owner).first();
+          `SELECT COUNT(*) AS n FROM render_job
+             WHERE owner=?1 AND status='failed' AND updated_at > ?2`)
+          .bind(p.owner, p.moc2n || "").first();
         const dangchay = await db.prepare(
           `SELECT COUNT(*) AS n FROM render_job WHERE owner=?1
              AND status IN ('queued','running','writing','rendering','qc')
@@ -927,9 +933,29 @@ async function apiHot(request, env) {
           `SELECT channel, vtype, COUNT(*) AS n FROM render_job
              WHERE owner=?1 AND status='done' AND drive_id IS NOT NULL AND drive_id<>''
              GROUP BY channel, vtype`).bind(p.owner).all();
-        return json({ tong: (tong && tong.n) || 0, homnay: (homnay && homnay.n) || 0,
+        // SỐ THẬT TỪ DRIVE thắng số đếm-lại-từ-bản-ghi: D1 chỉ có job từ lúc bật chế độ D1
+        // (đo: 1.475) trong khi kho Drive có 1.996 file thật. `kho_that` do plan ghi mỗi ngày sau
+        // khi đi hết 72 kho — đó mới là sự thật. Quá 26 giờ không cập nhật thì coi như cũ, quay về
+        // đếm bản ghi.
+        let tongThat = null;
+        try {
+          const kt = await db.prepare("SELECT tong, luc FROM kho_that WHERE owner=?1")
+            .bind(p.owner).first();
+          if (kt && kt.tong > 0 && p.moc26h && kt.luc > p.moc26h) tongThat = kt.tong;
+        } catch (_) {}
+        return json({ tong: tongThat !== null ? tongThat : ((tong && tong.n) || 0),
+                      tong_nguon: tongThat !== null ? "drive" : "banghi",
+                      homnay: (homnay && homnay.n) || 0,
                       loi: (loi && loi.n) || 0, dangchay: (dangchay && dangchay.n) || 0,
                       kenh: (kenh && kenh.results) || [] });
+      }
+      // ---- SỐ VIDEO THẬT TRONG KHO (plan đếm từ Drive mỗi ngày rồi ghi vào đây) ----
+      case "kho_that_ghi": {
+        await db.prepare(
+          `INSERT INTO kho_that (owner,tong,luc) VALUES (?1,?2,?3)
+             ON CONFLICT(owner) DO UPDATE SET tong=?2, luc=?3`)
+          .bind(p.owner, p.tong | 0, p.luc || new Date().toISOString()).run();
+        return json({ ok: true });
       }
       // ---- GHI NHIỀU JOB TRONG MỘT LỆNH (gộp nhịp ghi của cả luồng) ----
       case "ghi_job_loat": {
@@ -1025,12 +1051,29 @@ async function apiHotStat(url, env) {
     const homnay = await q(
       `SELECT COUNT(*) AS n FROM render_job WHERE owner=?1 AND ${CO_FILE} AND substr(updated_at,1,10)=?2`,
       owner, ngay);
-    const loi = await q("SELECT COUNT(*) AS n FROM render_job WHERE owner=?1 AND status='failed'", owner);
+    // 25/8 — Ô "❌ Lỗi" TRƯỚC ĐÂY ĐẾM CẢ ĐỜI (đo được: 218), chỉ tăng không giảm. Người vận hành
+    // nhìn con số chỉ-tăng thì hoặc hoảng hoặc bỏ qua hẳn — cả hai đều vô dụng. Giới hạn 2 NGÀY:
+    // thứ cần biết là "gần đây có gì hỏng", còn lịch sử đã nằm trong bản ghi job.
+    const moc2n = new Date(Date.now() - 2 * 864e5).toISOString();
+    const loi = await q(
+      "SELECT COUNT(*) AS n FROM render_job WHERE owner=?1 AND status='failed' AND updated_at > ?2",
+      owner, moc2n);
     const dangchay = await q(
       `SELECT COUNT(*) AS n FROM render_job WHERE owner=?1
          AND status IN ('queued','running','writing','rendering','qc') AND updated_at > ?2`,
       owner, moc45);
-    return json({ tong, homnay, loi, dangchay });
+    // SỐ THẬT TỪ DRIVE thắng số đếm-lại-từ-bản-ghi: D1 chỉ có job từ lúc bật chế độ D1 (đo: 1.475)
+    // trong khi kho Drive có 1.996 file thật. `kho_that` do plan ghi mỗi ngày sau khi đi hết 72 kho.
+    // Quá 26 giờ không cập nhật thì coi như cũ, quay về đếm bản ghi.
+    let tongThat = null;
+    try {
+      const kt = await db.prepare("SELECT tong, luc FROM kho_that WHERE owner=?1").bind(owner).first();
+      const moc26h = new Date(Date.now() - 26 * 36e5).toISOString();
+      if (kt && kt.tong > 0 && kt.luc > moc26h) tongThat = kt.tong;
+    } catch (_) {}
+    return json({ tong: tongThat !== null ? tongThat : tong,
+                  tong_nguon: tongThat !== null ? "drive" : "banghi",
+                  homnay, loi, dangchay });
   } catch (e) {
     return json({ error: String((e && e.message) || e).slice(0, 160) }, 500);
   }
