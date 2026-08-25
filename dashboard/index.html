@@ -967,7 +967,7 @@
           <div id="rsAlert" style="display:none;background:#4a1a1a;border:1px solid #a33;border-radius:10px;padding:10px 14px;margin-bottom:10px;color:#ffbcbc;font-weight:600"></div>
           <div id="rsSummary" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:14px">
             <span title="Video render XONG trong ngày hôm nay (reset lúc 00:00) — CHỈ hôm nay, không cộng dồn">📅 Hôm nay: <b id="rsSumToday">0</b></span>
-            <span title="TỔNG video đã render xong từ trước tới giờ (cộng dồn mọi ngày) — luôn ≥ số Hôm nay">✅ Tổng cộng dồn: <b id="rsSumDone">0</b></span>
+            <span title="SỐ VIDEO THẬT đang nằm trong kho Drive (đếm lại 72 kho mỗi ngày, cộng thêm phần làm sau đó). KHÔNG phải bộ đếm cộng dồn.">✅ Video trong kho: <b id="rsSumDone">0</b> <small id="rsSumSrc" style="opacity:.65;font-size:11px"></small></span>
             <span title="Video đang render THẬT ngay lúc này (không tính job cũ đã dọn)">⚙️ Đang chạy: <b id="rsSumRun">0</b></span>
             <span style="color:#ff8a8a" title="Lỗi MỚI (sau lần render xong gần nhất) — lỗi cũ đã có bản thay thế không tính">❌ Lỗi: <b id="rsSumFail">0</b></span>
           </div>
@@ -2599,11 +2599,27 @@
                 window.__d1Stat = tk;
                 // "Đang chạy" và "Lỗi" cũng lấy từ đây -> hết cảnh ba ô đo ba thứ khác nhau
                 window.__d1DangChay = tk.dangchay; window.__d1Loi = tk.loi;
-                if (sd) sd.textContent = tk.tong;
+                if (sd) {
+                  sd.textContent = tk.tong;
+                  // 25/8 — HIỆN RÕ SỐ NÀY TỪ ĐÂU. Có hai nguồn (D1 đếm thật từ Drive · bộ đếm cộng
+                  // dồn ở Firestore) mà không cách nào biết đang nhìn cái nào ⇒ "báo một đằng hiển
+                  // thị một nẻo". Nay dán nhãn ngay cạnh số.
+                  sd.title = "Nguồn: " + (tk.tong_nguon === "drive"
+                    ? "đếm THẬT từ kho Drive (neo mỗi ngày) + số làm thêm"
+                    : "đếm lại từ bản ghi D1") + " · lúc " + new Date().toLocaleTimeString();
+                  const _n = document.getElementById("rsSumSrc");
+                  if (_n) _n.textContent = tk.tong_nguon === "drive" ? "✓ kho thật" : "~ bản ghi";
+                }
                 const _st = document.getElementById("rsSumToday");
                 if (_st) _st.textContent = tk.homnay;
               }
-            } catch(_) {}
+            } catch(e) {
+              // KHÔNG nuốt im: hỏng ở đây là rơi về bộ đếm cộng dồn (số sai) mà không ai biết.
+              window.__d1OK = false;
+              console.warn("[MM0] không lấy được số từ D1 -> rơi về bộ đếm cộng dồn:", e);
+              const _n = document.getElementById("rsSumSrc");
+              if (_n) _n.textContent = "⚠ D1 im — số cộng dồn";
+            }
             // 25/8 — GỐC CỦA "TỔNG 2070 mà kho chỉ có 1.971" và "Hôm nay: 0".
             // Khối D1 phía trên ĐÃ lấy đúng số (đếm lại từ bản ghi thật), nhưng ngay sau đó khối này
             // chạy VÔ ĐIỀU KIỆN và GHI ĐÈ bằng `__pushed__` — bộ đếm Increment chỉ cộng, không trừ:

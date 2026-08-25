@@ -949,6 +949,25 @@ async function apiHot(request, env) {
                       loi: (loi && loi.n) || 0, dangchay: (dangchay && dangchay.n) || 0,
                       kenh: (kenh && kenh.results) || [] });
       }
+      // ---- DỌN BẢN GHI JOB CŨ: giữ D1 KHÔNG PHÌNH (25/8/2026) ----
+      // D1 là kho NÓNG, không phải kho lưu trữ. Bảng `render_job` chỉ tăng, mà `apiHotStat` chạy 4
+      // lệnh COUNT trên nó mỗi lượt. Số đo thật: 1.558 dòng -> ~980K rows_read/ngày (19,6% trần
+      // 5 triệu); tăng ~400 dòng/ngày thì **~15 ngày nữa chạm 95%, ~30 ngày là VƯỢT TRẦN**.
+      // Giữ lại N ngày gần nhất -> bảng đứng ở ~5.600 dòng và mức đọc PHẲNG mãi mãi.
+      // Lịch sử không mất: video nằm trên Drive, kịch bản nằm trong sidecar + 2 kho dự phòng.
+      // Dọn xong phải NEO LẠI `nen` = số dòng còn lại, nếu không phần chênh của ô "Tổng" âm.
+      case "don_job_cu": {
+        const ngay = Math.max(3, p.ngay | 0 || 14);
+        const moc = new Date(Date.now() - ngay * 864e5).toISOString();
+        const r = await db.prepare(
+          "DELETE FROM render_job WHERE owner=?1 AND updated_at < ?2").bind(p.owner, moc).run();
+        const con = ((await db.prepare(
+          `SELECT COUNT(*) AS n FROM render_job
+             WHERE owner=?1 AND status='done' AND drive_id IS NOT NULL AND drive_id<>''`)
+          .bind(p.owner).first()) || {}).n || 0;
+        await db.prepare("UPDATE kho_that SET nen=?2 WHERE owner=?1").bind(p.owner, con).run();
+        return json({ ok: true, xoa: (r && r.meta && r.meta.changes) || 0, con_lai: con, giu_ngay: ngay });
+      }
       // ---- SỐ VIDEO THẬT TRONG KHO (plan đếm từ Drive mỗi ngày rồi ghi vào đây) ----
       case "kho_that_ghi": {
         // `nen` = số bản ghi done-có-file NGAY LÚC ĐẾM, để sau này biết đã làm thêm bao nhiêu.
