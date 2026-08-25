@@ -2804,7 +2804,17 @@
       (async function _loadStats(){ try{
         const o=(window.__ownerUid||window.__uid); if(!o) return;
         const snap=await gdocGate(doc(dbJobs!==db?dbJobs:db,"render_stats",o));
-        if(snap.exists()){ const d=snap.to_dict?snap.to_dict():snap.data(); delete d.up; window.__chStats=d; try{_mergeJobs();}catch(_){}}
+        if(snap.exists()){ const d=snap.to_dict?snap.to_dict():snap.data();
+          // 25/8 — "57 kênh" trong khi chỉ có 55. Sổ `render_stats/{owner}` chứa các khoá KÊNH
+          // ({COSMOS:{l,s}, ...}) NHƯNG cũng chứa trường dấu thời gian `at` và cờ `up`. Bản cũ chỉ
+          // `delete d.up` rồi lấy nguyên `Object.keys()` làm danh sách kênh ⇒ `at` thành một "kênh"
+          // tên lạ, 0 video, nằm chình ình cuối ô xổ. Xoá theo TÊN từng trường là đuổi hình bắt
+          // bóng — trường mới thêm sau lại lọt. Lọc theo HÌNH DẠNG: chỉ giữ khoá có giá trị là
+          // object mang l/s (đó mới là bản ghi đếm của một kênh).
+          const sach = {};
+          for(const k in d){ const v = d[k];
+            if(v && typeof v === "object" && ("l" in v || "s" in v)) sach[k] = v; }
+          window.__chStats = sach; try{_mergeJobs();}catch(_){}}
       }catch(e){} finally{ setTimeout(_loadStats, 300000); } })();
       // TẢI THÊM THEO YÊU CẦU (22/8): danh sách thường trực chỉ 100(A)+200(B) doc cho rẻ; muốn xem
       // kho cũ sâu hơn thì bấm nút — mỗi lần bấm nạp thêm 300 doc CŨ HƠN (chỉ tốn đọc khi thật sự cần).
