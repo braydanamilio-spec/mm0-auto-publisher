@@ -3474,9 +3474,27 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
     // 🚩 ĐÁNH DẤU LỖI: gắn cờ vào video -> hiện trong mục "Nghi lỗi/bản cũ".
     window.rsMarkFlaw=async(jobId,flag)=>{ if(!jobId) return;
       try{ await setDoc(doc(dbJobs,"render_jobs",jobId),{flagged:!!flag},{merge:true}); try{toastMsg(flag?"🚩 Đã đánh dấu lỗi":"✓ Đã bỏ đánh dấu");}catch(_){} }catch(e){ try{toastMsg("Lỗi: "+e.message);}catch(_){} } };
+    // TRA JOB DÙNG CHUNG (25/8) — danh sách Firestore KHÔNG còn là nguồn duy nhất từ hôm nay:
+    // thư viện lấy danh sách từ D1 để lọc "Hôm nay" cho đúng, nên phần lớn thẻ là job CHỈ CÓ Ở D1.
+    // Mọi nút tra job bằng `__rsJobsData` rồi `return` lặng đều thành nút chết. Hàm này tìm ở cả
+    // hai nguồn và LUÔN trả về một object (rỗng thay vì undefined) để không ai thoát im lặng nữa.
+    window.__timJob = (jobId) => {
+      if(!jobId) return null;
+      const a = (window.__rsJobsData||[]).find(x=>x.id===jobId);
+      if(a) return a;
+      const c = window.__d1JobsCache||{};
+      for(const k in c){
+        const r = (c[k] && c[k].rows || []).find(x=>x.id===jobId);
+        if(r) return { id:r.id, channel:r.channel, type:r.vtype, title:r.title,
+                       drive_id:r.drive_id, drive_account:r.drive_account||"", status:"done" };
+      }
+      return null;
+    };
+
     // 🔄 RENDER LẠI: tạo yêu cầu render lại ĐÚNG video này (cùng chủ đề) -> bản mới đạt sẽ TỰ THAY THẾ bản cũ.
     window.rsRerender=async(jobId)=>{
-      const j=(window.__rsJobsData||[]).find(x=>x.id===jobId); if(!j) return;
+      const j=window.__timJob(jobId);
+      if(!j){ try{toastMsg("Không tìm thấy bản ghi video này — tải lại trang rồi thử lại.");}catch(_){}; return; }
       if(j.rerender){ try{toastMsg("Video này đã có yêu cầu render lại rồi.");}catch(_){}; return; }
       const fid=j.drive_id||((/\/d\/([^/]+)/.exec(j.preview||"")||[])[1]||"");
       if(!confirm(`⚠️ RENDER LẠI video này?\n\n"${(j.title||j.type||"video").slice(0,60)}"\n\nBản mới (≥90, không lỗi) sẽ TỰ THAY THẾ bản này (bản cũ vào thùng rác).\nNhấn OK để xác nhận, hoặc Cancel để thoát.`)) return;
@@ -3492,10 +3510,18 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
     // Ghi vào thumb_requests; workflow thumb_requests.yml gom mỗi 30' làm một lượt (không kích runner
     // cho từng ảnh lẻ, tránh giành trần 20 job song song với render_cron).
     window.rsRedoThumb=async(jobId,fileId,channel,btn)=>{
-      const j=(window.__rsJobsData||[]).find(x=>x.id===jobId); if(!j) return;
+      // 25/8 — NÚT CHẾT CÂM. Bản cũ: `find(x=>x.id===jobId); if(!j) return;` — thoát KHÔNG MỘT LỜI
+      // khi không thấy job trong `__rsJobsData`. Từ hôm nay thư viện lấy danh sách từ D1 (để lọc
+      // "Hôm nay" không còn ra 0), nên phần lớn thẻ là job CHỈ CÓ Ở D1 — không nằm trong danh sách
+      // Firestore ⇒ bấm nút không có gì xảy ra, không báo lỗi, người dùng tưởng nút hỏng.
+      // Sửa hai chỗ: (1) job không tìm thấy thì VẪN LÀM (mọi thứ cần đã nằm trong tham số),
+      // (2) không đường nào được thoát im lặng — luôn có một câu nói ra chuyện gì đang xảy ra.
+      const j=window.__timJob(jobId) || {};
+      if(!jobId){ try{toastMsg("Thẻ video thiếu mã job — tải lại trang rồi thử lại.");}catch(_){}; return; }
       if(!fileId){ try{toastMsg("Video chưa có trên Drive nên chưa tạo lại thumbnail được.");}catch(_){}; return; }
       if(j.thumb_req){ try{toastMsg("Đã đặt yêu cầu cho video này rồi.");}catch(_){}; return; }
       const o=RSowner();
+      if(!o){ try{toastMsg("Chưa đăng nhập — không đặt được yêu cầu.");}catch(_){}; return; }
       if(btn){ btn.disabled=true; btn.textContent="⏳"; }
       try{
         // attempt = số lần ĐÃ tạo lại -> script đi một đường KHÁC mỗi lần, khỏi ra lại đúng tấm cũ.
@@ -3505,11 +3531,13 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
           attempt:att,status:"pending",created_at:new Date().toISOString()});
         await setDoc(doc(dbJobs,"render_jobs",jobId),{thumb_req:ref.id,thumb_tries:att+1},{merge:true});
         try{toastMsg("🖼 Đã đặt tạo lại thumbnail — cron gom làm trong ~30 phút.");}catch(_){}
-      }catch(e){ if(btn){ btn.disabled=false; btn.textContent="🖼"; } try{toastMsg("Lỗi: "+e.message);}catch(_){} } };
+      }catch(e){ if(btn){ btn.disabled=false; btn.textContent="🖼"; }
+        console.warn("rsRedoThumb hỏng:", e);
+        try{toastMsg("Không đặt được yêu cầu: "+(e && e.message ? e.message : e));}catch(_){} } };
 
     // HỦY render lại — chỉ khi CHƯA bắt đầu (status còn 'pending').
     window.rsCancelRerender=async(jobId)=>{
-      const j=(window.__rsJobsData||[]).find(x=>x.id===jobId); if(!j||!j.rerender_req){ try{toastMsg("Không có yêu cầu để hủy.");}catch(_){}; return; }
+      const j=window.__timJob(jobId); if(!j||!j.rerender_req){ try{toastMsg("Không có yêu cầu để hủy.");}catch(_){}; return; }
       try{ const rd=await gdocGate(doc(dbMeta,"render_requests",j.rerender_req)); const st=rd.exists()?(rd.data().status||""):"";
         if(st!=="pending"){ try{toastMsg("⚠️ Đang render lại hoặc đã xong — KHÔNG hủy được nữa.");}catch(_){}; return; }
         if(!confirm("Hủy yêu cầu render lại video này?")) return;
