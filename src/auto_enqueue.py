@@ -30,7 +30,7 @@ except Exception:
     ZoneInfo = None
 
 SCAN_LIMIT = 40
-DEFAULT_TMPL = os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short")
+DEFAULT_TMPL = (os.environ.get('POSTING_TEMPLATE') or 'balanced_1long_3short')
 
 
 def _owner() -> str:

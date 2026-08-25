@@ -128,7 +128,7 @@ def process_channel(key, ch, templates, safety, tz, dry_run, drive, state, now, 
 
     # Ưu tiên template chọn trên dashboard (Firestore overrides) -> active_template -> env default
     tmpl_name = (overrides or {}).get(key) or ch.get("active_template",
-                os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short"))
+                (os.environ.get('POSTING_TEMPLATE') or 'balanced_1long_3short'))
     template = templates["templates"].get(tmpl_name) or templates["templates"]["balanced_1long_3short"]
 
     # 1) Quét Drive
@@ -232,7 +232,7 @@ def publish_one(it, ch, resolved, drive, state, root, dry_run, now, owner=None, 
     need_fb = "facebook" in plats and resolved.get("fb") and not results.get("facebook", {}).get("id")
     # Trần theo PROJECT (OAuth client): nhiều channel chung 1 client sẽ chung 10.000/ngày (~6 upload)
     _cid = resolved.get("client_id")
-    _proj_cap = int(os.environ.get("YT_UPLOADS_PER_PROJECT", "6"))
+    _proj_cap = int((os.environ.get('YT_UPLOADS_PER_PROJECT') or '6'))
     if need_yt and _cid and state.client_uploads_today(_cid, now) >= _proj_cap:
         print(f"     ⏸ Project (client …{_cid[-10:]}) đã đủ {_proj_cap} upload hôm nay -> để mai (rollover).")
         need_yt = False
@@ -419,7 +419,7 @@ def process_pool(channels_cfg, templates, safety, tz, dry_run, state, now, overr
     for channel, items in groups.items():
         ch = channels_cfg[channel]
         tmpl_name = (overrides or {}).get(channel) or ch.get("active_template",
-                    os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short"))
+                    (os.environ.get('POSTING_TEMPLATE') or 'balanced_1long_3short'))
         template = templates["templates"].get(tmpl_name) or templates["templates"]["balanced_1long_3short"]
         used = {it["publish_at"] for it in items if it.get("publish_at")}
         S.assign_slots(items, template, tz, now, used)
@@ -549,7 +549,7 @@ def process_users(channels_cfg, templates, safety, tz, dry_run, state, now):
                             "privacy": "public", "made_for_kids": False},
                 "branding": {"hashtags": []}}
             tmpl_name = ov_ch.get(channel) or ch_cfg.get("active_template") \
-                or os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short")
+                or (os.environ.get('POSTING_TEMPLATE') or 'balanced_1long_3short')
             template = templates["templates"].get(tmpl_name) or templates["templates"]["balanced_1long_3short"]
             items.sort(key=lambda it: _natkey(it["drive_name"]))   # 01,02,03... trước
             used = {it["publish_at"] for it in items if it.get("publish_at")}
@@ -641,7 +641,7 @@ def main():
 
     # Ghi cấu hình cho dashboard (trang Cài đặt)
     try:
-        default_tmpl = os.environ.get("POSTING_TEMPLATE", "balanced_1long_3short")
+        default_tmpl = (os.environ.get('POSTING_TEMPLATE') or 'balanced_1long_3short')
         ch_tmpl = {k: c.get("active_template", default_tmpl)
                    for k, c in channels["channels"].items() if c.get("enabled")}
         cleanup = {}

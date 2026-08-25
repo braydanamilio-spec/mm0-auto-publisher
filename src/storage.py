@@ -269,7 +269,7 @@ def firestore_pool_accounts() -> list[dict]:
         if key and os.path.exists(key):
             from google.oauth2 import service_account
             from google.cloud import firestore as _fs
-            b2 = _fs.Client(project=os.environ.get("FIREBASE_PROJECT_ID_B2", "mm0-shard-b2"),
+            b2 = _fs.Client(project=(os.environ.get('FIREBASE_PROJECT_ID_B2') or 'mm0-shard-b2'),
                             credentials=service_account.Credentials.from_service_account_file(key))
             rows = _mirror_rows(b2, "B2")
             if rows:
@@ -287,7 +287,7 @@ def firestore_pool_accounts() -> list[dict]:
         _k = os.environ.get("HOT_KEY", "")
         if _k:
             _req = _u.Request(
-                os.environ.get("HOT_URL", "https://mm0-connect.adisondurham-ef1.workers.dev/api/hot")
+                (os.environ.get('HOT_URL') or 'https://mm0-connect.adisondurham-ef1.workers.dev/api/hot')
                 .replace("/api/hot", "/api/drive-pool"),
                 method="POST", data=b"{}",
                 headers={"content-type": "application/json", "x-hot-key": _k,
