@@ -10,11 +10,17 @@
 # Nguyên tắc: sàn = phiên bản đã chạy qua selftest; trần = chặn nhảy MAJOR. Patch trong khoảng vẫn
 # tự cập nhật để nhận vá bảo mật. Mã nguồn không đổi mà hành vi đổi theo ngày cài đặt thì không thể
 # suy luận được sự cố — đó là lý do có trần.
+#
+# 25/8 — TRẦN "<3" KHÔNG ĐỦ, phải hạ xuống dưới bản MINOR hỏng. Publish chết 12 lượt liên tiếp từ
+# 22:16Z 24/8 (8 tiếng không đăng gì) với `400 Invalid database id %28default%29`: firestore 2.29.0
+# + api-core 2.35.0 phát hành ĐÚNG giữa hai lượt cron (21:51Z OK / 22:16Z vỡ) và mã hoá "(default)"
+# thành %28default%29 trong đường gRPC. Web SDK và render (đã ghim constraints riêng) không sao —
+# chỉ khâu cài tự do dính. Đối chiếu bằng log pip của hai run, không đoán.
 google-api-python-client>=2.120,<3
 google-auth>=2.29,<3
 google-auth-oauthlib>=1.2,<2
-google-cloud-firestore>=2.27,<3
-google-api-core>=2.30,<3
+google-cloud-firestore>=2.27,<2.29
+google-api-core>=2.30,<2.35
 grpcio>=1.70,<2
 protobuf>=5,<7
 requests>=2.31,<3
