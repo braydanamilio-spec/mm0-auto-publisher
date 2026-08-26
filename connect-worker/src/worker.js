@@ -1843,10 +1843,13 @@ function ytClients(env) {
 }
 
 // Round-robin: gán channel mới vào client kế tiếp (chia đều tải quota giữa các project).
-async function nextClientIdx(env, at, count) {
+async function nextClientIdx(env, at, count, kind = "youtube") {
+  // Đếm RIÊNG cho từng loại: dùng chung một bộ đếm thì nối 10 kênh YouTube liên tiếp sẽ đẩy kho
+  // Drive kế tiếp vào một app ngẫu nhiên, chia không đều.
+  const doc = kind === "drive" ? "settings/drive_rr" : "settings/yt_rr";
   let n = 0;
-  try { const d = await fsGet(env, at, "settings/yt_rr"); n = (d && d.n) || 0; } catch (_) {}
-  try { await fsPatch(env, at, "settings/yt_rr", { n: n + 1 }, ["n"]); } catch (_) {}
+  try { const d = await fsGet(env, at, doc); n = (d && d.n) || 0; } catch (_) {}
+  try { await fsPatch(env, at, doc, { n: n + 1 }, ["n"]); } catch (_) {}
   return n % count;
 }
 
@@ -1890,13 +1893,21 @@ async function startAuth(url, env) {
   const clients = ytClients(env);
   let ci = 0;
   const chon = (url.searchParams.get("client") || "").trim();
-  if (kind === "youtube" && chon) {
+  // 26/8 — MỞ ĐƯỜNG NHIỀU APP CHO CẢ KHO DRIVE.
+  // Trước đây hai nhánh dưới đây đều khoá `kind === "youtube"`, nên Drive LUÔN lấy `clients[0]`:
+  // 88 kho Drive dồn hết vào MỘT OAuth app. Hậu quả kép:
+  //   • chạm trần 100 người dùng của app đó -> "This app is blocked" khi nối kho mới (đúng cái
+  //     màn hình anh gặp), và thêm app mới cũng vô ích vì Drive không bao giờ chạm tới;
+  //   • rủi ro dồn một chỗ: app đó bị Google hạn chế thì refresh token của CẢ 88 kho chết cùng lúc.
+  // Bản ghi kết nối vốn đã lưu `client_id`+`client_secret` của riêng nó (xem `base` bên dưới),
+  // nên kho cũ vẫn refresh bằng đúng app cũ — thêm app không đụng gì tới 88 kho đang chạy.
+  if (chon) {
     const byId = clients.findIndex((c) => c.id === chon || String(c.id).startsWith(chon));
     const bySo = /^\d+$/.test(chon) ? Number(chon) : -1;
     ci = byId >= 0 ? byId : (bySo >= 0 && bySo < clients.length ? bySo : 0);
-  } else if (kind === "youtube" && clients.length > 1) {
+  } else if (clients.length > 1) {
     const at = await saAccessToken(env);
-    ci = await nextClientIdx(env, at, clients.length);
+    ci = await nextClientIdx(env, at, clients.length, kind);
   }
   const client = clients[ci] || clients[0];
   const st2 = b64url(new TextEncoder().encode(JSON.stringify({ channel, kind, uid, ci })));
