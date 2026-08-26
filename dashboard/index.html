@@ -6316,13 +6316,22 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         </div>`;
       };
       // LỌC theo ô tìm kiếm (tên kênh / nhãn / email)
+      // 26/8 — Ô NÀY TÌM EMAIL RA 0 KẾT QUẢ dù email đó ĐANG HIỆN NGAY TRÊN MÀN HÌNH.
+      // Đo thật: gõ `chaysezaharra` — nhóm `📧 chaysezaharra@gmail.com · 3 kênh` đang bày ra đó —
+      // trả về 0 thẻ. Vì `match` chỉ soi `c.email` (email THẬT của kênh), trong khi tiêu đề nhóm
+      // hiện lên lại là **Gmail anh tự gộp** (`__OVERRIDES.gmail_group`). Hai chuỗi khác nhau:
+      // người dùng gõ đúng thứ họ NHÌN THẤY mà máy đi so với thứ họ không thấy.
+      // Nay soi thêm khoá nhóm — tức so đúng chuỗi đang hiển thị.
+      const gm=(__OVERRIDES.gmail_group)||{};
       const q=($("connSearch")&&$("connSearch").value||"").trim().toLowerCase();
-      const match=(k)=>{ const c=C()[k]||{}; return !q ||
-        (chName(k).toLowerCase().includes(q)) || k.toLowerCase().includes(q) || ((c.email||"").toLowerCase().includes(q)); };
+      const match=(k)=>{ const c=C()[k]||{}; if(!q) return true;
+        const nhom=(gm[k]||"").toLowerCase();
+        return (chName(k).toLowerCase().includes(q)) || k.toLowerCase().includes(q)
+            || ((c.email||"").toLowerCase().includes(q)) || nhom.includes(q)
+            || ((c.channel_title||"").toLowerCase().includes(q)); };
       const shown=all.filter(match);
       // GOM NHÓM theo Gmail: mỗi email -> các kênh dưới nó (minh bạch: 1 mail có mấy kênh)
       // Khoá nhóm = Gmail anh tự gộp (nếu có) > email thật. Brand account -> email @pages.plusgoogle.com (giả).
-      const gm=(__OVERRIDES.gmail_group)||{};
       const isBrand=(e)=> /@pages\.plusgoogle\.com$/i.test(e||"");
       // Gmail anh tự gộp (gm) > email thật. Brand giữ RIÊNG từng cái (Google giấu Gmail -> không tự gộp được).
       const keyOf=(k)=>{ const g=gm[k]; if(g) return g; return (C()[k]&&C()[k].email)||""; };
