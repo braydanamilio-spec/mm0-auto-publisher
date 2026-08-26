@@ -1832,14 +1832,26 @@ const DRIVE_SCOPES = [
 // Nhiều OAuth client (mỗi project = 10.000 quota/ngày) -> scale hàng trăm channel.
 // Đặt secret YT_CLIENTS = JSON: [{"id":"...","secret":"..."},{...}]. Không có -> dùng client đơn.
 function ytClients(env) {
+  // 26/8 — GỘP app đơn CŨ với danh sách MỚI, thay vì để danh sách thay thế hoàn toàn.
+  // Lý do rất thực tế: Google KHÔNG cho xem lại client secret nữa ("Viewing and downloading
+  // client secrets is no longer available"). Secret của app đầu tiên đang nằm an toàn trong
+  // `YT_CLIENT_SECRET` của worker, nhưng không ai đọc lại được để chép vào `YT_CLIENTS`.
+  // Nếu danh sách THAY THẾ app cũ thì muốn thêm app thứ hai phải xoay secret app cũ — đụng vào
+  // thứ 88 kho đang sống nhờ. Gộp lại thì thêm app mới chỉ cần secret của CHÍNH app mới.
+  // (Kho đã nối vẫn refresh bằng `conn.client_id/secret` riêng của nó, không đụng hàm này.)
+  const ra = [];
+  const them = (id, secret) => {
+    if (!id || !secret) return;
+    if (!ra.some((c) => c.id === id)) ra.push({ id, secret });
+  };
+  them(env.YT_CLIENT_ID, env.YT_CLIENT_SECRET);        // app đầu tiên, secret vẫn ở chỗ cũ
   if (env.YT_CLIENTS) {
     try {
       const a = JSON.parse(env.YT_CLIENTS);
-      if (Array.isArray(a) && a.length)
-        return a.map((c) => ({ id: c.id || c.client_id, secret: c.secret || c.client_secret })).filter((c) => c.id && c.secret);
+      if (Array.isArray(a)) a.forEach((c) => them(c.id || c.client_id, c.secret || c.client_secret));
     } catch (_) {}
   }
-  return [{ id: env.YT_CLIENT_ID, secret: env.YT_CLIENT_SECRET }];
+  return ra.length ? ra : [{ id: env.YT_CLIENT_ID, secret: env.YT_CLIENT_SECRET }];
 }
 
 // Round-robin: gán channel mới vào client kế tiếp (chia đều tải quota giữa các project).
