@@ -22,3 +22,21 @@ jobs:
       - name: Kiểm tra cú pháp JS dashboard
         run: |
           node -e "const fs=require('fs');const h=fs.readFileSync('dashboard/index.html','utf8');const m=[...h.matchAll(/<script(?: type=\"module\")?>([\s\S]*?)<\/script>/g)];let bad=0;m.forEach((x,i)=>{try{new Function(x[1].replace(/^\s*import\s.*?;/gm,''))}catch(e){if(!/import|export/.test(e.message)){console.error('script',i,e.message);bad++}}});process.exit(bad?1:0)"
+
+      # 26/8 — Ô "🔍 Tên / gmail…" trong "Duyệt file trong kho" KHÔNG LỌC ĐƯỢC GÌ suốt nhiều ngày.
+      # Nguyên nhân: hai ô tìm kiếm khác nhau cùng mang id="stAccSearch". getElementById chỉ trả về
+      # cái ĐẦU TIÊN, nên hàm lọc của picker đi đọc ô của panel Storage (đang rỗng) => không bao giờ
+      # lọc; và gõ vào ô Storage thì picker lại lọc theo dù không ai gõ vào nó.
+      # Lỗi này im lặng tuyệt đối: không log, không Traceback, chỉ "bấm mà không thấy gì xảy ra".
+      # Chỉ soi phần HTML TĨNH (bỏ <script>) — trong script có chỗ thay chính nó bằng thẻ cùng id,
+      # đó là hợp lệ vì không bao giờ có hai cái cùng lúc.
+      - name: Không được có id trùng trong dashboard
+        run: |
+          node -e "
+          const fs=require('fs');
+          const h=fs.readFileSync('dashboard/index.html','utf8').replace(/<script[\s\S]*?<\/script>/g,'');
+          const d={}; for(const m of h.matchAll(/\sid=\"([\w-]+)\"/g)) d[m[1]]=(d[m[1]]||0)+1;
+          const xau=Object.entries(d).filter(([,n])=>n>1);
+          if(xau.length){ console.error('id bi trung (getElementById chi thay cai dau tien):');
+            xau.forEach(([k,n])=>console.error('  '+k+' x '+n)); process.exit(1); }
+          console.log('OK: '+Object.keys(d).length+' id, khong cai nao trung');"

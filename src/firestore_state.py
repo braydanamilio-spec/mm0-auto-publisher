@@ -62,6 +62,59 @@ def _la_quota(e) -> bool:
             or type(e).__name__ == "ResourceExhausted")
 
 
+# ══════════════════════════════════════════════════════════════════════════════════════════
+# SỔ ĐO LƯỢT FIRESTORE (26/8/2026) — chỉ ĐẾM, không đổi một dòng logic nào
+# ------------------------------------------------------------------------------------------
+# Vì sao thêm: đêm 25/8 project B cạn hạn mức, và em suýt đi tối ưu nhầm chỗ. Đo lại thì
+# render_cron chỉ chạy **13 phiên/ngày** (không phải 30 như em ước) ≈ 24.000 lượt = 48% trần —
+# tức KHÔNG phải thủ phạm chính. Trong khi publish (25 lần) + thumbnail (33) + health-guardian
+# (22) + FB/IG (20) = **100 lượt chạy/ngày** đi qua file này và **không có sổ đo nào cả**.
+# Không đo thì mọi phán đoán về "ai làm cạn quota" đều là đoán mò, và cắt bừa thì hỏng pipeline
+# mà chẳng giải quyết được gì.
+# `_retry` là cửa DUY NHẤT mọi lệnh Firestore ở đây đi qua -> đếm ở đây là đếm được hết.
+_SO_LUOT: dict = {"doc": 0, "ghi": 0, "theo_ham": {}}
+
+# Tên hàm gọi cho biết đó là lệnh GHI hay ĐỌC. Không đoán theo tên biến — liệt kê thẳng.
+_HAM_GHI = ("set", "update", "delete", "add", "commit", "ghi", "save", "mark", "push",
+            "enqueue", "incr", "cool", "reserve", "release", "bump", "sync")
+
+
+def _ghi_so(ten: str) -> None:
+    loai = "ghi" if any(t in ten.lower() for t in _HAM_GHI) else "doc"
+    _SO_LUOT[loai] += 1
+    _SO_LUOT["theo_ham"][ten] = _SO_LUOT["theo_ham"].get(ten, 0) + 1
+
+
+def bao_so_luot() -> str:
+    t = sorted(_SO_LUOT["theo_ham"].items(), key=lambda z: -z[1])[:6]
+    return (f"🧮 Firestore (publish): {_SO_LUOT['ghi']} ghi · {_SO_LUOT['doc']} đọc"
+            + (" | " + " · ".join(f"{k}={v}" for k, v in t) if t else ""))
+
+
+def _xa_so_d1() -> None:
+    """Cuối tiến trình: cộng vào sổ ngân sách CHUNG trên D1 để nhìn được TOÀN HỆ."""
+    if not (_SO_LUOT["doc"] or _SO_LUOT["ghi"]):
+        return
+    print("   " + bao_so_luot())
+    try:
+        import os as _os
+        import sys as _sy
+        _rp = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                            "..", "..", "render-pipeline")
+        if _os.path.isdir(_rp) and _rp not in _sy.path:
+            _sy.path.insert(0, _rp)
+        import hot_db as _H
+        from datetime import datetime as _dt, timezone as _tz
+        _H.ngan_sach_cong(_dt.now(_tz.utc).strftime("%Y-%m-%d"),
+                          _SO_LUOT["doc"], _SO_LUOT["ghi"])
+    except Exception:
+        pass
+
+
+import atexit as _atexit
+_atexit.register(_xa_so_d1)
+
+
 def _retry(fn, tries: int = 5, p: str = "A"):
     """Thử lại khi Firestore 429/RESOURCE_EXHAUSTED (burst đọc/ghi dồn, hết quota tạm) -> KHÔNG để
     burst thoáng qua làm CRASH cả tiến trình (đã gây publish.yml/stats.yml lỗi 'Quota exceeded' hoàn
@@ -74,6 +127,11 @@ def _retry(fn, tries: int = 5, p: str = "A"):
     # sáng hôm sau vừa reset là bị đốt lại ngay, đúng cảnh "khởi động ngày mới cái đốt sạch quota".
     # Nay: gặp 429 lần đầu là ghi nhớ; trong 30' sau đó KHÔNG thử lại nữa, ném luôn cho tầng trên
     # chuyển sang gương/đệm. Burst thật vẫn được thử lại như cũ (vì mốc nghỉ chỉ đặt khi ĐÃ hết lượt).
+    try:
+        import sys as _sys
+        _ghi_so(_sys._getframe(2).f_code.co_name)     # tên hàm gọi -> biết đọc hay ghi
+    except Exception:
+        pass
     for i in range(tries):
         try:
             return fn()

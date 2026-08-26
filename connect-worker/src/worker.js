@@ -47,6 +47,8 @@ export default {
       if (url.pathname === "/api/key-probe") return corsResp(await apiKeyProbe(request, url, env));
       if (url.pathname === "/api/hot") return corsResp(await apiHot(request, env));
       if (url.pathname === "/api/hot-stat") return corsResp(await apiHotStat(url, env));
+      if (url.pathname === "/api/hot-jobs") return corsResp(await apiHotJobs(url, env));
+      if (url.pathname === "/api/hot-chan") return corsResp(await apiHotChan(url, env));
       if (url.pathname === "/api/junk-list") return corsResp(await apiJunkList(request, env));
       if (url.pathname === "/api/drive-pool") return corsResp(await apiDrivePool(request, env));
       if (url.pathname === "/api/junk-scan") return corsResp(await apiJunkScan(request, env));
@@ -984,14 +986,19 @@ async function apiHot(request, env) {
       // ---- GHI NHIỀU JOB TRONG MỘT LỆNH (gộp nhịp ghi của cả luồng) ----
       case "ghi_job_loat": {
         const st = db.prepare(
-          `INSERT INTO render_job (id,owner,channel,vtype,status,step,title,drive_id,queued,created_at,updated_at)
-           VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?10)
+          `INSERT INTO render_job (id,owner,channel,vtype,status,step,title,drive_id,queued,created_at,updated_at,
+                                   drive_account,thumb_id,size_mb,qc)
+           VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?10,?11,?12,?13,?14)
            ON CONFLICT(id) DO UPDATE SET status=?5, step=?6, title=COALESCE(?7,title),
-             drive_id=COALESCE(?8,drive_id), queued=?9, updated_at=?10`);
+             drive_id=COALESCE(?8,drive_id), queued=?9, updated_at=?10,
+             drive_account=COALESCE(?11,drive_account), thumb_id=COALESCE(?12,thumb_id),
+             size_mb=COALESCE(?13,size_mb), qc=COALESCE(?14,qc)`);
         const ds = (p.jobs || []).slice(0, 100);
         if (ds.length) await db.batch(ds.map(j => st.bind(
           j.id, p.owner, j.channel || "", j.vtype || "", j.status || "", j.step || "",
-          j.title || null, j.drive_id || null, j.queued ? 1 : 0, j.at)));
+          j.title || null, j.drive_id || null, j.queued ? 1 : 0, j.at,
+          j.drive_account || null, j.thumb_id || null,
+          (j.size_mb === 0 || j.size_mb) ? j.size_mb : null, (j.qc === 0 || j.qc) ? j.qc : null)));
         return json({ ok: true, n: ds.length });
       }
       // ---- GHI trạng thái job (UPSERT: 1 dòng/job, không đẻ bản ghi rác) ----
@@ -1036,6 +1043,88 @@ async function apiHot(request, env) {
            RETURNING channel`).bind(p.owner, p.phien, p.may, p.gio).first();
         return json({ channel: (r && r.channel) || "" });
       }
+      // ---- ẢNH CHỤP HỒ KEY, DÙNG CHUNG CHO 18 LUỒNG (25/8/2026) ----
+      // Đo trên log thật: mỗi luồng tiêu `merge_keys_A=70` lượt đọc project A, luồng NÀO CŨNG tiêu
+      // (nhánh này lẽ ra chỉ chạy khi hồ key ở B thiếu nhà cung cấp — nhưng B cạn hạn mức GHI nên
+      // sync A->B hỏng vĩnh viễn, "cửa sổ tạm" thành thường trực). 70 x 18 luồng x ~30 phiên/ngày
+      // ≈ 40.000 lượt đọc/ngày trên trần 50.000 của A ⇒ chính nó làm A cạn, kéo theo bảng key,
+      // danh sách kho Drive và mọi thứ khác ở A cùng chết.
+      // Nay: luồng ĐẦU TIÊN đọc A rồi chụp hồ key vào D1; 17 luồng còn lại đọc ảnh chụp, 0 lượt A.
+      case "keys_ghi": {
+        await db.prepare(`CREATE TABLE IF NOT EXISTS key_pool (
+                            owner TEXT PRIMARY KEY, js TEXT, at TEXT)`).run();
+        await db.prepare("INSERT INTO key_pool (owner,js,at) VALUES (?1,?2,?3) "
+                       + "ON CONFLICT(owner) DO UPDATE SET js=excluded.js, at=excluded.at")
+          .bind(p.owner, String(p.js || "[]"), p.at || "").run();
+        return json({ ok: true });
+      }
+      case "keys_doc": {
+        try {
+          const r = await db.prepare("SELECT js, at FROM key_pool WHERE owner=?1").bind(p.owner).first();
+          return json({ js: (r && r.js) || "", at: (r && r.at) || "" });
+        } catch (_) { return json({ js: "", at: "" }); }
+      }
+      // ---- BỘ NHỚ CHUNG CHO 18 LUỒNG (25/8/2026): thứ ĐỔI CHẬM thì đọc một lần rồi dùng chung ----
+      // `top_titles` (tiêu đề video ăn khách nhất của kênh, để Gemini học gu khán giả) tiêu
+      // 2.842 lượt đọc project C MỘT PHIÊN — 48% toàn bộ lượt đọc, và ×30 phiên/ngày là 85.000
+      // trên trần 50.000 của C. Trong khi lượt xem chỉ nhích theo ngày: 18 luồng cùng hỏi lại một
+      // câu giống hệt nhau, mỗi luồng trả tiền riêng.
+      case "nho_ghi": {
+        await db.prepare("CREATE TABLE IF NOT EXISTS bo_nho (k TEXT PRIMARY KEY, js TEXT, at TEXT)").run();
+        await db.prepare("INSERT INTO bo_nho (k,js,at) VALUES (?1,?2,?3) "
+                       + "ON CONFLICT(k) DO UPDATE SET js=excluded.js, at=excluded.at")
+          .bind(String(p.k || ""), String(p.js || ""), p.at || "").run();
+        return json({ ok: true });
+      }
+      case "nho_doc": {
+        try {
+          const r = await db.prepare("SELECT js, at FROM bo_nho WHERE k=?1").bind(String(p.k || "")).first();
+          return json({ js: (r && r.js) || "", at: (r && r.at) || "" });
+        } catch (_) { return json({ js: "", at: "" }); }
+      }
+      // ---- LẤP "KHO CHƯA RÕ" (25/8): bản ghi thời Firestore-nghẽn thiếu drive_account ----
+      // Lượt kiểm kho hằng ngày vốn đã đi qua TỪNG FILE của 73 kho — cho nó nhặt luôn map
+      // file->kho rồi đổ về đây. 0 lượt gọi Drive thêm.
+      case "kho_can_acc": {
+        const r = await db.prepare(
+          `SELECT id, drive_id FROM render_job
+             WHERE owner=?1 AND status='done' AND drive_id IS NOT NULL AND drive_id<>''
+               AND (drive_account IS NULL OR drive_account='') LIMIT 900`)
+          .bind(p.owner).all();
+        return json({ rows: (r && r.results) || [] });
+      }
+      case "thumb_can": {
+        // video done thiếu thumb_id — cùng lượt đi bộ sẽ tra .jpg cùng tên gốc nằm cạnh
+        const r = await db.prepare(
+          `SELECT id, drive_id FROM render_job
+             WHERE owner=?1 AND status='done' AND drive_id IS NOT NULL AND drive_id<>''
+               AND (thumb_id IS NULL OR thumb_id='') LIMIT 900`)
+          .bind(p.owner).all();
+        return json({ rows: (r && r.results) || [] });
+      }
+      case "thumb_ghi": {
+        const st = db.prepare("UPDATE render_job SET thumb_id=?2 WHERE owner=?3 AND drive_id=?1 "
+                            + "AND (thumb_id IS NULL OR thumb_id='')");
+        const ds = (p.pairs || []).slice(0, 200);
+        if (ds.length) await db.batch(ds.map(x => st.bind(x.did, x.tid, p.owner)));
+        return json({ ok: true, n: ds.length });
+      }
+      case "kho_acc_ghi": {
+        const st = db.prepare("UPDATE render_job SET drive_account=?2 WHERE owner=?3 AND drive_id=?1 "
+                            + "AND (drive_account IS NULL OR drive_account='')");
+        const ds = (p.pairs || []).slice(0, 200);
+        if (ds.length) await db.batch(ds.map(x => st.bind(x.did, x.acc, p.owner)));
+        return json({ ok: true, n: ds.length });
+      }
+      // ---- CỬA SỔ THỜI GIAN: nhặt video làm trong khoảng giờ (dọn bệnh theo lô) ----
+      case "job_cuaso": {
+        const r = await db.prepare(
+          `SELECT id, channel, vtype, title, drive_id, drive_account FROM render_job
+             WHERE owner=?1 AND status='done' AND drive_id IS NOT NULL AND drive_id<>''
+               AND updated_at >= ?2 AND updated_at < ?3 LIMIT 400`)
+          .bind(p.owner, p.tu || "", p.den || "9999").all();
+        return json({ rows: (r && r.results) || [] });
+      }
       // ---- NGÂN SÁCH: cộng dồn để bức tường nhìn được TỔNG của cả hệ ----
       case "ngan_sach_cong": {
         await db.prepare(
@@ -1061,6 +1150,67 @@ async function apiHot(request, env) {
 // được khoá ghi của cả kho nóng — hạ cấp bảo mật để lấy một con số thì không đáng.
 // Cổng này chỉ chạy ĐÚNG các phép ĐẾM, không trả về một dòng dữ liệu nào: không key, không token,
 // không tiêu đề video. Lộ ra ngoài thì người ta chỉ biết "kho có bao nhiêu video" — chấp nhận được.
+// DANH SÁCH VIDEO LẤY TỪ D1 (25/8/2026 — anh chụp ảnh "Tất cả kênh (0)" khi lọc Hôm nay, còn
+// 7 ngày thì 85).
+// Thư viện lọc trên `window.__rsJobsData`, tức danh sách đọc từ Firestore B. Hôm nay B ăn 429 nên
+// bản ghi của 399 video làm trong ngày KHÔNG hề có ở B — chúng nằm ở D1 và bản sao B2. Thành ra
+// "Hôm nay" lọc trên một danh sách chỉ còn video của những ngày trước ⇒ đúng 0, còn "7 ngày" vẫn
+// thấy 85 cái cũ. Không phải lỗi biểu thức lọc: lỗi ở chỗ NGUỒN danh sách có thể trống mà không ai
+// biết. D1 luôn có đủ (pipeline ghi thẳng vào đó), nên cho thư viện đọc D1 làm nguồn chính.
+// Lọc NGÀY do chính SQL này làm, dùng ĐÚNG cột và ĐÚNG mốc như `apiHotStat` — hai ô không thể
+// nói hai con số khác nhau nữa.
+// Chi phí: <=400 dòng/lượt, làm mới tối đa 1 lần/5 phút => ~115K dòng đọc/ngày trên trần 5.000.000
+// của gói D1 free (2,3%).
+async function apiHotJobs(url, env) {
+  if (!env.HOT) return json({ error: "D1 chưa gắn" }, 500);
+  const owner = url.searchParams.get("owner") || "";
+  if (!owner) return json({ error: "thiếu owner" }, 400);
+  const ngay = (url.searchParams.get("ngay") || "").slice(0, 10);   // "hôm nay"
+  const tu = url.searchParams.get("tu") || "";                      // mốc N ngày trước (ISO)
+  const gh = Math.min(400, Math.max(1, Number(url.searchParams.get("gh") || 400)));
+  try {
+    const CO_FILE = "status='done' AND drive_id IS NOT NULL AND drive_id<>''";
+    let sql = `SELECT id,channel,vtype,title,drive_id,created_at,updated_at,
+                      drive_account,thumb_id,size_mb,qc
+                 FROM render_job WHERE owner=?1 AND ${CO_FILE}`;
+    const b = [owner];
+    if (ngay) { sql += " AND substr(updated_at,1,10)=?2"; b.push(ngay); }
+    else if (tu) { sql += " AND updated_at >= ?2"; b.push(tu); }
+    sql += ` ORDER BY updated_at DESC LIMIT ${gh}`;
+    const r = await env.HOT.prepare(sql).bind(...b).all();
+    return json({ jobs: (r && r.results) || [] });
+  } catch (e) {
+    return json({ error: String((e && e.message) || e).slice(0, 160) }, 500);
+  }
+}
+
+// ĐẾM VIDEO THEO TỪNG KÊNH, TRÊN CÙNG MỘT NGUỒN VỚI SỐ TỔNG (25/8/2026).
+// Ảnh chụp của anh: ô xổ ghi "Tất cả kênh (2084)" nhưng từng dòng chỉ 7-15 cái, cộng lại chưa
+// tới 600. Vì hai con số ĐẾM Ở HAI NƠI: tổng lấy từ số đếm kho Drive thật, còn số mỗi kênh lấy từ
+// `__chStats`/danh sách Firestore ~200 doc đã bị cắt. Một ô xổ mà tổng không bằng tổng các dòng
+// của chính nó thì không con số nào còn đáng tin.
+// Một truy vấn GROUP BY: chính xác tuyệt đối, ~85 dòng trả về, rẻ hơn mọi cách chắp vá.
+async function apiHotChan(url, env) {
+  if (!env.HOT) return json({ error: "D1 chưa gắn" }, 500);
+  const owner = url.searchParams.get("owner") || "";
+  if (!owner) return json({ error: "thiếu owner" }, 400);
+  const ngay = (url.searchParams.get("ngay") || "").slice(0, 10);
+  const tu = url.searchParams.get("tu") || "";
+  try {
+    const CO_FILE = "status='done' AND drive_id IS NOT NULL AND drive_id<>''";
+    let sql = `SELECT channel, COUNT(*) AS n FROM render_job WHERE owner=?1 AND ${CO_FILE}`;
+    const b = [owner];
+    if (ngay) { sql += " AND substr(updated_at,1,10)=?2"; b.push(ngay); }
+    else if (tu) { sql += " AND updated_at >= ?2"; b.push(tu); }
+    sql += " GROUP BY channel ORDER BY n DESC";
+    const r = await env.HOT.prepare(sql).bind(...b).all();
+    const rows = (r && r.results) || [];
+    return json({ chans: rows, tong: rows.reduce((a, x) => a + (x.n || 0), 0) });
+  } catch (e) {
+    return json({ error: String((e && e.message) || e).slice(0, 160) }, 500);
+  }
+}
+
 async function apiHotStat(url, env) {
   if (!env.HOT) return json({ error: "D1 chưa gắn" }, 500);
   const owner = url.searchParams.get("owner") || "";
@@ -1082,6 +1232,16 @@ async function apiHotStat(url, env) {
     const loi = await q(
       "SELECT COUNT(*) AS n FROM render_job WHERE owner=?1 AND status='failed' AND updated_at > ?2",
       owner, moc2n);
+    // 25/8 — "❌ 21 lỗi MỚI. Gần nhất: STATEWARS (job ma, dọn tay 19/8)" đứng nguyên nhiều ngày
+    // dù hôm đó đã render xong 380 video. Nhãn ô hứa là "lỗi MỚI = sau lần render xong gần nhất",
+    // nhưng bảng lại tính mốc "gần nhất" từ DANH SÁCH 200 doc tải về — danh sách đó không chứa
+    // lượt done mới nên mốc kẹt ở quá khứ, và lỗi ngày 19/8 vĩnh viễn được coi là "mới".
+    // Tính thẳng trên TOÀN bảng D1: có một lượt done sau nó là lỗi đó đã được thay thế.
+    const loi_moi = await q(
+      `SELECT COUNT(*) AS n FROM render_job WHERE owner=?1 AND status='failed'
+         AND updated_at > COALESCE((SELECT MAX(updated_at) FROM render_job
+                                      WHERE owner=?1 AND ${CO_FILE}), '')`,
+      owner);
     const dangchay = await q(
       `SELECT COUNT(*) AS n FROM render_job WHERE owner=?1
          AND status IN ('queued','running','writing','rendering','qc') AND updated_at > ?2`,
@@ -1107,7 +1267,7 @@ async function apiHotStat(url, env) {
     } catch (_) {}
     return json({ tong: tongThat !== null ? tongThat : tong,
                   tong_nguon: tongThat !== null ? "drive" : "banghi",
-                  homnay, loi, dangchay });
+                  homnay, loi, loi_moi, dangchay });
   } catch (e) {
     return json({ error: String((e && e.message) || e).slice(0, 160) }, 500);
   }

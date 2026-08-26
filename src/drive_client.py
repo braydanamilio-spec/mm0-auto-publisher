@@ -194,7 +194,17 @@ class Drive:
 
     # ---- XOÁ file (chỉ được khi token là chủ sở hữu file) ----
     def delete(self, file_id: str):
+        """XOÁ VĨNH VIỄN — không lấy lại được. Dọn hàng loạt thì dùng `trash()`."""
         self.svc.files().delete(fileId=file_id).execute(num_retries=_RETRIES)
+
+    def trash(self, file_id: str):
+        """Chuyển vào THÙNG RÁC — Drive giữ 30 ngày, khôi phục được.
+
+        26/8 — thêm khi dọn kho của 55 kênh thế hệ 1. Xoá hàng nghìn video bằng `delete()` mà lỡ
+        tay hoặc lọc sai một điều kiện là mất trắng, không có đường lùi. Thùng rác cho một cửa
+        sổ 30 ngày để phát hiện và hoàn lại; đổ thùng rác là việc người chủ tự bấm."""
+        self.svc.files().update(fileId=file_id, body={"trashed": True},
+                                supportsAllDrives=True).execute(num_retries=_RETRIES)
 
     # ---- LINK CÔNG KHAI TẠM (để FB/IG tự kéo video — KHÔNG tải-lại qua cron) ----
     def make_public(self, file_id: str) -> str:

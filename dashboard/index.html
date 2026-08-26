@@ -786,7 +786,7 @@
               <button class="chpick-btn" id="stAccBtn" onclick="stAccToggle()" style="min-width:250px"><span class="chpick-all" id="stAccLbl">Chọn tài khoản kho…</span><span class="chpick-caret">▾</span></button>
               <div class="chpick-menu hide" id="stAccMenu" style="min-width:320px">
                 <div style="display:flex;gap:6px;padding:8px 8px 6px;position:sticky;top:0;background:var(--surface);z-index:1;border-bottom:1px solid var(--border2)">
-                  <input id="stAccSearch" type="search" placeholder="🔍 Tên / gmail…" oninput="buildStAccPicker()"
+                  <input id="stAccPickSearch" type="search" placeholder="🔍 Tên / gmail…" oninput="buildStAccPicker()"
                     style="flex:1;min-width:0;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 9px;font-size:12.5px">
                   <select id="stAccYear" onchange="buildStAccPicker()" style="width:78px;font-size:12px;border-radius:8px"><option value="">Mọi năm</option></select>
                   <select id="stAccSort" onchange="buildStAccPicker()" style="width:120px;font-size:12px;border-radius:8px">
@@ -1754,11 +1754,32 @@
     const _khoaDem = (q_) => { try { return "mm0dl:" + (q_ && q_._query ? String(q_._query.path) + JSON.stringify(q_._query.filters || "") : "x"); } catch(_) { return "mm0dl:x"; } };
     const _gia = (docs) => ({ docs: docs.map(d => ({ id: d.id, data: () => d, ...d })), size: docs.length, empty: !docs.length,
                               forEach(f){ this.docs.forEach(f); } });
+    // 26/8 — DẢI CẢNH BÁO "KHÔNG ĐỌC ĐƯỢC". Trước đây truy vấn hỏng thì bảng chỉ hiện 0 dòng,
+    // không phân biệt được với "thật sự không có gì" — anh đã tưởng mất hết key và kho Drive
+    // trong khi Firestore vẫn còn đủ 199 key. Một dải chữ nói thẳng là đủ để khỏi hoảng.
+    let _daKeuRong = false;
+    const _keuRong = () => {
+      if (_daKeuRong) return;                 // nói một lần, không nhấp nháy liên tục
+      _daKeuRong = true;
+      const el = document.createElement("div");
+      el.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:99999;padding:10px 14px;"
+        + "background:#B23A2E;color:#fff;font:600 14px/1.45 system-ui;text-align:center";
+      el.textContent = "⚠️ Không đọc được dữ liệu từ Firestore (thường do project cạn hạn mức ngày). "
+        + "DỮ LIỆU KHÔNG MẤT — bảng đang trống vì không tải được. Thử lại sau khi hạn mức reset.";
+      document.body.appendChild(el);
+    };
+
     const gdGate = async (q_, tuoiGiay) => {
       const k = _khoaDem(q_);
+      // 26/8 — SỬA LỖI "DASHBOARD TRỐNG TRƠN". Bản cũ: tab phụ mà chưa có đệm thì trả MẢNG RỖNG
+      // và không đọc Firestore. Hậu quả anh gặp: mở dashboard thấy 0 key, 0 kho Drive, thêm key
+      // rồi F5 vẫn 0 — dữ liệu còn nguyên (pool vẫn 199 key) nhưng màn hình trắng.
+      // Rỗng vì THIẾU ĐỆM khác hẳn rỗng vì KHÔNG CÓ DỮ LIỆU. Thà tốn ít lượt đọc còn hơn để
+      // người dùng nhìn vào một trang trống rồi tưởng mất sạch.
       if (window.__laTabPhu) {
-        try { const c = JSON.parse(localStorage.getItem(k) || "null"); if (c) return _gia(c); } catch(_){}
-        return _gia([]);                                   // chưa có đệm -> rỗng, KHÔNG đọc Firestore
+        try { const c = JSON.parse(localStorage.getItem(k) || "null");
+              if (c && c.length) return _gia(c); } catch(_){}
+        // không có đệm (hoặc đệm rỗng) -> ĐỌC THẬT, đừng trả trang trắng
       }
       // 25/8 — ĐỆM-TRƯỚC cho cả TAB CHÍNH. `getDocs` mặc định LUÔN hỏi server dù đệm bền có sẵn,
       // nên riêng __loadKeys là 220 lượt đọc MỖI LẦN MỞ TRANG (đo thật sau khi bật IndexedDB:
@@ -1769,21 +1790,36 @@
       if (tuoi > 0) {
         try { const luc = Number(localStorage.getItem(k + ":luc") || 0);
           if (luc && (Date.now() - luc) < tuoi * 1000) {
-            const c = JSON.parse(localStorage.getItem(k) || "null"); if (c) return _gia(c); }
+            const c = JSON.parse(localStorage.getItem(k) || "null");
+            // `c.length === 0` = đệm rỗng do bản lỗi cũ cất lại -> bỏ qua, đọc thật
+            if (c && c.length) return _gia(c); }
         } catch(_){}
       }
       const s2 = await _getDocsGoc(q_);
       try { window.__reads += s2.size || 0; __readMeter(); } catch(_){}
-      try { localStorage.setItem(k, JSON.stringify(s2.docs.map(d => ({ id: d.id, ...d.data() }))));
-            localStorage.setItem(k + ":luc", String(Date.now())); } catch(_){}
+      // 26/8 — KHÔNG BAO GIỜ ĐỆM KẾT QUẢ RỖNG. Truy vấn trả 0 dòng hầu như luôn là DẤU HIỆU LỖI
+      // (project cạn hạn mức, mất mạng, sai quyền) chứ không phải "thật sự không có gì". Đệm nó
+      // lại là nhân bản lỗi ra suốt 30 phút: F5 bao nhiêu lần cũng vẫn thấy trống, vì trang đọc
+      // lại chính cái rỗng nó vừa cất. Đây là gốc của việc anh tưởng mất hết key và kho Drive.
+      try { if (s2.size > 0) {
+              localStorage.setItem(k, JSON.stringify(s2.docs.map(d => ({ id: d.id, ...d.data() }))));
+              localStorage.setItem(k + ":luc", String(Date.now()));
+              localStorage.setItem(k + ":tung", "1");   // đánh dấu: khoá này TỪNG có dữ liệu
+            } else {
+              // 26/8 — RỖNG SAU KHI TỪNG CÓ = gần như chắc chắn LỖI ĐỌC, không phải mất dữ liệu.
+              // Im lặng hiện 0 là điều khiến người dùng tưởng mất sạch key và kho Drive. Nói ra.
+              if (localStorage.getItem(k + ":tung") === "1") { try { _keuRong(); } catch(_){} }
+              localStorage.removeItem(k); localStorage.removeItem(k + ":luc");
+            } } catch(_){}
       return s2;
     };
     const gdocGate = async (r_) => {
       const k = "mm0dl1:" + (r_ && r_.path ? r_.path : "x");
+      // 26/8 — cùng lỗi với gdGate: tab phụ chưa có đệm thì trả "không tồn tại", nên trang hiện
+      // trống trơn trong khi doc vẫn còn nguyên trên Firestore. Không có đệm -> đọc thật.
       if (window.__laTabPhu) {
         try { const c = JSON.parse(localStorage.getItem(k) || "null");
           if (c) return { exists: () => true, id: c.id, data: () => c }; } catch(_){}
-        return { exists: () => false, data: () => ({}) };
       }
       const d = await _getDocGoc(r_);
       try { window.__reads += 1; __readMeter(); } catch(_){}
@@ -5304,7 +5340,12 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         const opts='<option value="">Mọi năm</option>'+years.map(y=>`<option value="${y}">${y}</option>`).join("");
         if(yrSel.innerHTML!==opts){ const keepY=yrSel.value; yrSel.innerHTML=opts; if(years.includes(keepY)) yrSel.value=keepY; }
       }
-      const q=((($("stAccSearch")||{}).value)||"").trim().toLowerCase();
+      // 26/8 — Ô NÀY TỪNG KHÔNG LỌC ĐƯỢC GÌ. Có HAI ô tìm kiếm cùng mang id "stAccSearch": ô lọc
+      // kho ở panel Storage và ô này (trong "📂 Duyệt file trong kho"). `getElementById` chỉ trả về
+      // cái ĐẦU TIÊN trong tài liệu, nên gõ vào đây thì hàm lại đi đọc ô kia (đang rỗng) => danh
+      // sách không bao giờ lọc; ngược lại gõ vào ô Storage thì picker lọc theo, dù không ai gõ.
+      // Đo trên trang thật 77 kho: gõ "adisondurham" vào ô này -> vẫn hiện đủ 77.
+      const q=((($("stAccPickSearch")||{}).value)||"").trim().toLowerCase();
       const yr=(($("stAccYear")||{}).value)||"";
       const sortBy=(($("stAccSort")||{}).value)||"name";
       let filtered=accs.filter(a=>{
