@@ -113,6 +113,32 @@ def _het_han_muc(e) -> bool:
 POOL_TTL = 1800    # giây (23/8: 10' -> 30'; danh sách kho gần như bất biến, kho mới nhận sau ≤30')
 
 
+# ── BẢN GHI KHO HỎNG CẤU TRÚC: LOẠI TỪ GỐC, KHÔNG PHẢI "NGỦ 12H" (26/8/2026) ─────────────────
+# Anh nhắc nhiều lần: ADISONDURHAM báo hỏng, em bảo đã xử lý, rồi nó vẫn báo. Đây là lý do:
+#   • `_bao_kho_chet` cho kho chết NGỦ 12 TIẾNG rồi tự thử lại — đúng cho kho token hết hạn, vì
+#     anh kết nối lại là nó sống, không phải nhớ xoá cờ;
+#   • nhưng bản ghi ADISONDURHAM có `root: "undefined"` — chuỗi "undefined" lọt qua mọi bộ lọc
+#     `if c.get("root")` vì nó TRUTHY. Thư mục đó không tồn tại và sẽ không bao giờ tồn tại.
+#     Kết nối lại tạo bản ghi MỚI; bản hỏng nằm nguyên đó, cứ 12 tiếng lại được thử một lần, hỏng
+#     một lần, ghi log một lần — vô hạn.
+# Hỏng CẤU TRÚC khác hẳn hỏng TẠM THỜI: nó phải bị loại ngay từ khâu đọc danh sách, không được
+# đếm là kho còn chỗ, không được tốn một lượt gọi Drive nào.
+_ROOT_RAC = {"undefined", "null", "none", "nan", "false", "0", "-"}
+_DA_KEU_ROOT_RAC = set()
+
+
+def _root_xai_duoc(c: dict) -> bool:
+    r = str(c.get("root") or "").strip()
+    if r and r.lower() not in _ROOT_RAC:
+        return True
+    ten = str(c.get("channel") or c.get("name") or "?")
+    if ten not in _DA_KEU_ROOT_RAC:
+        _DA_KEU_ROOT_RAC.add(ten)
+        print(f"  🧟 bản ghi kho '{ten}' hỏng cấu trúc (root={r!r}) — LOẠI HẲN, không tính là kho. "
+              f"Muốn dùng lại thì xoá bản ghi này ở dashboard rồi Kết nối lại.")
+    return False
+
+
 def firestore_pool_accounts() -> list[dict]:
     """Tài khoản Drive đã 'Kết nối' qua dashboard (Firestore) — token do Worker ghi.
 
@@ -148,7 +174,7 @@ def firestore_pool_accounts() -> list[dict]:
                  "creds": {"client_id": c["client_id"], "client_secret": c["client_secret"],
                            "refresh_token": c["refresh_token"]}}
                 for c in (_sx.get("accs") or [])
-                if c.get("refresh_token") and c.get("root") and c.get("client_id")]
+                if c.get("refresh_token") and _root_xai_duoc(c) and c.get("client_id")]
 
     def _b2_client():
         # 24/8 tối — B2 BỊ BỎ QUA IM LẶNG. Bước "Sao lưu kho key" của job plan không truyền
@@ -193,7 +219,7 @@ def firestore_pool_accounts() -> list[dict]:
                      "creds": {"client_id": c["client_id"], "client_secret": c["client_secret"],
                                "refresh_token": c["refresh_token"]}}
                     for c in (_sx.get("accs") or [])
-                    if c.get("refresh_token") and c.get("root") and c.get("client_id")]
+                    if c.get("refresh_token") and _root_xai_duoc(c) and c.get("client_id")]
             if _out:
                 _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), _out
                 return _out
@@ -217,7 +243,7 @@ def firestore_pool_accounts() -> list[dict]:
             from firestore_state import State
             out = []
             for c in State().list_connections("drive"):
-                if c.get("refresh_token") and c.get("root"):
+                if c.get("refresh_token") and _root_xai_duoc(c):
                     out.append({
                         "name": c.get("channel", "drive"),
                         "root": c["root"], "cap_gb": c.get("cap_gb", 14),
@@ -244,7 +270,7 @@ def firestore_pool_accounts() -> list[dict]:
         out = []
         for d in db.collection("connections_mirror").stream():
             c = d.to_dict() or {}
-            if c.get("refresh_token") and c.get("root"):
+            if c.get("refresh_token") and _root_xai_duoc(c):
                 out.append({
                     "name": c.get("channel", "drive"),
                     "root": c["root"], "cap_gb": c.get("cap_gb", 14),
