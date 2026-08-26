@@ -1885,23 +1885,62 @@ function ytClients(env) {
   // thứ 88 kho đang sống nhờ. Gộp lại thì thêm app mới chỉ cần secret của CHÍNH app mới.
   // (Kho đã nối vẫn refresh bằng `conn.client_id/secret` riêng của nó, không đụng hàm này.)
   const ra = [];
-  const them = (id, secret, goc = false) => {
+  // `kieu` quyết định CẢ scope xin lẫn trần số kho, vì hai thứ đó là một chuyện:
+  //   "full" -> scope `auth/drive` (RESTRICTED) -> Google áp trần 100 tài khoản TRỌN ĐỜI project;
+  //   "file" -> scope `drive.file` (non-sensitive) -> KHÔNG có trần, không cần duyệt.
+  // App đầu tiên mặc định "full" vì 88 kho đang chạy đã cấp quyền theo scope đó — không được đổi.
+  // Mọi app thêm sau mặc định "file": không bị chặn, không ăn trần.
+  const them = (id, secret, kieu) => {
     if (!id || !secret) return;
-    // `goc` = app đầu tiên. Nó đang ĐẦY user-cap (100/100) và cấp quyền theo scope `drive` FULL;
-    // hai điều đó quyết định cả việc chọn app lẫn scope xin, nên phải đi kèm dữ liệu.
-    if (!ra.some((c) => c.id === id)) ra.push({ id, secret, goc });
+    if (!ra.some((c) => c.id === id))
+      ra.push({ id, secret, kieu, tran: kieu === "full" ? 100 : Infinity });
   };
-  them(env.YT_CLIENT_ID, env.YT_CLIENT_SECRET, true);  // app đầu tiên, secret vẫn ở chỗ cũ
+  them(env.YT_CLIENT_ID, env.YT_CLIENT_SECRET, "full");  // app đầu tiên, secret vẫn ở chỗ cũ
   if (env.YT_CLIENTS) {
     try {
       const a = JSON.parse(env.YT_CLIENTS);
-      if (Array.isArray(a)) a.forEach((c) => them(c.id || c.client_id, c.secret || c.client_secret));
+      if (Array.isArray(a))
+        a.forEach((c) => them(c.id || c.client_id, c.secret || c.client_secret, c.kieu || "file"));
     } catch (_) {}
   }
-  return ra.length ? ra : [{ id: env.YT_CLIENT_ID, secret: env.YT_CLIENT_SECRET }];
+  return ra.length ? ra : [{ id: env.YT_CLIENT_ID, secret: env.YT_CLIENT_SECRET, kieu: "full", tran: 100 }];
 }
 
 // Round-robin: gán channel mới vào client kế tiếp (chia đều tải quota giữa các project).
+// ĐẾM SỐ KHO ĐANG DÙNG TỪNG APP — đọc thẳng bản sao thẻ kết nối trong KV.
+//
+// 26/8 — anh nói đúng: "tưởng nó phải tự điều hướng chứ". Bản đầu của em viết CỨNG "app đầu tiên
+// đã đầy" thành một cờ trong mã. Cứng như vậy thì thêm app thứ ba là phải sửa tay, và nếu app thứ
+// hai đầy thì không ai biết — người dùng chỉ thấy màn hình "This app is blocked" trống trơn của
+// Google, không có cách nào lần ra.
+//
+// Số kho mỗi app đang giữ vốn đã nằm sẵn trong KV (`conn:{uid}__{acc}__drive` có `client_id`),
+// nên hệ ĐO ĐƯỢC thay vì phải khai. Không tốn lượt đọc Firestore nào.
+async function demKhoTheoApp(env) {
+  const dem = {};
+  if (!env.MM0_CACHE) return dem;
+  let cursor;
+  do {
+    const r = await env.MM0_CACHE.list({ prefix: "conn:", cursor });
+    for (const k of r.keys) {
+      if (!/__drive$/.test(k.name)) continue;
+      try {
+        const c = JSON.parse((await env.MM0_CACHE.get(k.name)) || "null");
+        if (c && c.client_id) dem[c.client_id] = (dem[c.client_id] || 0) + 1;
+      } catch (_) {}
+    }
+    cursor = r.list_complete ? null : r.cursor;
+  } while (cursor);
+  return dem;
+}
+
+/** App còn chỗ cho một kho Drive mới, kèm lý do khi không còn cái nào. */
+async function appConCho(env, clients) {
+  const dem = await demKhoTheoApp(env);
+  const con = clients.filter((c) => (dem[c.id] || 0) < c.tran);
+  return { con, dem };
+}
+
 async function nextClientIdx(env, at, count, kind = "youtube") {
   // Đếm RIÊNG cho từng loại: dùng chung một bộ đếm thì nối 10 kênh YouTube liên tiếp sẽ đẩy kho
   // Drive kế tiếp vào một app ngẫu nhiên, chia không đều.
@@ -1969,9 +2008,21 @@ async function startAuth(url, env) {
     ci = await nextClientIdx(env, at, clients.length, kind);
   }
   let client = clients[ci] || clients[0];
-  if (kind === "drive" && client.goc && clients.some((c) => !c.goc)) {
-    // App gốc đã 100/100 user-cap: gửi người dùng vào đó là chắc chắn hỏng. Đẩy sang app còn chỗ.
-    const con = clients.filter((c) => !c.goc);
+  if (kind === "drive") {
+    // TỰ ĐO RỒI TỰ CHỌN. Google không cho Worker biết app nào đã đầy — người dùng chỉ nhận màn
+    // hình "This app is blocked" trống trơn, không có mã lỗi nào để hệ bắt và xoay app. Nên phải
+    // biết TRƯỚC: đếm số kho từng app đang giữ (đọc KV, không tốn Firestore) rồi loại app đã chạm
+    // trần. App scope `drive.file` có trần vô hạn nên luôn còn chỗ.
+    const { con, dem } = await appConCho(env, clients);
+    if (!con.length) {
+      const bang = clients.map((c) =>
+        `<li><code>${escapeHtml(c.id.split("-")[0])}…</code> — ${dem[c.id] || 0}/${c.tran === Infinity ? "∞" : c.tran} kho (${c.kieu})</li>`).join("");
+      return page("Hết chỗ nối kho", `<p>Mọi app OAuth đều đã chạm trần tài khoản của Google:</p>
+        <ul>${bang}</ul>
+        <p>Tạo thêm một OAuth client mới rồi thêm vào secret <code>YT_CLIENTS</code>
+        (<code>{"id":"…","secret":"…"}</code>). App thêm sau mặc định dùng <code>drive.file</code>
+        nên <b>không có trần</b> và không cần Google duyệt.</p>`);
+    }
     client = con[ci % con.length];
   }
   const st2 = b64url(new TextEncoder().encode(JSON.stringify({ channel, kind, uid, ci })));
@@ -1979,7 +2030,7 @@ async function startAuth(url, env) {
     client_id: client.id,
     redirect_uri: redirect,
     response_type: "code",
-    scope: kind === "drive" ? (client.goc ? DRIVE_SCOPES : DRIVE_SCOPES_FILE) : YT_SCOPES,
+    scope: kind === "drive" ? (client.kieu === "full" ? DRIVE_SCOPES : DRIVE_SCOPES_FILE) : YT_SCOPES,
     access_type: "offline",
     prompt: "consent",           // luôn xin refresh_token mới
     include_granted_scopes: "true",
