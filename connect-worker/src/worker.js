@@ -970,6 +970,31 @@ async function apiHot(request, env) {
         await db.prepare("UPDATE kho_that SET nen=?2 WHERE owner=?1").bind(p.owner, con).run();
         return json({ ok: true, xoa: (r && r.meta && r.meta.changes) || 0, con_lai: con, giu_ngay: ngay });
       }
+      // ---- XOÁ JOB THEO KÊNH (dọn thế hệ cũ) ----
+      // 26/8 — dọn 55 kênh cũ mà chỉ xoá ở Firestore là chưa xong: gallery đọc D1 khi có lọc ngày
+      // (`rsGalInto`: `if(dv && __d1OK) d1rows = await rsD1Jobs(dv)`). Xoá một nơi thì video cũ
+      // biến mất ở "Mọi lúc" rồi hiện lại nguyên vẹn khi bấm "Hôm nay" — tệ hơn là không xoá, vì
+      // nhìn như đã dọn xong. Hai kho dữ liệu song song thì lệnh dọn phải đụng cả hai.
+      case "don_job_kenh": {
+        const ten = (p.kenh || []).map((x) => String(x || "").toUpperCase()).filter(Boolean);
+        if (!ten.length) return json({ ok: false, loi: "thiếu danh sách kênh" }, 400);
+        let xoa = 0;
+        // chia lô 100 để câu SQL không dài quá giới hạn tham số của D1
+        for (let i = 0; i < ten.length; i += 100) {
+          const lo = ten.slice(i, i + 100);
+          const oz = lo.map((_, k) => `?${k + 2}`).join(",");
+          const r = await db.prepare(
+            `DELETE FROM render_job WHERE owner=?1 AND UPPER(channel) IN (${oz})`)
+            .bind(p.owner, ...lo).run();
+          xoa += (r && r.meta && r.meta.changes) || 0;
+        }
+        const con = ((await db.prepare(
+          `SELECT COUNT(*) AS n FROM render_job
+             WHERE owner=?1 AND status='done' AND drive_id IS NOT NULL AND drive_id<>''`)
+          .bind(p.owner).first()) || {}).n || 0;
+        await db.prepare("UPDATE kho_that SET nen=?2 WHERE owner=?1").bind(p.owner, con).run();
+        return json({ ok: true, xoa, con_lai: con });
+      }
       // ---- SỐ VIDEO THẬT TRONG KHO (plan đếm từ Drive mỗi ngày rồi ghi vào đây) ----
       case "kho_that_ghi": {
         // `nen` = số bản ghi done-có-file NGAY LÚC ĐẾM, để sau này biết đã làm thêm bao nhiêu.
@@ -1829,6 +1854,26 @@ const DRIVE_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email",
 ].join(" ");
 
+// 26/8 — SCOPE THEO TỪNG APP, không đổi đồng loạt.
+// Anh gặp "This app is blocked" khi nối kho qua app MỚI. Nguyên nhân đo được trên Console:
+//   • app cũ (mm0-auto-publisher): In production · **100 users / 100 user cap** — Google gắn nhãn
+//     `Danger`. ĐÃ ĐẦY, không nhận thêm tài khoản nào nữa.
+//   • app mới (mm0-drive-04): In production · 0/100 · banner "Your app requires verification".
+//     Nó khai `.../auth/drive` = **restricted scope**. App production mà chưa được duyệt thì
+//     Google CHẶN THẲNG loại scope này — không có nút "Advanced → vẫn tiếp tục" như scope thường.
+//
+// `drive.file` là NON-SENSITIVE: không cần duyệt, KHÔNG ăn user-cap (tức bỏ luôn trần 100 tài
+// khoản), token không hết hạn 7 ngày. Đủ dùng vì hệ chỉ đụng file do chính app tạo.
+//
+// Vì sao KHÔNG đổi cả hệ sang drive.file: đúng chuyện đã làm và đã phải rollback ngày 23/8 —
+// 70 kho đang chạy có refresh_token cấp theo scope `drive`, đổi trong code là mọi lần refresh trả
+// `invalid_scope`, toàn bộ kho chết cùng lúc. Chú thích ngay trên đã ghi cách đúng: "phải đổi
+// TỪNG KHO ĐÚNG LÚC RECONNECT". App mới chưa có kho nào, nên nó chính là chỗ đúng lúc đó.
+const DRIVE_SCOPES_FILE = [
+  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/userinfo.email",
+].join(" ");
+
 // Nhiều OAuth client (mỗi project = 10.000 quota/ngày) -> scale hàng trăm channel.
 // Đặt secret YT_CLIENTS = JSON: [{"id":"...","secret":"..."},{...}]. Không có -> dùng client đơn.
 function ytClients(env) {
@@ -1840,11 +1885,13 @@ function ytClients(env) {
   // thứ 88 kho đang sống nhờ. Gộp lại thì thêm app mới chỉ cần secret của CHÍNH app mới.
   // (Kho đã nối vẫn refresh bằng `conn.client_id/secret` riêng của nó, không đụng hàm này.)
   const ra = [];
-  const them = (id, secret) => {
+  const them = (id, secret, goc = false) => {
     if (!id || !secret) return;
-    if (!ra.some((c) => c.id === id)) ra.push({ id, secret });
+    // `goc` = app đầu tiên. Nó đang ĐẦY user-cap (100/100) và cấp quyền theo scope `drive` FULL;
+    // hai điều đó quyết định cả việc chọn app lẫn scope xin, nên phải đi kèm dữ liệu.
+    if (!ra.some((c) => c.id === id)) ra.push({ id, secret, goc });
   };
-  them(env.YT_CLIENT_ID, env.YT_CLIENT_SECRET);        // app đầu tiên, secret vẫn ở chỗ cũ
+  them(env.YT_CLIENT_ID, env.YT_CLIENT_SECRET, true);  // app đầu tiên, secret vẫn ở chỗ cũ
   if (env.YT_CLIENTS) {
     try {
       const a = JSON.parse(env.YT_CLIENTS);
@@ -1921,13 +1968,18 @@ async function startAuth(url, env) {
     const at = await saAccessToken(env);
     ci = await nextClientIdx(env, at, clients.length, kind);
   }
-  const client = clients[ci] || clients[0];
+  let client = clients[ci] || clients[0];
+  if (kind === "drive" && client.goc && clients.some((c) => !c.goc)) {
+    // App gốc đã 100/100 user-cap: gửi người dùng vào đó là chắc chắn hỏng. Đẩy sang app còn chỗ.
+    const con = clients.filter((c) => !c.goc);
+    client = con[ci % con.length];
+  }
   const st2 = b64url(new TextEncoder().encode(JSON.stringify({ channel, kind, uid, ci })));
   const p = new URLSearchParams({
     client_id: client.id,
     redirect_uri: redirect,
     response_type: "code",
-    scope: kind === "drive" ? DRIVE_SCOPES : YT_SCOPES,
+    scope: kind === "drive" ? (client.goc ? DRIVE_SCOPES : DRIVE_SCOPES_FILE) : YT_SCOPES,
     access_type: "offline",
     prompt: "consent",           // luôn xin refresh_token mới
     include_granted_scopes: "true",
