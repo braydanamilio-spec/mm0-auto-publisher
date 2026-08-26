@@ -1690,7 +1690,13 @@
       document.getElementById("app").classList.toggle("hide", !user);
       if (user) {
         window.__uid = user.uid; window.__uEmail = user.email;
-        window.__getIdToken = () => user.getIdToken();
+        // 26/8 — `getIdToken()` TRẦN trả token đang CACHE. Token Firebase sống 1 tiếng, và bộ hẹn
+        // giờ tự làm mới của SDK chỉ chạy khi tab còn thức — máy ngủ / tab bị Chrome treo thì nó
+        // không chạy, nên cú bấm đầu tiên gửi đi một token đã hết hạn, worker từ chối. Anh F5 thì
+        // Firebase cấp token mới ⇒ lần hai được. Đúng triệu chứng "connect lỗi, F5 rồi mới nối được".
+        // Thêm cờ `force`: chỗ nào quan trọng và hiếm (kết nối tài khoản) thì ép mint token mới;
+        // chỗ gọi liên tục (tải ảnh) vẫn dùng cache để khỏi tốn lượt.
+        window.__getIdToken = (force) => user.getIdToken(!!force);
         const im = document.getElementById("uImg");
         if (user.photoURL) im.src = user.photoURL; else im.style.display = "none";
         document.getElementById("uEmail").textContent = user.email;
@@ -4188,8 +4194,10 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       if (!WORKER_URL || WORKER_URL === "PASTE_WORKER_URL")
         return alert("Chưa cấu hình WORKER_URL trong dashboard/index.html. Deploy Worker rồi dán URL vào.");
       // channel để TRỐNG cũng được: Worker tự lấy đúng tên kênh thật làm nhãn.
-      let tk=""; try { tk = await window.__getIdToken(); } catch(e){}
-      if (!tk) return alert("Chưa đăng nhập.");
+      // ÉP TOKEN MỚI cho luồng kết nối — xem chú thích ở `__getIdToken`.
+      let tk=""; try { tk = await window.__getIdToken(true); } catch(e){}
+      if (!tk) { try { tk = await window.__getIdToken(); } catch(_){} }   // mạng chập -> thử token cache
+      if (!tk) return alert("Chưa đăng nhập, hoặc mạng đang chập. Thử lại sau vài giây.");
       window.open(`${WORKER_URL}/auth/start?channel=${encodeURIComponent(channel)}&kind=${kind}&t=${encodeURIComponent(tk)}`, "_blank");
     }
     let __V=[], __C={}, __K={}, __STORAGE=null, __SETTINGS=null, __OVERRIDES={};
