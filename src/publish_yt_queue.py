@@ -84,8 +84,27 @@ def run(dry_run: bool = False):
                 continue
 
         owner_drives = [c for c in drive_conns if c.get("owner") == owner]
-        dc = next((c for c in owner_drives if acct and (c.get("name") == acct or c.get("email") == acct)), None) \
-            or (owner_drives[0] if owner_drives else None)
+        # 27/8 — ĐỪNG IM LẶNG RƠI VỀ KHO ĐẦU DANH SÁCH.
+        #
+        # Bản cũ: không khớp `drive_account` thì lấy `owner_drives[0]` — MỘT TÀI KHOẢN KHÁC — rồi
+        # tải file bằng khoá của nó. Trước nay còn chạy được là nhờ `upload_to_queue` mở file cho
+        # "anyone with link", nên khoá nào cũng đọc được qua id.
+        # Chuyện đó SẮP HẾT ĐÚNG: kho nối từ 27/8 dùng scope `drive.file`, mà `drive.file` chỉ thấy
+        # file do CHÍNH app đó tạo — công khai hay không cũng vậy. Kho `drive.file` lọt vào vị trí
+        # đầu danh sách là mọi job không khớp tên kho sẽ 404, với thông báo "không thấy Drive
+        # account" hoặc lỗi tải chung chung — không chỉ được về đâu.
+        # Nên: khớp đúng thì dùng đúng; KHÔNG khớp thì vẫn thử, nhưng NÓI RA là đang đoán, và thử
+        # vài kho chứ không cắm đầu vào đúng một cái.
+        _khop = [c for c in owner_drives if acct and (c.get("name") == acct or c.get("email") == acct)]
+        if _khop:
+            _ung = _khop[:1]
+        else:
+            _ung = owner_drives[:5]
+            if _ung:
+                print(f"     ⚠️ job không ghi kho nguồn khớp được (drive_account={acct!r}) — "
+                      f"thử lần lượt {len(_ung)} kho đầu. Kho scope `drive.file` sẽ KHÔNG đọc được "
+                      f"file của app khác, đây là lý do chính đáng để job này hỏng.")
+        dc = _ung[0] if _ung else None
         if not dc:
             state.update_yt_queue(it["id"], {"status": "failed", "error": "không thấy Drive account"}); continue
 
@@ -120,9 +139,25 @@ def run(dry_run: bool = False):
         caption_specs = []
         attempts = it.get("attempts", 0) + 1
         try:
-            drv = ST.Drive.from_oauth({"client_id": dc["client_id"], "client_secret": dc["client_secret"],
-                                       "refresh_token": dc["refresh_token"]})
-            drv.download(fid, tmp)
+            # Thử lần lượt các kho ứng viên: khớp tên thì danh sách chỉ có 1 (không tốn thêm gì);
+            # không khớp thì mới thực sự dò. Lỗi của kho cuối cùng được ném lên để nhánh `except`
+            # phía dưới xử đúng loại (quota / hỏng / thử lại).
+            drv, _loi_tai = None, None
+            for _c in _ung:
+                try:
+                    _d = ST.Drive.from_oauth({"client_id": _c["client_id"], "client_secret": _c["client_secret"],
+                                              "refresh_token": _c["refresh_token"]})
+                    _d.download(fid, tmp)
+                    drv, dc = _d, _c
+                    if len(_ung) > 1:
+                        print(f"     ✔ đọc được file từ kho {_c.get('name')}")
+                    break
+                except Exception as _e:
+                    _loi_tai = _e
+                    if len(_ung) > 1:
+                        print(f"     · kho {_c.get('name')} không đọc được: {str(_e)[:70]}")
+            if drv is None:
+                raise (_loi_tai or RuntimeError("không tải được file từ kho nào"))
             # THUMBNAIL có sẵn (import từ Drive) -> tải + đặt làm thumbnail YouTube
             if it.get("thumbnail_file_id"):
                 try:

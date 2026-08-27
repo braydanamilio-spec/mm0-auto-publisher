@@ -718,6 +718,18 @@ async function apiAnalytics(request, url, env) {
 
 // POST /api/disconnect {t, channel, kind}  -> GỠ kênh/kho khỏi tài khoản quản lý
 //   Xoá doc connections + channels/storage_accounts, và thu hồi (revoke) token Google.
+// Xoá mọi dấu "kho chết" trong D1. Phải DELETE chứ không ghi đè: lệnh `key_nghi_ghi` dùng
+// `ON CONFLICT ... SET den = max(den, ?3)` — thời gian nghỉ chỉ có thể DÀI THÊM, không bao giờ
+// ngắn lại, nên ghi một mốc quá khứ vào đó là vô nghĩa. Đây chính là lý do trước nay không có
+// đường nào gỡ cờ ngoài việc ngồi đợi đủ 12 tiếng.
+async function hoiSinhKho(env, root, khoaThe) {
+  if (!env.HOT) return;
+  try {
+    if (root) await env.HOT.prepare("DELETE FROM key_nghi WHERE kid=?1").bind("kho:" + root).run();
+    if (khoaThe) await env.HOT.prepare("DELETE FROM the_ket_noi WHERE khoa=?1").bind(khoaThe).run();
+  } catch (_) {}
+}
+
 async function apiDisconnect(request, url, env) {
   const body = request.method === "POST" ? await request.json().catch(() => ({})) : {};
   const g = (k) => body[k] != null ? body[k] : url.searchParams.get(k);
@@ -727,10 +739,22 @@ async function apiDisconnect(request, url, env) {
   const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
   const at = await saAccessToken(env);
   // Thu hồi quyền Google (best-effort) rồi mới xoá
+  // 27/8 — GỠ KHO PHẢI DỌN CẢ BẢN SAO Ở D1, KHÔNG CHỈ XOÁ DOC FIRESTORE.
+  // Anh báo "không disconnect được": bản cũ xoá `connections` + `storage_accounts` rồi dừng, để
+  // lại thẻ đệm `the_ket_noi` (có thể dựng kho sống lại với refresh_token cũ) và cờ `kho:<root>`
+  // (khiến kho nối lại sau đó vẫn bị bỏ qua). Gỡ mà còn sót bản sao thì không phải gỡ.
+  let _root = "";
   try {
     const conn = await fsGet(env, at, `connections/${uid}__${channel}__${kind}`);
+    _root = (conn && conn.root) || "";
     if (conn && conn.refresh_token)
       await fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(conn.refresh_token), { method: "POST" });
+  } catch (_) {}
+  try {
+    if (env.HOT) {
+      await env.HOT.prepare("DELETE FROM the_ket_noi WHERE khoa=?1").bind(`${uid}__${channel}`).run();
+      if (_root) await env.HOT.prepare("DELETE FROM key_nghi WHERE kid=?1").bind("kho:" + _root).run();
+    }
   } catch (_) {}
   await fsDelete(env, at, `connections/${uid}__${channel}__${kind}`);
   if (kind === "youtube") await fsDelete(env, at, `channels/${uid}__${channel}`);
@@ -2266,11 +2290,34 @@ async function callback(url, env) {
       if (q.limit) cap_gb = Math.max(1, Math.floor(Number(q.limit) / 1e9) - 1); // chừa ~1GB
       used = Number(q.usage || 0);
     } catch (_) {}
-    await fsPatch(env, at, `connections/${uid}__${label}__drive`, { ...base, root, cap_gb });
+    // 27/8 — NỐI LẠI PHẢI XOÁ SẠCH MỌI DẤU "CHẾT", KHÔNG CHỈ THAY TOKEN.
+    //
+    // Anh báo: "token báo hỏng, connect lại nó không tự cập nhật đè lên token cũ". Token THÌ CÓ
+    // đè — cái không đè là các dấu hiệu ĐÁNH DẤU KHO ĐÃ CHẾT, và chúng nằm ở BA nơi khác nhau:
+    //
+    //   a) `health:"dead"` + `health_err` ghi bền trên CẢ `connections` lẫn `storage_accounts`
+    //      (do `firestore_state.set_drive_health`). Bản vá cũ chỉ liệt kê 7 trường trong
+    //      updateMask, mà `health` không có trong đó -> `fsPatch` gộp, nên `dead` sống sót. Đó là
+    //      chữ "⚠️ token hỏng" đỏ chót anh vẫn thấy sau khi nối lại xong xuôi.
+    //      Tệ hơn: `set_drive_health` có chốt `if (prev === new) return false`, nên khi nào chưa
+    //      có ai đẩy thành công qua kho này thì nó KHÔNG BAO GIỜ tự lật lại thành "ok".
+    //
+    //   b) cờ `kho:<root>` trong bảng D1 `key_nghi` (do `storage._bao_kho_chet`), cho kho nghỉ 12
+    //      tiếng. Chú thích chỗ đó hứa "kết nối lại là tự sống" — lời hứa SAI, chẳng ai xoá cả.
+    //      Và vì `ensureDriveFolder` tìm thấy ĐÚNG thư mục MM0-STORE cũ nên `root` không đổi, cờ
+    //      khớp y nguyên. Nối lại mười lần cũng thế.
+    //
+    //   c) thẻ đệm `the_ket_noi` trong D1 — bản sao thẻ kết nối, có thể trả về refresh_token CŨ.
+    //
+    // Nối lại là hành động nói rõ "kho này sống, tin tôi đi". Vậy thì phải xoá cả ba, ngay đây.
+    const _sach = { health: "", health_err: "", health_at: "" };
+    await fsPatch(env, at, `connections/${uid}__${label}__drive`, { ...base, root, cap_gb, ..._sach });
     await fsPatch(env, at, `storage_accounts/${uid}__${label}`,
       { name: label, owner: uid, email, cap_gb, used, root,
-        connected_at: new Date().toISOString() },
-      ["name", "owner", "email", "cap_gb", "used", "root", "connected_at"]);
+        connected_at: new Date().toISOString(), ..._sach },
+      ["name", "owner", "email", "cap_gb", "used", "root", "connected_at",
+       "health", "health_err", "health_at"]);
+    await hoiSinhKho(env, root, `${uid}__${label}`);
     connectedName = label;
   } else {
     // Lấy thông tin kênh THẬT (title/subs/id) TRƯỚC -> tự đặt nhãn theo tên kênh nếu để trống
