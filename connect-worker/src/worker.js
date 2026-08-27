@@ -1595,6 +1595,33 @@ async function fsListStorageAccounts(env, at, uid) {
   return names;
 }
 
+// 27/8 — MỘT GMAIL = MỘT KHO, DÙ NỐI LẠI BAO NHIÊU LẦN.
+//
+// Nhãn kho được suy ra từ email khi người dùng để trống, nhưng nếu lần nối lại họ GÕ một cái tên
+// thì nhãn đổi -> sinh ra bản ghi THỨ HAI cho cùng một tài khoản Google. Hậu quả đúng như sự cố
+// ADISONDURHAM: hai bản ghi cùng trỏ về một Drive, một bản mang `refresh_token` cũ đã chết, và
+// mỗi lượt đẩy lại tông vào bản chết một lần. Nặng hơn: video cũ ghi `drive_account` theo nhãn
+// CŨ, nên đường đăng bài không tra ra kho nguồn nữa.
+// Nên: email đã có kho thì DÙNG LẠI ĐÚNG NHÃN ĐÓ, bỏ qua tên người dùng vừa gõ. Đổi tên kho là
+// việc riêng, có đường riêng — không được lẫn vào đường nối lại.
+async function nhanKhoTheoEmail(env, at, uid, email) {
+  if (!email) return "";
+  try {
+    const u = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery`;
+    const body = { structuredQuery: { from: [{ collectionId: "storage_accounts" }], where: { compositeFilter: { op: "AND", filters: [
+      { fieldFilter: { field: { fieldPath: "owner" }, op: "EQUAL", value: { stringValue: uid } } },
+      { fieldFilter: { field: { fieldPath: "email" }, op: "EQUAL", value: { stringValue: email } } },
+    ] } } } };
+    const res = await fetch(u, { method: "POST", headers: { Authorization: `Bearer ${at}`, "content-type": "application/json" }, body: JSON.stringify(body) });
+    if (!res.ok) return "";
+    for (const r of (await res.json()) || []) {
+      const nm = r.document && r.document.fields && r.document.fields.name;
+      if (nm && nm.stringValue) return nm.stringValue;
+    }
+  } catch (_) {}
+  return "";
+}
+
 async function apiDriveStream(request, url, env) {
   const t = url.searchParams.get("t"), account0 = url.searchParams.get("account"), fileId = url.searchParams.get("fileId");
   const uid = await verifyIdToken(t, env.FIREBASE_PROJECT_ID);
@@ -2277,9 +2304,20 @@ async function callback(url, env) {
   if (kind === "drive") {
     // Nhãn kho: người dùng để trống -> tự đặt theo phần đầu email
     label = channel || slugLabel((email || "").split("@")[0]) || "STORE";
+    // Gmail này đã có kho rồi thì bám đúng nhãn cũ (xem `nhanKhoTheoEmail`) — nối lại KHÔNG được
+    // đẻ ra bản ghi thứ hai, vì video cũ đang ghi `drive_account` theo nhãn đó.
+    const _nhanCu = await nhanKhoTheoEmail(env, at, uid, email);
+    if (_nhanCu && _nhanCu !== label) {
+      console.log(`nối lại ${email}: giữ nhãn kho cũ "${_nhanCu}" (bỏ qua "${label}") để video cũ không mất đường tra`);
+      label = _nhanCu;
+    }
     base.channel = label;
-    // tạo/tìm folder kho "MM0-STORE" trong tài khoản Drive này
-    const root = await ensureDriveFolder(tok.access_token, "MM0-STORE");
+    // Kho cũ (nếu từng nối) là NGUỒN SỰ THẬT về thư mục gốc — xem `rootGiuNguyen`.
+    const _cu = await fsGet(env, at, `storage_accounts/${uid}__${label}`).catch(() => null);
+    const _rr = await rootGiuNguyen(tok.access_token, _cu && _cu.root);
+    const root = _rr.root;
+    // Đổi root nghĩa là video cũ nằm lại chỗ khác -> phải giữ dấu vết, không được ghi đè im lặng.
+    const _vet = (!_rr.giu && _cu && _cu.root && _cu.root !== root) ? { root_cu: String(_cu.root) } : {};
     // Đọc DUNG LƯỢNG THẬT của tài khoản (free 15GB hay Google One 100GB/2TB) -> dùng cả 2
     let cap_gb = 14, used = 0;
     try {
@@ -2314,9 +2352,9 @@ async function callback(url, env) {
     await fsPatch(env, at, `connections/${uid}__${label}__drive`, { ...base, root, cap_gb, ..._sach });
     await fsPatch(env, at, `storage_accounts/${uid}__${label}`,
       { name: label, owner: uid, email, cap_gb, used, root,
-        connected_at: new Date().toISOString(), ..._sach },
+        connected_at: new Date().toISOString(), ..._sach, ..._vet },
       ["name", "owner", "email", "cap_gb", "used", "root", "connected_at",
-       "health", "health_err", "health_at"]);
+       "health", "health_err", "health_at", ...Object.keys(_vet)]);
     await hoiSinhKho(env, root, `${uid}__${label}`);
     connectedName = label;
   } else {
@@ -2415,6 +2453,38 @@ async function fbCallback(url, env, uid, code, redirect) {
     `<p>✅ Đã kết nối <b>${list.length}</b> Page${igCount ? ` · <b>${igCount}</b> có Instagram` : ""}: ${list.map(p => escapeHtml(p.name)).join(", ")}.</p>
      <p>👥 Nhóm quản lý (tự nhận): <b>${escapeHtml(fb_owner_name || "—")}</b>${fb_owner_id ? ` <code>UID ${escapeHtml(String(fb_owner_id))}</code>` : ""} — các Page trên đã tự gom về nhóm này.</p>
      <p>Quản lý ở tab <b>Mạng xã hội</b> trên dashboard.</p>`, "facebook");
+}
+
+// 27/8 — NỐI LẠI PHẢI TRỎ VỀ ĐÚNG KHO CŨ, KHÔNG ĐƯỢC ĐẺ KHO MỚI.
+//
+// Anh hỏi: "disconnect rồi nối lại thì video cũ có sao không, còn đọc được chứ?"
+// File thì KHÔNG BAO GIỜ mất — `apiDisconnect` chỉ xoá doc Firestore và thu hồi token, không đụng
+// một byte nào trên Drive; bản ghi video (`render_jobs`) cũng còn nguyên với `drive_file_id`.
+// Nhưng có một đường mất mát KÍN mà `ensureDriveFolder` mở ra:
+//
+//   Nó tìm thư mục THEO TÊN. Với kho scope `drive.file`, lệnh tìm chỉ thấy file do CHÍNH app tạo.
+//   Thu hồi token xong, quyền theo-từng-file có thể mất -> lệnh tìm trả rỗng -> hàm ĐẺ RA một
+//   "MM0-STORE" thứ hai, id khác -> `fsPatch` ghi đè `root` -> hệ trỏ vào thư mục rỗng, còn toàn
+//   bộ video cũ nằm lại thư mục cũ mà không còn ai biết id của nó.
+//
+// Không mất file, nhưng mất ĐƯỜNG TỚI FILE — mà với người dùng thì hai chuyện đó như nhau.
+//
+// Nên thứ tự đúng là: root ĐÃ GHI trong sổ là nguồn sự thật. Chỉ đi tìm/đẻ mới khi nó thật sự
+// không dùng được nữa. Và nếu buộc phải đổi thì GIỮ LẠI id cũ trong `root_cu` — để còn đường
+// quay về, thay vì ghi đè rồi mất dấu vĩnh viễn.
+async function rootGiuNguyen(accessToken, rootCu) {
+  if (rootCu && !["undefined", "null", "none", "-", "0"].includes(String(rootCu).toLowerCase())) {
+    try {
+      const r = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(rootCu)}?fields=id,trashed`,
+        { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (r.ok) {
+        const d = await r.json();
+        if (d && d.id && !d.trashed) return { root: d.id, giu: true };
+      }
+    } catch (_) {}
+  }
+  return { root: await ensureDriveFolder(accessToken, "MM0-STORE"), giu: false };
 }
 
 async function ensureDriveFolder(accessToken, name) {
