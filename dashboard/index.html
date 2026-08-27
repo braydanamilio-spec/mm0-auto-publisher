@@ -1930,7 +1930,12 @@
         try { const snap = await gdGate(query(collection(_appFor("storage_accounts"),"storage_accounts"), where("owner","==",(window.__ownerUid||window.__uid))));
           // health/health_at/health_err do publisher tự ghi mỗi phiên (chỉ khi ĐỔI trạng thái) -> hiện
           // token sống/chết mà KHÔNG phải đọc thêm collection nào, cũng không cần bấm nút 🩺.
-          const accounts = snap.docs.map(d=>{const v=d.data();return {name:v.name, email:v.email, root:v.root||v.folder_id||"", used:v.used||0, cap:(v.cap_gb||14)*1e9, connected_at:v.connected_at||"", health:v.health||"", health_at:v.health_at||"", health_err:v.health_err||""};});
+          // 27/8 — BẢN TRÙNG ĐÃ RÚT KHỎI HỒ THÌ KHÔNG ĐƯỢC HIỆN, KHÔNG ĐƯỢC ĐẾM.
+          // connect-worker không xoá bản ghi trùng (xoá thì video cũ ghi nhãn đó mất đường tra) mà
+          // đánh cờ `pool:false` + `trung_voi`. Cờ chỉ có nghĩa nếu bên ĐỌC tôn trọng — còn hiện ra
+          // thì tổng dung lượng vẫn phồng gấp đôi so với chỗ thật, đúng cái nó sinh ra để chặn.
+          // Vắng trường = tính (93 bản ghi đang chạy chưa có nó).
+          const accounts = snap.docs.map(d=>({...d.data(),_id:d.id})).filter(v=>v.pool!==false).map(v=>({name:v.name, email:v.email, root:v.root||v.folder_id||"", used:v.used||0, cap:(v.cap_gb||14)*1e9, connected_at:v.connected_at||"", health:v.health||"", health_at:v.health_at||"", health_err:v.health_err||""}));
           window.setStorage(accounts.length ? {accounts} : null); } catch(e){} };
       window.__loadStorage();
       // 27/8 — CÙNG LỖI VỚI BỘ ĐẾM KHO Ở RENDER STUDIO, CHỈ KHÁC TRANG.
@@ -2904,10 +2909,17 @@
       // đoạn NÀY thêm sau nên bị sót, âm thầm mở thêm listener y hệt, đốt quota gấp đôi mỗi ngày dashboard
       // mở tab Render Studio. FIX: load-once (getDocs) + refresh khi quay lại tab, giống hệt pattern đã có.
       const cntOnce=async(coll,elid)=>{ try{ const s=await gdGate(q(coll)); const e=document.getElementById(elid); if(e)e.textContent=s.size; return s; }catch(_){ return null; } };
-      const loadDriveTotal=async()=>{ const s=await gdGate(q("storage_accounts")); const d=document.getElementById("rsTotDrive"); if(d)d.textContent=s.size;
-        let used=0,cap=0; s.docs.forEach(x=>{const a=x.data();used+=(a.used||0);cap+=(a.cap_gb||15)*1e9;});
+      const loadDriveTotal=async()=>{ const s=await gdGate(q("storage_accounts"));
+        // Bỏ bản trùng đã rút khỏi hồ (`pool:false`) — xem chú thích ở `__loadStorage`.
+        const _ho=s.docs.map(x=>x.data()).filter(a=>a.pool!==false);
+        const d=document.getElementById("rsTotDrive"); if(d)d.textContent=_ho.length;
+        // 27/8 — DÙNG ĐÚNG `cap_gb` NHƯ BỘ ĐẨY (mặc định 14, chừa 1GB), không phải 15.
+        // Lệch 1GB/kho nghe nhỏ, nhưng nhân 93 kho là màn hình báo dư ~93GB sức chứa mà bộ đẩy sẽ
+        // không bao giờ đụng tới — tức là một con số không có thật, và nó chỉ lộ ra đúng lúc kho
+        // sắp đầy, là lúc tệ nhất để phát hiện.
+        let used=0,cap=0; _ho.forEach(a=>{used+=(a.used||0);cap+=(a.cap_gb||14)*1e9;});
         const pct=cap?Math.round(used/cap*100):0;
-        const pe=document.getElementById("rsDrivePct"); if(pe)pe.textContent=`💾 Kho: ${(used/1e9).toFixed(1)}/${(cap/1e9).toFixed(0)} GB (${pct}% đầy) · ${s.size} tài khoản`;
+        const pe=document.getElementById("rsDrivePct"); if(pe)pe.textContent=`💾 Kho: ${(used/1e9).toFixed(1)}/${(cap/1e9).toFixed(0)} GB (${pct}% đầy) · ${_ho.length} tài khoản`;
         const w=document.getElementById("rsDriveWarn"); if(w){ if(pct>=85){w.style.display="block";w.textContent=`⚠️ Kho Drive đã ${pct}% đầy! Thêm tài khoản Google (Storage → Connect) hoặc bật cleanup archive để tránh gián đoạn.`;} else w.style.display="none"; } };
       const _rsResRefresh=()=>{ loadDriveTotal().catch(()=>{}); cntOnce("channels","rsTotYT"); cntOnce("fb_pages","rsTotFB"); };
       _rsResRefresh();

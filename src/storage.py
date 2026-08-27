@@ -139,6 +139,18 @@ def _root_xai_duoc(c: dict) -> bool:
     return False
 
 
+def _trong_ho(c: dict) -> bool:
+    """Bản ghi này có được tính vào HỒ KHO không.
+
+    27/8 — cơ chế chống trùng ở connect-worker KHÔNG XOÁ bản ghi trùng (xoá thì video cũ ghi nhãn
+    đó mất đường tra), mà rút chúng khỏi hồ bằng cờ `pool: false` + `trung_voi`. Cờ ấy chỉ có
+    nghĩa nếu MỌI nơi đọc hồ đều tôn trọng nó — đánh dấu mà bên đọc vẫn tính thì vẫn đếm nhầm,
+    vẫn tông vào bản ghi mang refresh_token chết, tức là không sửa được gì.
+    Mặc định TÍNH: 93 bản ghi đang chạy chưa có trường này, và vắng trường không phải là bị loại.
+    """
+    return c.get("pool") is not False
+
+
 def firestore_pool_accounts() -> list[dict]:
     """Tài khoản Drive đã 'Kết nối' qua dashboard (Firestore) — token do Worker ghi.
 
@@ -174,7 +186,7 @@ def firestore_pool_accounts() -> list[dict]:
                  "creds": {"client_id": c["client_id"], "client_secret": c["client_secret"],
                            "refresh_token": c["refresh_token"]}}
                 for c in (_sx.get("accs") or [])
-                if c.get("refresh_token") and _root_xai_duoc(c) and c.get("client_id")]
+                if c.get("refresh_token") and _root_xai_duoc(c) and _trong_ho(c) and c.get("client_id")]
 
     def _b2_client():
         # 24/8 tối — B2 BỊ BỎ QUA IM LẶNG. Bước "Sao lưu kho key" của job plan không truyền
@@ -219,7 +231,7 @@ def firestore_pool_accounts() -> list[dict]:
                      "creds": {"client_id": c["client_id"], "client_secret": c["client_secret"],
                                "refresh_token": c["refresh_token"]}}
                     for c in (_sx.get("accs") or [])
-                    if c.get("refresh_token") and _root_xai_duoc(c) and c.get("client_id")]
+                    if c.get("refresh_token") and _root_xai_duoc(c) and _trong_ho(c) and c.get("client_id")]
             if _out:
                 _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), _out
                 return _out
@@ -243,7 +255,7 @@ def firestore_pool_accounts() -> list[dict]:
             from firestore_state import State
             out = []
             for c in State().list_connections("drive"):
-                if c.get("refresh_token") and _root_xai_duoc(c):
+                if c.get("refresh_token") and _root_xai_duoc(c) and _trong_ho(c):
                     out.append({
                         "name": c.get("channel", "drive"),
                         "root": c["root"], "cap_gb": c.get("cap_gb", 14),
@@ -270,7 +282,7 @@ def firestore_pool_accounts() -> list[dict]:
         out = []
         for d in db.collection("connections_mirror").stream():
             c = d.to_dict() or {}
-            if c.get("refresh_token") and _root_xai_duoc(c):
+            if c.get("refresh_token") and _root_xai_duoc(c) and _trong_ho(c):
                 out.append({
                     "name": c.get("channel", "drive"),
                     "root": c["root"], "cap_gb": c.get("cap_gb", 14),

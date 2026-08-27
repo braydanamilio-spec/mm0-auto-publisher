@@ -32,6 +32,11 @@ export default {
    * của GitHub, không được phép thành chỗ hỏng mới.
    */
   async scheduled(event, env, ctx) {
+    // Quét sức khoẻ kho ĐẶT TRƯỚC dòng thoát sớm bên dưới: thiếu `GH_TOKEN` là chuyện của nhịp
+    // render, không được kéo theo việc kiểm token chết chung.
+    if (_denLuotQuet(event)) {
+      try { await quetSucKhoeKho(env); } catch (e) { console.log("quét kho lỗi:", String(e).slice(0, 120)); }
+    }
     if (!env.GH_TOKEN || !env.GH_REPO) return;
     try {
       const r = await fetch(`https://api.github.com/repos/${env.GH_REPO}/dispatches`, {
@@ -1624,31 +1629,141 @@ async function fsListStorageAccounts(env, at, uid) {
   return names;
 }
 
-// 27/8 — MỘT GMAIL = MỘT KHO, DÙ NỐI LẠI BAO NHIÊU LẦN.
+// 27/8 — MỘT TÀI KHOẢN GOOGLE = MỘT KHO, NỐI LẠI BAO NHIÊU LẦN CŨNG THẾ.
 //
-// Nhãn kho được suy ra từ email khi người dùng để trống, nhưng nếu lần nối lại họ GÕ một cái tên
-// thì nhãn đổi -> sinh ra bản ghi THỨ HAI cho cùng một tài khoản Google. Hậu quả đúng như sự cố
-// ADISONDURHAM: hai bản ghi cùng trỏ về một Drive, một bản mang `refresh_token` cũ đã chết, và
-// mỗi lượt đẩy lại tông vào bản chết một lần. Nặng hơn: video cũ ghi `drive_account` theo nhãn
-// CŨ, nên đường đăng bài không tra ra kho nguồn nữa.
-// Nên: email đã có kho thì DÙNG LẠI ĐÚNG NHÃN ĐÓ, bỏ qua tên người dùng vừa gõ. Đổi tên kho là
-// việc riêng, có đường riêng — không được lẫn vào đường nối lại.
-async function nhanKhoTheoEmail(env, at, uid, email) {
-  if (!email) return "";
+// Kho trùng không chỉ làm sai con số. Nó gây đúng ba chuyện đã từng xảy ra:
+//   • ĐẾM LOẠN: 1 tài khoản 15GB hiện thành 2 kho -> tổng dung lượng phồng lên gấp đôi so với
+//     chỗ thật sự có, rồi hệ tưởng còn chỗ trong khi Google đã đầy;
+//   • BẢN GHI MA: bản cũ giữ `refresh_token` đã chết, mỗi lượt đẩy lại tông vào nó một lần, hỏng
+//     một lần, ghi log một lần — đúng sự cố ADISONDURHAM;
+//   • MẤT ĐƯỜNG TRA: video cũ ghi `drive_account` theo nhãn cũ, đường đăng bài tra không ra.
+//
+// Nhận dạng theo BA TẦNG, mạnh xuống yếu:
+//   1. `gid` — mã tài khoản Google (trường `id` của userinfo). Không bao giờ đổi, kể cả khi đổi
+//      tên hiển thị hay địa chỉ thư. Đây mới là danh tính thật.
+//   2. `email` — bền trên thực tế nhưng vẫn đổi được, và bản ghi cũ có thể chưa có `gid`.
+//   3. `root` — id thư mục MM0-STORE. Trùng root thì chắc chắn cùng một Drive.
+// Khớp BẤT KỲ tầng nào là cùng một kho.
+//
+// Truy vấn CHỈ lọc theo `owner` (một trường) rồi sàng trong mã. Cố ý: truy vấn nhiều trường của
+// Firestore phụ thuộc vào chỉ mục, mà chỉ mục thiếu thì lệnh ném lỗi và hàm này lặng lẽ trả rỗng
+// -> lại đẻ kho trùng, đúng thứ nó sinh ra để chặn. Cơ chế chống trùng không được phép phụ thuộc
+// vào một thứ có thể vắng mặt.
+async function timKhoTrung(env, at, uid, dau) {
+  const ra = { canonical: null, trung: [] };
   try {
     const u = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery`;
-    const body = { structuredQuery: { from: [{ collectionId: "storage_accounts" }], where: { compositeFilter: { op: "AND", filters: [
-      { fieldFilter: { field: { fieldPath: "owner" }, op: "EQUAL", value: { stringValue: uid } } },
-      { fieldFilter: { field: { fieldPath: "email" }, op: "EQUAL", value: { stringValue: email } } },
-    ] } } } };
+    const body = { structuredQuery: { from: [{ collectionId: "storage_accounts" }],
+      where: { fieldFilter: { field: { fieldPath: "owner" }, op: "EQUAL", value: { stringValue: uid } } } } };
     const res = await fetch(u, { method: "POST", headers: { Authorization: `Bearer ${at}`, "content-type": "application/json" }, body: JSON.stringify(body) });
-    if (!res.ok) return "";
+    if (!res.ok) return ra;
+    const S = (f, k) => (f && f[k] && f[k].stringValue) || "";
+    const khop = [];
     for (const r of (await res.json()) || []) {
-      const nm = r.document && r.document.fields && r.document.fields.name;
-      if (nm && nm.stringValue) return nm.stringValue;
+      const f = r.document && r.document.fields;
+      if (!f) continue;
+      const c = { name: S(f, "name"), email: S(f, "email"), gid: S(f, "gid"),
+                  root: S(f, "root"), luc: S(f, "connected_at") };
+      if (!c.name) continue;
+      const laMot = (dau.gid && c.gid && c.gid === dau.gid)
+                 || (dau.email && c.email && c.email.toLowerCase() === dau.email.toLowerCase())
+                 || (dau.root && c.root && c.root === dau.root);
+      if (laMot) khop.push(c);
     }
+    if (!khop.length) return ra;
+    // Bản ghi CŨ NHẤT làm chuẩn: video đã đẩy trước đó ghi `drive_account` theo nhãn đó, nên giữ
+    // nó là giữ đường tra cho nhiều video nhất. Không có giờ thì xếp theo tên cho ổn định — cùng
+    // một dữ liệu vào phải ra cùng một kết quả, dù chạy lại bao nhiêu lần.
+    khop.sort((a, b) => (a.luc || "9999").localeCompare(b.luc || "9999") || a.name.localeCompare(b.name));
+    ra.canonical = khop[0];
+    ra.trung = khop.slice(1).map((x) => x.name);
   } catch (_) {}
-  return "";
+  return ra;
+}
+
+// ── KIỂM TOKEN KHO: TỰ ĐỘNG, RẢI ĐỀU, GẦN NHƯ KHÔNG TỐN GÌ (27/8/2026) ───────────────────────
+//
+// Trước đây trạng thái token chỉ đúng khi (a) người dùng tự bấm 🩺 — mà kết quả không được ghi
+// lại, hoặc (b) publisher tình cờ chạm vào kho đó. Kho bị đánh dấu chết thì bị bỏ qua, nên không
+// bao giờ được chạm, nên không bao giờ hết chết. Nút bấm tay không phải cơ chế: nó đòi người
+// nhớ bấm, đúng lúc, đúng kho.
+//
+// Nay: cron 30' vốn đã chạy sẵn cho nhịp render, ghé qua kiểm vài kho mỗi lượt.
+//
+// VÌ SAO RẺ:
+//   • mỗi kho tốn 1 lượt đổi refresh_token với Google — MIỄN PHÍ, không đụng hạn mức nào của mình;
+//   • Firestore: 1 truy vấn/lượt cron + tối đa 5 lượt ghi. Ngày ~48 lượt cron = ~240 ghi, trong
+//     khi hạn mức free là 20.000/ngày;
+//   • Cloudflare giới hạn 50 subrequest mỗi lần chạy -> 5 kho × ~4 lượt gọi ≈ 22, còn dư rộng.
+//
+// NHỊP KIỂM khác nhau theo trạng thái, vì hai chiều sai có giá khác nhau:
+//   • chưa kiểm bao giờ  -> ưu tiên cao nhất (mù hoàn toàn);
+//   • đang báo HỎNG      -> kiểm lại sau 3h. Anh sửa xong thì hệ phải nhận ra NHANH, vì suốt thời
+//                           gian chưa nhận ra là kho tốt nằm không;
+//   • đang báo SỐNG      -> 24h là đủ. Kho đang sống mà hỏng đột ngột thì lượt ĐẨY THẬT sẽ phát
+//                           hiện ngay và tự ghi lại (`set_drive_health`) — không cần quét dày.
+// 93 kho, mỗi lượt 5 cái => quét giáp một vòng trong ~10 tiếng.
+const KIEM_KHO_MOI_LUOT = 8;
+
+// CHỈ QUÉT Ở NHỊP ĐẦU GIỜ. Cron là `*/30 * * * *` nên bắn 48 lượt/ngày; quét cả 48 lượt thì mỗi
+// ngày tốn ~4.500 lượt ĐỌC Firestore chỉ để hỏi "có ai tới hạn chưa" — mà phần lớn câu trả lời là
+// "chưa". Chạy ở nhịp phút < 30 (tức :00) là 24 lượt/ngày, giảm một nửa chi phí đọc.
+// Công suất vẫn dư: 24 lượt × 8 kho = 192 lượt kiểm/ngày, trong khi 93 kho ở nhịp 24h chỉ cần 93.
+// Cách chặn này không tốn gì: đọc giờ của chính sự kiện, không cần thêm một lượt lưu trữ nào.
+function _denLuotQuet(event) {
+  try {
+    const t = event && event.scheduledTime ? new Date(event.scheduledTime) : new Date();
+    return t.getUTCMinutes() < 30;
+  } catch (_) { return true; }
+}
+
+function _hanKiem(health, luc) {
+  if (!luc) return 0;                                   // chưa kiểm bao giờ -> ưu tiên cao nhất
+  const t = Date.parse(luc);
+  if (!t) return 0;
+  return t + (health === "dead" ? 3 : 24) * 3600 * 1000;
+}
+
+async function quetSucKhoeKho(env) {
+  const at = await saAccessToken(env);
+  const u = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery`;
+  const res = await fetch(u, { method: "POST",
+    headers: { Authorization: `Bearer ${at}`, "content-type": "application/json" },
+    body: JSON.stringify({ structuredQuery: { from: [{ collectionId: "storage_accounts" }] } }) });
+  if (!res.ok) return;
+  const S = (f, k) => (f && f[k] && f[k].stringValue) || "";
+  const now = Date.now();
+  const den = [];
+  for (const r of (await res.json()) || []) {
+    const f = r.document && r.document.fields;
+    if (!f) continue;
+    // Bản trùng đã rút khỏi hồ thì khỏi kiểm — nó không được dùng để đẩy, kiểm chỉ tốn thêm.
+    if (f.pool && f.pool.booleanValue === false) continue;
+    const name = S(f, "name"), owner = S(f, "owner");
+    if (!name || !owner) continue;
+    const han = _hanKiem(S(f, "health"), S(f, "health_at"));
+    if (han <= now) den.push({ name, owner, root: S(f, "root"), han });
+  }
+  if (!den.length) return;
+  den.sort((a, b) => a.han - b.han);                    // quá hạn lâu nhất đi trước
+  let ok = 0, hong = 0;
+  for (const k of den.slice(0, KIEM_KHO_MOI_LUOT)) {
+    const path = `connections/${k.owner}__${k.name}__drive`;
+    let song = false, ly = "";
+    try {
+      const conn = await fsGet(env, at, path);
+      if (!conn || !conn.refresh_token) { ly = "not_connected"; }
+      else { await ytAccessToken(conn.client_id, conn.client_secret, conn.refresh_token); song = true; }
+    } catch (e) { ly = String(e && e.message || e).slice(0, 200); }
+    const patch = { health: song ? "ok" : "dead", health_err: song ? "" : ly,
+                    health_at: new Date().toISOString() };
+    const mask = ["health", "health_err", "health_at"];
+    try { await fsPatch(env, at, `storage_accounts/${k.owner}__${k.name}`, patch, mask); } catch (_) {}
+    // Sống lại thì phải GỠ luôn cờ nghỉ 12h trong D1, nếu không pipeline vẫn bỏ qua kho — đúng
+    // vòng khoá chết cũ, chỉ là lần này do máy tự gây ra thay vì do người quên bấm.
+    if (song) { ok++; try { await hoiSinhKho(env, k.root, ""); } catch (_) {} } else hong++;
+  }
+  console.log(`quét kho: ${ok} sống · ${hong} hỏng · còn ${Math.max(0, den.length - KIEM_KHO_MOI_LUOT)} chờ lượt sau`);
 }
 
 async function apiDriveStream(request, url, env) {
@@ -2310,11 +2425,12 @@ async function callback(url, env) {
   }
 
   // 2) lấy email để kiểm tra + hiển thị
-  let email = "";
+  let email = "", gid = "";
   try {
     const ui = await (await fetch("https://www.googleapis.com/oauth2/v2/userinfo",
       { headers: { Authorization: `Bearer ${tok.access_token}` } })).json();
     email = ui.email || "";
+    gid = String(ui.id || "");     // mã tài khoản Google — danh tính bền nhất (xem `timKhoTrung`)
   } catch (_) {}
 
   // KHÔNG chặn theo email tài khoản Google được nối: multi-account pool cần nối NHIỀU Gmail khác nhau
@@ -2333,14 +2449,25 @@ async function callback(url, env) {
   if (kind === "drive") {
     // Nhãn kho: người dùng để trống -> tự đặt theo phần đầu email
     label = channel || slugLabel((email || "").split("@")[0]) || "STORE";
-    // Gmail này đã có kho rồi thì bám đúng nhãn cũ (xem `nhanKhoTheoEmail`) — nối lại KHÔNG được
-    // đẻ ra bản ghi thứ hai, vì video cũ đang ghi `drive_account` theo nhãn đó.
-    const _nhanCu = await nhanKhoTheoEmail(env, at, uid, email);
-    if (_nhanCu && _nhanCu !== label) {
-      console.log(`nối lại ${email}: giữ nhãn kho cũ "${_nhanCu}" (bỏ qua "${label}") để video cũ không mất đường tra`);
-      label = _nhanCu;
+    base.channel = label;   // đặt tạm; `label` chốt lại sau khi biết kho cũ (xem `timKhoTrung`)
+    // CHỐNG TRÙNG — chốt nhãn TRƯỚC mọi thứ khác, vì nhãn quyết định mọi đường dẫn phía sau.
+    const _tt = await timKhoTrung(env, at, uid, { gid, email, root: "" });
+    if (_tt.canonical && _tt.canonical.name !== label) {
+      console.log(`nối lại: cùng tài khoản Google với kho "${_tt.canonical.name}" -> giữ nhãn đó, bỏ "${label}"`);
+      label = _tt.canonical.name;
+      base.channel = label;
     }
-    base.channel = label;
+    // Bản trùng còn sót (từ những lần nối trước khi có cơ chế này): KHÔNG XOÁ — chỉ rút khỏi hồ và
+    // đánh dấu trỏ về bản chuẩn. Xoá thì mất luôn đường tra của video cũ đang ghi nhãn đó; rút khỏi
+    // hồ thì hết đếm nhầm, hết bản ghi ma, mà vẫn tra được. Muốn xoá hẳn là việc anh tự bấm.
+    for (const _t of (_tt.trung || [])) {
+      try {
+        await fsPatch(env, at, `storage_accounts/${uid}__${_t}`,
+          { pool: false, trung_voi: label, health_at: new Date().toISOString() },
+          ["pool", "trung_voi", "health_at"]);
+        console.log(`kho trùng "${_t}" -> rút khỏi hồ, trỏ về "${label}"`);
+      } catch (_) {}
+    }
     // Kho cũ (nếu từng nối) là NGUỒN SỰ THẬT về thư mục gốc — xem `rootGiuNguyen`.
     const _cu = await fsGet(env, at, `storage_accounts/${uid}__${label}`).catch(() => null);
     const _rr = await rootGiuNguyen(tok.access_token, _cu && _cu.root);
@@ -2378,12 +2505,13 @@ async function callback(url, env) {
     //
     // Nối lại là hành động nói rõ "kho này sống, tin tôi đi". Vậy thì phải xoá cả ba, ngay đây.
     const _sach = { health: "", health_err: "", health_at: "" };
-    await fsPatch(env, at, `connections/${uid}__${label}__drive`, { ...base, root, cap_gb, ..._sach });
+    await fsPatch(env, at, `connections/${uid}__${label}__drive`, { ...base, root, cap_gb, gid, ..._sach });
     await fsPatch(env, at, `storage_accounts/${uid}__${label}`,
-      { name: label, owner: uid, email, cap_gb, used, root,
-        connected_at: new Date().toISOString(), ..._sach, ..._vet },
-      ["name", "owner", "email", "cap_gb", "used", "root", "connected_at",
-       "health", "health_err", "health_at", ...Object.keys(_vet)]);
+      { name: label, owner: uid, email, gid, cap_gb, used, root, pool: true, trung_voi: "",
+        connected_at: (_cu && _cu.connected_at) || new Date().toISOString(),
+        reconnected_at: new Date().toISOString(), ..._sach, ..._vet },
+      ["name", "owner", "email", "gid", "cap_gb", "used", "root", "pool", "trung_voi",
+       "connected_at", "reconnected_at", "health", "health_err", "health_at", ...Object.keys(_vet)]);
     await hoiSinhKho(env, root, `${uid}__${label}`);
     connectedName = label;
   } else {
