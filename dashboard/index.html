@@ -1757,6 +1757,48 @@
     // 24/8: bọc getDocs/getDoc — đây mới là chỗ ngốn phần lớn lượt đọc (nạp key/kênh/job một lần).
     // Tab chủ đọc thật rồi ghi kết quả vào localStorage; tab phụ lấy từ đó, KHÔNG gọi Firestore.
     const _getDocsGoc = getDocs, _getDocGoc = getDoc;   // giữ bản gốc (import là hằng, không gán đè được)
+    // ── ĐI NỐI KHO = ĐỆM KHO HẾT GIÁ TRỊ (27/8) ──────────────────────────────────────────
+    //
+    // Anh hỏi vì sao số nhảy 92 -> 93 -> 92 mà không báo lỗi gì. Đây là câu trả lời:
+    // `gdGate` đệm kết quả truy vấn vào localStorage **30 phút** (mặc định `tuoiGiay=1800`), và
+    // CẢ HAI bộ đếm kho đều gọi mà không truyền tuổi. Nối thêm kho xong, Firestore đã có 93 nhưng
+    // trang vẫn đọc lại chính con số 92 nó cất trong đệm. Hai bộ đếm có HAI đệm riêng (khoá theo
+    // truy vấn), hết hạn lệch nhau -> cái này 93, cái kia 92, chuyển qua lại là thấy số "tụt".
+    //
+    // Bản vá `pageshow` hôm nay gọi lại đúng hàm nạp — nhưng hàm đó trả về đệm, nên không giải
+    // quyết được gì. Sai lầm của em là vá tầng GỌI mà không nhìn tầng ĐỌC.
+    //
+    // Không bỏ đệm (nó đang cứu ~93 lượt đọc mỗi lần mở trang, và kho gần như bất biến). Chỉ cần
+    // biết đúng MỘT thời điểm đệm chắc chắn sai: ngay sau khi người dùng đi nối một kho. Lúc đó
+    // xoá đệm kho là đủ — đúng chỗ, đúng lúc, không tốn thêm lượt đọc nào cho mọi lúc khác.
+    const _xoaDemKho = () => {
+      try {
+        const bo = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith("mm0dl:") && k.includes("storage_accounts")) bo.push(k);
+        }
+        bo.forEach((k) => localStorage.removeItem(k));
+      } catch (_) {}
+    };
+    window.__lamMoiKho = () => {
+      _xoaDemKho();
+      try { window.__loadStorage && window.__loadStorage(); } catch (_) {}
+      try { window.__loadDriveTotal && window.__loadDriveTotal(); } catch (_) {}
+    };
+    // Quay lại tab sau khi đi nối kho -> làm mới thật. Cờ có hạn 30 phút để một lần bấm nhầm
+    // không khiến mọi lần chuyển tab về sau đều đọc lại full.
+    const _kiemCoNoi = () => {
+      try {
+        const t = Number(localStorage.getItem("mm0:dangNoiKho") || 0);
+        if (!t) return;
+        localStorage.removeItem("mm0:dangNoiKho");
+        if (Date.now() - t < 1800000) window.__lamMoiKho();
+      } catch (_) {}
+    };
+    window.addEventListener("focus", _kiemCoNoi);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) _kiemCoNoi(); });
+
     const _khoaDem = (q_) => { try { return "mm0dl:" + (q_ && q_._query ? String(q_._query.path) + JSON.stringify(q_._query.filters || "") : "x"); } catch(_) { return "mm0dl:x"; } };
     const _gia = (docs) => ({ docs: docs.map(d => ({ id: d.id, data: () => d, ...d })), size: docs.length, empty: !docs.length,
                               forEach(f){ this.docs.forEach(f); } });
@@ -2963,6 +3005,7 @@
         const pct=cap?Math.round(used/cap*100):0;
         const pe=document.getElementById("rsDrivePct"); if(pe)pe.textContent=`💾 Kho: ${(used/1e9).toFixed(1)}/${(cap/1e9).toFixed(0)} GB (${pct}% đầy) · ${_ho.length} tài khoản`;
         const w=document.getElementById("rsDriveWarn"); if(w){ if(pct>=85){w.style.display="block";w.textContent=`⚠️ Kho Drive đã ${pct}% đầy! Thêm tài khoản Google (Storage → Connect) hoặc bật cleanup archive để tránh gián đoạn.`;} else w.style.display="none"; } };
+      window.__loadDriveTotal = loadDriveTotal;   // để `__lamMoiKho` gọi được từ ngoài closure
       const _rsResRefresh=()=>{ loadDriveTotal().catch(()=>{}); cntOnce("channels","rsTotYT"); cntOnce("fb_pages","rsTotFB"); };
       _rsResRefresh();
       window.addEventListener("focus", _rsResRefresh);
@@ -4316,6 +4359,8 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       let tk=""; try { tk = await window.__getIdToken(true); } catch(e){}
       if (!tk) { try { tk = await window.__getIdToken(); } catch(_){} }   // mạng chập -> thử token cache
       if (!tk) return alert("Chưa đăng nhập, hoặc mạng đang chập. Thử lại sau vài giây.");
+      // Đánh dấu TRƯỚC khi mở tab nối: quay về là biết đệm kho đã hết giá trị (xem `_xoaDemKho`).
+      if (kind === "drive") { try { localStorage.setItem("mm0:dangNoiKho", String(Date.now())); } catch (_) {} }
       window.open(`${WORKER_URL}/auth/start?channel=${encodeURIComponent(channel)}&kind=${kind}&t=${encodeURIComponent(tk)}`, "_blank");
     }
     let __V=[], __C={}, __K={}, __STORAGE=null, __SETTINGS=null, __OVERRIDES={};
@@ -5761,6 +5806,10 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       if(!confirm(`${t("dc_confirm")}\n\n${name||channel} (${kind})`)) return;
       try{ await workerApi("/api/disconnect",{method:"POST",body:{channel,kind}});
         toastMsg("✔ "+t("dc_done")+" "+(name||channel));
+        // GỠ XONG PHẢI LÀM MỚI NGAY. Không có dòng này thì màn hình vẫn hiện kho vừa gỡ suốt 30
+        // phút (đệm `gdGate`) — người dùng bấm gỡ, thấy y nguyên, rồi bấm gỡ lần nữa. Đó chính là
+        // cảnh "không disconnect được" anh gặp: lệnh CHẠY ĐÚNG, chỉ là màn hình không chịu đổi.
+        if(kind==="drive") window.__lamMoiKho && window.__lamMoiKho();
       }catch(e){ alert("❌ "+e.message); }
     };
     /* ===== Chọn nhiều Page + thao tác hàng loạt (FB/IG Connect) ===== */
