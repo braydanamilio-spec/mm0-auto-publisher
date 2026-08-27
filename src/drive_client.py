@@ -48,10 +48,26 @@ def _service():
 
 def _oauth_service(creds: dict):
     """Drive qua OAuth CỦA TỪNG TÀI KHOẢN (để dùng đủ 15GB + XOÁ được file mình sở hữu)."""
+    # 27/8 — ĐỪNG ÉP SCOPE LÚC LÀM MỚI TOKEN.
+    #
+    # `scopes=SCOPES` viết cứng `auth/drive`. Với 88 kho cũ thì khớp, nên nó chạy đúng suốt.
+    # Nhưng kho nối từ 27/8 được cấp theo `drive.file` (Google xếp `auth/drive` là quyền HẠN CHẾ,
+    # app chưa duyệt thì chặn thẳng + trần 100 tài khoản) — hai scope không khớp, và Google từ chối
+    # ngay ở khâu đổi refresh_token:
+    #     invalid_scope: Bad Request
+    # Lượt dọn hôm nay lôi ra 4 kho dính: JASONKJLAGONIMV599, ELOYNHCRISSONHLH384,
+    # ROBBYSLARTISVOF459, MAXWELLLJFANT… — tức MỌI kho nối bằng app mới đều KHÔNG DÙNG ĐƯỢC.
+    # Nguy hiểm ở chỗ nó im: `_free_cached` bắt `invalid_scope` rồi bỏ kho khỏi hồ, nên nhìn từ
+    # ngoài chỉ thấy "kho không được chọn", không thấy lỗi nào.
+    #
+    # Khi đã có refresh_token thì scope do CHÍNH LẦN CẤP QUYỀN quyết định — gửi kèm `scope` chỉ có
+    # thể làm hỏng, không thể làm tốt hơn. Bỏ đi thì token làm mới giữ nguyên quyền vốn có, và
+    # CẢ HAI loại kho (cũ `auth/drive`, mới `drive.file`) cùng chạy.
+    # Giữ `SCOPES` lại cho đường xin quyền LẦN ĐẦU — đó mới là chỗ nó có nghĩa.
     c = Credentials(
         token=None, refresh_token=creds["refresh_token"],
         client_id=creds["client_id"], client_secret=creds["client_secret"],
-        token_uri=TOKEN_URI, scopes=SCOPES,
+        token_uri=TOKEN_URI, scopes=None,
     )
     return build("drive", "v3", credentials=c, cache_discovery=False)
 

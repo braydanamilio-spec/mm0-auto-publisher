@@ -36,7 +36,12 @@ def _client(client_id: str, client_secret: str, refresh_token: str):
         client_id=client_id,
         client_secret=client_secret,
         token_uri=TOKEN_URI,
-        scopes=SCOPES,
+        # 27/8 — cùng lý do với `drive_client._oauth_service`: khi ĐÃ có refresh_token thì scope do
+        # chính lần cấp quyền quyết định, gửi kèm `scope` chỉ có thể làm hỏng (Google trả
+        # `invalid_scope: Bad Request` nếu lệch), không thể làm tốt hơn.
+        # Kênh YouTube hôm nay đều cùng một scope nên chưa nổ — nhưng đây đúng là quả mìn vừa nổ ở
+        # phía Drive khi app mới cấp `drive.file` thay vì `auth/drive`. Gỡ trước, đừng đợi.
+        scopes=None,
     )
     return build("youtube", "v3", credentials=creds, cache_discovery=False)
 
