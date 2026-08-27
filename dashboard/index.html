@@ -1947,6 +1947,48 @@
       // của nó ra "0/92 kho khớp", trong khi Firestore đã có đủ 93.
       // Thông báo đó lại nói y như thật ("Không kho nào khớp"), nên không có cách nào đoán ra là
       // danh sách cũ chứ không phải kho biến mất.
+      // ── TRANG PHẢI TỰ BIẾT MÌNH ĐÃ CŨ (27/8) ────────────────────────────────────────────
+      // Ba lần liên tiếp anh báo "vẫn lỗi" trong khi bản đã vá chạy đúng — mỗi lần nguyên nhân
+      // đều là tab mở từ trước đang giữ mã JS cũ. Không có cách nào nhìn màn hình mà biết, vì
+      // trang cũ trông y hệt trang mới; nó chỉ CƯ XỬ khác. Đó là kiểu lỗi tốn thời gian nhất:
+      // người dùng báo đúng hiện tượng, người sửa kiểm tra thấy đúng, và cả hai đều nói thật.
+      // Hosting đã đặt `no-store` nên một lượt HEAD luôn trả thẻ phiên bản mới nhất — so với thẻ
+      // lúc tải trang là biết ngay. Rẻ: 1 lượt gọi mỗi 10 phút, không đụng Firestore.
+      // KHÔNG tự tải lại ngang: anh có thể đang gõ dở hoặc đang xem dở. Hiện một dải báo, anh bấm.
+      (() => {
+        let theCu = null;
+        const doc = async (dau) => {
+          try {
+            const r = await fetch("/index.html", { method: "HEAD", cache: "no-store" });
+            const the = r.headers.get("etag") || r.headers.get("last-modified") || "";
+            if (!the) return;
+            const lm = r.headers.get("last-modified");
+            if (lm) { const b = document.getElementById("mmBuild");
+                      if (b) b.textContent = "bản " + new Date(lm).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); }
+            if (dau) { theCu = the; return; }
+            if (theCu && the !== theCu) hienDaiMoi();
+          } catch (_) {}
+        };
+        const hienDaiMoi = () => {
+          if (document.getElementById("mmBanMoi")) return;
+          const d = document.createElement("div");
+          d.id = "mmBanMoi";
+          d.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:99999;background:#111827;color:#fff;border:1px solid #6d5efc;border-radius:12px;padding:12px 16px;display:flex;gap:12px;align-items:center;box-shadow:0 10px 30px #0006;font-size:14px";
+          d.innerHTML = '<span>✨ Có bản mới của trang — bản đang mở đã cũ.</span>';
+          const b = document.createElement("button");
+          b.textContent = "Tải lại";
+          b.style.cssText = "background:#6d5efc;color:#fff;border:0;border-radius:8px;padding:7px 14px;font-weight:700;cursor:pointer";
+          b.onclick = () => location.reload(true);
+          const x = document.createElement("button");
+          x.textContent = "Để sau";
+          x.style.cssText = "background:transparent;color:#9aa4b2;border:0;cursor:pointer";
+          x.onclick = () => d.remove();
+          d.appendChild(b); d.appendChild(x); document.body.appendChild(d);
+        };
+        doc(true);
+        setInterval(() => doc(false), 600000);
+        document.addEventListener("visibilitychange", () => { if (!document.hidden) doc(false); });
+      })();
       const _napKho = () => { window.__loadStorage && window.__loadStorage(); };
       window.addEventListener("focus", _napKho);
       window.addEventListener("pageshow", _napKho);
