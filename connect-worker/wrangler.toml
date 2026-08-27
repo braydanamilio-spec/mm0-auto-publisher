@@ -4,6 +4,9 @@ compatibility_date = "2024-11-01"
 
 # App ID Facebook (CÔNG KHAI — không phải secret). App Secret đặt riêng bằng wrangler secret.
 [vars]
+# Repo nhận nhịp render. KHÔNG phải bí mật (tên repo công khai) nên để ở đây,
+# anh chỉ còn phải nạp GH_TOKEN.
+GH_REPO = "braydanamilio-spec/mq-vx-lab"
 FB_APP_ID = "3317605138408247"
 
 # Secrets (KHÔNG ghi giá trị ở đây) — đặt bằng: wrangler secret put <TÊN>
@@ -28,3 +31,11 @@ id = "3c2d6c85ed4d498ea83a2ea706c25e72"
 binding = "HOT"
 database_name = "mm0-hot"
 database_id = "feb1cd95-1113-4f26-a136-27ffe42d63d7"
+
+# NHỊP RENDER (27/8/2026) — xem chú thích `scheduled()` trong src/worker.js.
+# GitHub bỏ bớt cron tần suất cao trên repo free: workflow khai */10 mà thực tế chỉ bắn 4-6
+# lượt/ngày. Cloudflare bắn đúng giờ, nên để nó giữ nhịp.
+# 30 phút/lượt = 48 lượt/ngày. Phiên trước còn chạy thì `concurrency` của workflow tự xếp hàng,
+# không chồng phiên — nên bắn dày hơn nhịp thật cũng không hại.
+[triggers]
+crons = ["*/30 * * * *"]

@@ -16,6 +16,40 @@
  */
 
 export default {
+  /**
+   * NHỊP RENDER — Cloudflare bắn, không trông vào lịch của GitHub (27/8/2026).
+   *
+   * Đo thật: workflow render khai cron 10 phút một lượt (144 lượt/ngày) nhưng GitHub chỉ bắn
+   * lúc 04:59 · 23:38 · 20:17 · 18:20 — cách nhau 2 tới 5 tiếng, tức **4-6 lượt/ngày**.
+   * GitHub hạ ưu tiên cron tần suất cao trên repo free/public và bỏ bớt lượt; cron 10 phút chính
+   * là loại bị bỏ nhiều nhất (cron dày càng dễ bị bỏ). Phút chạy thì KHÔNG phải vấn đề (repo public -> GitHub báo
+   * `billable = 0`), nên thứ đang bóp sản lượng là NHỊP, không phải hạn mức.
+   *
+   * Cron Trigger của Cloudflare thì bắn đúng giờ và miễn phí. Cho nó gọi `repository_dispatch`
+   * thì nhịp thành thứ MÌNH kiểm soát.
+   *
+   * Không có `GH_TOKEN` -> im lặng bỏ qua: đây là lớp làm TỐT HƠN, mất nó thì vẫn còn cron gốc
+   * của GitHub, không được phép thành chỗ hỏng mới.
+   */
+  async scheduled(event, env, ctx) {
+    if (!env.GH_TOKEN || !env.GH_REPO) return;
+    try {
+      const r = await fetch(`https://api.github.com/repos/${env.GH_REPO}/dispatches`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${env.GH_TOKEN}`,
+          "Accept": "application/vnd.github+json",
+          "User-Agent": "mm0-connect",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ event_type: "mm0-render", client_payload: { tu: "cf-cron" } }),
+      });
+      console.log(`nhịp render -> GitHub: HTTP ${r.status}`);
+    } catch (e) {
+      console.log("nhịp render lỗi:", String(e).slice(0, 120));
+    }
+  },
+
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     // Preflight CORS cho các API (dashboard gọi cross-origin)
@@ -1938,6 +1972,21 @@ async function demKhoTheoApp(env) {
 async function appConCho(env, clients) {
   const dem = await demKhoTheoApp(env);
   const con = clients.filter((c) => (dem[c.id] || 0) < c.tran);
+  // 27/8 — KHO MỚI LUÔN ĐI QUA APP `drive.file` TRƯỚC, KHÔNG CHỜ APP CŨ ĐẦY.
+  //
+  // Lỗi anh gặp ("app bị khoá, không nối thêm được kho"): bộ lọc trên chỉ hỏi "đếm được < trần
+  // chưa". App đầu tiên có `tran: 100`, và SỐ ĐẾM LẤY TỪ KV — mà KV đếm THIẾU so với con số thật
+  // phía Google: kho nối từ trước khi có bản sao KV, hoặc mục KV đã bị dọn, đều không được tính.
+  // Thế là worker tưởng app cũ còn chỗ, chọn nó, rồi Google chặn — vì app đó xin scope
+  // `auth/drive` (RESTRICTED) mà chưa qua duyệt, và phía Google nó đã chạm trần thật.
+  // Đếm gián tiếp một hạn mức do NGƯỜI KHÁC giữ sổ thì không bao giờ đáng tin.
+  //
+  // Không cần đếm cho đúng: chỉ cần đừng dùng app đó cho kho mới nữa.
+  //   `drive.file` = non-sensitive -> KHÔNG cần duyệt, KHÔNG có trần, không thể bị chặn.
+  //   88 kho đang chạy KHÔNG bị ảnh hưởng: chúng làm mới token bằng `client_id/secret` lưu
+  //   riêng trong từng thẻ kết nối, không đi qua hàm này.
+  // Nên không có lý do gì tiêu app quý và dễ bị chặn vào việc nối kho mới.
+  con.sort((a, b) => (a.kieu === "file" ? 0 : 1) - (b.kieu === "file" ? 0 : 1));
   return { con, dem };
 }
 
@@ -2024,6 +2073,28 @@ async function startAuth(url, env) {
         nên <b>không có trần</b> và không cần Google duyệt.</p>`);
     }
     client = con[ci % con.length];
+    // 27/8 — CHẶN TRƯỚC TRANG "This app is blocked" CỦA GOOGLE.
+    // `appConCho` nay xếp app `drive.file` lên đầu, nên tới đây mà vẫn chọn phải app `full`
+    // nghĩa là KHÔNG CÓ app `drive.file` nào trong `YT_CLIENTS`. Đẩy tiếp thì Google trả về một
+    // trang trắng "This app is blocked" — không mã lỗi, không gợi ý, và người dùng không có cách
+    // nào biết phải làm gì. Nói thẳng ở đây, kèm đúng việc cần làm.
+    if (kind === "drive" && client.kieu === "full") {
+      return page("Cần thêm một OAuth app cho kho mới",
+        `<p>App OAuth duy nhất đang có xin quyền <code>auth/drive</code> — Google xếp đây là
+         <b>quyền hạn chế</b>: app chưa qua duyệt thì chặn thẳng, và có trần 100 tài khoản
+         trọn đời. Đó là màn hình "This app is blocked" anh đang gặp.</p>
+         <p><b>Cách sửa</b> (5 phút, không ảnh hưởng ${dem[client.id] || 0} kho đang chạy —
+         chúng làm mới token bằng khoá riêng của chúng):</p>
+         <ol>
+           <li>Google Cloud Console → <b>APIs &amp; Services → Credentials</b> → tạo
+               <b>OAuth client ID</b> kiểu <i>Web application</i>.</li>
+           <li>Redirect URI: <code>${escapeHtml(redirect)}</code></li>
+           <li>Thêm vào secret <code>YT_CLIENTS</code>:
+               <code>[{"id":"…apps.googleusercontent.com","secret":"…"}]</code></li>
+         </ol>
+         <p>App thêm sau mặc định dùng <code>drive.file</code> — <b>không cần duyệt, không có
+         trần</b>, nên sẽ không bao giờ gặp lại màn hình chặn này.</p>`);
+    }
   }
   const st2 = b64url(new TextEncoder().encode(JSON.stringify({ channel, kind, uid, ci })));
   const p = new URLSearchParams({
