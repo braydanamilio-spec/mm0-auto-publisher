@@ -2900,6 +2900,20 @@
       const _rsResRefresh=()=>{ loadDriveTotal().catch(()=>{}); cntOnce("channels","rsTotYT"); cntOnce("fb_pages","rsTotFB"); };
       _rsResRefresh();
       window.addEventListener("focus", _rsResRefresh);
+      // 27/8 — CHỈ NGHE `focus` LÀ KHÔNG ĐỦ, và đây là lý do "nối kho xong mà bộ đếm không tăng".
+      //
+      // Đo tận nơi: sau khi anh nối thành công, Firestore ĐÃ có 93 kho (1395 GB) nhưng trang vẫn
+      // in 92 (1380 GB) — dữ liệu đúng, chỉ màn hình sai. Người dùng không có cách nào phân biệt
+      // "nối hỏng" với "nối xong mà số chưa nạp lại", nên kết luận hợp lý nhất của họ là nối hỏng,
+      // và họ đi nối lại lần nữa — đúng việc anh đã làm mấy lượt.
+      //
+      // Gốc: luồng OAuth ĐIỀU HƯỚNG CHÍNH TAB NÀY đi Google rồi quay về. Lúc trở lại, trình duyệt
+      // khôi phục trang từ bộ nhớ đệm back/forward (bfcache): script KHÔNG chạy lại, và `focus`
+      // KHÔNG bắn vì cửa sổ chưa từng mất focus theo cách trình duyệt tính. Sự kiện thật sự bắn
+      // là `pageshow` (kèm `persisted=true`) và `visibilitychange`.
+      // Cả hai đều rẻ: `_rsResRefresh` là ba lần đọc-một-lần, không mở listener realtime nào.
+      window.addEventListener("pageshow", _rsResRefresh);
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) _rsResRefresh(); });
     }
     rsInit();
 
