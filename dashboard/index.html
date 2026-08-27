@@ -1933,7 +1933,19 @@
           const accounts = snap.docs.map(d=>{const v=d.data();return {name:v.name, email:v.email, root:v.root||v.folder_id||"", used:v.used||0, cap:(v.cap_gb||14)*1e9, connected_at:v.connected_at||"", health:v.health||"", health_at:v.health_at||"", health_err:v.health_err||""};});
           window.setStorage(accounts.length ? {accounts} : null); } catch(e){} };
       window.__loadStorage();
-      window.addEventListener("focus", () => { window.__loadStorage&&window.__loadStorage(); });
+      // 27/8 — CÙNG LỖI VỚI BỘ ĐẾM KHO Ở RENDER STUDIO, CHỈ KHÁC TRANG.
+      //
+      // Anh báo "search email kho chứa không ra". Ô tìm kiếm KHÔNG hỏng — nó lọc đúng trên
+      // [name, email, root]. Hỏng là DỮ LIỆU nó đang cầm: danh sách nạp-một-lần, mà luồng nối kho
+      // ĐIỀU HƯỚNG CHÍNH TAB NÀY đi Google rồi quay về; lúc trở lại trang được khôi phục từ bfcache
+      // nên script không chạy lại và `focus` không bắn. Kho vừa nối chưa có trong mảng -> gõ email
+      // của nó ra "0/92 kho khớp", trong khi Firestore đã có đủ 93.
+      // Thông báo đó lại nói y như thật ("Không kho nào khớp"), nên không có cách nào đoán ra là
+      // danh sách cũ chứ không phải kho biến mất.
+      const _napKho = () => { window.__loadStorage && window.__loadStorage(); };
+      window.addEventListener("focus", _napKho);
+      window.addEventListener("pageshow", _napKho);
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) _napKho(); });
       sub("settings", s => {
         const d=s.docs.find(x=>x.id.startsWith("config")); window.setSettings(d?d.data():null);
         const o=s.docs.find(x=>x.id.startsWith("overrides")); window.setOverrides(o?o.data():{});

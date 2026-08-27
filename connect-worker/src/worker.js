@@ -1545,8 +1545,37 @@ async function apiTokenCheck(request, url, env) {
         fullEdit = /https:\/\/www\.googleapis\.com\/auth\/drive(\.file)?(\s|$)/.test(scopes);   // 23/8: drive.file cũng ĐỦ quyền (app chỉ đụng file mình tạo)
       } catch (_) { }
     }
-    return json({ ok: true, healthy: true, scopes, fullEdit });
+    // 27/8 — KIỂM XONG PHẢI GHI LẠI, KHÔNG CHỈ TRẢ VỀ MÀN HÌNH.
+    //
+    // Đây là một VÒNG KHOÁ CHẾT thật sự, và nó giữ kho JASONKJLAGONIMV599 kẹt ở nhãn đỏ:
+    //   • nhãn "⚠️ token hỏng" đọc từ trường `health` ghi bền trên `storage_accounts`;
+    //   • người ghi trường đó DUY NHẤT là publisher bên Python (`set_drive_health`), và nó chỉ ghi
+    //     khi thật sự chạm được vào kho;
+    //   • nhưng kho đang bị đánh dấu chết nên bị BỎ QUA -> không bao giờ có lượt chạm nào ->
+    //     `health` không bao giờ được lật lại "ok".
+    // Muốn hết nhãn đỏ phải có lượt đẩy thành công; muốn có lượt đẩy thành công phải hết nhãn đỏ.
+    // Bấm "Kiểm token + quyền" mười lần cũng không thoát, vì kết quả kiểm chỉ nằm trong bộ nhớ
+    // trình duyệt rồi mất khi tải lại trang.
+    // Nút kiểm VỐN ĐÃ gọi Google và biết câu trả lời thật — chỉ thiếu đúng một lượt ghi. Thêm nó
+    // vào là nút đó tự chữa được cái nhãn, không phải đi nối lại kho chỉ để xoá một chữ.
+    if (account) {
+      const _ok = { health: "ok", health_err: "", health_at: new Date().toISOString() };
+      const _mask = ["health", "health_err", "health_at"];
+      try { await fsPatch(env, at, path, _ok, _mask); } catch (_) {}
+      try { await fsPatch(env, at, `storage_accounts/${uid}__${account}`, _ok, _mask); } catch (_) {}
+      try { await hoiSinhKho(env, conn.root || "", `${uid}__${account}`); } catch (_) {}
+    }
+    return json({ ok: true, healthy: true, scopes, fullEdit, daGhi: !!account });
   } catch (e) {
+    // Hỏng THẬT thì cũng ghi lại — để lần sau mở dashboard đã thấy đúng trạng thái mà không phải
+    // bấm kiểm lại, và để bộ lọc "chỉ xem kho hỏng" tin được ngay cả khi chưa ai bấm 🩺.
+    if (account) {
+      const _bad = { health: "dead", health_err: String(e && e.message || e).slice(0, 200),
+                     health_at: new Date().toISOString() };
+      const _mask = ["health", "health_err", "health_at"];
+      try { await fsPatch(env, at, path, _bad, _mask); } catch (_) {}
+      try { await fsPatch(env, at, `storage_accounts/${uid}__${account}`, _bad, _mask); } catch (_) {}
+    }
     return json({ ok: true, healthy: false, invalid: !!e.tokenInvalid, reason: String(e && e.message || e) });
   }
 }
