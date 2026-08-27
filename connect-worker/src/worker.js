@@ -1930,12 +1930,38 @@ function ytClients(env) {
       ra.push({ id, secret, kieu, tran: kieu === "full" ? 100 : Infinity });
   };
   them(env.YT_CLIENT_ID, env.YT_CLIENT_SECRET, "full");  // app đầu tiên, secret vẫn ở chỗ cũ
+  // 27/8 — `catch(_) {}` NUỐT LỖI IM LẶNG, và đó là lý do anh thêm app rồi mà vẫn gặp màn hình
+  // chặn: `YT_CLIENTS` sai một dấu phẩy là cả khối bị bỏ qua, không một dòng log nào, và worker
+  // hành xử y như chưa từng có app nào. Người dùng thấy "đã thêm rồi mà vẫn báo thiếu" và không
+  // có cách nào biết vì sao.
+  // Ghi lại LÝ DO vào `_YT_LOI` để trang hướng dẫn nói đúng chuyện đang xảy ra, thay vì lặp lại
+  // câu "hãy thêm app" với người đã thêm rồi.
+  ra._loi = "";
   if (env.YT_CLIENTS) {
     try {
       const a = JSON.parse(env.YT_CLIENTS);
-      if (Array.isArray(a))
-        a.forEach((c) => them(c.id || c.client_id, c.secret || c.client_secret, c.kieu || "file"));
-    } catch (_) {}
+      if (!Array.isArray(a)) {
+        ra._loi = "YT_CLIENTS không phải MẢNG — phải là [{\"id\":\"…\",\"secret\":\"…\"}]";
+      } else {
+        let nhan = 0;
+        a.forEach((c) => {
+          const id = c.id || c.client_id, se = c.secret || c.client_secret;
+          if (!id || !se) return;
+          const truoc = ra.length;
+          them(id, se, c.kieu || "file");
+          if (ra.length > truoc) nhan++;
+        });
+        if (!nhan) {
+          ra._loi = a.length
+            ? `YT_CLIENTS có ${a.length} mục nhưng KHÔNG mục nào dùng được — thiếu "id"/"secret", hoặc id trùng app đang có`
+            : "YT_CLIENTS là mảng RỖNG";
+        }
+      }
+    } catch (e) {
+      ra._loi = "YT_CLIENTS SAI CÚ PHÁP JSON: " + String((e && e.message) || e).slice(0, 90);
+    }
+  } else {
+    ra._loi = "chưa khai secret YT_CLIENTS";
   }
   return ra.length ? ra : [{ id: env.YT_CLIENT_ID, secret: env.YT_CLIENT_SECRET, kieu: "full", tran: 100 }];
 }
@@ -2079,8 +2105,16 @@ async function startAuth(url, env) {
     // trang trắng "This app is blocked" — không mã lỗi, không gợi ý, và người dùng không có cách
     // nào biết phải làm gì. Nói thẳng ở đây, kèm đúng việc cần làm.
     if (kind === "drive" && client.kieu === "full") {
+      // 27/8 — NÓI ĐÚNG LÝ DO. Anh đã thêm app rồi mà trang vẫn hiện "hãy thêm app": vì
+      // `YT_CLIENTS` không nạp được và mã cũ nuốt lỗi im lặng. Lặp lại lời khuyên cũ với người
+      // đã làm theo nó là cách chắc chắn nhất để họ mất niềm tin vào thông báo.
+      const _ly = clients._loi
+        ? `<p style="background:#fff3cd;border:1px solid #ffe08a;padding:12px 14px;border-radius:10px">
+             <b>Đã tìm thấy nguyên nhân:</b> ${escapeHtml(clients._loi)}<br>
+             Sửa đúng chỗ này là xong — không cần tạo app mới.</p>`
+        : "";
       return page("Cần thêm một OAuth app cho kho mới",
-        `<p>App OAuth duy nhất đang có xin quyền <code>auth/drive</code> — Google xếp đây là
+        _ly + `<p>App OAuth duy nhất đang có xin quyền <code>auth/drive</code> — Google xếp đây là
          <b>quyền hạn chế</b>: app chưa qua duyệt thì chặn thẳng, và có trần 100 tài khoản
          trọn đời. Đó là màn hình "This app is blocked" anh đang gặp.</p>
          <p><b>Cách sửa</b> (5 phút, không ảnh hưởng ${dem[client.id] || 0} kho đang chạy —
