@@ -2098,7 +2098,14 @@ async function startAuth(url, env) {
         (<code>{"id":"…","secret":"…"}</code>). App thêm sau mặc định dùng <code>drive.file</code>
         nên <b>không có trần</b> và không cần Google duyệt.</p>`);
     }
-    client = con[ci % con.length];
+    // 27/8 — XOAY VÒNG TRONG NHÓM AN TOÀN, KHÔNG XOAY VÒNG TRÊN CẢ ĐỐNG.
+    // `appConCho` đã sắp `drive.file` lên đầu, nhưng `ci % con.length` là số đếm round-robin nên
+    // vẫn rơi trúng app `full` ở cuối dù đang có app `file` còn chỗ — và thế là chặn dưới lại báo
+    // "cần thêm một OAuth app" với người vừa mới thêm xong. Lọc trước rồi mới xoay: vẫn chia đều
+    // giữa các app `file`, mà không bao giờ chạm vào app `full` khi còn đường khác.
+    const uuTien = con.filter((c) => c.kieu === "file");
+    const bo = uuTien.length ? uuTien : con;
+    client = bo[ci % bo.length];
     // 27/8 — CHẶN TRƯỚC TRANG "This app is blocked" CỦA GOOGLE.
     // `appConCho` nay xếp app `drive.file` lên đầu, nên tới đây mà vẫn chọn phải app `full`
     // nghĩa là KHÔNG CÓ app `drive.file` nào trong `YT_CLIENTS`. Đẩy tiếp thì Google trả về một
@@ -2130,7 +2137,18 @@ async function startAuth(url, env) {
          trần</b>, nên sẽ không bao giờ gặp lại màn hình chặn này.</p>`);
     }
   }
-  const st2 = b64url(new TextEncoder().encode(JSON.stringify({ channel, kind, uid, ci })));
+  // 27/8 — GỬI ĐI MÃ APP THẬT, KHÔNG PHẢI CHỖ NGỒI CỦA NÓ.
+  //
+  // Đây là gốc của lỗi "Chưa lấy được refresh token" khi nối kho: nhánh Drive ngay trên chọn app
+  // từ `con` — danh sách ĐÃ LỌC (bỏ app đầy) và ĐÃ SẮP LẠI (bản vá 27/8 đẩy `drive.file` lên đầu)
+  // — trong khi `ci` là chỗ ngồi trong danh sách GỐC `clients`. Hai danh sách khác thứ tự, nên
+  // `callback` tra `clients[ci]` ra MỘT APP KHÁC.
+  // Hậu quả: Google nhận `client_id` app A lúc xin quyền, rồi nhận `client_id/secret` app B lúc
+  // đổi mã -> từ chối -> không có `refresh_token`. Người dùng đi gỡ quyền cả chục lần cũng vô ích
+  // vì chuyện chẳng liên quan gì tới quyền đã cấp.
+  // Chỉ số chỉ đúng khi hai đầu dùng CHUNG một danh sách — mà điều đó không ai bảo đảm được qua
+  // hai lần gọi cách nhau vài chục giây. Mã app thì tự nó xác định, sắp kiểu gì cũng đúng.
+  const st2 = b64url(new TextEncoder().encode(JSON.stringify({ channel, kind, uid, ci, cid: client.id })));
   const p = new URLSearchParams({
     client_id: client.id,
     redirect_uri: redirect,
@@ -2148,7 +2166,7 @@ async function callback(url, env) {
   const code = url.searchParams.get("code");
   const stateRaw = url.searchParams.get("state");
   if (!code || !stateRaw) return page("Lỗi", "<p>Thiếu code/state.</p>");
-  const { channel, kind, uid, ci } = JSON.parse(new TextDecoder().decode(ub64url(stateRaw)));
+  const { channel, kind, uid, ci, cid } = JSON.parse(new TextDecoder().decode(ub64url(stateRaw)));
   if (!uid) return page("Lỗi", "<p>Thiếu uid — bấm Kết nối lại từ dashboard.</p>");
   const redirect = url.origin + "/auth/callback";
 
@@ -2156,7 +2174,16 @@ async function callback(url, env) {
 
   // Dùng ĐÚNG OAuth client đã chọn lúc startAuth (để token gắn đúng project quota)
   const clients = ytClients(env);
-  const client = clients[ci || 0] || clients[0];
+  // Tra theo MÃ trước (xem chú thích ở `startAuth`); `ci` chỉ còn để đỡ mấy đường dẫn đang bay dở
+  // được mở trước lúc vá — chúng chưa có `cid`.
+  const client = (cid && clients.find((c) => c.id === cid)) || clients[ci || 0] || clients[0];
+  if (!client) {
+    return page("Không tìm thấy OAuth app",
+      `<p>Đường dẫn kết nối được tạo bằng app <code>${escapeHtml(String(cid || "").split("-")[0])}…</code>
+       nhưng lúc quay về thì app đó không còn trong <code>YT_CLIENTS</code>.</p>` +
+      (clients._loi ? `<p><b>Lý do:</b> ${escapeHtml(clients._loi)}</p>` : "") +
+      `<p>Bấm Kết nối lại từ dashboard sau khi sửa.</p>`);
+  }
 
   // 1) đổi code -> token
   const tok = await (await fetch("https://oauth2.googleapis.com/token", {
@@ -2169,10 +2196,37 @@ async function callback(url, env) {
   })).json();
 
   if (!tok.refresh_token) {
+    // 27/8 — IN RA LỜI CỦA GOOGLE, ĐỪNG ĐOÁN.
+    // Bản cũ luôn nói một câu duy nhất ("thường do đã cấp quyền trước đó") cho MỌI kiểu hỏng.
+    // Câu đó gần như luôn sai, vì `startAuth` vốn đã gửi `prompt=consent` — đã xin consent thì
+    // Google BAO GIỜ cũng trả refresh_token. Nên hễ thiếu, nguyên nhân nằm ở chỗ khác:
+    // `invalid_client` (sai cặp id/secret), `invalid_grant` (mã hết hạn/đã dùng),
+    // `redirect_uri_mismatch` (thiếu URI trong Console). Google nói rõ cả ba trong `tok.error`
+    // — mà mã cũ ném thẳng vào sọt rác rồi thay bằng một lời đoán, khiến người dùng đi gỡ quyền
+    // hết lần này tới lần khác trong khi lỗi thật không hề được chạm tới.
+    const ma = String(tok.error || "");
+    const chi = {
+      invalid_client:
+        "Cặp <code>id</code>/<code>secret</code> trong <code>YT_CLIENTS</code> không khớp nhau. " +
+        "Chép lại đúng secret của CHÍNH app này trong Google Cloud Console → Credentials.",
+      invalid_grant:
+        "Mã uỷ quyền đã hết hạn hoặc đã dùng rồi (nó chỉ sống vài phút, và chỉ dùng được một lần). " +
+        "Bấm Kết nối lại và làm liền một mạch, đừng tải lại trang callback.",
+      redirect_uri_mismatch:
+        `App này chưa khai báo <code>${escapeHtml(redirect)}</code> trong mục ` +
+        "<b>Authorized redirect URIs</b>. Thêm đúng chuỗi đó rồi thử lại.",
+    }[ma] || "";
     return page("Chưa lấy được refresh token",
-      `<p>Google không trả refresh_token (thường do đã cấp quyền trước đó).</p>
-       <p>Vào <a href="https://myaccount.google.com/permissions" target="_blank">myaccount.google.com/permissions</a>
-       gỡ quyền app rồi bấm Kết nối lại.</p>`);
+      (ma
+        ? `<p>Google từ chối đổi mã lấy token:</p>
+           <p style="background:#fff3cd;border:1px solid #ffe08a;padding:12px 14px;border-radius:10px">
+             <b>${escapeHtml(ma)}</b>${tok.error_description ? " — " + escapeHtml(String(tok.error_description)) : ""}
+           </p>` + (chi ? `<p><b>Cách sửa:</b> ${chi}</p>` : "")
+        : `<p>Google trả về token nhưng thiếu <code>refresh_token</code>, và không kèm mã lỗi nào.</p>
+           <p>Vào <a href="https://myaccount.google.com/permissions" target="_blank">myaccount.google.com/permissions</a>
+           gỡ quyền app rồi bấm Kết nối lại.</p>`) +
+      `<p style="opacity:.6;font-size:13px">App dùng: <code>${escapeHtml(String(client.id).split("-")[0])}…</code>
+       (${escapeHtml(client.kieu)}) · scope ${kind === "drive" ? (client.kieu === "full" ? "auth/drive" : "drive.file") : "youtube"}</p>`);
   }
 
   // 2) lấy email để kiểm tra + hiển thị
