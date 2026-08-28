@@ -1,6 +1,31 @@
 firestore_project_env: FIREBASE_PROJECT_ID
 timezone: Asia/Ho_Chi_Minh
 channels:
+  KLINGCOMEDY:
+    # 28/8 — KÊNH KLING. Khác 50 kênh kia ở hai chỗ, cố ý:
+    #   • SHORT-ONLY: không theo luật 1 long : 3 short. `kling_lo` đẩy thẳng qua `enqueue_drive`
+    #     nên không đi qua bộ ép tỉ lệ — khác luật, không phải lỗi.
+    #   • nguồn hình là clip Kling do người/API sinh, không phải đồ hoạ Remotion.
+    # Phải có mặt ở đây thì `enqueue.py` mới nhận; thiếu là nó `raise SystemExit` và video đã dựng
+    # xong bị vứt (đúng lỗi đã trả giá ngày 20/8: 27/40 kênh thiếu ở đây, mất video hàng tuần).
+    display_name: KLING COMEDY
+    enabled: true
+    drive_folder_id_env: KLINGCOMEDY_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: KLINGCOMEDY_YT_CLIENT_ID
+      client_secret_env: KLINGCOMEDY_YT_CLIENT_SECRET
+      refresh_token_env: KLINGCOMEDY_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: KLINGCOMEDY_FB_PAGE_ID
+      page_token_env: KLINGCOMEDY_FB_PAGE_TOKEN
+    branding:
+      niche: Visual-gag comedy shorts made with Kling AI
   WHATISINIT:
     display_name: WHAT IS IN IT
     enabled: true
