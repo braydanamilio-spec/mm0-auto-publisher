@@ -325,6 +325,7 @@
       <div class="nav" data-view="connections"><span class="ic" data-i="plug"></span> <span data-i18n="connections">API Connections</span> <span class="dotwarn hide" id="connWarn"></span></div>
       <div class="nav" data-view="storage"><span class="ic" data-i="disk"></span> <span data-i18n="storage">Storage</span></div>
       <div class="nav" data-view="render"><span class="ic" data-i="film"></span> 🎬 Render Studio <span class="badge" id="nvRender">0</span></div>
+      <div class="nav" data-view="kling"><span class="ic" data-i="film"></span> 🎞️ Kling Studio <span class="badge" id="nvKling">0</span></div>
       <div class="nav" data-view="settings"><span class="ic" data-i="gear"></span> <span data-i18n="settings">Settings</span></div>
       <div class="nav-label" data-i18n="nav_channel">Channel</div>
       <div class="nav" data-view="channels"><span class="ic" data-i="stack"></span> <span data-i18n="channels_hub">My Channels</span> <span class="badge" id="nvChans">0</span></div>
@@ -818,6 +819,21 @@
         </div>
       </section>
 
+      <section id="v-kling" class="content hide">
+        <!-- 28/8 — KLING STUDIO. Anh có tài khoản WEB Kling (không API), nên chỗ duy nhất cần
+             người là DÁN PROMPT + TẢI CLIP. Trang này lo phần còn lại: hiện sẵn prompt đã qua bộ
+             chấm (chặn trôi góc máy, chữ trong ảnh, mặt cận cảnh — ba thứ Kling làm hỏng), mỗi
+             cảnh một nút chép. Ngày anh mua API thì trang này không đổi, chỉ khác là clip tự về. -->
+        <div class="panel">
+          <div class="p-head">
+            <div class="p-title">🎞️ Kling Studio <span class="d" style="font-size:11px;opacity:.6">bảng chụp phim ngắn hài</span></div>
+            <span style="flex:1"></span>
+            <button class="btn-mini" onclick="klingNap()">🔄 Nạp lại</button>
+          </div>
+          <div class="p-sub" id="klingTrangThai" style="padding:6px 0">Đang tải…</div>
+          <div id="klingDS"></div>
+        </div>
+      </section>
       <section id="v-render" class="content hide">
         <div class="panel" style="margin-bottom:14px">
           <div class="p-head"><div class="p-title">🎬 Render Studio</div><div class="p-sub">Tạo video tự động trên GitHub (máy tắt, free) → đẩy Drive → tự đăng</div></div>
@@ -1657,7 +1673,7 @@
     const firebaseConfigC = { apiKey:"AIzaSyAVEj7RUMx5jRtxN0o2eOzh4r7Pjjm-zBk", authDomain:"mm0-shard-c.firebaseapp.com", projectId:"mm0-shard-c", storageBucket:"mm0-shard-c.firebasestorage.app", messagingSenderId:"443486296227", appId:"1:443486296227:web:e5607766466c3bf6cd8716" };
     let dbPub = db;  // C: publish (videos/counters/quota/queues); lỗi init -> fallback A
     try { const appC = initializeApp(firebaseConfigC, "shardC"); dbPub = _fs(appC); } catch(e){ dbPub = db; }
-    const META_B = new Set(["render_config","render_channels","render_topics","render_requests"]);  // gemini_keys + storage_accounts GIỮ ở A: keys cần auth (không public B); storage_accounts do Worker (bên ngoài, chỉ biết A) quản lý connect/sync/xoá -> phải cùng project với Worker
+    const META_B = new Set(["render_config","render_channels","render_topics","render_requests","kling_shots"]);  // gemini_keys + storage_accounts GIỮ ở A: keys cần auth (không public B); storage_accounts do Worker (bên ngoài, chỉ biết A) quản lý connect/sync/xoá -> phải cùng project với Worker
     const PUB_C  = new Set(["videos","counters","quota","social_queue","yt_queue"]);   // publish -> C
     const _appFor = (name) => PUB_C.has(name) ? dbPub : (META_B.has(name) ? dbMeta : db);
     // TIẾT KIỆM ĐỌC Firestore (100% free): tab ẨN >30s -> TẮT network (listener ngừng đọc); HIỆN lại -> BẬT (sync tươi).
@@ -1968,6 +1984,72 @@
       sub("counters", s => { const k={}; s.docs.forEach(d=>{const v=d.data();k[v.channel||d.id]=v;}); window.setData(null,null,k); });
       // storage_accounts ĐỔI SANG load-once (67 tài khoản, đổi chậm) + tự refresh khi quay lại tab
       // (đúng lúc kết nối kho mới xong ở tab popup rồi quay về) -> khỏi cần realtime, tiết kiệm đọc Firestore.
+      // ── KLING STUDIO (28/8) ────────────────────────────────────────────────────────────
+      // Đọc bảng chụp do `kling_studio.py --len-web` ghi lên. Cố ý đọc từ project B (`_appFor`
+      // trả dbMeta cho collection này) — dữ liệu đọc-nhiều-ghi-ít của dashboard không được ăn
+      // vào hạn mức project A, nơi 18 lane render đang tranh nhau.
+      window.klingNap = async () => {
+        const el = document.getElementById("klingDS");
+        const st = document.getElementById("klingTrangThai");
+        if (!el) return;
+        try {
+          const o = (window.__ownerUid || window.__uid);
+          const snap = await gdGate(query(collection(_appFor("kling_shots"), "kling_shots"),
+                                          where("owner", "==", o)), 0);
+          const ds = snap.docs.map(d => d.data())
+            .sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
+          const nb = document.getElementById("nvKling"); if (nb) nb.textContent = ds.length;
+          if (!ds.length) {
+            st.textContent = "Chưa có bảng chụp nào.";
+            el.innerHTML = `<div class="p-sub" style="padding:12px 0;line-height:1.7">
+              Tạo bằng lệnh:<br><code>python render-pipeline/kling_studio.py "ý tưởng của anh" --len-web</code>
+              <br><br>Bảng chụp sẽ hiện ở đây, mỗi cảnh một nút chép — anh dán thẳng vào Kling.</div>`;
+            return;
+          }
+          st.textContent = `${ds.length} bảng chụp · bấm 📋 để chép prompt rồi dán vào Kling`;
+          el.innerHTML = ds.map((d, i) => {
+            const sc = (d.scenes || []);
+            const giay = sc.reduce((t, x) => t + (Number(x.sec) || 0), 0);
+            const canh = sc.map(x => {
+              const n = String(x.n || 0).padStart(2, "0");
+              // Chép qua thuộc tính data- chứ không nhét prompt vào onclick: prompt có dấu nháy
+              // và xuống dòng, nhét thẳng vào HTML là gãy hoặc chèn được mã lạ.
+              return `<div style="border-left:3px solid var(--accent,#6d5efc);padding:8px 0 8px 12px;margin:10px 0">
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                  <b style="font-size:13px">Cảnh ${n}</b>
+                  <span class="d" style="font-size:11px">${esc(x.beat || "")} · ${esc(String(x.sec || "?"))}s</span>
+                  ${x.caption ? `<span class="d" style="font-size:11px">💬 ${esc(x.caption)}</span>` : ""}
+                  <span style="flex:1"></span>
+                  <button class="btn-mini kling-chep" data-p="${esc(x.prompt || "")}">📋 Chép prompt</button>
+                </div>
+                <div class="d" style="font-size:12px;opacity:.75;margin-top:6px;white-space:pre-wrap">${esc(x.prompt || "")}</div>
+                <div class="d" style="font-size:11px;opacity:.55;margin-top:4px">→ lưu thành <code>scene-${n}.mp4</code></div>
+              </div>`;
+            }).join("");
+            return `<details class="panel" style="margin:10px 0" ${i === 0 ? "open" : ""}>
+              <summary style="cursor:pointer;padding:6px 0"><b>${esc(d.title || d.ma || "(chưa tên)")}</b>
+                <span class="d" style="font-size:11px">· ${sc.length} cảnh · ${giay}s</span></summary>
+              <div class="p-sub" style="margin:6px 0">${esc(d.logline || "")}</div>
+              <div style="margin:6px 0"><b>Hook 1,5s đầu:</b> <code>${esc(d.hook_line || "")}</code></div>
+              ${canh}</details>`;
+          }).join("");
+          // Gắn sự kiện SAU khi dựng HTML — đọc prompt từ data- nên không sợ dấu nháy làm gãy.
+          el.querySelectorAll(".kling-chep").forEach(b => {
+            b.onclick = async () => {
+              try { await navigator.clipboard.writeText(b.dataset.p || ""); b.textContent = "✅ Đã chép"; }
+              catch (_) { b.textContent = "⚠️ Chép tay giúp em"; }
+              setTimeout(() => { b.textContent = "📋 Chép prompt"; }, 1800);
+            };
+          });
+        } catch (e) {
+          st.textContent = "Lỗi tải: " + (e && e.message || e);
+        }
+      };
+      document.addEventListener("click", (ev) => {
+        const n = ev.target && ev.target.closest && ev.target.closest('[data-view="kling"]');
+        if (n) setTimeout(() => window.klingNap && window.klingNap(), 60);
+      });
+
       window.__loadStorage = async () => {
         try { const snap = await gdGate(query(collection(_appFor("storage_accounts"),"storage_accounts"), where("owner","==",(window.__ownerUid||window.__uid))));
           // health/health_at/health_err do publisher tự ghi mỗi phiên (chỉ khi ĐỔI trạng thái) -> hiện
