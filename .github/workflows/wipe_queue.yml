@@ -68,11 +68,6 @@ jobs:
           BACKUP_DRIVE_CLIENT_SECRET: ${{ secrets.BACKUP_DRIVE_CLIENT_SECRET }}
           BACKUP_DRIVE_REFRESH_TOKEN: ${{ secrets.BACKUP_DRIVE_REFRESH_TOKEN }}
         run: |
-          ARGS=""
-          [ "${{ github.event.inputs.dry_run }}" = "true" ] && ARGS="$ARGS --dry-run"
-          [ "${{ github.event.inputs.now }}" = "true" ] && ARGS="$ARGS --now"
-          python src/cleanup.py $ARGS
-        run: |
           python src/wipe_queue.py \
             --scope "${{ inputs.scope }}" \
             ${{ inputs.dry_run && '--dry-run' || '' }}
