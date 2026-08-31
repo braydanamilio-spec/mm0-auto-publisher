@@ -1006,7 +1006,12 @@ async function apiHot(request, env) {
         try {
           const kt = await db.prepare("SELECT tong, luc FROM kho_that WHERE owner=?1")
             .bind(p.owner).first();
-          if (kt && kt.tong > 0 && p.moc26h && kt.luc > p.moc26h) tongThat = kt.tong;
+          // 31/8 — `>= 0`, KHÔNG phải `> 0`. Số không là một con số hợp lệ: kho vừa dọn
+          // sạch thì tổng ĐÚNG BẰNG 0. Điều kiện cũ coi 0 là "chưa có sổ" nên quay về đếm bản
+          // ghi và hiện 2088 — tức sau khi dọn sạch, màn hình lại nhảy từ 2067 lên 2088.
+          // Phân biệt "không có dữ liệu" với "dữ liệu bằng không" là chuyện phải làm rõ ở mọi
+          // chỗ đọc số; gộp hai thứ ấy vào một phép kiểm là nguồn của cả lớp lỗi này.
+          if (kt && kt.tong != null && kt.tong >= 0 && p.moc26h && kt.luc > p.moc26h) tongThat = kt.tong;
         } catch (_) {}
         return json({ tong: tongThat !== null ? tongThat : ((tong && tong.n) || 0),
                       tong_nguon: tongThat !== null ? "drive" : "banghi",
@@ -1348,7 +1353,7 @@ async function apiHotStat(url, env) {
       const kt = await db.prepare("SELECT tong, luc, nen FROM kho_that WHERE owner=?1")
         .bind(owner).first();
       const moc26h = new Date(Date.now() - 26 * 36e5).toISOString();
-      if (kt && kt.tong > 0 && kt.luc > moc26h) {
+      if (kt && kt.tong != null && kt.tong >= 0 && kt.luc > moc26h) {
         const them = Math.max(0, tong - (kt.nen || 0));
         tongThat = kt.tong + them;
       }
