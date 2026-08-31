@@ -1880,8 +1880,18 @@ async function apiDriveUsage(request, url, env) {
   const limit = Number(q.limit || 0);
   const usedAll = Number(q.usage || 0);
   const usedTrash = Number(q.usageInDriveTrash || 0);
-  try { const at = await saAccessToken(env); await fsPatch(env, at, `storage_accounts/${uid}__${account}`, { used }, ["used"]); } catch (_) { }
-  return json({ ok: r.ok, used, limit, usedAll, usedTrash });
+  // 31/8 — KHÔNG NUỐT LỖI GHI. Bản trước `catch (_) {}` rỗng: đọc đúng dung lượng mới nhưng
+  // ghi vào Firestore hụt (hạn mức ngày đã cạn) thì hàm vẫn trả ok:true, dashboard vẫn hiện số
+  // cũ, và không ai biết vì sao "đồng bộ xong mà số không đổi". Mất cả buổi cho chỗ này.
+  // Nay trả `ghi_hut` kèm lý do — người gọi biết ngay đây là ghi hỏng, không phải số không đổi.
+  let ghi_hut = "";
+  try {
+    const at = await saAccessToken(env);
+    await fsPatch(env, at, `storage_accounts/${uid}__${account}`, { used }, ["used"]);
+  } catch (e) {
+    ghi_hut = String((e && e.message) || e).slice(0, 120);
+  }
+  return json({ ok: r.ok, used, limit, usedAll, usedTrash, ghi_hut });
 }
 
 // GET /api/drive-trash?t=&account= -> LIỆT KÊ file đang trong THÙNG RÁC (review trước khi xóa vĩnh viễn).

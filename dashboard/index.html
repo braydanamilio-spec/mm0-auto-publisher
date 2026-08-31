@@ -7003,11 +7003,36 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
     window.rsSyncUsage=async(btn)=>{
       const accs=((window.__STORAGE&&window.__STORAGE.accounts)||[]).map(a=>a.name).filter(Boolean);
       if(!accs.length){ try{toastMsg("Chưa có kho.");}catch(_){}; return; }
-      const old=btn?btn.textContent:""; if(btn) btn.disabled=true; let ok=0;
+      const old=btn?btn.textContent:""; if(btn) btn.disabled=true; let ok=0, _hut=0;
       for(let i=0;i<accs.length;i++){ if(btn) btn.textContent=`⏳ ${i+1}/${accs.length}`;
-        try{ await workerApi(`/api/drive-usage?account=${encodeURIComponent(accs[i])}`); ok++; }catch(_){} }
+        // 31/8 — DÙNG SỐ VỪA ĐỌC ĐƯỢC, ĐỪNG ĐỢI FIRESTORE.
+        // Bản trước gọi worker rồi vứt kết quả đi, và trông chờ `__loadStorage()` đọc lại từ
+        // Firestore. Nhưng Firestore hay cạn hạn mức ngày, và khi ấy bản ghi mới không tới nơi
+        // — bảng vẫn hiện số của hôm qua dù worker đã đọc đúng dung lượng thật. Anh dọn sạch
+        // kho ba lần, mỗi lần bấm đồng bộ, và mỗi lần vẫn thấy 156 GB.
+        // Worker trả thẳng con số trong phản hồi. Ghi luôn vào bộ nhớ trang là bảng đúng ngay
+        // lập tức, không phụ thuộc Firestore còn hạn mức hay không. Firestore vẫn được cập nhật
+        // ở phía worker để lần mở sau có sẵn — nhưng nó không còn là đường bắt buộc nữa.
+        try{
+          const _r = await workerApi(`/api/drive-usage?account=${encodeURIComponent(accs[i])}`);
+          ok++;
+          if(_r && typeof _r.used === "number" && window.__STORAGE && window.__STORAGE.accounts){
+            const _k = window.__STORAGE.accounts.find(a=>a.name===accs[i]);
+            if(_k) _k.used = _r.used;
+            if(_r.ghi_hut) _hut++;
+          }
+        }catch(_){} }
       if(btn){ btn.textContent=old; btn.disabled=false; }
-      try{toastMsg(`🔄 Đã đồng bộ dung lượng ${ok}/${accs.length} kho`);}catch(_){} window.__loadStorage&&window.__loadStorage(); };
+      try{
+        toastMsg(_hut
+          ? `🔄 Đồng bộ ${ok}/${accs.length} kho · ${_hut} kho chưa ghi được vào Firestore (số trên bảng vẫn đúng)`
+          : `🔄 Đã đồng bộ dung lượng ${ok}/${accs.length} kho`);
+      }catch(_){}
+      // Vẽ lại từ số vừa nhận, KHÔNG đọc lại Firestore.
+      // Dùng `setStorage` chứ không `renderStorage`: hàm vẽ đọc một biến MODULE nội bộ, còn
+      // vòng lặp trên chỉ sửa `window.__STORAGE`. Gọi thẳng hàm vẽ thì nó vẽ lại đúng dữ liệu
+      // cũ trong biến nội bộ — sửa mà như không sửa. `setStorage` gán cả hai rồi mới vẽ.
+      try{ window.setStorage ? window.setStorage(window.__STORAGE) : (window.__loadStorage && window.__loadStorage()); }catch(_){} };
 
     /* ===== UPLOAD video từ máy tính -> Drive kho (relay chunk qua Worker, giữ nguyên chất lượng) ===== */
     window.__upQ=[]; window.__upBusy=false;
