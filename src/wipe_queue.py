@@ -126,8 +126,11 @@ def main() -> int:
             if _k and _o:
                 _url = (os.environ.get("HOT_URL")
                         or "https://mm0-connect.adisondurham-ef1.workers.dev/api/hot")
-                _b = _j.dumps({"op": "kho_that_ghi", "owner": _o, "tong": _con,
-                               "luc": datetime.now(timezone.utc).isoformat()}).encode()
+                # Worker nhận {lenh, tham:{...}}, không phải {op, ...} — gửi sai khuôn thì
+                # nó trả 400 mà không nói thiếu gì.
+                _b = _j.dumps({"lenh": "kho_that_ghi",
+                               "tham": {"owner": _o, "tong": _con,
+                                        "luc": datetime.now(timezone.utc).isoformat()}}).encode()
                 _r = _u.Request(_url, method="POST", data=_b,
                                 headers={"content-type": "application/json", "x-hot-key": _k,
                                          # thiếu User-Agent thì Cloudflare chặn 1010, trả 403
