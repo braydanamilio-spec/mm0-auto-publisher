@@ -12,6 +12,10 @@ Mặc định: ĐƯA VÀO THÙNG RÁC (trashed=true), KHÔNG xoá vĩnh viễn �
     python src/wipe_queue.py               # bỏ vào thùng rác
 """
 import argparse
+import os          # 31/8 — thiếu dòng này nên bước đóng sổ chết bằng NameError, và nó chết
+                   # ĐÚNG LÚC đã dọn xong: log ghi "TỔNG: 0 file" rồi mới báo "đóng sổ hụt".
+                   # Tôi viết khối đóng sổ dùng os.environ mà không kiểm tệp đã import os chưa —
+                   # cùng loại lỗi với `so` là biến toàn cục tình cờ: Python chỉ nói khi chạy tới.
 import sys
 from datetime import datetime, timezone
 
