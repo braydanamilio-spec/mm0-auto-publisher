@@ -833,6 +833,58 @@
           <div class="p-sub" id="klingTrangThai" style="padding:6px 0">Đang tải…</div>
           <div id="klingDS"></div>
         </div>
+
+        <!-- 31/8 — BÀN LÀM VIỆC: chọn kênh · chọn thời lượng · tạo · chép.
+             Khuôn prompt do Python xuất sẵn (kling/<kênh>.json), trang này chỉ điền vào chỗ
+             trống. Cố ý KHÔNG ghép prompt bằng JavaScript: ghép ở hai nơi thì sửa một luật hài
+             bên Python mà quên bên này, web sẽ lặng lẽ sinh theo luật cũ và không ai biết. -->
+        <div class="panel" style="margin-top:14px">
+          <div class="p-head">
+            <div class="p-title">✨ Tạo prompt</div>
+            <div class="p-sub">Chọn kênh và thời lượng — nhân vật, bối cảnh và luật hình ảnh đã khoá sẵn</div>
+          </div>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin:10px 0 4px">
+            <label class="d" style="display:flex;flex-direction:column;gap:4px;min-width:190px">
+              <span style="font-size:11px;opacity:.7">KÊNH</span>
+              <select id="klKenh" class="inp" style="min-width:190px"></select>
+            </label>
+            <label class="d" style="display:flex;flex-direction:column;gap:4px">
+              <span style="font-size:11px;opacity:.7">THỜI LƯỢNG</span>
+              <select id="klGiay" class="inp" style="min-width:110px"></select>
+            </label>
+            <label class="d" style="display:flex;flex-direction:column;gap:4px">
+              <span style="font-size:11px;opacity:.7">BẢN PROMPT</span>
+              <select id="klBan" class="inp" style="min-width:190px">
+                <option value="gon">Gọn · ~2.700 ký tự (an toàn)</option>
+                <option value="day">Đầy đủ · ~2.700 từ (16 khối)</option>
+              </select>
+            </label>
+          </div>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:4px 0 10px">
+            <input id="klY" class="inp" style="flex:1;min-width:240px"
+                   placeholder="Ý tưởng (để trống thì AI tự nghĩ theo mạch kênh)">
+            <button class="btn-conn" id="klTao">✨ Tạo kịch bản</button>
+            <button class="btn-mini" id="klChep">📋 Chép prompt</button>
+            <a class="btn-mini" href="https://app.klingai.com/global/generation/text-to-video"
+               target="_blank" rel="noopener">🎬 Mở Kling</a>
+          </div>
+
+          <!-- 31/8 — Anh dặn: bối cảnh tự gắn theo kênh, nhân vật khoá theo kênh, ghim cố định
+               vào prompt. Nên bỏ ô chọn bối cảnh: chọn tay thì tập nào cũng rơi vào căn phòng
+               đứng đầu danh sách — đúng lỗi đã đo được ở loạt đầu, 13/15 tập diễn trong bếp.
+               Hệ tự luân phiên hết các bối cảnh của kênh rồi mới quay vòng. -->
+          <div id="klKhoa" style="display:none;margin:2px 0 10px;padding:9px 12px;border-radius:8px;
+               background:rgba(255,255,255,.03);font-size:12px;line-height:1.7"></div>
+          <div id="klTrangThai" class="p-sub" style="padding:2px 0 8px"></div>
+          <div id="klTom" style="display:none;margin:6px 0 10px;padding:10px 12px;border-radius:8px;
+               background:rgba(255,255,255,.03);font-size:12.5px;line-height:1.75"></div>
+          <textarea id="klPrompt" class="inp" spellcheck="false" readonly
+                    style="width:100%;min-height:260px;font-family:ui-monospace,Menlo,monospace;
+                           font-size:11.5px;line-height:1.65;white-space:pre-wrap"
+                    placeholder="Prompt hiện ở đây sau khi bấm Tạo kịch bản."></textarea>
+        </div>
       </section>
       <section id="v-render" class="content hide">
         <div class="panel" style="margin-bottom:14px">
@@ -2048,6 +2100,257 @@
       document.addEventListener("click", (ev) => {
         const n = ev.target && ev.target.closest && ev.target.closest('[data-view="kling"]');
         if (n) setTimeout(() => window.klingNap && window.klingNap(), 60);
+      });
+
+      // ══ BÀN LÀM VIỆC KLING ═══════════════════════════════════════════════════════════════
+      // Khuôn prompt do `kling_kenh.py --xuat-web` sinh ra: mọi khối khoá, luật hình ảnh và
+      // hàng rào chống lỗi đã ghép sẵn, chừa đúng chín chỗ trống. Trang này chỉ điền vào chỗ
+      // trống — luật vẫn nằm ở MỘT nơi duy nhất là Python.
+      const _klCache = {};
+      let _klMuc = null;
+
+      const _klEl = (id) => document.getElementById(id);
+      const _klBao = (t, mau) => { const e = _klEl("klTrangThai");
+        if (e) { e.textContent = t || ""; e.style.color = mau || ""; } };
+
+      async function _klNapMuc() {
+        if (_klMuc) return _klMuc;
+        const r = await fetch("kling/index.json", { cache: "no-cache" });
+        if (!r.ok) throw new Error("chưa có kling/index.json — chạy: python render-pipeline/kling_kenh.py --xuat-web MM0-AutoPublisher/dashboard/kling");
+        _klMuc = await r.json();
+        return _klMuc;
+      }
+
+      async function _klNapKenh(slug) {
+        if (_klCache[slug]) return _klCache[slug];
+        _klBao("Đang tải hồ sơ kênh…");
+        const r = await fetch(`kling/${slug}.json`, { cache: "no-cache" });
+        if (!r.ok) throw new Error(`không tải được kling/${slug}.json`);
+        _klCache[slug] = await r.json();
+        _klBao("");
+        return _klCache[slug];
+      }
+
+      window.klingBanDau = async () => {
+        const selK = _klEl("klKenh"); if (!selK || selK.dataset.xong) return;
+        try {
+          const m = await _klNapMuc();
+          selK.innerHTML = m.kenh.map(k => `<option value="${esc(k.slug)}">${esc(k.ten)}</option>`).join("");
+          _klEl("klGiay").innerHTML = m.giay.map(g => `<option value="${g}"${g === 8 ? " selected" : ""}>${g} giây</option>`).join("");
+          selK.dataset.xong = "1";
+          const doiKenh = async () => {
+            const k = m.kenh.find(x => x.slug === selK.value) || m.kenh[0];
+            const box = _klEl("klKhoa");
+            box.style.display = "block";
+            box.innerHTML =
+              `<div><b>Nhân vật khoá</b> — cùng một mô tả nguyên văn ở mọi tập: `
+              + `${(k.vai || []).map(v => `<span style="opacity:.85">${esc(v)}</span>`).join(" · ")}</div>`
+              + `<div style="margin-top:5px"><b>Bối cảnh của kênh</b> — hệ tự luân phiên: `
+              + `${(k.phong || []).map(p => esc(p)).join(" · ")}</div>`;
+            _klBao("");
+          };
+          selK.onchange = doiKenh;
+          await doiKenh();
+        } catch (e) { _klBao(String(e.message || e), "#ffb3b3"); }
+      };
+
+      // ══ BA NHÀ CUNG CẤP, NHẬN DIỆN THEO TIỀN TỐ KEY ═════════════════════════════════════
+      // 31/8 — Anh báo "8 key không hợp lệ". Đúng: cả tám key Gemini trong API Connections đều
+      // hỏng. Nhưng hệ chính vẫn chạy bình thường suốt đêm, vì nó có 97 key Cloudflare và 83
+      // key Groq và tự chuyển sang khi Gemini cạn. Web thì không — nó chỉ biết Gemini.
+      // Nay web nhận cả ba, phân biệt bằng tiền tố như tệp key của hệ chính:
+      //     cf:<account>:<token>   -> Cloudflare Workers AI
+      //     gsk_...                -> Groq
+      //     còn lại                -> Gemini
+      // Anh chỉ cần dán vài key Cloudflare vào API Connections là nút Tạo chạy lại được, không
+      // phải chờ hạn mức Gemini hồi.
+      async function _goiCF(key, sys, yeuCau) {
+        const [, acc, tok] = key.split(":");
+        if (!acc || !tok) throw new Error("key cf sai dạng");
+        for (const m of ["@cf/meta/llama-3.3-70b-instruct-fp8-fast", "@cf/openai/gpt-oss-120b",
+                         "@cf/meta/llama-3.1-8b-instruct"]) {
+          const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${acc}/ai/run/${m}`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: [{ role: "system", content: sys },
+                                              { role: "user", content: yeuCau }],
+                                   max_tokens: 1200 }),
+          });
+          if (!r.ok) continue;
+          const j = await r.json();
+          const t = j?.result?.response || j?.result?.choices?.[0]?.message?.content;
+          if (t) return t;
+        }
+        return null;
+      }
+
+      async function _goiGroq(key, sys, yeuCau) {
+        const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [{ role: "system", content: sys }, { role: "user", content: yeuCau }],
+            response_format: { type: "json_object" }, temperature: 0.95,
+          }),
+        });
+        if (!r.ok) return null;
+        const j = await r.json();
+        return j?.choices?.[0]?.message?.content || null;
+      }
+
+      function _doJson(t) {
+        if (!t) return null;
+        try { return JSON.parse(t); } catch (_) {}
+        const m = String(t).match(/\{[\s\S]*\}/);
+        if (m) { try { return JSON.parse(m[0]); } catch (_) {} }
+        return null;
+      }
+
+      // Gọi AI bằng ĐÚNG hồ key mà phần Render Studio đang dùng — không mở hồ key thứ hai: một
+      // hồ nữa là một chỗ nữa để hết hạn mức mà không ai biết.
+      async function _klGoiAI(sys, yeuCau) {
+        const keys = (window.__rsKeysData || []).filter(k => k.key && k.alive !== false);
+        if (!keys.length) throw new Error("chưa có key Gemini nào trong API Connections");
+        // 31/8 — DANH SÁCH MODEL PHẢI RỘNG, và `-lite` phải đứng ĐẦU.
+        // Đo trên hồ key: 1/60 key còn sống, và nó chỉ chạy với `gemini-2.5-flash-lite` — model
+        // không hề có trong danh sách cũ. Nên dù key còn sống, web vẫn báo hỏng.
+        // Hạn mức Gemini tính THEO TỪNG MODEL, không theo key: một model cạn không có nghĩa key
+        // chết. Bản `-lite` có hạn mức rộng nhất nên thử trước, rồi mới tới bản đầy.
+        const models = ["gemini-2.5-flash-lite", "gemini-2.0-flash-lite", "gemini-2.0-flash",
+                        "gemini-2.5-flash", "gemini-flash-latest", "gemini-1.5-flash"];
+        const body = { contents: [{ parts: [{ text: sys + "\n\nREQUEST: " + yeuCau }] }],
+                       generationConfig: { temperature: 0.95, responseMimeType: "application/json" } };
+        // Đếm từng loại hỏng để câu báo lỗi CHỈ ĐÚNG PHÍA. Bản trước nuốt hết vào một câu
+        // "mọi key và model đều không trả về kịch bản hợp lệ" — câu ấy đúng nhưng vô dụng: nó
+        // không phân biệt key sai, hết hạn mức, hay prompt hỏng, nên anh không biết phải làm gì
+        // và tôi phải đi dò từ đầu. Báo lỗi đổ sai phía tốn thời gian hơn không báo gì.
+        const dem = { keyHong: 0, canHanMuc: 0, khongCoModel: 0, khac: 0, thu: 0 };
+
+        // Thử Cloudflare và Groq TRƯỚC: hồ Gemini dùng chung với khâu viết kịch bản của hệ
+        // chính, còn CF/Groq thì chỉ phục vụ chỗ này — tiêu Gemini khi còn CF là bóp cổ khâu kia.
+        for (const k of keys) {
+          const kk = String(k.key || "");
+          if (!kk.startsWith("cf:") && !kk.startsWith("gsk_")) continue;
+          dem.thu++;
+          try {
+            const t = kk.startsWith("cf:") ? await _goiCF(kk, sys, yeuCau)
+                                           : await _goiGroq(kk, sys, yeuCau);
+            const d = _doJson(t);
+            if (d) return d;
+            dem.khac++;
+          } catch (_) { dem.khac++; }
+        }
+
+        for (const k of keys.slice(0, 8)) for (const m of models) {
+          if (String(k.key || "").startsWith("cf:") || String(k.key || "").startsWith("gsk_")) break;
+          dem.thu++;
+          try {
+            const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(k.key)}`,
+              { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+            if (!r.ok) {
+              const tx = await r.text().catch(() => "");
+              if (/not valid/i.test(tx)) { dem.keyHong++; break; }   // key hỏng thì bỏ luôn key, đừng thử tiếp model
+              if (r.status === 429) dem.canHanMuc++;
+              else if (r.status === 404) dem.khongCoModel++;
+              else dem.khac++;
+              continue;
+            }
+            const j = await r.json();
+            const t = j?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!t) { dem.khac++; continue; }
+            try { return JSON.parse(t); } catch (_) { const mt = t.match(/\{[\s\S]*\}/); if (mt) return JSON.parse(mt[0]); }
+          } catch (_) { dem.khac++; }
+        }
+        const ly = [];
+        if (dem.keyHong) ly.push(`${dem.keyHong} key không hợp lệ`);
+        if (dem.canHanMuc) ly.push(`${dem.canHanMuc} lượt cạn hạn mức`);
+        if (dem.khongCoModel) ly.push(`${dem.khongCoModel} lượt model không khả dụng`);
+        if (dem.khac) ly.push(`${dem.khac} lượt lỗi khác`);
+        const _cf = keys.filter(k => String(k.key || "").startsWith("cf:")).length;
+        const _gq = keys.filter(k => String(k.key || "").startsWith("gsk_")).length;
+        throw new Error(
+          `thử ${dem.thu} lượt trên ${keys.length} key (${_cf} Cloudflare · ${_gq} Groq · `
+          + `${keys.length - _cf - _gq} Gemini) — ${ly.join(" · ") || "không rõ"}`
+          + (!_cf && !_gq
+             ? ". Hồ chỉ có key Gemini và chúng đã hỏng — dán thêm key Cloudflare dạng "
+               + "cf:<account_id>:<token> vào API Connections thì chạy lại được ngay."
+             : ". Vào API Connections thay key mới."));
+      }
+
+      window.klingTao = async () => {
+        const nut = _klEl("klTao"); if (!nut) return;
+        const slug = _klEl("klKenh").value, giay = _klEl("klGiay").value;
+        const ban = _klEl("klBan").value;
+        nut.disabled = true; const chuNut = nut.textContent; nut.textContent = "⏳ Đang viết…";
+        try {
+          const K = await _klNapKenh(slug);
+          // Luân phiên bối cảnh: đếm số lần đã tạo cho kênh này và đi hết vòng rồi mới lặp lại.
+          // Không random — random vẫn cho phép ra cùng một phòng ba lần liên tiếp, và ba tập
+          // liền cùng một căn phòng là thứ người xem nhận ra ngay dù không gọi được tên.
+          const dsPhong = Object.keys(K.phong || {});
+          const khoaDem = "mm0:kling:phong:" + slug;
+          const dem = Number(localStorage.getItem(khoaDem) || 0);
+          const phong = dsPhong[dem % dsPhong.length] || dsPhong[0];
+          localStorage.setItem(khoaDem, String(dem + 1));
+          _klBao("AI đang viết kịch bản theo luật của kênh…");
+          const y = (_klEl("klY").value || "").trim();
+          const d = await _klGoiAI(K.sys[giay],
+            (y ? `Idea: ${y}. ` : "") + `Room: ${phong}. ` +
+            `Return ONLY JSON with keys: title, hook, setup, escalate, payoff, ` +
+            `lines (array of {who, act, say}).`);
+          const lay = (k) => String(d[k] || "").trim();
+          const lines = Array.isArray(d.lines) ? d.lines : [];
+          const thoai = lines.map(l => `${l.who} ${l.act || "says"}: \u201c${String(l.say || "").trim()}\u201d`).join(" ");
+          // Điền chín chỗ trống. Thứ tự có ý: thay ROOMDESC trước ROOM, vì tên phòng là một
+          // phần của mô tả phòng — thay ngược thì mô tả bị cắt nát.
+          let p = K.khuon[giay][ban]
+            .split("@@ROOMDESC@@").join(K.phong[phong] || phong)
+            .split("@@ROOM@@").join(phong)
+            .split("@@TITLE@@").join(lay("title"))
+            .split("@@HOOK@@").join(lay("hook"))
+            .split("@@SETUP@@").join(lay("setup"))
+            .split("@@ESCALATE@@").join(lay("escalate"))
+            .split("@@PAYOFF@@").join(lay("payoff"))
+            .split("@@WHO@@ says: \u201c@@LINES@@\u201d").join(thoai)
+            .split("@@LINES@@").join(thoai)
+            .split("@@WHO@@").join(lines[0]?.who || "");
+          _klEl("klPrompt").value = p;
+          const tom = _klEl("klTom");
+          tom.style.display = "block";
+          tom.innerHTML = `<b>${esc(lay("title"))}</b> · ${esc(phong)} · ${giay}s`
+            + `<div style="opacity:.8;margin-top:6px">${esc(lay("hook"))}</div>`
+            + lines.map(l => `<div style="opacity:.7">· <b>${esc(l.who || "")}</b>: ${esc(l.say || "")}</div>`).join("")
+            + `<div style="opacity:.8;margin-top:6px">↪ ${esc(lay("payoff"))}</div>`;
+          _klBao(`✅ xong · ${p.split(/\s+/).length} từ · ${p.length} ký tự — bấm 📋 để chép rồi dán vào Kling`, "#9fe6a0");
+        } catch (e) {
+          _klBao("❌ " + String(e.message || e), "#ffb3b3");
+        } finally { nut.disabled = false; nut.textContent = chuNut; }
+      };
+
+      window.klingChep = async () => {
+        const t = _klEl("klPrompt").value || "";
+        if (!t.trim()) { _klBao("chưa có prompt để chép — bấm ✨ Tạo kịch bản trước", "#ffd08a"); return; }
+        try { await navigator.clipboard.writeText(t); _klBao("📋 đã chép — dán vào ô prompt của Kling", "#9fe6a0"); }
+        catch (_) { _klEl("klPrompt").select(); _klBao("bấm Cmd+C để chép giúp em", "#ffd08a"); }
+      };
+
+      document.addEventListener("click", (ev) => {
+        const t = ev.target;
+        if (!t || !t.id) return;
+        if (t.id === "klTao") window.klingTao();
+        if (t.id === "klChep") window.klingChep();
+      });
+
+      // 31/8 — GỌI NGAY, không chờ ai gọi hộ. Bản trước chỉ móc vào lúc chuyển view; nhưng khối
+      // script này chạy SAU khi đăng nhập xong, tức sau lúc view đã được đặt — nên hàm chưa tồn
+      // tại vào đúng thời điểm được gọi, và ba ô chọn ở lại rỗng. Kiểm trên bản live thì thấy rõ:
+      // dữ liệu tải tốt (HTTP 200, 10 kênh) mà `window.klingBanDau` vẫn là undefined.
+      // Hàm tự thoát nếu đã dựng xong, nên gọi thừa không tốn gì.
+      window.klingBanDau();
+      document.addEventListener("click", (ev) => {
+        const n = ev.target && ev.target.closest && ev.target.closest('[data-view="kling"]');
+        if (n) setTimeout(() => window.klingBanDau && window.klingBanDau(), 60);
       });
 
       window.__loadStorage = async () => {
@@ -4261,6 +4564,8 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         pub_empty:"No videos in queue yet. Add videos to your Drive store (OUTBOX → watch_and_enqueue) and they appear here to schedule.",
         pub_now:"Publish now", pub_done:"Scheduled", pub_all_ch:"All channels",
         sub_connections:"YouTube · Facebook · quota status", sub_storage:"Pool usage & cleanup",
+        kling:"Kling Studio", sub_kling:"Shot sheets to paste into Kling",
+        tasks:"Tasks", sub_tasks:"Background jobs", team:"Members", sub_team:"Access & roles",
         sub_settings:"Templates & system config",
         channels:"My Channels", branding:"Branding", comments:"Comments", channels_hub:"My Channels", sub_channels:"Your connected channels — pick one to manage",
         facebook:"Facebook", nav_social:"FB / IG Connect", sub_facebook:"Connect & group Facebook Pages / Instagram", fb_manage:"Facebook Pages", fb_connect:"Connect Facebook", fb_note:"Manage posts in the Videos & Publish tabs (FB & IG sub-tab). Here you connect Pages & group them by managing UID.",
@@ -4338,6 +4643,8 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         connections:"Kết nối API", storage:"Kho lưu trữ", settings:"Cài đặt",
         sub_overview:"Toàn bộ kênh", sub_analytics:"Hiệu suất view & subscriber",
         sub_videos:"Quản lý, tìm kiếm & lọc", sub_schedule:"Dòng thời gian",
+        kling:"Kling Studio", sub_kling:"Bảng chụp để dán vào Kling",
+        tasks:"Công việc", sub_tasks:"Việc chạy nền", team:"Thành viên", sub_team:"Quyền & vai trò",
         publish:"Đăng bài", sub_publish:"Đăng ngay & rải lịch hàng loạt",
         pub_bulk:"Rải lịch / đăng hàng loạt", pub_channel:"Kênh", pub_perday:"Video / ngày",
         pub_tz:"Múi giờ", pub_long_day:"Long / ngày", pub_short_day:"Short / ngày",
@@ -5446,11 +5753,27 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
     function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
 
     function wireNav(){
-      const VIEWS=["overview","analytics","videos","schedule","publish","connections","storage","render","settings","channels","branding","comments","facebook"];
+      // 30/8 — `kling`, `tasks`, `team` có tab bên trái và có <section id="v-...">, nhưng
+      // THIẾU TÊN trong mảng này, nên vòng lặp dưới không bao giờ gỡ lớp `hide` cho chúng:
+      // bấm vào tab thì không có gì xảy ra. Anh báo "phần Kling AI không click được" — đúng
+      // ba tab, cùng một nguyên nhân.
+      // Thêm một màn hình là ba việc ở ba chỗ (tab · section · mảng này), làm thiếu chỗ thứ ba
+      // thì hỏng lặng lẽ: không lỗi đỏ, không cảnh báo, chỉ là một cái bấm không phản ứng.
+      const VIEWS=["overview","analytics","videos","schedule","publish","connections","storage","render","kling","settings","channels","branding","comments","facebook","tasks","team"];
       const setTitle=(v)=>{ window.__view=v; $("vTitle").textContent=t(v); $("vSub").textContent=t("sub_"+v);
         const ps=$("platSwitch"); if(ps) ps.style.display=["overview","videos","publish","analytics","schedule","comments"].includes(v)?"inline-flex":"none";
         if(window.__plat==="fb"){ if(v==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(v==="schedule"&&window.renderFbSchedule) renderFbSchedule(); if(v==="overview"&&window.renderFbOverview) renderFbOverview(); if(v==="comments"&&window.renderCmFb) renderCmFb(); }
-        if(v==="team"&&window.renderTeam) renderTeam(); };
+        if(v==="team"&&window.renderTeam) renderTeam();
+        // 31/8 — Kling nạp theo VIEW, không chỉ theo cú bấm chuột.
+        // Bản trước chỉ gắn vào sự kiện click trên tab. Anh mở thẳng bằng địa chỉ
+        // .../#kling — hoặc chỉ cần tải lại trang trong lúc đang ở đó — thì không có cú
+        // bấm nào, nên không ai gọi hàm nạp và ô nội dung đứng mãi ở "Đang tải…".
+        // Nhìn ra thì giống hệt "bấm vào không vào được", nên tôi đã đi sửa nhầm phần điều
+        // hướng trước đó. Điều hướng vẫn chạy — chỉ có dữ liệu là không bao giờ tới.
+        // Bài học: gắn việc nạp vào TRẠNG THÁI đã tới màn hình, đừng gắn vào hành động đưa
+        // người dùng tới đó — vì luôn có đường khác dẫn tới cùng màn hình ấy.
+        if(v==="kling"&&window.klingNap){ window.klingNap(); if(window.klingBanDau) window.klingBanDau(); }
+        if(v==="tasks"&&window.renderTasks) window.renderTasks(); };
       window.__setTitle=setTitle;
       // ROUTING theo URL hash: mỗi mục 1 đường dẫn (#publish, #channels…) -> F5 giữ nguyên trang
       function activateView(v){
