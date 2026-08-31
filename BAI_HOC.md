@@ -96,3 +96,42 @@ duyệt** — tính ngay trên đó là **0 lượt đọc**. Ra kết quả tro
 3. **Trí nhớ đúng tầm.** Cái gì hết theo ngày thì đừng nhớ theo video.
 4. **Dự phòng phải độc lập** với thứ nó dự phòng.
 5. **Việc dùng chung phải nguyên tử.** Nhiều máy chạy song song thì không có "chắc là không trùng đâu".
+
+## 31/8 — LOGIC DỌN KHO: dọn xong phải ĐÓNG SỔ, không thì dashboard nói dối
+
+Anh báo "vẫn chưa dọn xoá videos cũ, kho còn 2067". Chạy thử workflow dọn với `scope=store`
+trên 100 kho: **thấy 0 file**. Kho đã sạch từ trước; chỉ con số trên màn hình là sai.
+
+### Vì sao con số sai
+
+Worker đọc sổ `kho_that` (bảng D1) rồi trả về cho dashboard, kèm nhãn "✓ kho thật". Sổ ấy do
+bộ lập kế hoạch ghi **một lần mỗi ngày**, sau khi đi hết các kho Drive. Worker có kiểm tuổi sổ
+— quá 26 giờ thì bỏ, quay về đếm bản ghi — nhưng 26 giờ là quá dài sau một lần dọn lớn:
+
+    ngày N, 02:00   plan đếm kho  -> ghi sổ: 2067
+    ngày N, 10:00   dọn sạch kho  -> kho còn 0, SỔ VẪN 2067
+    ngày N, 10:05   anh mở dashboard -> "2067 ✓ kho thật"
+
+Nhãn "✓ kho thật" làm chuyện tệ hơn hẳn một con số cũ: nó khẳng định con số ấy vừa được đếm
+từ Drive, nên không ai nghĩ tới việc nghi ngờ.
+
+### Luật rút ra
+
+**Mọi thao tác làm THAY ĐỔI kho phải đóng sổ đếm ngay trong cùng thao tác ấy.** Dọn xong mà
+không cập nhật sổ thì hệ có hai sự thật, và cái sai lại là cái được hiển thị.
+
+Cụ thể còn thiếu ở workflow dọn: sau khi bỏ file vào thùng rác, phải ghi `kho_that = <số thật
+vừa đếm được>` (thường là 0) thay vì để plan hôm sau ghi hộ. Đó là một dòng, và nó xoá hẳn cả
+lớp hiểu nhầm này.
+
+### Hai chỗ khác cùng họ, phát hiện trong cùng lượt
+
+**Bản ghi kho thiếu `root`.** Log dọn liệt kê hàng loạt: `DATA_RACE`, `BEYOND`, `BRIGHT_LINE`,
+`FIXED_POINT`, `LINE_ITEM`... đều `root=''` nên bị LOẠI HẲN khỏi danh sách quét. Nghĩa là nếu
+những kho ấy CÓ file thì lệnh dọn cũng không chạm tới, mà báo cáo vẫn ghi "thành công". Một
+bản ghi hỏng không được phép biến thành một kho vô hình — phải đếm riêng và báo lên đầu.
+
+**Firestore B cạn hạn mức ngày (429).** Bộ đếm chạy "success" nhưng không ghi được gì. Kết quả
+là chạy lại bao nhiêu lần cũng không sửa được con số, và không có dấu hiệu nào cho biết vì sao.
+Một lượt chạy không ghi được kết quả thì KHÔNG PHẢI "thành công".
+

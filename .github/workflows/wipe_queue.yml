@@ -67,6 +67,12 @@ jobs:
           BACKUP_DRIVE_CLIENT_ID:   ${{ secrets.BACKUP_DRIVE_CLIENT_ID }}
           BACKUP_DRIVE_CLIENT_SECRET: ${{ secrets.BACKUP_DRIVE_CLIENT_SECRET }}
           BACKUP_DRIVE_REFRESH_TOKEN: ${{ secrets.BACKUP_DRIVE_REFRESH_TOKEN }}
+          # ---- đóng sổ kho sau khi dọn (31/8) ----
+          # Thiếu hai biến này thì dọn vẫn chạy, nhưng dashboard còn hiện số TRƯỚC lúc dọn cho
+          # tới lượt đếm hôm sau — và dán nhãn "✓ kho thật" cho nó, tức khẳng định con số vừa
+          # được đếm từ Drive. Anh đã hiểu nhầm đúng vì chỗ này.
+          HOT_KEY:   ${{ secrets.HOT_KEY }}
+          OWNER_UID: ${{ secrets.OWNER_UID }}
         run: |
           python src/wipe_queue.py \
             --scope "${{ inputs.scope }}" \

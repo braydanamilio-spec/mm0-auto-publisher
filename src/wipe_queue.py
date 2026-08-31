@@ -13,6 +13,7 @@ Mặc định: ĐƯA VÀO THÙNG RÁC (trashed=true), KHÔNG xoá vĩnh viễn �
 """
 import argparse
 import sys
+from datetime import datetime, timezone
 
 import storage
 
@@ -103,6 +104,40 @@ def main() -> int:
             print(f"  [{i}/{len(accs)}] {acc.get('name'):<22} thấy {seen:>4} · dọn {done:>4}"
                   + (f" · ⚠️ {err}" if err else ""), flush=True)
     print(f"\n📊 TỔNG: thấy {tot_seen} file · đã bỏ thùng rác {tot_done} · lỗi {len(loi)}")
+
+    # ══ ĐÓNG SỔ NGAY TRONG CÙNG THAO TÁC ═══════════════════════════════════════════════════
+    # 31/8 — Anh báo "vẫn chưa dọn, kho còn 2067" trong khi kho đã sạch từ trước. Con số ấy là
+    # sổ `kho_that`, do bộ lập kế hoạch ghi MỘT LẦN MỖI NGÀY sau khi đi hết các kho Drive. Dọn
+    # xong giữa hai lần ghi thì sổ vẫn giữ số cũ — và dashboard dán nhãn "✓ kho thật" cho nó,
+    # tức khẳng định con số vừa được đếm từ Drive. Nhãn ấy làm chuyện tệ hơn hẳn một số cũ:
+    # không ai nghĩ tới việc nghi ngờ.
+    # Luật: mọi thao tác làm THAY ĐỔI kho phải đóng sổ ngay trong chính thao tác ấy. Để lượt
+    # chạy hôm sau ghi hộ là để hệ có hai sự thật, và cái sai lại là cái được hiển thị.
+    if not a.dry_run and not loi:
+        _con = max(0, tot_seen - tot_done)
+        try:
+            import json as _j, urllib.request as _u
+            _k = os.environ.get("HOT_KEY", "")
+            _o = os.environ.get("OWNER_UID", "")
+            if _k and _o:
+                _url = (os.environ.get("HOT_URL")
+                        or "https://mm0-connect.adisondurham-ef1.workers.dev/api/hot")
+                _b = _j.dumps({"op": "kho_that_ghi", "owner": _o, "tong": _con,
+                               "luc": datetime.now(timezone.utc).isoformat()}).encode()
+                _r = _u.Request(_url, method="POST", data=_b,
+                                headers={"content-type": "application/json", "x-hot-key": _k,
+                                         # thiếu User-Agent thì Cloudflare chặn 1010, trả 403
+                                         # y như sai khoá — mất cả buổi mới lần ra
+                                         "user-agent": "MM0-Pipeline/1.0"})
+                with _u.urlopen(_r, timeout=20) as _rr:
+                    _rr.read()
+                print(f"   📕 đã đóng sổ kho_that = {_con} (dashboard hết hiện số trước lúc dọn)")
+            else:
+                print("   ⚠️ thiếu HOT_KEY hoặc OWNER_UID — KHÔNG đóng được sổ. Dashboard sẽ "
+                      "còn hiện số cũ tới lượt đếm sau; đó là hiển thị sai, không phải kho bẩn.")
+        except Exception as e:
+            print(f"   ⚠️ đóng sổ hụt ({type(e).__name__}) — dashboard còn hiện số cũ tới lượt "
+                  f"đếm sau. Kho đã dọn xong, chỉ con số là chưa khớp.")
     for l in loi[:15]:
         print("   ⚠️", l)
     # Lỗi nào cũng phải hiện thành mã thoát khác 0 — KHÔNG được im lặng báo "sạch" như bản chạy
