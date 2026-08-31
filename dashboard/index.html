@@ -3197,7 +3197,15 @@
               const rr = await fetch("https://mm0-connect.adisondurham-ef1.workers.dev/api/hot-stat?"
                 + new URLSearchParams({owner:o, ngay:ng, moc45:m45}));
               const tk = await rr.json();
-              window.__d1OK = !!(tk && typeof tk.tong === "number" && tk.tong > 0);
+              // 31/8 — `>= 0`, KHÔNG phải `> 0`. Đây là mắt xích cuối của chuỗi làm anh thấy
+              // "2067" suốt buổi sáng dù kho đã sạch. Kho rỗng thì D1 trả tong = 0, điều kiện
+              // `> 0` coi đó là "D1 im", nên dashboard bỏ qua D1 và rơi về bộ đếm cộng dồn
+              // Firestore — bộ đếm mà chú thích ngay trên đã cảnh báo là "một khi lệch thì lệch
+              // VĨNH VIỄN vì không có gì đối chiếu lại".
+              // Cùng một lỗi đã sửa ở worker sáng nay, và nó nằm ở đây thêm một lần nữa: số
+              // không bị coi là không có dữ liệu. Sửa một chỗ mà không tìm hết các chỗ cùng
+              // dạng thì triệu chứng vẫn y nguyên, và người dùng thì thấy mình bị phớt lờ.
+              window.__d1OK = !!(tk && typeof tk.tong === "number" && tk.tong >= 0);
               if (window.__d1OK) {
                 window.__cntCache = tk.tong; window.__pushedToday = tk.homnay;
                 window.__d1Stat = tk;

@@ -1867,9 +1867,21 @@ async function apiDriveUsage(request, url, env) {
   const r = await fetch("https://www.googleapis.com/drive/v3/about?fields=storageQuota", { headers: { Authorization: `Bearer ${dat}` } });
   const j = await r.json().catch(() => ({}));
   const q = j.storageQuota || {};
-  const used = Number(q.usage || 0), limit = Number(q.limit || 0);
+  // 31/8 — DÙNG `usageInDrive`, KHÔNG DÙNG `usage`.
+  // Anh dọn sạch kho, đổ cả thùng rác, mà bảng vẫn báo 156 GB đã dùng. Kiểm thùng rác: 0 file.
+  // Kiểm dung lượng: vẫn 4,8 GB cho một kho không còn video nào.
+  // Vì `storageQuota.usage` là dung lượng TOÀN TÀI KHOẢN Google — Drive + Gmail + Photos gộp
+  // lại. Trăm tài khoản mỗi cái vài GB thư và ảnh thì cộng ra hàng trăm GB, và không một byte
+  // nào trong đó là video MM0. Dọn kho bao nhiêu lần con số ấy cũng không nhúc nhích, nên nhìn
+  // ra là "dọn không ăn" trong khi kho đã sạch từ lâu.
+  // `usageInDrive` mới là phần nằm trong Drive; `usageInDriveTrash` là phần còn kẹt ở thùng rác
+  // — trả về luôn để biết khi nào cần đổ rác thật sự.
+  const used = Number(q.usageInDrive ?? q.usage ?? 0);
+  const limit = Number(q.limit || 0);
+  const usedAll = Number(q.usage || 0);
+  const usedTrash = Number(q.usageInDriveTrash || 0);
   try { const at = await saAccessToken(env); await fsPatch(env, at, `storage_accounts/${uid}__${account}`, { used }, ["used"]); } catch (_) { }
-  return json({ ok: r.ok, used, limit });
+  return json({ ok: r.ok, used, limit, usedAll, usedTrash });
 }
 
 // GET /api/drive-trash?t=&account= -> LIỆT KÊ file đang trong THÙNG RÁC (review trước khi xóa vĩnh viễn).
