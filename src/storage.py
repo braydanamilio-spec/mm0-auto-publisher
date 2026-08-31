@@ -151,6 +151,49 @@ def _trong_ho(c: dict) -> bool:
     return c.get("pool") is not False
 
 
+def _kho_tu_kv() -> list:
+    """Danh sách kho lấy từ KV của Worker — KHÔNG đụng Firestore một câu nào.
+
+    31/8 — Trước đây khối này là "lớp cứu cuối", chỉ chạy sau khi đã thử Firestore A, gương B,
+    rồi B2. Mà chú thích ngay đầu `firestore_pool_accounts` đã tự nói ra sự thật: đây là "chỗ
+    ĐỐT QUOTA NẶNG NHẤT của cả hệ", đọc trọn collection ~70 kho, và ở đỉnh tải thì cạn hạn mức
+    50K/ngày chỉ sau bốn tiếng.
+    Nghĩa là hệ tiêu hạn mức để đi tìm một thứ mà KV đang giữ sẵn và cho không. Nay đảo lại:
+    KV đi TRƯỚC, Firestore chỉ dùng khi KV không có gì.
+
+    Đổi lại thì gì? KV có thể chậm hơn thực tế vài phút khi anh vừa kết nối một kho mới. Nhưng
+    hàm này vốn đã đệm mười phút, tức đã chấp nhận đúng độ trễ ấy từ đầu — nên không mất gì
+    thêm, mà đổi được việc số liệu kho luôn đọc được kể cả khi Firestore cạn.
+    """
+    # Sự cố 16:0x — 26 video render xong đều mang bước "chưa đẩy Drive": A cạn, gương B cạn,
+    # B2 cũ -> trắng tay -> enqueue hiểu là "không có kho nào" -> video nằm lại trong artifact.
+    # Nhưng Worker CÓ bản sao thẻ kết nối trong KV, và KV **không đụng Firestore một câu nào**.
+    # Đây là đường sống cuối cùng, chỉ dùng khi mọi đường Firestore đã tắt.
+    try:
+        import json as _json
+        import urllib.request as _u
+        _k = os.environ.get("HOT_KEY", "")
+        if _k:
+            _req = _u.Request(
+                (os.environ.get('HOT_URL') or 'https://mm0-connect.adisondurham-ef1.workers.dev/api/hot')
+                .replace("/api/hot", "/api/drive-pool"),
+                method="POST", data=b"{}",
+                headers={"content-type": "application/json", "x-hot-key": _k,
+                         # thiếu User-Agent thì Cloudflare chặn mã 1010, trả 403 y như sai khoá
+                         "user-agent": "MM0-Pipeline/1.0"})
+            with _u.urlopen(_req, timeout=20) as _r:
+                _d = _json.loads(_r.read().decode("utf-8", "ignore")) or {}
+            _accs = _d.get("accounts") or []
+            if _accs:
+                print(f"   🆘 KHO LẤY TỪ KV CỦA WORKER: {len(_accs)} tài khoản "
+                      f"(Firestore tắt cả 3 đường — đây là lớp cứu cuối, KHÔNG đụng Firestore).")
+                _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), _accs
+                return _accs
+    except Exception:
+        pass
+    return []
+
+
 def firestore_pool_accounts() -> list[dict]:
     """Tài khoản Drive đã 'Kết nối' qua dashboard (Firestore) — token do Worker ghi.
 
@@ -165,6 +208,15 @@ def firestore_pool_accounts() -> list[dict]:
     import time as _t
     if _POOL_CACHE["val"] is not None and (_t.time() - _POOL_CACHE["at"]) < POOL_TTL:
         return _POOL_CACHE["val"]
+    # ══ KV TRƯỚC, FIRESTORE SAU ════════════════════════════════════════════════════════════
+    # Anh hỏi vì sao suốt ngày cạn hạn mức. Đây là câu trả lời: hàm này đọc trọn collection
+    # ~70 kho và nằm trong đường đẩy video, nên ở đỉnh tải nó một mình đốt hết 50K lượt đọc/ngày.
+    # Mà bản sao danh sách ấy vẫn nằm trong KV của Worker, đọc không tốn hạn mức Firestore nào.
+    # Nên hỏi KV trước; chỉ khi KV trống mới đụng tới Firestore.
+    _kv = _kho_tu_kv()
+    if _kv:
+        _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), _kv
+        return _kv
     # 22/8 tối: Firestore A nghẽn 1 nhịp -> except trả [] -> enqueue hiểu là "0 kho" -> 9 video
     # EMPIREUSA QC 98 vừa render xong bị TỪ CHỐI đẩy Drive (mất trắng công render). Lỗi mạng/quota
     # KHÔNG BAO GIỜ được dịch thành "không có kho": thử lại 2 lần (8s/25s — enqueue chỉ chạy 1
@@ -314,31 +366,8 @@ def firestore_pool_accounts() -> list[dict]:
                 return rows
     except Exception as e:
         print(f"   ⚠️ Gương kho B2 cũng lỗi: {str(e)[:70]}")
-    # ── LỚP CỨU CUỐI: KHO LẤY TỪ KV CỦA WORKER (24/8) ──────────────────────────────────────
-    # Sự cố 16:0x — 26 video render xong đều mang bước "chưa đẩy Drive": A cạn, gương B cạn,
-    # B2 cũ -> trắng tay -> enqueue hiểu là "không có kho nào" -> video nằm lại trong artifact.
-    # Nhưng Worker CÓ bản sao thẻ kết nối trong KV, và KV **không đụng Firestore một câu nào**.
-    # Đây là đường sống cuối cùng, chỉ dùng khi mọi đường Firestore đã tắt.
-    try:
-        import json as _json
-        import urllib.request as _u
-        _k = os.environ.get("HOT_KEY", "")
-        if _k:
-            _req = _u.Request(
-                (os.environ.get('HOT_URL') or 'https://mm0-connect.adisondurham-ef1.workers.dev/api/hot')
-                .replace("/api/hot", "/api/drive-pool"),
-                method="POST", data=b"{}",
-                headers={"content-type": "application/json", "x-hot-key": _k,
-                         # thiếu User-Agent thì Cloudflare chặn mã 1010, trả 403 y như sai khoá
-                         "user-agent": "MM0-Pipeline/1.0"})
-            with _u.urlopen(_req, timeout=20) as _r:
-                _d = _json.loads(_r.read().decode("utf-8", "ignore")) or {}
-            _accs = _d.get("accounts") or []
-            if _accs:
-                print(f"   🆘 KHO LẤY TỪ KV CỦA WORKER: {len(_accs)} tài khoản "
-                      f"(Firestore tắt cả 3 đường — đây là lớp cứu cuối, KHÔNG đụng Firestore).")
-                _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), _accs
-                return _accs
+    # (khối KV đã tách thành `_kho_tu_kv()` và chạy TRƯỚC Firestore)
+
     except Exception as _e:
         print(f"   ⚠️ lớp cứu KV cũng hụt: {str(_e)[:70]}")
     print(f"   ⚠️ Đọc danh sách kho lỗi và chưa có đệm: {str(last)[:80]}")
