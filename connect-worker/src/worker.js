@@ -85,6 +85,10 @@ export default {
       if (url.pathname === "/api/token-check") return corsResp(await apiTokenCheck(request, url, env));
       if (url.pathname === "/api/key-probe") return corsResp(await apiKeyProbe(request, url, env));
       if (url.pathname === "/api/hot") return corsResp(await apiHot(request, env));
+      // 31/8 — Gọi AI hộ trình duyệt. Dùng ID TOKEN như mọi nút khác của dashboard, không đòi
+      // HOT_KEY: HOT_KEY là khoá máy-với-máy dành cho pipeline, dashboard không có và không nên
+      // có. Đây là lý do lượt đầu tôi nhét việc này vào /api/hot và nó trả "sai khoá".
+      if (url.pathname === "/api/ai-viet") return corsResp(await apiAiViet(request, env));
       if (url.pathname === "/api/hot-stat") return corsResp(await apiHotStat(url, env));
       if (url.pathname === "/api/hot-jobs") return corsResp(await apiHotJobs(url, env));
       if (url.pathname === "/api/hot-chan") return corsResp(await apiHotChan(url, env));
@@ -881,6 +885,57 @@ async function apiFiles(request, url, env) {
 //     nào để một lời gọi bịa ra câu lệnh phá bảng.
 //   • Bắt buộc có khoá chia sẻ (secret HOT_KEY) -> chỉ pipeline của mình gọi được.
 //   • Mọi lệnh dùng tham số ràng buộc (?1, ?2...), không ghép chuỗi -> không có SQL injection.
+// GỌI AI HỘ TRÌNH DUYỆT — trình duyệt bị CORS chặn với api.cloudflare.com và api.groq.com.
+// Worker chạy server-side nên không dính. Chỉ nhận yêu cầu từ người đã đăng nhập.
+async function apiAiViet(request, env) {
+  let b = {};
+  try { b = await request.json(); } catch (_) {}
+  const uid = await verifyIdToken(b.t || "", env.FIREBASE_PROJECT_ID);
+  if (!uid) return json({ error: "chưa đăng nhập" }, 403);
+  const kk = String(b.key || ""), sys = String(b.sys || ""), ycau = String(b.ycau || "");
+  if (!kk || !ycau) return json({ error: "thiếu key hoặc yêu cầu" }, 400);
+  try {
+    if (kk.startsWith("cf:")) {
+      const [, acc, tok] = kk.split(":");
+      for (const m of ["@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+                       "@cf/openai/gpt-oss-120b", "@cf/meta/llama-3.1-8b-instruct"]) {
+        const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${acc}/ai/run/${m}`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: [{ role: "system", content: sys },
+                                            { role: "user", content: ycau }], max_tokens: 1200 }),
+        });
+        if (!r.ok) continue;
+        const j = await r.json();
+        // Một số model Cloudflare trả `response` là OBJECT (đã parse sẵn) chứ không phải
+        // chuỗi — nhét thẳng vào chỗ đợi chuỗi thì ra "[object Object]", và người đọc tưởng
+        // model trả rác. Ép về chuỗi JSON để phía sau parse lại được như thường.
+        let t = j?.result?.response ?? j?.result?.choices?.[0]?.message?.content;
+        if (t && typeof t === "object") t = JSON.stringify(t);
+        if (t) return json({ ok: true, text: String(t), nha: "cloudflare" });
+      }
+      return json({ ok: false, ly_do: "mọi model Cloudflare đều từ chối" });
+    }
+    if (kk.startsWith("gsk_")) {
+      const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${kk}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "llama-3.3-70b-versatile",
+                               messages: [{ role: "system", content: sys },
+                                          { role: "user", content: ycau }],
+                               response_format: { type: "json_object" }, temperature: 0.95 }),
+      });
+      if (!r.ok) return json({ ok: false, ly_do: `groq HTTP ${r.status}` });
+      const j = await r.json();
+      const t = j?.choices?.[0]?.message?.content;
+      return t ? json({ ok: true, text: t, nha: "groq" }) : json({ ok: false, ly_do: "groq trả rỗng" });
+    }
+    return json({ ok: false, ly_do: "key không phải cf: hay gsk_" });
+  } catch (e) {
+    return json({ ok: false, ly_do: String((e && e.message) || e).slice(0, 140) });
+  }
+}
+
 async function apiHot(request, env) {
   if (!env.HOT) return json({ error: "D1 chưa gắn (binding HOT)" }, 500);
   let body = {};
@@ -1064,6 +1119,56 @@ async function apiHot(request, env) {
         return json({ ok: true, xoa, con_lai: con });
       }
       // ---- SỐ VIDEO THẬT TRONG KHO (plan đếm từ Drive mỗi ngày rồi ghi vào đây) ----
+      // ---- GỌI AI HỘ TRÌNH DUYỆT (31/8) ----
+      // Kling Studio trên web cần AI viết kịch bản. Nó gọi thẳng api.cloudflare.com và
+      // api.groq.com thì trình duyệt chặn bằng CORS — báo về đúng một dòng "TypeError: Failed
+      // to fetch", không mã lỗi, không lý do. Trang đếm nó vào "lỗi khác" nên màn hình ghi
+      // "180 lượt lỗi khác" và ai cũng tưởng key hỏng; thật ra chưa request nào rời được máy.
+      // Gemini không bị vì nó có header CORS cho phép; hai nhà kia thì không, và đó là quyết
+      // định của họ, không sửa được từ phía mình.
+      // Worker chạy server-side nên không dính CORS. Nhận key + đề bài, gọi hộ, trả chữ về.
+      case "ai_viet": {
+        const kk = String(p.key || "");
+        const sys = String(p.sys || ""), ycau = String(p.ycau || "");
+        if (!kk || !ycau) return json({ error: "thiếu key hoặc yêu cầu" }, 400);
+        try {
+          if (kk.startsWith("cf:")) {
+            const [, acc, tok] = kk.split(":");
+            for (const m of ["@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+                             "@cf/openai/gpt-oss-120b", "@cf/meta/llama-3.1-8b-instruct"]) {
+              const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${acc}/ai/run/${m}`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ messages: [{ role: "system", content: sys },
+                                                  { role: "user", content: ycau }], max_tokens: 1200 }),
+              });
+              if (!r.ok) continue;
+              const j = await r.json();
+              const t = j?.result?.response || j?.result?.choices?.[0]?.message?.content;
+              if (t) return json({ ok: true, text: t, nha: "cloudflare", model: m });
+            }
+            return json({ ok: false, ly_do: "mọi model Cloudflare đều từ chối" });
+          }
+          if (kk.startsWith("gsk_")) {
+            const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${kk}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ model: "llama-3.3-70b-versatile",
+                                     messages: [{ role: "system", content: sys },
+                                                { role: "user", content: ycau }],
+                                     response_format: { type: "json_object" }, temperature: 0.95 }),
+            });
+            if (!r.ok) return json({ ok: false, ly_do: `groq HTTP ${r.status}` });
+            const j = await r.json();
+            const t = j?.choices?.[0]?.message?.content;
+            return t ? json({ ok: true, text: t, nha: "groq" })
+                     : json({ ok: false, ly_do: "groq trả rỗng" });
+          }
+          return json({ ok: false, ly_do: "key không thuộc cf: hay gsk_ — Gemini gọi thẳng được từ trình duyệt" });
+        } catch (e) {
+          return json({ ok: false, ly_do: String((e && e.message) || e).slice(0, 140) });
+        }
+      }
       case "kho_that_ghi": {
         // `nen` = số bản ghi done-có-file NGAY LÚC ĐẾM, để sau này biết đã làm thêm bao nhiêu.
         const nen = ((await db.prepare(

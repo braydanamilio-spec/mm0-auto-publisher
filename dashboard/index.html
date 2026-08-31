@@ -2164,6 +2164,23 @@
       //     còn lại                -> Gemini
       // Anh chỉ cần dán vài key Cloudflare vào API Connections là nút Tạo chạy lại được, không
       // phải chờ hạn mức Gemini hồi.
+      // 31/8 — GỌI QUA WORKER, KHÔNG GỌI THẲNG.
+      // Trình duyệt chặn CORS với api.cloudflare.com và api.groq.com: fetch ném "TypeError:
+      // Failed to fetch" — không mã lỗi, không lý do — nên trang đếm vào "lỗi khác" và màn hình
+      // ghi "180 lượt lỗi khác". Ai nhìn cũng tưởng key hỏng, trong khi chưa request nào rời
+      // được máy. Gemini không dính vì nó có header CORS cho phép.
+      // Worker chạy server-side nên không dính CORS; nhờ nó gọi hộ.
+      async function _goiQuaWorker(key, sys, yeuCau) {
+        // `workerApi` nhận `body` là OBJECT (nó tự stringify và chèn id token). Truyền chuỗi
+        // vào đây thì token không được chèn và worker trả "chưa đăng nhập".
+        const r = await workerApi("/api/ai-viet", {
+          method: "POST",
+          body: { key, sys, ycau: yeuCau },
+        });
+        if (r && r.ok && r.text) return r.text;
+        throw new Error((r && r.ly_do) || "worker không trả về chữ");
+      }
+
       async function _goiCF(key, sys, yeuCau) {
         const [, acc, tok] = key.split(":");
         if (!acc || !tok) throw new Error("key cf sai dạng");
@@ -2234,8 +2251,7 @@
           if (!kk.startsWith("cf:") && !kk.startsWith("gsk_")) continue;
           dem.thu++;
           try {
-            const t = kk.startsWith("cf:") ? await _goiCF(kk, sys, yeuCau)
-                                           : await _goiGroq(kk, sys, yeuCau);
+            const t = await _goiQuaWorker(kk, sys, yeuCau);
             const d = _doJson(t);
             if (d) return d;
             dem.khac++;
@@ -2301,6 +2317,32 @@
             `lines (array of {who, act, say}).`);
           const lay = (k) => String(d[k] || "").trim();
           const lines = Array.isArray(d.lines) ? d.lines : [];
+
+          // ══ CHẶN NHÂN VẬT NGOÀI DÀN ══════════════════════════════════════════════════════
+          // 31/8 — Lượt chạy đầu ra tập BREAK ROOM có cú lật do `Buddy` thực hiện — con mèo của
+          // kênh HOUSE RULES. AI đọc lệnh hệ thống của kênh này nhưng vẫn mượn nhân vật kênh
+          // khác, và không có gì chặn lại: thước chấm nằm bên Python, web không chạy nó.
+          // Một nhân vật lạ phá đúng thứ cả hệ được dựng lên để giữ — sự nhất quán của kênh.
+          // Kling còn tệ hơn: nó sẽ VẼ RA con mèo ấy vì prompt có tên nó, và người xem thấy một
+          // con vật chưa từng xuất hiện ở kênh này.
+          const _vai = new Set(Object.keys(K.vai || {}));
+          const _la = [];
+          for (const l of lines) if (l && l.who && !_vai.has(String(l.who).trim())) _la.push(String(l.who).trim());
+          for (const kk2 of ["hook", "setup", "escalate", "payoff"]) {
+            const _t = lay(kk2);
+            // tên riêng viết hoa trong phần kể mà không thuộc dàn -> nghi là nhân vật mượn
+            for (const m of _t.matchAll(/\b([A-Z][a-z]{2,})\b/g)) {
+              const w = m[1];
+              if (!_vai.has(w) && !["The","This","That","And","But","Then","When","Now","One","Two","Every","Nobody","Most","All"].includes(w)
+                  && !_la.includes(w) && Object.keys(K.phong || {}).every(p2 => !p2.includes(w.toLowerCase())))
+                _la.push(w);
+            }
+          }
+          if (_la.length) {
+            _klBao(`⚠️ AI mượn nhân vật ngoài dàn: ${[...new Set(_la)].join(", ")} — `
+                   + `kênh này chỉ có ${[..._vai].join(", ")}. Bấm Tạo lại.`, "#ffd08a");
+            return;
+          }
           const thoai = lines.map(l => `${l.who} ${l.act || "says"}: \u201c${String(l.say || "").trim()}\u201d`).join(" ");
           // Điền chín chỗ trống. Thứ tự có ý: thay ROOMDESC trước ROOM, vì tên phòng là một
           // phần của mô tả phòng — thay ngược thì mô tả bị cắt nát.
