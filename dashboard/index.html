@@ -2541,7 +2541,11 @@
           // dù không gian là 737.280.
           const _kho0 = await _klKhoDoc_(slug);
           const LI = K.lich;
-          let phong, _de = null, soTap = _kho0.length;
+          // Số tập = SỐ TẬP ĐÃ LÀM + 1, giống hệt `main()` bên Python (`so = len(da) + 1`).
+          // 1/9 — Bản trước dùng thẳng `_kho0.length`, tức tập đầu tiên mang số 0 trong khi
+          // Python đánh số 1. Hai bên vì thế tính ra HAI đề bài khác nhau cho cùng một tập, và
+          // không có gì báo — cả hai lịch đều hợp lệ, chỉ là lệch nhau một bước.
+          let phong, _de = null, soTap = _kho0.length + 1;
           if (LI && LI.truc) {
             let P = LI.truc.reduce((a, b) => a * b, 1);
             let n = (LI.goc % P + soTap * LI.buoc) % P, ix = [];
@@ -2664,7 +2668,7 @@
           _klEl("klPrompt").value = p;
           const tom = _klEl("klTom");
           tom.style.display = "block";
-          tom.innerHTML = `<b>${esc(lay("title"))}</b> · ${esc(phong)} · ${giay}s · tập ${soTap + 1}`
+          tom.innerHTML = `<b>${esc(lay("title"))}</b> · ${esc(phong)} · ${giay}s · tập ${soTap}`
             + (_de ? `<div style="opacity:.6;font-size:11.5px;margin-top:4px">đề bài: `
                      + `${esc(_de.dao_cu)} · ${esc(_de.ap_luc)} · ${esc(_de.gay)} gây ra, `
                      + `${esc(_de.lat)} lật</div>` : "")
