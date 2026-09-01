@@ -2349,7 +2349,23 @@
           const thoai = lines.map(l => `${l.who} ${l.act || "says"}: \u201c${String(l.say || "").trim()}\u201d`).join(" ");
           // Điền chín chỗ trống. Thứ tự có ý: thay ROOMDESC trước ROOM, vì tên phòng là một
           // phần của mô tả phòng — thay ngược thì mô tả bị cắt nát.
-          const dien = (t) => String(t || "")
+          // ══ CHỈ KHOÁ NHÂN VẬT CÓ MẶT ═════════════════════════════════════════════════════
+          // Khuôn từ Python để trống dàn vai, vì lúc dựng khuôn chưa có kịch bản nên không
+          // biết ai xuất hiện. Điền ở đây, từ chính kịch bản AI vừa viết. Tả người vắng mặt
+          // là mời Kling vẽ họ vào khung — và tốn ~150 ký tự mỗi vai thừa, đúng phần ngân
+          // sách mà hook đang cần để viết cho đủ ý.
+          const _ke = ["hook","setup","escalate","payoff"].map(lay).join(" ");
+          const _noi = new Set(lines.map(l => String(l.who || "").trim()));
+          const _comat = Object.keys(K.vai).filter(t => _noi.has(t) || _ke.includes(t));
+          const _dan = _comat.length ? _comat : Object.keys(K.vai);
+          const _castNames = _dan.join(", ");
+          // Hai dạng khoá nhân vật: đầy đủ cho mức nén 0, dạng gọn cho mức ≥1. Điền dạng đầy
+          // đủ vào mức đã nén thì thang nén thành vô nghĩa — đo được prompt tràn 200 ký tự.
+          const _castM = (m) => _dan.map(t => (m < 1 ? K.vai[t] : (K.vai_gon || K.vai)[t])).join("\n");
+
+          const dien = (t, _m) => String(t || "")
+            .split("@@CAST@@").join(_castM(_m || 0))
+            .split("@@CASTNAMES@@").join(_castNames)
             .split("@@ROOMDESC@@").join(K.phong[phong] || phong)
             .split("@@ROOM@@").join(phong)
             .split("@@TITLE@@").join(lay("title"))
@@ -2374,7 +2390,7 @@
           // Đây KHÔNG phải ghép prompt bằng JavaScript: nội dung và thứ tự khối đều do Python
           // quyết. Chỗ này thi hành đúng một câu luật — "hàng rào không bao giờ bị cắt".
           const KH = K.khuon[giay] || {}, TRAN = (K.gioi_han && K.gioi_han.ky_tu_max) || 2500;
-          const than = (KH.than || []).map(dien), rao = dien(KH.rao);
+          const than = (KH.than || []).map((t, m) => dien(t, m)), rao = dien(KH.rao);
           const them = (KH.them || []).map(dien).filter(t => t.trim());
           // Chọn mức nén theo GIÁ TRỊ TỔNG, không theo "mức ít nén nhất mà còn lọt".
           // 1/9 — Quy tắc tham lấy mức 0 vì nó vừa đủ lọt (2.435/2.500) rồi không còn chỗ cho
@@ -2407,14 +2423,20 @@
           if (_nh && (_nh < 16 || _nh > 30))
             _klBao(`⚠️ hook ${_nh} từ (chuẩn 16–30) — ${_nh < 16 ? "cụt, thiếu vế ai gây ra"
                    : "quá dài, không còn là MỘT hình ảnh"}. Nên bấm ✨ tạo lại.`, "#ffd08a");
+          // Ngân sách văn kể do Python ĐO cho đúng kênh × đúng thời lượng này (clip 15 giây
+          // có 4 khối và 31 từ thoại nên còn ít chỗ hơn clip 5 giây hơn 300 ký tự). Báo bằng
+          // con số ấy thay vì một trần chung — trần chung sai ở gần hết các ca.
+          const _vk = ["hook","setup","escalate","payoff"].reduce((a,k)=>a+lay(k).length, 0);
+          const _vkMax = KH.van_ke_max || 0;
           const _qua = p.length > TRAN;
           _klBao(`${_qua ? "⚠️" : "✅"} ${p.length}/${TRAN} ký tự · ${vao} khối tả thêm`
                  + (bo ? ` (bỏ ${bo} khối cho vừa trần)` : "")
-                 + (_qua ? ` — VƯỢT TRẦN ${p.length - TRAN} ký tự. Kling cắt đuôi, và đuôi là`
-                           + ` khối DO NOT chặn lỗi hình. Tập này có ${new Set(lines.map(l=>l.who)).size}`
-                           + ` nhân vật — bớt một người rẻ hơn cắt hook (mỗi vai tốn ~150 ký tự khoá hình).`
-                           + ` Bấm ✨ tạo lại.`
-                         : " — bấm 📋 để chép rồi dán vào Kling"), _qua ? "#ffd08a" : "#9fe6a0");
+                 + (_qua ? ` — VƯỢT TRẦN ${p.length - TRAN} ký tự, Kling sẽ cắt mất khối DO NOT.`
+                           + ` Văn kể đang ${_vk} ký tự, kênh này ở ${giay}s chứa được ${_vkMax}.`
+                           + ` Tập có ${_dan.length} nhân vật — bớt một người rẻ hơn cắt hook`
+                           + ` (mỗi vai tốn ~150 ký tự khoá hình). Bấm ✨ tạo lại.`
+                         : ` · văn kể ${_vk}/${_vkMax} — bấm 📋 để chép rồi dán vào Kling`),
+                 _qua ? "#ffd08a" : "#9fe6a0");
         } catch (e) {
           _klBao("❌ " + String(e.message || e), "#ffb3b3");
         } finally { nut.disabled = false; nut.textContent = chuNut; }
