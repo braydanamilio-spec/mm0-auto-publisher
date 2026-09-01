@@ -1,902 +1,300 @@
 {
-  "WHATISINIT": {
-    "display": "WHAT IS IN IT",
-    "niche": "What the label does not say",
-    "hashtags": [
-      "#foodfacts",
-      "#nutrition",
-      "#foodsafety",
-      "#whatisinitusa"
-    ],
-    "category": "27",
-    "accent": "#B85353",
-    "tagline": "What the label does not say",
-    "handle": "@whatisinitusa",
-    "motif": "house",
-    "layout": "phai",
-    "the_he": 2,
-    "niche_vn": "Thành phần thật trong món quen"
-  },
-  "RECALLPLATE": {
-    "display": "RECALL PLATE",
-    "niche": "Pulled from shelves this week",
-    "hashtags": [
-      "#foodfacts",
-      "#nutrition",
-      "#foodsafety",
-      "#recallplate"
-    ],
-    "category": "27",
-    "accent": "#2BF0F0",
-    "tagline": "Pulled from shelves this week",
-    "handle": "@recallplate",
-    "motif": "plate",
-    "layout": "phai",
-    "the_he": 2,
-    "niche_vn": "Đồ ăn bị thu hồi tuần này"
-  },
-  "CALORIESHOCK": {
-    "display": "CALORIE SHOCK",
-    "niche": "One meal, real numbers",
-    "hashtags": [
-      "#foodfacts",
-      "#nutrition",
-      "#foodsafety",
-      "#calorieshockusa"
-    ],
-    "category": "27",
-    "accent": "#27D627",
-    "tagline": "One meal, real numbers",
-    "handle": "@calorieshockusa",
-    "motif": "plate",
-    "layout": "trai",
-    "the_he": 2,
-    "niche_vn": "Món này bằng mấy bữa cơm"
-  },
-  "ONESTUDY": {
-    "display": "ONE STUDY",
-    "niche": "One real study, explained straight",
-    "hashtags": [
-      "#health",
-      "#fitness",
-      "#healthdata",
-      "#onestudyusa"
-    ],
-    "category": "27",
-    "accent": "#2727D6",
-    "tagline": "One real study, explained straight",
-    "handle": "@onestudyusa",
-    "motif": "flask",
-    "layout": "trai",
-    "the_he": 2,
-    "niche_vn": "Một nghiên cứu thật, giải thích gọn"
-  },
-  "PILLFACTS": {
-    "display": "PILL FACTS",
-    "niche": "What the FDA pulled and why",
-    "hashtags": [
-      "#health",
-      "#fitness",
-      "#healthdata",
-      "#pillfactsusa"
-    ],
-    "category": "27",
-    "accent": "#F0F02B",
-    "tagline": "What the FDA pulled and why",
-    "handle": "@pillfactsusa",
-    "motif": "flask",
-    "layout": "khoi",
-    "the_he": 2,
-    "niche_vn": "Thuốc bị thu và lý do thật"
-  },
-  "PAYCHECKGAP": {
-    "display": "PAYCHECK GAP",
-    "niche": "Your raise versus your rent",
-    "hashtags": [
-      "#personalfinance",
-      "#money",
-      "#paycheck",
-      "#paycheckgap"
-    ],
-    "category": "27",
-    "accent": "#F02BF0",
-    "tagline": "Your raise versus your rent",
-    "handle": "@paycheckgap",
-    "motif": "coins",
-    "layout": "giua",
-    "the_he": 2,
-    "niche_vn": "Lương tăng chậm hơn giá bao nhiêu"
-  },
-  "RENTREALITY": {
-    "display": "RENT REALITY",
-    "niche": "What a roof costs now",
-    "hashtags": [
-      "#personalfinance",
-      "#money",
-      "#paycheck",
-      "#rentrealityusa"
-    ],
-    "category": "27",
-    "accent": "#86F06C",
-    "tagline": "What a roof costs now",
-    "handle": "@rentrealityusa",
-    "motif": "coins",
-    "layout": "trai",
-    "the_he": 2,
-    "niche_vn": "Tiền thuê nhà xưa và nay"
-  },
-  "PRICEOFNOW": {
-    "display": "PRICE OF NOW",
-    "niche": "What got expensive this year",
-    "hashtags": [
-      "#personalfinance",
-      "#money",
-      "#paycheck",
-      "#priceofnow"
-    ],
-    "category": "27",
-    "accent": "#6C86F0",
-    "tagline": "What got expensive this year",
-    "handle": "@priceofnow",
-    "motif": "coins",
-    "layout": "trai",
-    "the_he": 2,
-    "niche_vn": "Món nào tăng giá nhanh nhất"
-  },
-  "COURTRECORD": {
-    "display": "COURT RECORD",
-    "niche": "Straight from the court file",
-    "hashtags": [
-      "#truecrime",
-      "#coldcase",
-      "#crimestats",
-      "#courtrecordusa"
-    ],
-    "category": "27",
-    "accent": "#21B892",
-    "tagline": "Straight from the court file",
-    "handle": "@courtrecordusa",
-    "motif": "cap",
-    "layout": "duoi",
-    "the_he": 2,
-    "niche_vn": "Một vụ án kể từ hồ sơ toà"
-  },
-  "SUEDFORTHIS": {
-    "display": "SUED FOR THIS",
-    "niche": "The lawsuit they hoped you missed",
-    "hashtags": [
-      "#truecrime",
-      "#coldcase",
-      "#crimestats",
-      "#suedforthis"
-    ],
-    "category": "27",
-    "accent": "#9221B8",
-    "tagline": "The lawsuit they hoped you missed",
-    "handle": "@suedforthis",
-    "motif": "scale",
-    "layout": "trai",
-    "the_he": 2,
-    "niche_vn": "Công ty bị kiện vì cái gì"
-  },
-  "COLDFILE": {
-    "display": "COLD FILE",
-    "niche": "The case nobody closed",
-    "hashtags": [
-      "#truecrime",
-      "#coldcase",
-      "#crimestats",
-      "#coldfileusa"
-    ],
-    "category": "27",
-    "accent": "#F06CA1",
-    "tagline": "The case nobody closed",
-    "handle": "@coldfileusa",
-    "motif": "scale",
-    "layout": "phai",
-    "the_he": 2,
-    "niche_vn": "Vụ cũ chưa khép lại"
-  },
-  "UNSOLVEDLOG": {
-    "display": "UNSOLVED LOG",
-    "niche": "Still no answer",
-    "hashtags": [
-      "#unsolved",
-      "#mystery",
-      "#missingpersons",
-      "#unsolvedlog"
-    ],
-    "category": "27",
-    "accent": "#A1B821",
-    "tagline": "Still no answer",
-    "handle": "@unsolvedlog",
-    "motif": "coins",
-    "layout": "giua",
-    "the_he": 2,
-    "niche_vn": "Bí ẩn nước Mỹ đang tra lại"
-  },
-  "MISSINGPIECE": {
-    "display": "MISSING PIECE",
-    "niche": "Gone, and never explained",
-    "hashtags": [
-      "#unsolved",
-      "#mystery",
-      "#missingpersons",
-      "#missingpieceusa"
-    ],
-    "category": "27",
-    "accent": "#F08D2B",
-    "tagline": "Gone, and never explained",
-    "handle": "@missingpieceusa",
-    "motif": "lens",
-    "layout": "giua",
-    "the_he": 2,
-    "niche_vn": "Thứ biến mất không lời giải"
-  },
-  "DIAMONDNUMBERS": {
-    "display": "DIAMOND NUMBERS",
-    "niche": "Baseball, by the numbers",
-    "hashtags": [
-      "#sports",
-      "#sportsstats",
-      "#athletes",
-      "#diamondnumbers"
-    ],
-    "category": "27",
-    "accent": "#BB6CF0",
-    "tagline": "Baseball, by the numbers",
-    "handle": "@diamondnumbers",
-    "motif": "cap",
-    "layout": "duoi",
-    "the_he": 2,
-    "niche_vn": "Bóng chày qua con số thật"
-  },
-  "COURTKINGS": {
-    "display": "COURT KINGS",
-    "niche": "Who actually leads the league",
-    "hashtags": [
-      "#sports",
-      "#sportsstats",
-      "#athletes",
-      "#courtkingsusa"
-    ],
-    "category": "27",
-    "accent": "#6CF0BB",
-    "tagline": "Who actually leads the league",
-    "handle": "@courtkingsusa",
-    "motif": "field",
-    "layout": "phai",
-    "the_he": 2,
-    "niche_vn": "Bóng rổ: ai thật sự dẫn đầu"
-  },
-  "PAIDVSPLAYED": {
-    "display": "PAID VS PLAYED",
-    "niche": "Paid like a star, played like what",
-    "hashtags": [
-      "#sports",
-      "#sportsstats",
-      "#athletes",
-      "#paidvsplayed"
-    ],
-    "category": "27",
-    "accent": "#F0C26C",
-    "tagline": "Paid like a star, played like what",
-    "handle": "@paidvsplayed",
-    "motif": "field",
-    "layout": "giua",
-    "the_he": 2,
-    "niche_vn": "Lương so với màn trình diễn"
-  },
-  "AMERICALOOKEDUP": {
-    "display": "AMERICA LOOKED UP",
-    "niche": "What America read yesterday",
-    "hashtags": [
-      "#celebrity",
-      "#famous",
-      "#hollywood",
-      "#americalookedup"
-    ],
-    "category": "27",
-    "accent": "#F02B2B",
-    "tagline": "What America read yesterday",
-    "handle": "@americalookedup",
-    "motif": "pulse",
-    "layout": "trai",
-    "the_he": 2,
-    "niche_vn": "Hôm qua nước Mỹ tra ai nhiều nhất"
-  },
-  "FAMECURVE": {
-    "display": "FAME CURVE",
-    "niche": "The rise and the drop",
-    "hashtags": [
-      "#celebrity",
-      "#famous",
-      "#hollywood",
-      "#famecurveusa"
-    ],
-    "category": "27",
-    "accent": "#3B6DB8",
-    "tagline": "The rise and the drop",
-    "handle": "@famecurveusa",
-    "motif": "pulse",
-    "layout": "trai",
-    "the_he": 2,
-    "niche_vn": "Đường cong nổi tiếng của một người"
-  },
-  "SHOWNUMBERS": {
-    "display": "SHOW NUMBERS",
-    "niche": "Every show has a number",
-    "hashtags": [
-      "#movies",
-      "#boxoffice",
-      "#tvshows",
-      "#shownumbersusa"
-    ],
-    "category": "27",
-    "accent": "#D62790",
-    "tagline": "Every show has a number",
-    "handle": "@shownumbersusa",
-    "motif": "ghost",
-    "layout": "giua",
-    "the_he": 2,
-    "niche_vn": "Phim bộ qua số tập, mùa, điểm"
-  },
-  "GONETOOSOON": {
-    "display": "GONE TOO SOON",
-    "niche": "Great shows that got cut",
-    "hashtags": [
-      "#movies",
-      "#boxoffice",
-      "#tvshows",
-      "#gonetoosoonusa"
-    ],
-    "category": "27",
-    "accent": "#5DB853",
-    "tagline": "Great shows that got cut",
-    "handle": "@gonetoosoonusa",
-    "motif": "film",
-    "layout": "phai",
-    "the_he": 2,
-    "niche_vn": "Phim bị cắt giữa chừng"
-  },
-  "SONGFILE": {
-    "display": "SONG FILE",
-    "niche": "Who really wrote it",
-    "hashtags": [
-      "#music",
-      "#billboard",
-      "#charts",
-      "#songfileusa"
-    ],
-    "category": "27",
-    "accent": "#2BA1F0",
-    "tagline": "Who really wrote it",
-    "handle": "@songfileusa",
-    "motif": "note",
-    "layout": "duoi",
-    "the_he": 2,
-    "niche_vn": "Một bài hát: ai viết, ai hát, khi nào"
-  },
-  "ONEHIT": {
-    "display": "ONE HIT",
-    "niche": "One song, then silence",
-    "hashtags": [
-      "#music",
-      "#billboard",
-      "#charts",
-      "#onehitusa"
-    ],
-    "category": "27",
-    "accent": "#2BF066",
-    "tagline": "One song, then silence",
-    "handle": "@onehitusa",
-    "motif": "note",
-    "layout": "duoi",
-    "the_he": 2,
-    "niche_vn": "Nghệ sĩ một bản hit"
-  },
-  "STEAMTRUTH": {
-    "display": "STEAM TRUTH",
-    "niche": "Who is actually online",
-    "hashtags": [
-      "#gaming",
-      "#videogames",
-      "#gamedev",
-      "#steamtruthusa"
-    ],
-    "category": "27",
-    "accent": "#66F02B",
-    "tagline": "Who is actually online",
-    "handle": "@steamtruthusa",
-    "motif": "heart",
-    "layout": "khoi",
-    "the_he": 2,
-    "niche_vn": "Game nào THẬT SỰ có người chơi"
-  },
-  "GAMEGRAVEYARD": {
-    "display": "GAME GRAVEYARD",
-    "niche": "Bought by millions, empty tonight",
-    "hashtags": [
-      "#gaming",
-      "#videogames",
-      "#gamedev",
-      "#gamegraveyard"
-    ],
-    "category": "27",
-    "accent": "#662BF0",
-    "tagline": "Bought by millions, empty tonight",
-    "handle": "@gamegraveyard",
-    "motif": "gamepad",
-    "layout": "trai",
-    "the_he": 2,
-    "niche_vn": "Game chết yểu và số người còn lại"
-  },
-  "CARRECALL": {
-    "display": "CAR RECALL",
-    "niche": "What they recalled on your car",
-    "hashtags": [
-      "#cars",
-      "#autos",
-      "#carrecall",
-      "#carrecallusa"
-    ],
-    "category": "27",
-    "accent": "#6CC8F0",
-    "tagline": "What they recalled on your car",
-    "handle": "@carrecallusa",
-    "motif": "road",
-    "layout": "phai",
-    "the_he": 2,
-    "niche_vn": "Dòng xe bị triệu hồi vì bộ phận gì"
-  },
-  "MPGTRUTH": {
-    "display": "MPG TRUTH",
-    "niche": "What the EPA actually measured",
-    "hashtags": [
-      "#cars",
-      "#autos",
-      "#carrecall",
-      "#mpgtruthusa"
-    ],
-    "category": "27",
-    "accent": "#B89453",
-    "tagline": "What the EPA actually measured",
-    "handle": "@mpgtruthusa",
-    "motif": "road",
-    "layout": "giua",
-    "the_he": 2,
-    "niche_vn": "Xe nào thật sự tiết kiệm xăng"
-  },
-  "BREEDFILE": {
-    "display": "BREED FILE",
-    "niche": "One breed, one file",
-    "hashtags": [
-      "#pets",
-      "#dogs",
-      "#animals",
-      "#breedfileusa"
-    ],
-    "category": "27",
-    "accent": "#53A8B8",
-    "tagline": "One breed, one file",
-    "handle": "@breedfileusa",
-    "motif": "paw",
-    "layout": "trai",
-    "the_he": 2,
-    "niche_vn": "Hồ sơ từng giống chó"
-  },
-  "WILDNUMBERS": {
-    "display": "WILD NUMBERS",
-    "niche": "The wild, counted",
-    "hashtags": [
-      "#pets",
-      "#dogs",
-      "#animals",
-      "#wildnumbersusa"
-    ],
-    "category": "27",
-    "accent": "#B853B3",
-    "tagline": "The wild, counted",
-    "handle": "@wildnumbersusa",
-    "motif": "paw",
-    "layout": "trai",
-    "the_he": 2,
-    "niche_vn": "Động vật hoang dã qua con số"
-  },
-  "COSTTOGO": {
-    "display": "COST TO GO",
-    "niche": "What that trip really costs",
-    "hashtags": [
-      "#travel",
-      "#usatravel",
-      "#roadtrip",
-      "#costtogousa"
-    ],
-    "category": "27",
-    "accent": "#AB2BF0",
-    "tagline": "What that trip really costs",
-    "handle": "@costtogousa",
-    "motif": "map",
-    "layout": "duoi",
-    "the_he": 2,
-    "niche_vn": "Đi đâu rẻ, đi đâu đắt"
-  },
-  "SKYRIGHTNOW": {
-    "display": "SKY RIGHT NOW",
-    "niche": "Who is above you right now",
-    "hashtags": [
-      "#travel",
-      "#usatravel",
-      "#roadtrip",
-      "#skyrightnow"
-    ],
-    "category": "27",
-    "accent": "#2BF0AB",
-    "tagline": "Who is above you right now",
-    "handle": "@skyrightnow",
-    "motif": "map",
-    "layout": "duoi",
-    "the_he": 2,
-    "niche_vn": "Bầu trời Mỹ ngay lúc này"
-  },
-  "FILINGSSAY": {
-    "display": "FILINGS SAY",
-    "niche": "What companies admit in writing",
-    "hashtags": [
-      "#tech",
-      "#ai",
-      "#technology",
-      "#filingssay"
-    ],
-    "category": "27",
-    "accent": "#C8F06C",
-    "tagline": "What companies admit in writing",
-    "handle": "@filingssay",
-    "motif": "chip",
-    "layout": "khoi",
-    "the_he": 2,
-    "niche_vn": "Công ty tự khai gì về AI trong hồ sơ"
-  },
-  "QUIETLAYOFFS": {
-    "display": "QUIET LAYOFFS",
-    "niche": "The cuts they filed quietly",
-    "hashtags": [
-      "#tech",
-      "#ai",
-      "#technology",
-      "#quietlayoffs"
-    ],
-    "category": "27",
-    "accent": "#2B5CF0",
-    "tagline": "The cuts they filed quietly",
-    "handle": "@quietlayoffs",
-    "motif": "coins",
-    "layout": "trai",
-    "the_he": 2,
-    "niche_vn": "Hồ sơ SEC nhắc chữ sa thải"
-  },
-  "REALPLACE": {
-    "display": "REAL PLACE",
-    "niche": "A real place, a real record",
-    "hashtags": [
-      "#scary",
-      "#creepy",
-      "#horror",
-      "#realplaceusa"
-    ],
-    "category": "27",
-    "accent": "#7153B8",
-    "tagline": "A real place, a real record",
-    "handle": "@realplaceusa",
-    "motif": "chip",
-    "layout": "phai",
-    "the_he": 2,
-    "niche_vn": "Nơi có thật, chuyện có thật"
-  },
-  "NIGHTSHIFT": {
-    "display": "NIGHT SHIFT",
-    "niche": "What happens after midnight",
-    "hashtags": [
-      "#scary",
-      "#creepy",
-      "#horror",
-      "#nightshiftusa"
-    ],
-    "category": "27",
-    "accent": "#F04D65",
-    "tagline": "What happens after midnight",
-    "handle": "@nightshiftusa",
-    "motif": "ghost",
-    "layout": "khoi",
-    "the_he": 2,
-    "niche_vn": "Chuyện xảy ra ca đêm"
-  },
-  "MARRIAGEMATH": {
-    "display": "MARRIAGE MATH",
-    "niche": "Love, in numbers",
-    "hashtags": [
-      "#relationships",
-      "#dating",
-      "#marriage",
-      "#marriagemath"
-    ],
-    "category": "27",
-    "accent": "#B87421",
-    "tagline": "Love, in numbers",
-    "handle": "@marriagemath",
-    "motif": "heart",
-    "layout": "duoi",
-    "the_he": 2,
-    "niche_vn": "Hôn nhân Mỹ qua con số"
-  },
-  "WHATTHEYSEARCH": {
-    "display": "WHAT THEY SEARCH",
-    "niche": "What America looks up alone",
-    "hashtags": [
-      "#relationships",
-      "#dating",
-      "#marriage",
-      "#whattheysearch"
-    ],
-    "category": "27",
-    "accent": "#B5F02B",
-    "tagline": "What America looks up alone",
-    "handle": "@whattheysearch",
-    "motif": "lens",
-    "layout": "duoi",
-    "the_he": 2,
-    "niche_vn": "Người ta lén tra điều gì"
-  },
-  "SALARYTRUTH": {
-    "display": "SALARY TRUTH",
-    "niche": "What that job really pays",
-    "hashtags": [
-      "#jobs",
-      "#careers",
-      "#salary",
-      "#salarytruthusa"
-    ],
-    "category": "27",
-    "accent": "#F0866C",
-    "tagline": "What that job really pays",
-    "handle": "@salarytruthusa",
-    "motif": "receipt",
-    "layout": "duoi",
-    "the_he": 2,
-    "niche_vn": "Nghề này thật sự trả bao nhiêu"
-  },
-  "JOBDYING": {
-    "display": "JOB DYING",
-    "niche": "The jobs going away",
-    "hashtags": [
-      "#jobs",
-      "#careers",
-      "#salary",
-      "#jobdyingusa"
-    ],
-    "category": "27",
-    "accent": "#B82121",
-    "tagline": "The jobs going away",
-    "handle": "@jobdyingusa",
-    "motif": "receipt",
-    "layout": "phai",
-    "the_he": 2,
-    "niche_vn": "Nghề đang biến mất"
-  },
-  "WHERETOMOVE": {
-    "display": "WHERE TO MOVE",
-    "niche": "Where your money goes further",
-    "hashtags": [
-      "#housing",
-      "#realestate",
-      "#rent",
-      "#wheretomoveusa"
-    ],
-    "category": "27",
-    "accent": "#21B856",
-    "tagline": "Where your money goes further",
-    "handle": "@wheretomoveusa",
-    "motif": "house",
-    "layout": "giua",
-    "the_he": 2,
-    "niche_vn": "Bang nào đáng chuyển tới"
-  },
-  "HOUSEMATH": {
-    "display": "HOUSE MATH",
-    "niche": "Years of pay for four walls",
-    "hashtags": [
-      "#housing",
-      "#realestate",
-      "#rent",
-      "#housemathusa"
-    ],
-    "category": "27",
-    "accent": "#5621B8",
-    "tagline": "Years of pay for four walls",
-    "handle": "@housemathusa",
-    "motif": "house",
-    "layout": "phai",
-    "the_he": 2,
-    "niche_vn": "Cần bao nhiêu năm lương mua một căn"
-  },
-  "ARCHIVEREEL": {
-    "display": "ARCHIVE REEL",
-    "niche": "Footage nobody owns",
-    "hashtags": [
-      "#history",
-      "#ushistory",
-      "#archives",
-      "#archivereelusa"
-    ],
-    "category": "27",
-    "accent": "#F06CDC",
-    "tagline": "Footage nobody owns",
-    "handle": "@archivereelusa",
-    "motif": "film",
-    "layout": "trai",
-    "the_he": 2,
-    "niche_vn": "Phim tư liệu công cộng, kể lại"
-  },
-  "THENANDNOW": {
-    "display": "THEN AND NOW",
-    "niche": "Same street, a century apart",
-    "hashtags": [
-      "#history",
-      "#ushistory",
-      "#archives",
-      "#thenandnowusa"
-    ],
-    "category": "27",
-    "accent": "#60D68A",
-    "tagline": "Same street, a century apart",
-    "handle": "@thenandnowusa",
-    "motif": "film",
-    "layout": "phai",
-    "the_he": 2,
-    "niche_vn": "Cùng một chỗ, cách nhau 100 năm"
-  },
-  "NEAREARTH": {
-    "display": "NEAR EARTH",
-    "niche": "What just passed us",
-    "hashtags": [
-      "#space",
-      "#nasa",
-      "#astronomy",
-      "#nearearthusa"
-    ],
-    "category": "27",
-    "accent": "#D6BC27",
-    "tagline": "What just passed us",
-    "handle": "@nearearthusa",
-    "motif": "rocket",
-    "layout": "duoi",
-    "the_he": 2,
-    "niche_vn": "Thiên thạch sát Trái Đất tháng này"
-  },
-  "SPACEINVOICE": {
-    "display": "SPACE INVOICE",
-    "niche": "Who NASA pays",
-    "hashtags": [
-      "#space",
-      "#nasa",
-      "#astronomy",
-      "#spaceinvoice"
-    ],
-    "category": "27",
-    "accent": "#B82165",
-    "tagline": "Who NASA pays",
-    "handle": "@spaceinvoice",
-    "motif": "rocket",
-    "layout": "phai",
-    "the_he": 2,
-    "niche_vn": "NASA trả tiền cho ai"
-  },
-  "ALERTNOW": {
-    "display": "ALERT NOW",
-    "niche": "What is warning right now",
-    "hashtags": [
-      "#weather",
-      "#disaster",
-      "#climate",
-      "#alertnowusa"
-    ],
-    "category": "27",
-    "accent": "#6CB821",
-    "tagline": "What is warning right now",
-    "handle": "@alertnowusa",
-    "motif": "storm",
-    "layout": "trai",
-    "the_he": 2,
-    "niche_vn": "Cảnh báo đang bật ở bang nào"
-  },
-  "QUAKELOG": {
-    "display": "QUAKE LOG",
-    "niche": "The ground moved here",
-    "hashtags": [
-      "#weather",
-      "#disaster",
-      "#climate",
-      "#quakelogusa"
-    ],
-    "category": "27",
-    "accent": "#8FB853",
-    "tagline": "The ground moved here",
-    "handle": "@quakelogusa",
-    "motif": "cap",
-    "layout": "phai",
-    "the_he": 2,
-    "niche_vn": "Động đất mạnh nhất và ở đâu"
-  },
-  "PENTAGONLEDGER": {
-    "display": "PENTAGON LEDGER",
-    "niche": "Where the defense money went",
-    "hashtags": [
-      "#military",
-      "#defense",
-      "#pentagon",
-      "#pentagonledger"
-    ],
-    "category": "27",
-    "accent": "#D627C5",
-    "tagline": "Where the defense money went",
-    "handle": "@pentagonledger",
-    "motif": "shield",
-    "layout": "khoi",
-    "the_he": 2,
-    "niche_vn": "Nhà thầu quốc phòng đua theo năm"
-  },
-  "WEAPONPRICE": {
-    "display": "WEAPON PRICE",
-    "niche": "What one round costs you",
-    "hashtags": [
-      "#military",
-      "#defense",
-      "#pentagon",
-      "#weaponpriceusa"
-    ],
-    "category": "27",
-    "accent": "#F05C2B",
-    "tagline": "What one round costs you",
-    "handle": "@weaponpriceusa",
-    "motif": "shield",
-    "layout": "khoi",
-    "the_he": 2,
-    "niche_vn": "Một quả đạn giá bao nhiêu"
-  },
-  "YOURRIGHTSCASE": {
-    "display": "YOUR RIGHTS CASE",
-    "niche": "The ruling that changed your day",
-    "hashtags": [
-      "#law",
-      "#yourrights",
-      "#legal",
-      "#yourrightscase"
-    ],
-    "category": "27",
-    "accent": "#45D6CF",
-    "tagline": "The ruling that changed your day",
-    "handle": "@yourrightscase",
-    "motif": "field",
-    "layout": "khoi",
-    "the_he": 2,
-    "niche_vn": "Án lệ đổi đời sống thường ngày"
-  },
-  "DEGREEWORTH": {
-    "display": "DEGREE WORTH",
-    "niche": "What that degree is worth",
-    "hashtags": [
-      "#education",
-      "#college",
-      "#student",
-      "#degreeworthusa"
-    ],
-    "category": "27",
-    "accent": "#2199B8",
-    "tagline": "What that degree is worth",
-    "handle": "@degreeworthusa",
-    "motif": "cap",
-    "layout": "giua",
-    "the_he": 2,
-    "niche_vn": "Bằng này đáng bao nhiêu tiền"
-  }
+ "HOWLONG": {
+  "display": "HOW LONG",
+  "niche": "HOW LONG WOULD IT TAKE",
+  "hashtags": [
+   "#howlong",
+   "#timescale",
+   "#distance",
+   "#explained"
+  ],
+  "category": "27",
+  "accent": "#D9622B",
+  "accent2": "#2F6E8A",
+  "tagline": "Every journey, in real time",
+  "handle": "@howlongusa",
+  "layout": "cheo",
+  "the_he": 3
+ },
+ "HOWBIG": {
+  "display": "HOW BIG",
+  "niche": "HOW BIG IS IT REALLY",
+  "hashtags": [
+   "#howbig",
+   "#scale",
+   "#sizecomparison",
+   "#explained"
+  ],
+  "category": "27",
+  "accent": "#2F7D8A",
+  "accent2": "#C9552F",
+  "tagline": "Scale you can actually picture",
+  "handle": "@howbigusa",
+  "layout": "doc",
+  "the_he": 3
+ },
+ "REALCOST": {
+  "display": "REAL COST",
+  "niche": "THE REAL COST",
+  "hashtags": [
+   "#realcost",
+   "#truecost",
+   "#money",
+   "#explained"
+  ],
+  "category": "27",
+  "accent": "#2E7D5B",
+  "accent2": "#B4523A",
+  "tagline": "The price after the price",
+  "handle": "@realcostusa",
+  "layout": "vien",
+  "the_he": 3
+ },
+ "HOWMUCH": {
+  "display": "A BILLION",
+  "niche": "HOW MUCH IS A BILLION",
+  "hashtags": [
+   "#howmuch",
+   "#billion",
+   "#bignumbers",
+   "#perspective"
+  ],
+  "category": "27",
+  "accent": "#6B4A93",
+  "accent2": "#C98A2E",
+  "tagline": "Big numbers, made human",
+  "handle": "@howmuchusa",
+  "layout": "ngang",
+  "the_he": 3
+ },
+ "WHATIF": {
+  "display": "WHAT IF",
+  "niche": "WHAT IF EVERYONE",
+  "hashtags": [
+   "#whatif",
+   "#hypothetical",
+   "#thoughtexperiment"
+  ],
+  "category": "27",
+  "accent": "#B4523A",
+  "accent2": "#2F7D8A",
+  "tagline": "One change, all the math",
+  "handle": "@whatifusa",
+  "layout": "tron",
+  "the_he": 3
+ },
+ "SURVIVE": {
+  "display": "SURVIVE",
+  "niche": "COULD YOU SURVIVE",
+  "hashtags": [
+   "#survive",
+   "#survival",
+   "#extremes",
+   "#explained"
+  ],
+  "category": "27",
+  "accent": "#8A3F2E",
+  "accent2": "#4E7C4A",
+  "tagline": "The numbers say no",
+  "handle": "@surviveusa",
+  "layout": "soc",
+  "the_he": 3
+ },
+ "DAYINLIFE": {
+  "display": "A DAY",
+  "niche": "A DAY IN THE LIFE OF",
+  "hashtags": [
+   "#dayinthelife",
+   "#dailynumbers",
+   "#routine"
+  ],
+  "category": "27",
+  "accent": "#9A6B34",
+  "accent2": "#3E6E8C",
+  "tagline": "Twenty-four hours, counted",
+  "handle": "@dayinlifeusa",
+  "layout": "cheo",
+  "the_he": 3
+ },
+ "WHEREGOES": {
+  "display": "WHERE",
+  "niche": "WHERE DOES IT GO",
+  "hashtags": [
+   "#wheredoesitgo",
+   "#supplychain",
+   "#hiddensystems"
+  ],
+  "category": "27",
+  "accent": "#3E7FB0",
+  "accent2": "#C9762F",
+  "tagline": "Follow it all the way down",
+  "handle": "@wheregoesusa",
+  "layout": "doc",
+  "the_he": 3
+ },
+ "THERULES": {
+  "display": "THE RULES",
+  "niche": "THE RULES NOBODY READS",
+  "hashtags": [
+   "#finePrint",
+   "#therules",
+   "#knowyourrights"
+  ],
+  "category": "27",
+  "accent": "#C9552F",
+  "accent2": "#4E7C4A",
+  "tagline": "The fine print, read out loud",
+  "handle": "@therulesusa",
+  "layout": "vien",
+  "the_he": 3
+ },
+ "SPEEDOF": {
+  "display": "HOW FAST",
+  "niche": "THE SPEED OF EVERYTHING",
+  "hashtags": [
+   "#speedof",
+   "#howfast",
+   "#physics",
+   "#explained"
+  ],
+  "category": "27",
+  "accent": "#2F6E8A",
+  "accent2": "#D9622B",
+  "tagline": "Everything, ranked by speed",
+  "handle": "@speedofusa",
+  "layout": "ngang",
+  "the_he": 3
+ },
+ "ODDS": {
+  "display": "THE ODDS",
+  "niche": "THE ODDS OF THAT",
+  "hashtags": [
+   "#odds",
+   "#probability",
+   "#chances",
+   "#explained"
+  ],
+  "category": "27",
+  "accent": "#6B3FA0",
+  "accent2": "#C9A227",
+  "tagline": "What the chances really are",
+  "handle": "@oddsusa",
+  "layout": "tron",
+  "the_he": 3
+ },
+ "HIDDENFEE": {
+  "display": "INSIDE",
+  "niche": "WHAT IS INSIDE THE PRICE",
+  "hashtags": [
+   "#hiddenfees",
+   "#pricebreakdown",
+   "#money"
+  ],
+  "category": "27",
+  "accent": "#2C6E49",
+  "accent2": "#B4522E",
+  "tagline": "Where your money actually goes",
+  "handle": "@hiddenfeeusa",
+  "layout": "soc",
+  "the_he": 3
+ },
+ "YEARSOF": {
+  "display": "YEARS",
+  "niche": "YEARS OF YOUR LIFE",
+  "hashtags": [
+   "#yearsofyourlife",
+   "#timespent",
+   "#lifemath"
+  ],
+  "category": "27",
+  "accent": "#A3542B",
+  "accent2": "#3E6E7C",
+  "tagline": "What you spend your life on",
+  "handle": "@yearsofusa",
+  "layout": "cheo",
+  "the_he": 3
+ },
+ "HOWLOUD": {
+  "display": "HOW LOUD",
+  "niche": "HOW LOUD IS IT",
+  "hashtags": [
+   "#howloud",
+   "#decibels",
+   "#sound",
+   "#explained"
+  ],
+  "category": "27",
+  "accent": "#C2352E",
+  "accent2": "#2F5D8A",
+  "tagline": "Decibels you can feel",
+  "handle": "@howloudusa",
+  "layout": "doc",
+  "the_he": 3
+ },
+ "WHATWEIGHS": {
+  "display": "WEIGHS",
+  "niche": "WHAT IT WEIGHS",
+  "hashtags": [
+   "#whatitweighs",
+   "#howheavy",
+   "#comparison"
+  ],
+  "category": "27",
+  "accent": "#4A5C2B",
+  "accent2": "#B4603A",
+  "tagline": "Heavier than you think",
+  "handle": "@whatweighsusa",
+  "layout": "vien",
+  "the_he": 3
+ },
+ "RIGHTNOW": {
+  "display": "RIGHT NOW",
+  "niche": "HOW MANY RIGHT NOW",
+  "hashtags": [
+   "#rightnow",
+   "#livenumbers",
+   "#happeningnow"
+  ],
+  "category": "27",
+  "accent": "#1F7A8C",
+  "accent2": "#D97E36",
+  "tagline": "Happening while you watch",
+  "handle": "@rightnowusa",
+  "layout": "ngang",
+  "the_he": 3
+ },
+ "HOWHOT": {
+  "display": "HOW HOT",
+  "niche": "HOW HOT IS IT",
+  "hashtags": [
+   "#howhot",
+   "#temperature",
+   "#heat",
+   "#explained"
+  ],
+  "category": "27",
+  "accent": "#C24E1E",
+  "accent2": "#3B5E7A",
+  "tagline": "The degrees that matter",
+  "handle": "@howhotusa",
+  "layout": "tron",
+  "the_he": 3
+ },
+ "SMALLEST": {
+  "display": "SMALLEST",
+  "niche": "THE SMALLEST THING",
+  "hashtags": [
+   "#smallest",
+   "#tiny",
+   "#microscopic",
+   "#explained"
+  ],
+  "category": "27",
+  "accent": "#3A4E9B",
+  "accent2": "#8FA33E",
+  "tagline": "Too small to imagine, measured",
+  "handle": "@smallestusa",
+  "layout": "soc",
+  "the_he": 3
+ }
 }

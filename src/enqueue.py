@@ -136,7 +136,21 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
     else:
         root = os.environ.get(ch["drive_folder_id_env"])
         if not root:
-            raise SystemExit(f"❌ Chưa kết nối tài khoản kho nào, và chưa set {ch['drive_folder_id_env']}.")
+            # PHÂN BIỆT "KHÔNG CÓ" VỚI "KHÔNG ĐỌC ĐƯỢC"  (1/9/2026)
+            # Câu cũ nói thẳng "chưa kết nối tài khoản kho nào". Hôm nay nó SAI: có ~70 kho đã
+            # kết nối, chỉ là Firestore cạn hạn mức nên `pool_accounts()` đọc rỗng. Hai tình
+            # huống ấy dẫn tới hai hành động hoàn toàn khác nhau — một cái phải đi nối kho, một
+            # cái phải chờ hạn mức — và câu sai làm mất nửa giờ đi kiểm cấu hình.
+            _co_ho = False
+            try:
+                _co_ho = bool(ST.load_config().get("pool"))
+            except Exception:
+                pass
+            _goi_y = ("Firestore/KV/D1 đều không trả về danh sách kho — nhiều khả năng CẠN HẠN MỨC "
+                      "đọc, không phải chưa nối kho. Kiểm sổ ngân sách rồi chạy lại."
+                      if not _co_ho else
+                      f"chưa set {ch['drive_folder_id_env']}.")
+            raise SystemExit(f"❌ Không lấy được danh sách kho Drive. {_goi_y}")
         targets = [(Drive(), root, "kênh")]
 
     created, where, last_err = None, None, None

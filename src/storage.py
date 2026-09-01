@@ -151,6 +151,80 @@ def _trong_ho(c: dict) -> bool:
     return c.get("pool") is not False
 
 
+def _hot(lenh: str, tham: dict, timeout: int = 20) -> dict:
+    """Gọi Worker /api/hot — dùng chung cho đọc/ghi bộ nhớ D1. KHÔNG đụng Firestore."""
+    import json as _json
+    import os as _os
+    import urllib.request as _u
+    _k = _os.environ.get("HOT_KEY", "")
+    if not _k:
+        return {}
+    _url = (_os.environ.get("HOT_URL")
+            or "https://mm0-connect.adisondurham-ef1.workers.dev/api/hot")
+    try:
+        _req = _u.Request(_url, method="POST",
+                          data=_json.dumps({"lenh": lenh, "tham": tham}).encode(),
+                          headers={"content-type": "application/json", "x-hot-key": _k,
+                                   # thiếu User-Agent -> Cloudflare chặn mã 1010, trả 403 y như sai khoá
+                                   "user-agent": "MM0-Pipeline/1.0"})
+        with _u.urlopen(_req, timeout=timeout) as _r:
+            return _json.loads(_r.read().decode("utf-8", "ignore")) or {}
+    except Exception:
+        return {}
+
+
+_D1_KEY = "kho_pool"
+
+
+def _kho_tu_d1() -> list:
+    """Danh sách kho lấy từ bảng `bo_nho` trong D1 — KHÔNG đụng Firestore một câu nào.
+
+    ── VÌ SAO (1/9/2026) ───────────────────────────────────────────────────────────────────
+    Anh: *"bữa e kêu có cách ko ảnh hưởng mà, tìm hướng tối ưu."* Đúng — và hôm nay đã trả giá
+    cho việc chưa làm: Firestore cạn hạn mức đúng lúc bước đẩy kho chạy, `pool_accounts()` đọc
+    rỗng, `enqueue.py` kết luận "chưa kết nối tài khoản kho nào", và **17 lượt render xong không
+    lên được Drive** (buglog 7cw).
+
+    `_kho_tu_kv()` sinh ra đúng cho tình huống này nhưng khoá KV `conn:` chỉ được ghi LÚC KẾT NỐI
+    tài khoản, mà các kho của anh kết nối trước khi cơ chế KV ra đời (31/8) — nên nó rỗng, và
+    đường sống cuối im lặng vô dụng.
+
+    Đường này KHÔNG cần deploy Worker (không có token Cloudflare ở máy) vì lệnh `nho_ghi`/`nho_doc`
+    đã có sẵn. Và nó TỰ ĐẦY: mỗi lần đọc Firestore thành công, danh sách được ghi lại vào D1
+    (`_luu_kho_vao_d1`). Nghĩa là chỉ cần Firestore sống MỘT lần là từ đó không cần nó nữa.
+
+    Hạn: danh sách có thể cũ vài giờ nếu anh vừa nối kho mới. Chấp nhận được — hàm gọi nó vốn đã
+    đệm mười phút, và phần chọn kho nào còn trống vẫn hỏi dung lượng THẬT qua Drive API mỗi lần.
+    """
+    d = _hot("nho_doc", {"k": _D1_KEY})
+    js = (d or {}).get("js") or ""
+    if not js:
+        return []
+    try:
+        import json as _json
+        accs = _json.loads(js)
+    except Exception:
+        return []
+    ra = [a for a in accs
+          if a.get("root") and (a.get("creds") or {}).get("refresh_token")]
+    if ra:
+        print(f"   💾 KHO LẤY TỪ D1: {len(ra)} tài khoản (không đụng Firestore).")
+    return ra
+
+
+def _luu_kho_vao_d1(accs: list) -> None:
+    """Ghi danh sách kho vào D1 để lần sau không cần Firestore. Hỏng thì im lặng bỏ qua."""
+    if not accs:
+        return
+    try:
+        import json as _json
+        from datetime import datetime, timezone
+        _hot("nho_ghi", {"k": _D1_KEY, "js": _json.dumps(accs),
+                         "at": datetime.now(timezone.utc).isoformat()})
+    except Exception:
+        pass
+
+
 def _kho_tu_kv() -> list:
     """Danh sách kho lấy từ KV của Worker — KHÔNG đụng Firestore một câu nào.
 
@@ -217,6 +291,13 @@ def firestore_pool_accounts() -> list[dict]:
     if _kv:
         _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), _kv
         return _kv
+    # D1 SAU KV, TRƯỚC FIRESTORE. Cả hai đều không đụng hạn mức Firestore; D1 có lợi thế là nó
+    # TỰ ĐẦY từ lần đọc Firestore thành công gần nhất, nên nó có dữ liệu kể cả với những kho nối
+    # trước khi cơ chế KV ra đời — đúng lỗ hổng đã làm 17 lượt render không đẩy được kho hôm nay.
+    _d1 = _kho_tu_d1()
+    if _d1:
+        _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), _d1
+        return _d1
     # 22/8 tối: Firestore A nghẽn 1 nhịp -> except trả [] -> enqueue hiểu là "0 kho" -> 9 video
     # EMPIREUSA QC 98 vừa render xong bị TỪ CHỐI đẩy Drive (mất trắng công render). Lỗi mạng/quota
     # KHÔNG BAO GIỜ được dịch thành "không có kho": thử lại 2 lần (8s/25s — enqueue chỉ chạy 1
@@ -316,6 +397,9 @@ def firestore_pool_accounts() -> list[dict]:
                                   "refresh_token": c["refresh_token"]},
                     })
             _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), out
+            # GHI LẠI VÀO D1: đọc Firestore được MỘT lần là từ đó không cần nó nữa. Đây là chỗ
+            # bịt lỗ hổng đã làm 17 lượt render không đẩy được kho hôm nay (buglog 7cw).
+            _luu_kho_vao_d1(out)
             return out
         except Exception as e:
             last = e
@@ -345,6 +429,7 @@ def firestore_pool_accounts() -> list[dict]:
         if out:
             print(f"   🪞 A nghẽn — dùng GƯƠNG kho ở {label}: {len(out)} tài khoản.")
             _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), out
+            _luu_kho_vao_d1(out)      # gương đọc được cũng ghi vào D1
         return out
     try:
         from firestore_state import client_render_jobs
