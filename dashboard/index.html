@@ -2301,8 +2301,11 @@
       }
 
       // Vân tay = những thứ QUYẾT ĐỊNH tập ấy là tập nào, không phải chữ nó dùng.
+      // `p` = cú lật rút gọn. Không có nó thì tập sau không gọi lại được tập này: một cái tên
+      // không đủ để nhắc, người xem nhớ CHUYỆN chứ không nhớ tiêu đề.
       const _klVanTay = (d, K, ho) => ({
         t: String(d.title || "").slice(0, 60), h: ho, r: String(d.room || ""),
+        p: String(d.payoff || "").split(/(?<=[.!?]) /)[0].slice(0, 100),
         w: [...new Set(String(d.hook + " " + d.payoff).toLowerCase().match(/[a-z]{5,}/g) || [])].slice(0, 8),
       });
 
@@ -2442,6 +2445,13 @@
           e.push("hook chưa NÓI RA cái sai — dùng một chữ cụ thể: empty · open · stacked · "
                  + "leaning · spilling · stuck · missing · upside down · soaked · too high");
 
+        // Cú gọi lại chỉ có giá trị khi người xem CŨ nhận ra còn người xem MỚI không thấy gì
+        // lạ. "remember when" phá cả hai: người cũ mất phần thưởng, người mới bị nhắc rằng có
+        // một tập trước mình chưa xem — tức bị đẩy ra.
+        if (de && de._goi_lai && L.nhac_lo && new RegExp(L.nhac_lo, "i").test(ca))
+          e.push("cú gọi lại tự giải thích ('remember when' / 'last time') — nó phải là một CHI "
+                 + "TIẾT bình thường: người xem cũ nhận ra, người xem mới không thấy gì lạ");
+
         // ── ĐỀ BÀI PHẢI ĐƯỢC DÙNG THẬT, KHÔNG PHẢI GHI NHẬN RỒI VIẾT CHUYỆN KHÁC ─────────
         if (de) {
           const bo = new Set(L.bo_tu || []);
@@ -2566,7 +2576,7 @@
           // 1/9 — Bản trước dùng thẳng `_kho0.length`, tức tập đầu tiên mang số 0 trong khi
           // Python đánh số 1. Hai bên vì thế tính ra HAI đề bài khác nhau cho cùng một tập, và
           // không có gì báo — cả hai lịch đều hợp lệ, chỉ là lệch nhau một bước.
-          let phong, _de = null, soTap = _kho0.length + 1;
+          let phong, _de = null, _goiLai = null, soTap = _kho0.length + 1;
           if (LI && LI.truc) {
             let P = LI.truc.reduce((a, b) => a * b, 1);
             let n = (LI.goc % P + soTap * LI.buoc) % P, ix = [];
@@ -2574,9 +2584,20 @@
             const vai = LI.vai, gay = vai[ix[4]];
             const con = vai.filter(v => v !== gay);
             const hoTen = LI.ho_lat_ten || Object.keys(LI.ho_lat_ta || {});
+            // ── CÚ GỌI LẠI: kênh này có trí nhớ ───────────────────────────────────────────
+            // Cứ `nhip_goi_lai` tập thì nhắc lại một tập cũ bằng MỘT chi tiết. Đây là thứ duy
+            // nhất còn lại nâng được giữ chân mà không tốn thêm một giây Kling nào: người xem
+            // cũ nhận ra và thấy được thưởng, người mới vẫn hiểu trọn tập vì cú gọi lại nằm ở
+            // chi tiết chứ không ở tiền đề. Và nó đòi TRẠNG THÁI — thứ một dây chuyền sinh
+            // hàng loạt không có, nên nó cũng là bằng chứng đây là một chương trình.
+            const _nhip = (K.luat && K.luat.nhip_goi_lai) || 4;
+            const _cu = _kho0.filter(x => x && x.t && (x.p || x.w));
+            _goiLai = (soTap % _nhip === 0 && soTap >= _nhip && _cu.length)
+              ? _cu[_cu.length - 1 - ((Math.floor(soTap / _nhip) * 3) % _cu.length)] : null;
             _de = { phong: LI.phong[ix[0]], dao_cu: LI.dao_cu[ix[1]], ap_luc: LI.ap_luc[ix[2]],
                     kieu_mo: LI.kieu_mo[ix[3]], gay, lat: con[ix[5] % con.length] || gay,
-                    co_che: (LI.ho_lat_ta || {})[hoTen[ix[6] % Math.max(1, hoTen.length)]] || "" };
+                    co_che: (LI.ho_lat_ta || {})[hoTen[ix[6] % Math.max(1, hoTen.length)]] || "",
+                    _goi_lai: _goiLai };
             phong = _de.phong;
           } else {                                  // dữ liệu cũ chưa có lịch -> giữ cách cũ
             const ds = Object.keys(K.phong || {});
@@ -2615,6 +2636,12 @@
               + `${_de.ap_luc}. THE OPENING IMAGE must be this kind of wrong: ${_de.kieu_mo}. `
               + `${_de.gay} caused it and does not admit it. ${_de.lat} delivers the reversal, `
               + `and delivers it THIS way - not the way that comes to mind first: ${_de.co_che}. `
+              + (_goiLai ? `CALLBACK - this channel remembers: somewhere in this episode refer `
+                  + `to what happened in the earlier episode "${_goiLai.t}" (${_goiLai.p || ""}) `
+                  + `in ONE short detail - a repaired thing, a rule someone now follows, an object `
+                  + `still where it ended up. It must be a DETAIL, never the premise: a first-time `
+                  + `viewer must understand this episode completely without it, and nobody says `
+                  + `"remember when". ` : "")
               + `These seven are fixed; everything else is yours to invent fresh. ` : "";
             const _thu = await _klGoiAI(K.sys[giay],
               _deBai + (y ? `Idea: ${y}. ` : "") + `Room: ${phong}. `
