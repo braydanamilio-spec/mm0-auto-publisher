@@ -151,7 +151,7 @@ def _trong_ho(c: dict) -> bool:
     return c.get("pool") is not False
 
 
-def _hot(lenh: str, tham: dict, timeout: int = 20) -> dict:
+def _hot_goi(lenh: str, tham: dict, timeout: int = 20) -> dict:
     """Gọi Worker /api/hot — dùng chung cho đọc/ghi bộ nhớ D1. KHÔNG đụng Firestore."""
     import json as _json
     import os as _os
@@ -196,7 +196,7 @@ def _kho_tu_d1() -> list:
     Hạn: danh sách có thể cũ vài giờ nếu anh vừa nối kho mới. Chấp nhận được — hàm gọi nó vốn đã
     đệm mười phút, và phần chọn kho nào còn trống vẫn hỏi dung lượng THẬT qua Drive API mỗi lần.
     """
-    d = _hot("nho_doc", {"k": _D1_KEY})
+    d = _hot_goi("nho_doc", {"k": _D1_KEY})
     js = (d or {}).get("js") or ""
     if not js:
         return []
@@ -219,7 +219,7 @@ def _luu_kho_vao_d1(accs: list) -> None:
     try:
         import json as _json
         from datetime import datetime, timezone
-        _hot("nho_ghi", {"k": _D1_KEY, "js": _json.dumps(accs),
+        _hot_goi("nho_ghi", {"k": _D1_KEY, "js": _json.dumps(accs),
                          "at": datetime.now(timezone.utc).isoformat()})
     except Exception:
         pass
