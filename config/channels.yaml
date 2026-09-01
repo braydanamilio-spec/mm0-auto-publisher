@@ -1,21 +1,17 @@
 firestore_project_env: FIREBASE_PROJECT_ID
 timezone: Asia/Ho_Chi_Minh
 # ══════════════════════════════════════════════════════════════════════════════════════
-# 1/9/2026 — THAY TRỌN 81 KÊNH CŨ BẰNG 10 KÊNH GIẢI THÍCH.
+# 1/9/2026 — 18 KÊNH GIẢI THÍCH, đủ 18 luồng render song song.
 #
-# Anh: *"dọn hết các channel cũ hiện tại trên web để làm 10 channel mới."*
+# Kiểm trước khi thay 81 kênh cũ: KHÔNG kênh nào có ID tài khoản thật đã điền, nên thay đi
+# không phá kết nối nào.
 #
-# Kiểm trước khi thay (luật: nhìn đích trước khi xoá): 81 kênh cũ khai đủ khung YouTube và
-# Facebook, nhưng **KHÔNG kênh nào có ID tài khoản thật** — không một `channel_id`,
-# `page_id` hay `ig_user_id` nào được điền. Nên thay đi KHÔNG phá kết nối tài khoản nào,
-# vì chưa có kết nối nào tồn tại.
-#
-# Bản cũ giữ trong git (`git show HEAD~1:config/channels.yaml`) và ở
-# `/tmp/channels_cu_backup.yaml`. Hoàn tác được bằng một lệnh.
-#
-# CÒN LẠI, CẦN TAY ANH — hai thứ em không làm được từ máy:
-#   · dữ liệu trong Firestore/Drive: cần khoá chỉ có trong GitHub Actions
-#   · bảng điều khiển: đòi đăng nhập Google, em không đăng nhập thay anh
+# 18 kênh phân biệt nhau ở SÁU trục, đã kiểm tự động không trùng:
+#   màu nhận diện 18/18 · nhạc nền 18/18 · sắc thái vẽ 18/18 · biểu tượng 18/18 ·
+#   từ trên avatar 18/18 · khoá nhân vật 18/18
+# Riêng GIỌNG ĐỌC 11/18 — cố ý. edge-tts chỉ có 17 giọng en-US (đã hỏi API), và quan trọng
+# hơn: gán theo ĐỘ HỢP niche đắt hơn gán để không trùng. Giọng nhẹ vui cho kênh sinh tồn
+# tệ hơn hai kênh cùng giọng.
 # ══════════════════════════════════════════════════════════════════════════════════════
 channels:
   HOWLONG:
@@ -27,7 +23,7 @@ channels:
       client_id_env: HOWLONG_YT_CLIENT_ID
       client_secret_env: HOWLONG_YT_CLIENT_SECRET
       refresh_token_env: HOWLONG_YT_REFRESH_TOKEN
-      category_id: '27'          # Education — đúng niche, và là hạng có RPM cao
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
       default_language: en
       made_for_kids: false
       privacy: public
@@ -40,7 +36,7 @@ channels:
       ig_user_id_env: HOWLONG_IG_USER_ID
       ig_token_env: HOWLONG_IG_TOKEN
     branding:
-      niche: How long everyday journeys really take, worked out from real speeds and distances
+      niche: How long everyday journeys really take, from real speeds and distances
       mau: '#D9622B'
       mau_nen: '#F4EDE0'
       handle: '@howlongusa'
@@ -53,7 +49,7 @@ channels:
       client_id_env: HOWBIG_YT_CLIENT_ID
       client_secret_env: HOWBIG_YT_CLIENT_SECRET
       refresh_token_env: HOWBIG_YT_REFRESH_TOKEN
-      category_id: '27'          # Education — đúng niche, và là hạng có RPM cao
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
       default_language: en
       made_for_kids: false
       privacy: public
@@ -79,7 +75,7 @@ channels:
       client_id_env: REALCOST_YT_CLIENT_ID
       client_secret_env: REALCOST_YT_CLIENT_SECRET
       refresh_token_env: REALCOST_YT_REFRESH_TOKEN
-      category_id: '27'          # Education — đúng niche, và là hạng có RPM cao
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
       default_language: en
       made_for_kids: false
       privacy: public
@@ -105,7 +101,7 @@ channels:
       client_id_env: HOWMUCH_YT_CLIENT_ID
       client_secret_env: HOWMUCH_YT_CLIENT_SECRET
       refresh_token_env: HOWMUCH_YT_REFRESH_TOKEN
-      category_id: '27'          # Education — đúng niche, và là hạng có RPM cao
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
       default_language: en
       made_for_kids: false
       privacy: public
@@ -131,7 +127,7 @@ channels:
       client_id_env: WHATIF_YT_CLIENT_ID
       client_secret_env: WHATIF_YT_CLIENT_SECRET
       refresh_token_env: WHATIF_YT_REFRESH_TOKEN
-      category_id: '27'          # Education — đúng niche, và là hạng có RPM cao
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
       default_language: en
       made_for_kids: false
       privacy: public
@@ -157,7 +153,7 @@ channels:
       client_id_env: SURVIVE_YT_CLIENT_ID
       client_secret_env: SURVIVE_YT_CLIENT_SECRET
       refresh_token_env: SURVIVE_YT_REFRESH_TOKEN
-      category_id: '27'          # Education — đúng niche, và là hạng có RPM cao
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
       default_language: en
       made_for_kids: false
       privacy: public
@@ -170,7 +166,7 @@ channels:
       ig_user_id_env: SURVIVE_IG_USER_ID
       ig_token_env: SURVIVE_IG_TOKEN
     branding:
-      niche: Whether a modern person could last in harsher conditions, worked out from calories and climate
+      niche: Whether a modern person could last in harsher conditions
       mau: '#8A3F2E'
       mau_nen: '#E8E9E6'
       handle: '@surviveusa'
@@ -183,7 +179,7 @@ channels:
       client_id_env: DAYINLIFE_YT_CLIENT_ID
       client_secret_env: DAYINLIFE_YT_CLIENT_SECRET
       refresh_token_env: DAYINLIFE_YT_REFRESH_TOKEN
-      category_id: '27'          # Education — đúng niche, và là hạng có RPM cao
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
       default_language: en
       made_for_kids: false
       privacy: public
@@ -209,7 +205,7 @@ channels:
       client_id_env: WHEREGOES_YT_CLIENT_ID
       client_secret_env: WHEREGOES_YT_CLIENT_SECRET
       refresh_token_env: WHEREGOES_YT_REFRESH_TOKEN
-      category_id: '27'          # Education — đúng niche, và là hạng có RPM cao
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
       default_language: en
       made_for_kids: false
       privacy: public
@@ -235,7 +231,7 @@ channels:
       client_id_env: THERULES_YT_CLIENT_ID
       client_secret_env: THERULES_YT_CLIENT_SECRET
       refresh_token_env: THERULES_YT_REFRESH_TOKEN
-      category_id: '27'          # Education — đúng niche, và là hạng có RPM cao
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
       default_language: en
       made_for_kids: false
       privacy: public
@@ -261,7 +257,7 @@ channels:
       client_id_env: SPEEDOF_YT_CLIENT_ID
       client_secret_env: SPEEDOF_YT_CLIENT_SECRET
       refresh_token_env: SPEEDOF_YT_REFRESH_TOKEN
-      category_id: '27'          # Education — đúng niche, và là hạng có RPM cao
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
       default_language: en
       made_for_kids: false
       privacy: public
@@ -278,3 +274,211 @@ channels:
       mau: '#21618C'
       mau_nen: '#EAF0F5'
       handle: '@speedofusa'
+  ODDS:
+    display_name: THE ODDS OF THAT
+    enabled: true
+    drive_folder_id_env: ODDS_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: ODDS_YT_CLIENT_ID
+      client_secret_env: ODDS_YT_CLIENT_SECRET
+      refresh_token_env: ODDS_YT_REFRESH_TOKEN
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: ODDS_FB_PAGE_ID
+      page_token_env: ODDS_FB_PAGE_TOKEN
+    instagram:
+      enabled: true
+      ig_user_id_env: ODDS_IG_USER_ID
+      ig_token_env: ODDS_IG_TOKEN
+    branding:
+      niche: Real probabilities turned into something you can feel
+      mau: '#6B3FA0'
+      mau_nen: '#F1EDF5'
+      handle: '@oddsusa'
+  HIDDENFEE:
+    display_name: WHAT IS INSIDE THE PRICE
+    enabled: true
+    drive_folder_id_env: HIDDENFEE_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: HIDDENFEE_YT_CLIENT_ID
+      client_secret_env: HIDDENFEE_YT_CLIENT_SECRET
+      refresh_token_env: HIDDENFEE_YT_REFRESH_TOKEN
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: HIDDENFEE_FB_PAGE_ID
+      page_token_env: HIDDENFEE_FB_PAGE_TOKEN
+    instagram:
+      enabled: true
+      ig_user_id_env: HIDDENFEE_IG_USER_ID
+      ig_token_env: HIDDENFEE_IG_TOKEN
+    branding:
+      niche: Where every dollar of a familiar price actually goes
+      mau: '#2C6E49'
+      mau_nen: '#F0F2EE'
+      handle: '@hiddenfeeusa'
+  YEARSOF:
+    display_name: YEARS OF YOUR LIFE
+    enabled: true
+    drive_folder_id_env: YEARSOF_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: YEARSOF_YT_CLIENT_ID
+      client_secret_env: YEARSOF_YT_CLIENT_SECRET
+      refresh_token_env: YEARSOF_YT_REFRESH_TOKEN
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: YEARSOF_FB_PAGE_ID
+      page_token_env: YEARSOF_FB_PAGE_TOKEN
+    instagram:
+      enabled: true
+      ig_user_id_env: YEARSOF_IG_USER_ID
+      ig_token_env: YEARSOF_IG_TOKEN
+    branding:
+      niche: How many years of a life go into ordinary daily habits
+      mau: '#A3542B'
+      mau_nen: '#F5F1E8'
+      handle: '@yearsofusa'
+  HOWLOUD:
+    display_name: HOW LOUD IS IT
+    enabled: true
+    drive_folder_id_env: HOWLOUD_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: HOWLOUD_YT_CLIENT_ID
+      client_secret_env: HOWLOUD_YT_CLIENT_SECRET
+      refresh_token_env: HOWLOUD_YT_REFRESH_TOKEN
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: HOWLOUD_FB_PAGE_ID
+      page_token_env: HOWLOUD_FB_PAGE_TOKEN
+    instagram:
+      enabled: true
+      ig_user_id_env: HOWLOUD_IG_USER_ID
+      ig_token_env: HOWLOUD_IG_TOKEN
+    branding:
+      niche: Decibel comparisons, and why the scale is not what it looks like
+      mau: '#C2352E'
+      mau_nen: '#EDEEF2'
+      handle: '@howloudusa'
+  WHATWEIGHS:
+    display_name: WHAT IT WEIGHS
+    enabled: true
+    drive_folder_id_env: WHATWEIGHS_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: WHATWEIGHS_YT_CLIENT_ID
+      client_secret_env: WHATWEIGHS_YT_CLIENT_SECRET
+      refresh_token_env: WHATWEIGHS_YT_REFRESH_TOKEN
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: WHATWEIGHS_FB_PAGE_ID
+      page_token_env: WHATWEIGHS_FB_PAGE_TOKEN
+    instagram:
+      enabled: true
+      ig_user_id_env: WHATWEIGHS_IG_USER_ID
+      ig_token_env: WHATWEIGHS_IG_TOKEN
+    branding:
+      niche: Weight comparisons between things people misjudge
+      mau: '#4A5C2B'
+      mau_nen: '#EFF0EC'
+      handle: '@whatweighsusa'
+  RIGHTNOW:
+    display_name: HOW MANY RIGHT NOW
+    enabled: true
+    drive_folder_id_env: RIGHTNOW_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: RIGHTNOW_YT_CLIENT_ID
+      client_secret_env: RIGHTNOW_YT_CLIENT_SECRET
+      refresh_token_env: RIGHTNOW_YT_REFRESH_TOKEN
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: RIGHTNOW_FB_PAGE_ID
+      page_token_env: RIGHTNOW_FB_PAGE_TOKEN
+    instagram:
+      enabled: true
+      ig_user_id_env: RIGHTNOW_IG_USER_ID
+      ig_token_env: RIGHTNOW_IG_TOKEN
+    branding:
+      niche: How many people are doing the same ordinary thing at this moment
+      mau: '#1F7A8C'
+      mau_nen: '#ECF1F4'
+      handle: '@rightnowusa'
+  HOWHOT:
+    display_name: HOW HOT IS IT
+    enabled: true
+    drive_folder_id_env: HOWHOT_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: HOWHOT_YT_CLIENT_ID
+      client_secret_env: HOWHOT_YT_CLIENT_SECRET
+      refresh_token_env: HOWHOT_YT_REFRESH_TOKEN
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: HOWHOT_FB_PAGE_ID
+      page_token_env: HOWHOT_FB_PAGE_TOKEN
+    instagram:
+      enabled: true
+      ig_user_id_env: HOWHOT_IG_USER_ID
+      ig_token_env: HOWHOT_IG_TOKEN
+    branding:
+      niche: Temperature comparisons and the narrow band humans live in
+      mau: '#C24E1E'
+      mau_nen: '#F6EFE6'
+      handle: '@howhotusa'
+  SMALLEST:
+    display_name: THE SMALLEST THING
+    enabled: true
+    drive_folder_id_env: SMALLEST_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: SMALLEST_YT_CLIENT_ID
+      client_secret_env: SMALLEST_YT_CLIENT_SECRET
+      refresh_token_env: SMALLEST_YT_REFRESH_TOKEN
+      category_id: '27'          # Education — đúng niche, và là hạng RPM cao
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: SMALLEST_FB_PAGE_ID
+      page_token_env: SMALLEST_FB_PAGE_TOKEN
+    instagram:
+      enabled: true
+      ig_user_id_env: SMALLEST_IG_USER_ID
+      ig_token_env: SMALLEST_IG_TOKEN
+    branding:
+      niche: Scale downward, from a grain of sand to a single atom
+      mau: '#3A4E9B'
+      mau_nen: '#EDEFF4'
+      handle: '@smallestusa'
