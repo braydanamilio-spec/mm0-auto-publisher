@@ -853,12 +853,16 @@
               <span style="font-size:11px;opacity:.7">THỜI LƯỢNG</span>
               <select id="klGiay" class="inp" style="min-width:110px"></select>
             </label>
+            <!-- 1/9 — BỎ Ô CHỌN "BẢN PROMPT". Trước đây có hai lựa chọn: "Gọn ~2.700 ký tự" và
+                 "Đầy đủ ~2.700 từ". Cả hai đều vượt trần THẬT của Kling là 2.500 KÝ TỰ — bản
+                 đầy sinh ra 16.279 ký tự, gấp 6,5 lần. Kling cắt đuôi, và đuôi là khối DO NOT
+                 chặn thừa ngón / méo mặt / hiện chữ. Nên đó không phải hai lựa chọn, đó là hai
+                 cách hỏng. Nay chỉ còn một bản, và nó tự co cho vừa 2.500. -->
             <label class="d" style="display:flex;flex-direction:column;gap:4px">
-              <span style="font-size:11px;opacity:.7">BẢN PROMPT</span>
-              <select id="klBan" class="inp" style="min-width:190px">
-                <option value="gon">Gọn · ~2.700 ký tự (an toàn)</option>
-                <option value="day">Đầy đủ · ~2.700 từ (16 khối)</option>
-              </select>
+              <span style="font-size:11px;opacity:.7">ĐỘ DÀI PROMPT</span>
+              <div class="inp" style="min-width:190px;display:flex;align-items:center;opacity:.75">
+                tự co vừa 2.500 ký tự
+              </div>
             </label>
           </div>
 
@@ -2297,7 +2301,6 @@
       window.klingTao = async () => {
         const nut = _klEl("klTao"); if (!nut) return;
         const slug = _klEl("klKenh").value, giay = _klEl("klGiay").value;
-        const ban = _klEl("klBan").value;
         nut.disabled = true; const chuNut = nut.textContent; nut.textContent = "⏳ Đang viết…";
         try {
           const K = await _klNapKenh(slug);
@@ -2346,7 +2349,7 @@
           const thoai = lines.map(l => `${l.who} ${l.act || "says"}: \u201c${String(l.say || "").trim()}\u201d`).join(" ");
           // Điền chín chỗ trống. Thứ tự có ý: thay ROOMDESC trước ROOM, vì tên phòng là một
           // phần của mô tả phòng — thay ngược thì mô tả bị cắt nát.
-          let p = K.khuon[giay][ban]
+          const dien = (t) => String(t || "")
             .split("@@ROOMDESC@@").join(K.phong[phong] || phong)
             .split("@@ROOM@@").join(phong)
             .split("@@TITLE@@").join(lay("title"))
@@ -2357,6 +2360,39 @@
             .split("@@WHO@@ says: \u201c@@LINES@@\u201d").join(thoai)
             .split("@@LINES@@").join(thoai)
             .split("@@WHO@@").join(lines[0]?.who || "");
+
+          // ══ NGÂN SÁCH 2.500 KÝ TỰ — ĐO CHUỖI THẬT, KHÔNG ĐOÁN TRƯỚC ═══════════════════════
+          // 1/9 — Bản trước nhận từ Python MỘT chuỗi đã ghép sẵn rồi thay chỗ trống vào. Nghĩa
+          // là Python phải đoán trước văn kể sẽ dài bao nhiêu để chừa chỗ — và đoán ba lần đều
+          // sai: đo được 80/80 khuôn vượt trần sau khi điền, cái dài nhất 3.687 ký tự. Chỗ
+          // phình xảy ra ở ngay đây, trong trình duyệt, nơi Python không với tới để đo.
+          //
+          // Nay Python xuất BA PHẦN RỜI và chỗ này đo chuỗi THẬT sau khi điền:
+          //   1. chọn mức nén ÍT NHẤT của THÂN mà vẫn còn chỗ cho hàng rào
+          //   2. chèn từng khối tả thêm theo đúng thứ tự Python xếp, chừng nào còn chỗ
+          //   3. nối HÀNG RÀO vào cuối — khối này không bao giờ nhường chỗ cho ai
+          // Đây KHÔNG phải ghép prompt bằng JavaScript: nội dung và thứ tự khối đều do Python
+          // quyết. Chỗ này thi hành đúng một câu luật — "hàng rào không bao giờ bị cắt".
+          const KH = K.khuon[giay] || {}, TRAN = (K.gioi_han && K.gioi_han.ky_tu_max) || 2500;
+          const than = (KH.than || []).map(dien), rao = dien(KH.rao);
+          const them = (KH.them || []).map(dien).filter(t => t.trim());
+          // Chọn mức nén theo GIÁ TRỊ TỔNG, không theo "mức ít nén nhất mà còn lọt".
+          // 1/9 — Quy tắc tham lấy mức 0 vì nó vừa đủ lọt (2.435/2.500) rồi không còn chỗ cho
+          // khối nào: đo được 0/328 khuôn chèn nổi một khối chỉ đạo. Thân nén nhẹ CỘNG bốn
+          // khối chỉ đạo đáng giá hơn thân đầy đủ đứng trơ. Cùng quy tắc với `prompt()` bên
+          // Python — hai bên thi hành một câu luật, không phải hai thuật toán.
+          let p = "", vao = -1, bo = 0;
+          for (const th of than) {
+            if (th.length + rao.length + 2 > TRAN) continue;
+            let q = th, con = TRAN - th.length - rao.length - 2, n = 0, x = 0;
+            for (const t of them) {
+              if (t.length + 3 <= con) { q += "\n" + t + "\n"; con -= t.length + 3; n++; }
+              else x++;
+            }
+            if (n > vao) { p = q; vao = n; bo = x; }
+          }
+          if (vao < 0) { p = than[than.length - 1] || ""; vao = 0; bo = them.length; }
+          p = p + "\n" + rao;
           _klEl("klPrompt").value = p;
           const tom = _klEl("klTom");
           tom.style.display = "block";
@@ -2364,7 +2400,21 @@
             + `<div style="opacity:.8;margin-top:6px">${esc(lay("hook"))}</div>`
             + lines.map(l => `<div style="opacity:.7">· <b>${esc(l.who || "")}</b>: ${esc(l.say || "")}</div>`).join("")
             + `<div style="opacity:.8;margin-top:6px">↪ ${esc(lay("payoff"))}</div>`;
-          _klBao(`✅ xong · ${p.split(/\s+/).length} từ · ${p.length} ký tự — bấm 📋 để chép rồi dán vào Kling`, "#9fe6a0");
+          // Hook cụt là lỗi hay gặp nhất và cũng là lỗi đắt nhất — báo ngay tại đây, cùng
+          // chuẩn 16–30 từ mà `cham()` bên Python dùng. Đếm sau khi bỏ lời ghim máy quay.
+          const _hinh = lay("hook").replace(/^[^:]{0,40}(shot|angle)\s*:\s*/i, "");
+          const _nh = _hinh.trim() ? _hinh.trim().split(/\s+/).length : 0;
+          if (_nh && (_nh < 16 || _nh > 30))
+            _klBao(`⚠️ hook ${_nh} từ (chuẩn 16–30) — ${_nh < 16 ? "cụt, thiếu vế ai gây ra"
+                   : "quá dài, không còn là MỘT hình ảnh"}. Nên bấm ✨ tạo lại.`, "#ffd08a");
+          const _qua = p.length > TRAN;
+          _klBao(`${_qua ? "⚠️" : "✅"} ${p.length}/${TRAN} ký tự · ${vao} khối tả thêm`
+                 + (bo ? ` (bỏ ${bo} khối cho vừa trần)` : "")
+                 + (_qua ? ` — VƯỢT TRẦN ${p.length - TRAN} ký tự. Kling cắt đuôi, và đuôi là`
+                           + ` khối DO NOT chặn lỗi hình. Tập này có ${new Set(lines.map(l=>l.who)).size}`
+                           + ` nhân vật — bớt một người rẻ hơn cắt hook (mỗi vai tốn ~150 ký tự khoá hình).`
+                           + ` Bấm ✨ tạo lại.`
+                         : " — bấm 📋 để chép rồi dán vào Kling"), _qua ? "#ffd08a" : "#9fe6a0");
         } catch (e) {
           _klBao("❌ " + String(e.message || e), "#ffb3b3");
         } finally { nut.disabled = false; nut.textContent = chuNut; }
