@@ -2421,6 +2421,16 @@
           }
         }
 
+        // Một LƯỢNG CHÍNH XÁC — cùng biểu thức Python dùng, xuất ra trong `luat`.
+        // Đo trên 28 tập AI viết: đây là trục mất điểm thứ hai (108 điểm ở 18/28 tập). Luật đã
+        // có trong bộ luật hài nhưng chỉ được CHẤM, không được CHẶN — nên nó là lời khuyên.
+        if (L.so_chinh_xac && !new RegExp(L.so_chinh_xac, "i").test(ca))
+          e.push("không có một lượng chính xác nào — cần một con số, một khoản tiền, một tên thứ "
+                 + "trong tuần hay một phép đếm ('chồng cốc' -> 'chín cái cốc')");
+        if (L.sai_trai && !new RegExp(L.sai_trai, "i").test(lay("hook")))
+          e.push("hook chưa NÓI RA cái sai — dùng một chữ cụ thể: empty · open · stacked · "
+                 + "leaning · spilling · stuck · missing · upside down · soaked · too high");
+
         // ── ĐỀ BÀI PHẢI ĐƯỢC DÙNG THẬT, KHÔNG PHẢI GHI NHẬN RỒI VIẾT CHUYỆN KHÁC ─────────
         if (de) {
           const bo = new Set(L.bo_tu || []);
