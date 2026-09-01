@@ -245,6 +245,7 @@ def _kho_tu_kv() -> list:
     # Đây là đường sống cuối cùng, chỉ dùng khi mọi đường Firestore đã tắt.
     try:
         import json as _json
+        import time as _t          # 2/9 — THIẾU DÒNG NÀY LÀ CẢ ĐƯỜNG CỨU CHẾT CÂM.
         import urllib.request as _u
         _k = os.environ.get("HOT_KEY", "")
         if _k:
@@ -263,8 +264,15 @@ def _kho_tu_kv() -> list:
                       f"(Firestore tắt cả 3 đường — đây là lớp cứu cuối, KHÔNG đụng Firestore).")
                 _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), _accs
                 return _accs
-    except Exception:
-        pass
+    except Exception as e:
+        # 2/9 — `except: pass` CÂM ĐÃ GIẤU MỘT NAMEERROR SUỐT HAI NGÀY.
+        # `_t` được import trong `firestore_pool_accounts`, KHÔNG phải ở đây. Dòng
+        # `_POOL_CACHE["at"] = _t.time()` nằm NGAY SAU câu print "🆘 KHO LẤY TỪ KV: 100 tài
+        # khoản" nên log trông như thành công, rồi NameError rơi vào `pass` và hàm trả [].
+        # Đường cứu cuối in ra một câu trấn an rồi không cứu gì — dạng hỏng tệ nhất, vì nó
+        # làm người đọc log tin là đã có 100 kho.
+        # Đo được: enqueue nhận 0 kho -> "0/2 video vào hàng đợi" -> 18 lượt render nằm lại.
+        print(f"   ⚠ KV hụt ({type(e).__name__}: {str(e)[:70]}) — không lấy được kho từ KV")
     return []
 
 
