@@ -2299,7 +2299,7 @@
       // `K.luat` do `luat_web()` bên Python xuất ra. Viết lại thước bằng JavaScript thì sớm
       // muộn hai bản lệch nhau — bài học đã trả giá ở câu cấm chữ (ba bản) và câu góc máy (bốn
       // mươi bản). Sửa luật ở Python thì lượt xuất sau web đổi theo, không ai phải nhớ gì.
-      function _klCham(d, K, giay) {
+      function _klCham(d, K, giay, de) {
         const L = K.luat, G = L && L.theo_giay && L.theo_giay[String(giay)];
         if (!L || !G) return [];                       // dữ liệu cũ chưa có luật -> đừng chặn
         const e = [], lay = k => String(d[k] || "").trim();
@@ -2318,9 +2318,15 @@
         // phải tên riêng — bỏ chúng đi thì chỉ còn lại tên thật, và danh sách hết cần dài.
         const _vai = new Set(Object.keys(K.vai || {})), _la = [];
         for (const l of lines) if (l.who && !_vai.has(String(l.who).trim())) _la.push(String(l.who).trim());
+        // XOÁ TÊN ĐÃ BIẾT TRƯỚC KHI QUÉT. Vai tên hai chữ ("Chef Nick", "Coach Ed", "Grandpa
+        // Joe", "Mrs. Okafor") bị phép quét một-chữ xé đôi, và nửa sau ("Nick", "Ed") thành
+        // "người lạ" — cổng chặn một kịch bản hoàn toàn đúng. Quét cái CÒN LẠI sau khi đã bỏ
+        // mọi tên hợp lệ thì không còn nửa tên nào để hiểu nhầm.
+        const _tenDai = [...Object.keys(K.vai || {})].sort((a, b) => b.length - a.length);
         for (const k2 of ["hook", "setup", "escalate", "payoff"]) {
-          const cau = lay(k2).split(/(?<=[.!?])\s+/);           // tách câu, bỏ chữ đầu mỗi câu
-          for (const c of cau)
+          let t = lay(k2);
+          for (const v of _tenDai) t = t.split(v).join(" ");
+          for (const c of t.split(/(?<=[.!?])\s+/))
             for (const m of c.replace(/^\s*\S+\s*/, "").matchAll(/\b([A-Z][a-z]{2,})\b/g)) {
               const w = m[1];
               if (!_vai.has(w) && !_la.includes(w)
@@ -2372,11 +2378,29 @@
 
         // chữ cấm + đồ đạc căn phòng không có
         for (const [t, ly] of L.cam_ky) if (ca.includes(t)) { e.push(`có “${t}” — ${ly}`); break; }
-        const taPh = String(K.phong[d.room] || "").toLowerCase();
-        for (const x of L.do_to)
-          if (new RegExp("\\b" + x + "\\b").test(ca) && !taPh.includes(x)) {
-            e.push(`nhắc “${x}” — phòng ${d.room} không có thứ đó; chỉ dùng đồ đã tả, hoặc món cầm tay`); break;
+        // Phòng lấy từ ĐỀ BÀI, không lấy từ `d.room`: phòng do lịch cấp, AI không được đổi —
+        // và nếu AI bỏ trống `room` thì `K.phong[undefined]` cho "undefined" và cổng chặn sạch
+        // mọi kịch bản. Đồ được coi là CÓ nếu tên nó hoặc một tên khác của nó nằm trong mô tả
+        // phòng hoặc trong chính tên phòng ("stairwell" tả là "concrete steps" vẫn có "stairs").
+        const _ph = (de && de.phong) || d.room || "";
+        const taPh = (String(K.phong[_ph] || "") + " " + _ph).toLowerCase();
+        for (const x of L.do_to) {
+          const co = taPh.includes(x) || ((L.dong_nghia_do || {})[x] || []).some(y => taPh.includes(y));
+          if (!co && new RegExp("\\b" + x + "\\b").test(ca)) {
+            e.push(`nhắc “${x}” — phòng ${_ph} không có thứ đó; chỉ dùng đồ đã tả, hoặc món cầm tay`); break;
           }
+        }
+
+        // ── ĐỀ BÀI PHẢI ĐƯỢC DÙNG THẬT, KHÔNG PHẢI GHI NHẬN RỒI VIẾT CHUYỆN KHÁC ─────────
+        if (de) {
+          const bo = new Set(L.bo_tu || []);
+          const tu = (String(de.dao_cu).toLowerCase().match(/[a-z]{3,}/g) || []).filter(w => !bo.has(w));
+          const caDe = (ke + " " + lay("title")).toLowerCase();
+          if (tu.length && !tu.some(w => caDe.includes(w)))
+            e.push(`không dùng đồ vật được cấp cho tập này (${de.dao_cu}) — cả chuyện phải xoay quanh nó`);
+          if (de.lat && !lay("payoff").includes(de.lat))
+            e.push(`cú lật phải do ${de.lat} thực hiện — payoff không nhắc tới ${de.lat}`);
+        }
 
         // ngân sách văn kể: quá thì prompt tràn và Kling cắt mất khối DO NOT
         const vk = ["hook","setup","escalate","payoff"].reduce((a, k) => a + lay(k).length, 0);
@@ -2476,21 +2500,40 @@
         nut.disabled = true; const chuNut = nut.textContent; nut.textContent = "⏳ Đang viết…";
         try {
           const K = await _klNapKenh(slug);
-          // Luân phiên bối cảnh: đếm số lần đã tạo cho kênh này và đi hết vòng rồi mới lặp lại.
-          // Không random — random vẫn cho phép ra cùng một phòng ba lần liên tiếp, và ba tập
-          // liền cùng một căn phòng là thứ người xem nhận ra ngay dù không gọi được tên.
-          const dsPhong = Object.keys(K.phong || {});
-          const khoaDem = "mm0:kling:phong:" + slug;
-          const dem = Number(localStorage.getItem(khoaDem) || 0);
-          const phong = dsPhong[dem % dsPhong.length] || dsPhong[0];
-          localStorage.setItem(khoaDem, String(dem + 1));
+          // ══ ĐỀ BÀI CỦA TẬP NÀY — SÁU TRỤC, CẤP THEO LỊCH ═════════════════════════════════
+          // 1/9 — Bản trước chỉ luân phiên BỐI CẢNH; đồ vật, áp lực, kiểu mở và ai gây ra đều
+          // để AI tự nghĩ. Nó nghĩ ra cùng một thứ — đo được 16/30 tập cùng một cơ chế cú lật
+          // và 22/30 hook mở bằng chữ "A". Dặn "đừng lặp" đã thử, không ăn thua.
+          //
+          // Công thức giống hệt `_lich()` bên Python, và MỌI THAM SỐ (độ dài trục, bước, gốc)
+          // đều do Python cấp trong `K.lich` — nên hai bên không thể lệch. Bước phải nguyên tố
+          // cùng nhau với TÍCH các trục: chia modulo từng trục thì bộ sáu lặp sau lcm = 240 tập
+          // dù không gian là 737.280.
+          const _kho0 = await _klKhoDoc_(slug);
+          const LI = K.lich;
+          let phong, _de = null, soTap = _kho0.length;
+          if (LI && LI.truc) {
+            let P = LI.truc.reduce((a, b) => a * b, 1);
+            let n = (LI.goc % P + soTap * LI.buoc) % P, ix = [];
+            for (const t of LI.truc) { ix.push(n % t); n = Math.floor(n / t); }
+            const vai = LI.vai, gay = vai[ix[4]];
+            const con = vai.filter(v => v !== gay);
+            _de = { phong: LI.phong[ix[0]], dao_cu: LI.dao_cu[ix[1]], ap_luc: LI.ap_luc[ix[2]],
+                    kieu_mo: LI.kieu_mo[ix[3]], gay, lat: con[ix[5] % con.length] || gay };
+            phong = _de.phong;
+          } else {                                  // dữ liệu cũ chưa có lịch -> giữ cách cũ
+            const ds = Object.keys(K.phong || {});
+            const kd = "mm0:kling:phong:" + slug, dm = Number(localStorage.getItem(kd) || 0);
+            phong = ds[dm % ds.length] || ds[0];
+            localStorage.setItem(kd, String(dm + 1));
+          }
           // ══ VÒNG VIẾT LẠI — GIỐNG HỆT `sinh_tap()` BÊN PYTHON ════════════════════════════
           // 1/9 — Trước đây web gọi AI ĐÚNG MỘT LẦN rồi dùng thẳng kết quả. Bên Python, cùng
           // một kịch bản phải qua tới tám vòng viết lại mới sạch thước — nên đường web đang
           // giao ra thứ mà đường chính sẽ từ chối. Nay chấm rồi trả lỗi lại cho AI viết lại,
           // tối đa `luat.vong_viet` vòng (mặc định 4: quá nữa là đốt hạn mức cho một tập).
           const y = (_klEl("klY").value || "").trim();
-          const _kho = await _klKhoDoc_(slug);
+          const _kho = _kho0;
           const _VV = (K.luat && K.luat.vong_viet) || 1;
           let d = null, _loi = [], _vong = 0;
           for (_vong = 1; _vong <= _VV; _vong++) {
@@ -2500,12 +2543,18 @@
               ? `\n\nYour previous attempt was rejected. Fix ALL of these and rewrite from scratch:\n`
                 + _loi.map((x, i) => `${i + 1}. ${x}`).join("\n")
               : "";
+            const _deBai = _de ? `THIS EPISODE'S ASSIGNMENT — build the story around exactly `
+              + `these, do not swap them: ROOM: ${_de.phong}. THE OBJECT this episode is about: `
+              + `${_de.dao_cu}. THE PRESSURE that makes it a scene and not just an incident: `
+              + `${_de.ap_luc}. THE OPENING IMAGE must be this kind of wrong: ${_de.kieu_mo}. `
+              + `${_de.gay} caused it and does not admit it. ${_de.lat} delivers the reversal. `
+              + `These six are fixed; everything else is yours to invent fresh. ` : "";
             const _thu = await _klGoiAI(K.sys[giay],
-              (y ? `Idea: ${y}. ` : "") + `Room: ${phong}. `
+              _deBai + (y ? `Idea: ${y}. ` : "") + `Room: ${phong}. `
               + `Return ONLY JSON with keys: title, hook, setup, escalate, payoff, `
               + `lines (array of {who, act, say, beat}).` + _nhac);
             if (!_thu) { _loi = ["AI không trả về JSON hợp lệ"]; continue; }
-            _loi = _klCham(_thu, K, giay);
+            _loi = _klCham(_thu, K, giay, _de);
             if (!_loi.length) {
               const _vt = _klVanTay(_thu, K, _klHoLat(String(_thu.payoff || ""), K.luat || {ho_lat: {}}));
               _loi = _klTrung(_vt, _kho);
@@ -2585,7 +2634,10 @@
           _klEl("klPrompt").value = p;
           const tom = _klEl("klTom");
           tom.style.display = "block";
-          tom.innerHTML = `<b>${esc(lay("title"))}</b> · ${esc(phong)} · ${giay}s`
+          tom.innerHTML = `<b>${esc(lay("title"))}</b> · ${esc(phong)} · ${giay}s · tập ${soTap + 1}`
+            + (_de ? `<div style="opacity:.6;font-size:11.5px;margin-top:4px">đề bài: `
+                     + `${esc(_de.dao_cu)} · ${esc(_de.ap_luc)} · ${esc(_de.gay)} gây ra, `
+                     + `${esc(_de.lat)} lật</div>` : "")
             + `<div style="opacity:.8;margin-top:6px">${esc(lay("hook"))}</div>`
             + lines.map(l => `<div style="opacity:.7">· <b>${esc(l.who || "")}</b>: ${esc(l.say || "")}</div>`).join("")
             + `<div style="opacity:.8;margin-top:6px">↪ ${esc(lay("payoff"))}</div>`;
