@@ -2445,6 +2445,23 @@
           e.push("hook chưa NÓI RA cái sai — dùng một chữ cụ thể: empty · open · stacked · "
                  + "leaning · spilling · stuck · missing · upside down · soaked · too high");
 
+        // ── BỐN CỔNG NGHỀ ──────────────────────────────────────────────────────────────────
+        // Rút từ việc ĐỌC TAY 28 kịch bản AI đã sinh: thang điểm đo được cấu trúc, không đo
+        // được buồn cười. Bốn lỗi này mọi cổng cũ đều cho qua, và cả bốn đều đo được.
+        const _hinhVe = ["hook", "setup", "escalate", "payoff"].map(lay).join(" ");
+        if (L.chu_trong_khung && new RegExp(L.chu_trong_khung, "i").test(_hinhVe))
+          e.push("bắt Kling vẽ CHỮ ĐỌC ĐƯỢC — chỗ nó hỏng nặng nhất, ra ký tự loằng ngoằng. "
+                 + "Biển/giấy phải nhận ra bằng HÌNH DẠNG và MÀU, không bằng chữ");
+        if (L.khong_ve_duoc && new RegExp(L.khong_ve_duoc, "i").test(_hinhVe))
+          e.push("dùng chữ không vẽ được (evidence · confirming · showing that) — đó là giải "
+                 + "thích cho người đọc. Tả CÁI THẤY, để người xem tự suy");
+        for (const l of lines)
+          if (L.thoai_tu_thuat && new RegExp(L.thoai_tu_thuat).test(String(l.say))) {
+            e.push(`${l.who}: “${l.say}” — lời dẫn đội lốt lời thoại. Không ai gọi tên người `
+                   + `đứng trước mặt rồi tả lại tình hình cho họ, và không ai nói ra chính hành `
+                   + `động mình đang làm`); break;
+          }
+
         // Cú gọi lại chỉ có giá trị khi người xem CŨ nhận ra còn người xem MỚI không thấy gì
         // lạ. "remember when" phá cả hai: người cũ mất phần thưởng, người mới bị nhắc rằng có
         // một tập trước mình chưa xem — tức bị đẩy ra.
