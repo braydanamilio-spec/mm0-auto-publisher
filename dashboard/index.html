@@ -1729,7 +1729,7 @@
     const firebaseConfigC = { apiKey:"AIzaSyAVEj7RUMx5jRtxN0o2eOzh4r7Pjjm-zBk", authDomain:"mm0-shard-c.firebaseapp.com", projectId:"mm0-shard-c", storageBucket:"mm0-shard-c.firebasestorage.app", messagingSenderId:"443486296227", appId:"1:443486296227:web:e5607766466c3bf6cd8716" };
     let dbPub = db;  // C: publish (videos/counters/quota/queues); lỗi init -> fallback A
     try { const appC = initializeApp(firebaseConfigC, "shardC"); dbPub = _fs(appC); } catch(e){ dbPub = db; }
-    const META_B = new Set(["render_config","render_channels","render_topics","render_requests","kling_shots"]);  // gemini_keys + storage_accounts GIỮ ở A: keys cần auth (không public B); storage_accounts do Worker (bên ngoài, chỉ biết A) quản lý connect/sync/xoá -> phải cùng project với Worker
+    const META_B = new Set(["render_config","render_channels","render_topics","render_requests","kling_shots","kling_kho"]);  // gemini_keys + storage_accounts GIỮ ở A: keys cần auth (không public B); storage_accounts do Worker (bên ngoài, chỉ biết A) quản lý connect/sync/xoá -> phải cùng project với Worker
     const PUB_C  = new Set(["videos","counters","quota","social_queue","yt_queue"]);   // publish -> C
     const _appFor = (name) => PUB_C.has(name) ? dbPub : (META_B.has(name) ? dbMeta : db);
     // TIẾT KIỆM ĐỌC Firestore (100% free): tab ẨN >30s -> TẮT network (listener ngừng đọc); HIỆN lại -> BẬT (sync tươi).
@@ -2228,10 +2228,182 @@
         return null;
       }
 
+      // ══ KHO VÂN TAY — CHỐNG TRÙNG QUA NHIỀU PHIÊN, GẦN NHƯ KHÔNG TỐN GÌ ═════════════════
+      // 1/9 — Web gọi AI rồi vứt kết quả đi: không có gì để đối chiếu, nên AI lặp lại chính nó.
+      // Đo trên kho thật: mới 30 tập mà một cơ chế cú lật đã chiếm 16/30.
+      //
+      // Lưu cái gì, và vì sao KHÔNG lưu prompt: prompt đã ghép nặng ~2.450 byte và SUY RA ĐƯỢC
+      // từ kịch bản, nên lưu nó là trả giá gấp ba cho không gì cả. Lưu KỊCH BẢN (818 byte).
+      //
+      // Vì sao gói vân tay vào MỘT tài liệu chứ không mỗi tập một tài liệu: mỗi lần bấm phải
+      // đọc toàn bộ lịch sử để so. Mỗi tập một tài liệu thì 2.000 tập = 2.000 lượt đọc một lần
+      // bấm, tức 25 lượt bấm là hết hạn mức đọc free của cả ngày. Gói lại: 1 lượt đọc.
+      // Vân tay 116 byte/tập -> 2.000 tập = 227 KB, dưới trần 1 MiB của một tài liệu Firestore.
+      //
+      // Trần 2.000 và vì sao KHÔNG cần xoá thêm: một kênh chỉ có ~1.400 bộ ba phân biệt
+      // (5 phòng × 5 người lật × 7 cơ chế × 8 kiểu mở). Quá 2.000 thì tập cũ nhất chắc chắn đã
+      // là lặp cấu trúc, bỏ đi không mất gì thật. Ở 10 lượt bấm/ngày, kho đầy 1 GiB sau 360 năm.
+      const KHO_TRAN = 2000;
+      const _klKhoCache = {};
+
+      async function _klKhoDoc(slug) {
+        const uid = window.__ownerUid || window.__uid || "";
+        return doc(_appFor("kling_kho"), "kling_kho", uid + "__" + slug);
+      }
+      async function _klKhoDoc_(slug) {
+        if (_klKhoCache[slug]) return _klKhoCache[slug];
+        try {
+          const d = await gdocGate(await _klKhoDoc(slug));
+          _klKhoCache[slug] = (d.exists() && Array.isArray(d.data().van_tay)) ? d.data().van_tay : [];
+        } catch (_) { _klKhoCache[slug] = []; }
+        return _klKhoCache[slug];
+      }
+
+      // Vân tay = những thứ QUYẾT ĐỊNH tập ấy là tập nào, không phải chữ nó dùng.
+      const _klVanTay = (d, K, ho) => ({
+        t: String(d.title || "").slice(0, 60), h: ho, r: String(d.room || ""),
+        w: [...new Set(String(d.hook + " " + d.payoff).toLowerCase().match(/[a-z]{5,}/g) || [])].slice(0, 8),
+      });
+
+      function _klHoLat(payoff, L) {
+        for (const [ten, rx] of Object.entries(L.ho_lat || {}))
+          if (new RegExp(rx, "i").test(payoff)) return ten;
+        return "khác";
+      }
+
+      // Trùng ở hai tầng: CƠ CHẾ cú lật (một họ chiếm quá 1/4 kho là kênh chỉ còn một trò đùa)
+      // và NỘI DUNG (Jaccard trên danh từ của hook + payoff).
+      function _klTrung(vt, kho) {
+        const e = [];
+        if (kho.length >= 8) {
+          const n = kho.filter(x => x.h === vt.h).length;
+          if (vt.h !== "khác" && n / kho.length > 0.25)
+            e.push(`cú lật thuộc họ “${vt.h}” — kho đã dùng ${n}/${kho.length} lần. Đảo tình thế bằng cách KHÁC`);
+        }
+        const a = new Set(vt.w);
+        for (const x of kho) {
+          const b = new Set(x.w || []);
+          const chung = [...a].filter(y => b.has(y)).length;
+          const g = chung / Math.max(1, new Set([...a, ...b]).size);
+          if (g >= 0.45) { e.push(`trùng ${Math.round(g * 100)}% với tập đã làm “${x.t}” — đổi CÚ LẬT, không đổi mỗi cái tên`); break; }
+        }
+        return e;
+      }
+
+      // ══ THƯỚC CHẤM — THI HÀNH LUẬT PYTHON XUẤT RA, KHÔNG VIẾT LẠI LUẬT ═══════════════════
+      // 1/9 — Web gọi AI rồi dùng thẳng kết quả: mọi cổng đã trả giá để có (khuôn kể theo thời
+      // lượng · chống trùng cơ chế · thoại kiểu Mỹ · hook ba vế) đều nằm bên Python và KHÔNG áp
+      // cho đường này — đúng chỗ anh bấm nút hàng ngày.
+      //
+      // Hàm này KHÔNG chứa luật nào. Mọi ngưỡng, mọi biểu thức, mọi danh sách đều đọc từ
+      // `K.luat` do `luat_web()` bên Python xuất ra. Viết lại thước bằng JavaScript thì sớm
+      // muộn hai bản lệch nhau — bài học đã trả giá ở câu cấm chữ (ba bản) và câu góc máy (bốn
+      // mươi bản). Sửa luật ở Python thì lượt xuất sau web đổi theo, không ai phải nhớ gì.
+      function _klCham(d, K, giay) {
+        const L = K.luat, G = L && L.theo_giay && L.theo_giay[String(giay)];
+        if (!L || !G) return [];                       // dữ liệu cũ chưa có luật -> đừng chặn
+        const e = [], lay = k => String(d[k] || "").trim();
+        const lines = Array.isArray(d.lines) ? d.lines.filter(x => x && x.say) : [];
+
+        // ── NHÂN VẬT NGOÀI DÀN ────────────────────────────────────────────────────────────
+        // 31/8 — Lượt chạy đầu ra tập BREAK ROOM có cú lật do `Buddy` thực hiện, con mèo của
+        // kênh HOUSE RULES. AI đọc lệnh hệ thống của kênh này nhưng vẫn mượn nhân vật kênh
+        // khác. Một nhân vật lạ phá đúng thứ cả hệ được dựng lên để giữ — sự nhất quán.
+        // 1/9 — Trước đây cổng này bắt anh bấm "Tạo lại" bằng tay. Nay nó là một lỗi như mọi
+        // lỗi khác, nên AI tự sửa trong vòng viết lại.
+        // Nhận diện bằng cách BỎ CHỮ ĐẦU CÂU, không bằng danh sách chữ được phép.
+        // 1/9 — Bản cũ giữ một danh sách ("The","This","That"…) và mọi chữ hoa ngoài danh sách
+        // bị coi là nhân vật lạ. Danh sách ấy là danh sách VÔ HẠN: câu "Behind Mike the freezer
+        // rattles" làm cổng chặn một kịch bản hoàn toàn đúng. Chữ hoa đầu câu là ngữ pháp, không
+        // phải tên riêng — bỏ chúng đi thì chỉ còn lại tên thật, và danh sách hết cần dài.
+        const _vai = new Set(Object.keys(K.vai || {})), _la = [];
+        for (const l of lines) if (l.who && !_vai.has(String(l.who).trim())) _la.push(String(l.who).trim());
+        for (const k2 of ["hook", "setup", "escalate", "payoff"]) {
+          const cau = lay(k2).split(/(?<=[.!?])\s+/);           // tách câu, bỏ chữ đầu mỗi câu
+          for (const c of cau)
+            for (const m of c.replace(/^\s*\S+\s*/, "").matchAll(/\b([A-Z][a-z]{2,})\b/g)) {
+              const w = m[1];
+              if (!_vai.has(w) && !_la.includes(w)
+                  && Object.keys(K.phong || {}).every(p2 => !p2.includes(w.toLowerCase()))) _la.push(w);
+            }
+        }
+        if (_la.length)
+          e.push(`nhân vật ngoài dàn: ${[...new Set(_la)].join(", ")} — kênh này CHỈ có ${[..._vai].join(", ")}`);
+        const ke = ["hook","setup","escalate","payoff"].map(lay).join(" ");
+        const ca = (ke + " " + lines.map(l => l.say).join(" ")).toLowerCase();
+
+        // hook: đếm sau khi bỏ lời ghim máy quay
+        const hinh = lay("hook").replace(new RegExp(L.bo_ghim_may, "i"), "");
+        const nh = hinh ? hinh.split(/\s+/).length : 0;
+        if (nh < L.hook_tu[0]) e.push(`hook ${nh} từ — cụt, cần ${L.hook_tu[0]}–${L.hook_tu[1]} từ và đủ ba vế: vật gì sai · sai chỗ nào · chi tiết cho thấy CÓ NGƯỜI gây ra`);
+        else if (nh > L.hook_tu[1]) e.push(`hook ${nh} từ — quá ${L.hook_tu[1]}, không còn là MỘT hình ảnh`);
+        if (!L.ghim_may.some(x => (lay("hook") + " " + lay("setup")).toLowerCase().includes(x)))
+          e.push("chưa ghim góc máy — thêm 'static eye-level wide shot' vào hook hoặc setup");
+
+        // ngân sách thoại + khuôn kể theo thời lượng
+        const tu = lines.reduce((a, l) => a + String(l.say).trim().split(/\s+/).length, 0);
+        if (tu > G.tu_toi_da) e.push(`${tu} từ thoại — clip ${giay}s chỉ chứa nổi ${G.tu_toi_da}`);
+        for (const l of lines) {
+          const n = String(l.say).trim().split(/\s+/).length;
+          if (n > L.tu_moi_luot) e.push(`${l.who}: ${n} từ — quá ${L.tu_moi_luot} thì khớp miệng trượt`);
+          if (!/[.!?]$/.test(String(l.say).trim())) e.push(`${l.who}: thiếu dấu kết câu`);
+        }
+        if (lines.length < G.luot[0] || lines.length > G.luot[1])
+          e.push(`${lines.length} lượt thoại — khuôn ${G.khuon} (${giay}s) cần ${G.luot[0]}${G.luot[1] > G.luot[0] ? "–" + G.luot[1] : ""} lượt`);
+        if (G.esc_toi_da && lay("escalate").length > G.esc_toi_da)
+          e.push(`'escalate' dài ${lay("escalate").length} ký tự — ở ${giay}s nó chỉ là nửa giây vật lý, một mệnh đề ngắn`);
+        if (G.lat_phai_doi_hinh && !new RegExp(L.lat_doi_hinh, "i").test(lay("payoff")))
+          e.push(`cú lật ở ${giay}s phải ĐỔI HÌNH DẠNG/VỊ TRÍ thấy ngay (đổ · mở · lật · bước ra), không phải thông tin`);
+        if (G.esc_phai_leo && !new RegExp(L.esc_leo, "i").test(lay("escalate")))
+          e.push(`'escalate' không leo thang gì đo được — ở ${giay}s khúc giữa phải có tiếng cười riêng: nỗ lực sai phải TO HƠN`);
+        if (G.can_rai_nhip) {
+          const b = new Set(lines.map(l => l.beat).filter(Boolean));
+          if (b.size < 2) e.push(`thoại dồn vào một nhịp — clip ${giay}s có ${G.nhip.length} khối, rải bằng trường 'beat' (${G.nhip.join(", ")})`);
+        }
+
+        // cú lật phải thuộc một họ cơ chế
+        const co = Object.entries(L.ho_lat).some(([, rx]) => new RegExp(rx, "i").test(lay("payoff")));
+        if (!co && !new RegExp(L.lat_bat_ky, "i").test(lay("payoff")))
+          e.push("payoff không có cú lật — phải ĐẢO tình thế (ai đó bước vào · vật hoá ra là thứ khác · thủ phạm lộ diện · hậu quả đuổi kịp)");
+
+        // thoại kiểu Mỹ
+        for (const l of lines) for (const [rx, ly] of L.khong_my)
+          if (new RegExp(rx, "i").test(String(l.say))) { e.push(`${l.who}: “${l.say}” — ${ly}`); break; }
+
+        // chữ cấm + đồ đạc căn phòng không có
+        for (const [t, ly] of L.cam_ky) if (ca.includes(t)) { e.push(`có “${t}” — ${ly}`); break; }
+        const taPh = String(K.phong[d.room] || "").toLowerCase();
+        for (const x of L.do_to)
+          if (new RegExp("\\b" + x + "\\b").test(ca) && !taPh.includes(x)) {
+            e.push(`nhắc “${x}” — phòng ${d.room} không có thứ đó; chỉ dùng đồ đã tả, hoặc món cầm tay`); break;
+          }
+
+        // ngân sách văn kể: quá thì prompt tràn và Kling cắt mất khối DO NOT
+        const vk = ["hook","setup","escalate","payoff"].reduce((a, k) => a + lay(k).length, 0);
+        const max = (K.khuon[String(giay)] || {}).van_ke_max || 0;
+        if (max && vk > max) e.push(`bốn khối kể tổng ${vk} ký tự — kênh này ở ${giay}s chứa được ${max}; viết ngắn lại`);
+        return e;
+      }
+
+      // ══ XOAY ĐỀU HỒ KEY ══════════════════════════════════════════════════════════════════
+      // 1/9 — Bản trước luôn duyệt hồ key từ phần tử ĐẦU TIÊN, cùng thứ tự, mọi lượt gọi. Nên
+      // key sống đầu bảng gánh toàn bộ tải và cạn hạn mức trong ngày, trong khi những key phía
+      // sau không được gọi lần nào. Hồ có sáu mươi key mà hành xử như hồ một key.
+      // Nay mỗi lượt gọi bắt đầu từ một vị trí khác, nhớ trong localStorage. Không random: quay
+      // vòng thật thì tải chia đều tuyệt đối, còn random vẫn cho phép trúng một key ba lần liên
+      // tiếp — đúng lỗi đã trả giá ở chỗ luân phiên bối cảnh.
+      function _xoay(ds, khoa) {
+        if (ds.length < 2) return ds;
+        const i = Number(localStorage.getItem(khoa) || 0) % ds.length;
+        localStorage.setItem(khoa, String((i + 1) % ds.length));
+        return ds.slice(i).concat(ds.slice(0, i));
+      }
+
       // Gọi AI bằng ĐÚNG hồ key mà phần Render Studio đang dùng — không mở hồ key thứ hai: một
       // hồ nữa là một chỗ nữa để hết hạn mức mà không ai biết.
       async function _klGoiAI(sys, yeuCau) {
-        const keys = (window.__rsKeysData || []).filter(k => k.key && k.alive !== false);
+        const keys = _xoay((window.__rsKeysData || []).filter(k => k.key && k.alive !== false),
+                           "mm0:kling:key");
         if (!keys.length) throw new Error("chưa có key Gemini nào trong API Connections");
         // 31/8 — DANH SÁCH MODEL PHẢI RỘNG, và `-lite` phải đứng ĐẦU.
         // Đo trên hồ key: 1/60 key còn sống, và nó chỉ chạy với `gemini-2.5-flash-lite` — model
@@ -2262,7 +2434,7 @@
           } catch (_) { dem.khac++; }
         }
 
-        for (const k of keys.slice(0, 8)) for (const m of models) {
+        for (const k of keys.slice(0, 8)) for (const m of _xoay(models, "mm0:kling:model")) {
           if (String(k.key || "").startsWith("cf:") || String(k.key || "").startsWith("gsk_")) break;
           dem.thu++;
           try {
@@ -2312,40 +2484,41 @@
           const dem = Number(localStorage.getItem(khoaDem) || 0);
           const phong = dsPhong[dem % dsPhong.length] || dsPhong[0];
           localStorage.setItem(khoaDem, String(dem + 1));
-          _klBao("AI đang viết kịch bản theo luật của kênh…");
+          // ══ VÒNG VIẾT LẠI — GIỐNG HỆT `sinh_tap()` BÊN PYTHON ════════════════════════════
+          // 1/9 — Trước đây web gọi AI ĐÚNG MỘT LẦN rồi dùng thẳng kết quả. Bên Python, cùng
+          // một kịch bản phải qua tới tám vòng viết lại mới sạch thước — nên đường web đang
+          // giao ra thứ mà đường chính sẽ từ chối. Nay chấm rồi trả lỗi lại cho AI viết lại,
+          // tối đa `luat.vong_viet` vòng (mặc định 4: quá nữa là đốt hạn mức cho một tập).
           const y = (_klEl("klY").value || "").trim();
-          const d = await _klGoiAI(K.sys[giay],
-            (y ? `Idea: ${y}. ` : "") + `Room: ${phong}. ` +
-            `Return ONLY JSON with keys: title, hook, setup, escalate, payoff, ` +
-            `lines (array of {who, act, say}).`);
-          const lay = (k) => String(d[k] || "").trim();
-          const lines = Array.isArray(d.lines) ? d.lines : [];
-
-          // ══ CHẶN NHÂN VẬT NGOÀI DÀN ══════════════════════════════════════════════════════
-          // 31/8 — Lượt chạy đầu ra tập BREAK ROOM có cú lật do `Buddy` thực hiện — con mèo của
-          // kênh HOUSE RULES. AI đọc lệnh hệ thống của kênh này nhưng vẫn mượn nhân vật kênh
-          // khác, và không có gì chặn lại: thước chấm nằm bên Python, web không chạy nó.
-          // Một nhân vật lạ phá đúng thứ cả hệ được dựng lên để giữ — sự nhất quán của kênh.
-          // Kling còn tệ hơn: nó sẽ VẼ RA con mèo ấy vì prompt có tên nó, và người xem thấy một
-          // con vật chưa từng xuất hiện ở kênh này.
-          const _vai = new Set(Object.keys(K.vai || {}));
-          const _la = [];
-          for (const l of lines) if (l && l.who && !_vai.has(String(l.who).trim())) _la.push(String(l.who).trim());
-          for (const kk2 of ["hook", "setup", "escalate", "payoff"]) {
-            const _t = lay(kk2);
-            // tên riêng viết hoa trong phần kể mà không thuộc dàn -> nghi là nhân vật mượn
-            for (const m of _t.matchAll(/\b([A-Z][a-z]{2,})\b/g)) {
-              const w = m[1];
-              if (!_vai.has(w) && !["The","This","That","And","But","Then","When","Now","One","Two","Every","Nobody","Most","All"].includes(w)
-                  && !_la.includes(w) && Object.keys(K.phong || {}).every(p2 => !p2.includes(w.toLowerCase())))
-                _la.push(w);
+          const _kho = await _klKhoDoc_(slug);
+          const _VV = (K.luat && K.luat.vong_viet) || 1;
+          let d = null, _loi = [], _vong = 0;
+          for (_vong = 1; _vong <= _VV; _vong++) {
+            _klBao(_vong === 1 ? "AI đang viết kịch bản theo luật của kênh…"
+                               : `viết lại lần ${_vong}/${_VV} — ${_loi.length} điểm cần sửa…`);
+            const _nhac = _loi.length
+              ? `\n\nYour previous attempt was rejected. Fix ALL of these and rewrite from scratch:\n`
+                + _loi.map((x, i) => `${i + 1}. ${x}`).join("\n")
+              : "";
+            const _thu = await _klGoiAI(K.sys[giay],
+              (y ? `Idea: ${y}. ` : "") + `Room: ${phong}. `
+              + `Return ONLY JSON with keys: title, hook, setup, escalate, payoff, `
+              + `lines (array of {who, act, say, beat}).` + _nhac);
+            if (!_thu) { _loi = ["AI không trả về JSON hợp lệ"]; continue; }
+            _loi = _klCham(_thu, K, giay);
+            if (!_loi.length) {
+              const _vt = _klVanTay(_thu, K, _klHoLat(String(_thu.payoff || ""), K.luat || {ho_lat: {}}));
+              _loi = _klTrung(_vt, _kho);
             }
+            d = _thu;
+            if (!_loi.length) break;
           }
-          if (_la.length) {
-            _klBao(`⚠️ AI mượn nhân vật ngoài dàn: ${[...new Set(_la)].join(", ")} — `
-                   + `kênh này chỉ có ${[..._vai].join(", ")}. Bấm Tạo lại.`, "#ffd08a");
-            return;
-          }
+          if (!d) throw new Error("AI không viết được kịch bản nào hợp lệ");
+          if (_loi.length)
+            _klBao(`⚠️ sau ${_VV} vòng vẫn còn ${_loi.length} điểm: ${_loi[0]}. Prompt vẫn dựng `
+                   + `để anh xem, nhưng nên bấm ✨ tạo lại.`, "#ffd08a");
+          const lay = (k) => String(d[k] || "").trim();
+          const lines = Array.isArray(d.lines) ? d.lines.filter(x => x && x.say) : [];
           const thoai = lines.map(l => `${l.who} ${l.act || "says"}: \u201c${String(l.say || "").trim()}\u201d`).join(" ");
           // Điền chín chỗ trống. Thứ tự có ý: thay ROOMDESC trước ROOM, vì tên phòng là một
           // phần của mô tả phòng — thay ngược thì mô tả bị cắt nát.
@@ -2428,6 +2601,20 @@
           // con số ấy thay vì một trần chung — trần chung sai ở gần hết các ca.
           const _vk = ["hook","setup","escalate","payoff"].reduce((a,k)=>a+lay(k).length, 0);
           const _vkMax = KH.van_ke_max || 0;
+          // ── LƯU LẠI: kịch bản + vân tay, một lượt ghi ────────────────────────────────────
+          // Chỉ lưu KỊCH BẢN, không lưu prompt: prompt suy ra được từ đây, lưu nó là trả giá
+          // gấp ba cho không gì cả.
+          try {
+            const _vt = _klVanTay(d, K, _klHoLat(String(d.payoff || ""), K.luat || {ho_lat: {}}));
+            const _moi = [..._kho, _vt].slice(-KHO_TRAN);
+            _klKhoCache[slug] = _moi;
+            await setDoc(await _klKhoDoc(slug), {
+              owner: window.__ownerUid || window.__uid || "", kenh: K.ten, slug,
+              van_tay: _moi, so: _moi.length, cap_nhat: new Date().toISOString(),
+              gan_nhat: { ...d, _giay: Number(giay), _phong: phong },
+            }, { merge: true });
+          } catch (_) { /* lưu hỏng thì vẫn phải đưa prompt cho anh — đừng chặn việc chính */ }
+
           const _qua = p.length > TRAN;
           _klBao(`${_qua ? "⚠️" : "✅"} ${p.length}/${TRAN} ký tự · ${vao} khối tả thêm`
                  + (bo ? ` (bỏ ${bo} khối cho vừa trần)` : "")
