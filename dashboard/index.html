@@ -881,6 +881,11 @@
                Hệ tự luân phiên hết các bối cảnh của kênh rồi mới quay vòng. -->
           <div id="klKhoa" style="display:none;margin:2px 0 10px;padding:9px 12px;border-radius:8px;
                background:rgba(255,255,255,.03);font-size:12px;line-height:1.7"></div>
+          <!-- 1/9 — Brand kit của kênh đang chọn. Chỉ hiện bản XEM TRƯỚC WebP (avatar 5 KB,
+               banner 8 KB): bản PNG đầy đủ nặng 53 MB cho mười kênh, và đẩy chỗ ấy lên Hosting
+               thì sáu lượt mở trang là hết hạn mức 360 MB/ngày của gói free — brand kit làm sập
+               chính cái dashboard nó nằm trong. Tệp đem đăng kênh nằm ở out/brand_kling/. -->
+          <div id="klBrand" style="display:none;margin:2px 0 12px"></div>
           <div id="klTrangThai" class="p-sub" style="padding:2px 0 8px"></div>
           <div id="klTom" style="display:none;margin:6px 0 10px;padding:10px 12px;border-radius:8px;
                background:rgba(255,255,255,.03);font-size:12.5px;line-height:1.75"></div>
@@ -2139,7 +2144,11 @@
         const selK = _klEl("klKenh"); if (!selK || selK.dataset.xong) return;
         try {
           const m = await _klNapMuc();
-          selK.innerHTML = m.kenh.map(k => `<option value="${esc(k.slug)}">${esc(k.ten)}</option>`).join("");
+          // Đánh số thứ tự: mười tên viết hoa nhìn thoáng qua rất giống nhau, và số cho anh
+          // một chỗ bám khi đọc báo cáo hay khi gọi tên kênh trong lệnh. Số lấy theo thứ tự
+          // trong `index.json` (do Python xuất) nên nó ổn định, không đổi giữa các lần tải.
+          selK.innerHTML = m.kenh.map((k, i) =>
+            `<option value="${esc(k.slug)}">${String(i + 1).padStart(2, "0")} · ${esc(k.ten)}</option>`).join("");
           _klEl("klGiay").innerHTML = m.giay.map(g => `<option value="${g}"${g === 8 ? " selected" : ""}>${g} giây</option>`).join("");
           selK.dataset.xong = "1";
           const doiKenh = async () => {
@@ -2147,10 +2156,31 @@
             const box = _klEl("klKhoa");
             box.style.display = "block";
             box.innerHTML =
-              `<div><b>Nhân vật khoá</b> — cùng một mô tả nguyên văn ở mọi tập: `
+              `<div style="opacity:.6;font-size:11px;margin-bottom:4px">KÊNH `
+              + `${String(m.kenh.indexOf(k) + 1).padStart(2, "0")} / ${m.kenh.length}</div>`
+              + `<div><b>Nhân vật khoá</b> — cùng một mô tả nguyên văn ở mọi tập: `
               + `${(k.vai || []).map(v => `<span style="opacity:.85">${esc(v)}</span>`).join(" · ")}</div>`
               + `<div style="margin-top:5px"><b>Bối cảnh của kênh</b> — hệ tự luân phiên: `
               + `${(k.phong || []).map(p => esc(p)).join(" · ")}</div>`;
+            // brand kit của kênh này
+            const bk = _klEl("klBrand");
+            if (bk) {
+              const so = String(m.kenh.indexOf(k) + 1).padStart(2, "0");
+              const g = `brand_kling/${so}-${k.slug}`;
+              bk.style.display = "block";
+              bk.innerHTML =
+                `<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;`
+                + `padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.03)">`
+                + `<img src="${g}_avatar.webp" alt="" style="width:74px;height:74px;`
+                + `border-radius:12px;flex:0 0 auto" onerror="this.style.display='none'">`
+                + `<img src="${g}_banner.webp" alt="" style="height:74px;border-radius:8px;`
+                + `flex:0 0 auto" onerror="this.style.display='none'">`
+                + `<div style="flex:1;min-width:150px;font-size:11.5px;line-height:1.65;opacity:.75">`
+                + `<b style="opacity:1">Brand kit ${so}</b><br>`
+                + `avatar · banner · bìa FB · hình chìm<br>`
+                + `<span style="opacity:.6">bản đầy đủ để đăng kênh: `
+                + `<code>render-pipeline/out/brand_kling/</code></span></div></div>`;
+            }
             _klBao("");
           };
           selK.onchange = doiKenh;
