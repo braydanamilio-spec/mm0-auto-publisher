@@ -2462,6 +2462,26 @@
                    + `động mình đang làm`); break;
           }
 
+        // Vật gắn tường thì không nhấc lên được. Kling vẽ đúng thứ được tả, nên một hành động
+        // bất khả về vật lý làm hỏng cả clip. Danh sách cố ý hẹp — "machine" bỏ ra vì máy pha
+        // cà phê nhấc được còn máy bán hàng thì không.
+        const _pay = lay("payoff");
+        if (L.vat_co_dinh && L.dong_tac_nhac
+            && new RegExp(L.dong_tac_nhac, "i").test(_pay) && new RegExp(L.vat_co_dinh, "i").test(_pay))
+          e.push("nhấc một vật GẮN CỐ ĐỊNH (bảng · biển · đồng hồ · gương gắn tường) — không ai "
+                 + "nhấc được, và Kling vẽ đúng thứ được tả nên cả clip ra vô nghĩa");
+
+        // Câu ghim máy: đúng MỘT lần, đứng ĐẦU hook. Nhét vào đuôi thì Kling đọc nó như một
+        // phần của cảnh chứ không như chỉ thị máy quay.
+        if (L.cau_ghim) {
+          const _rx = new RegExp(L.cau_ghim, "ig");
+          if ((lay("hook") + " " + lay("setup")).match(_rx || []) ?.length > 1)
+            e.push("ghim góc máy hai lần (cả hook lẫn setup) — nói một lần là đủ");
+          const _m = lay("hook").match(new RegExp(L.cau_ghim, "i"));
+          if (_m && _m.index > 40)
+            e.push("câu ghim máy nhét vào GIỮA/CUỐI hook — nó là chỉ thị máy quay, phải đứng đầu");
+        }
+
         // Cú gọi lại chỉ có giá trị khi người xem CŨ nhận ra còn người xem MỚI không thấy gì
         // lạ. "remember when" phá cả hai: người cũ mất phần thưởng, người mới bị nhắc rằng có
         // một tập trước mình chưa xem — tức bị đẩy ra.
