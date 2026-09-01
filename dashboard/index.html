@@ -2149,7 +2149,18 @@
           // trong `index.json` (do Python xuất) nên nó ổn định, không đổi giữa các lần tải.
           selK.innerHTML = m.kenh.map((k, i) =>
             `<option value="${esc(k.slug)}">${String(i + 1).padStart(2, "0")} · ${esc(k.ten)}</option>`).join("");
-          _klEl("klGiay").innerHTML = m.giay.map(g => `<option value="${g}"${g === 8 ? " selected" : ""}>${g} giây</option>`).join("");
+          // Vùng 5–8 giây đứng riêng ở đầu: anh trả tiền cho Kling theo lượt, nên độ dài là
+          // chuyện chi phí trước khi là chuyện thẩm mỹ. 5–6s là một trò đùa một cú đấm, 7–8s có
+          // chỗ cho người xem đoán trước khi bị lật — hai khuôn ấy phủ hết thứ short hài cần.
+          // Từ 10 giây trở lên vẫn chọn được, nhưng mỗi giây thêm là tiền thêm mà số đo không
+          // hứa thêm gì: vùng tối ưu đo được của hài short là 18–28 giây, quá xa 15.
+          const _ut = new Set(m.giay_uu_tien || [5, 6, 7, 8]);
+          const _opt = g => `<option value="${g}"${g === 8 ? " selected" : ""}>${g} giây</option>`;
+          _klEl("klGiay").innerHTML =
+            `<optgroup label="Ưu tiên · rẻ nhất, đủ cho một trò đùa trọn vẹn">`
+            + m.giay.filter(g => _ut.has(g)).map(_opt).join("") + `</optgroup>`
+            + `<optgroup label="Dài hơn · tốn hơn, chỉ dùng khi ý tưởng thật sự cần">`
+            + m.giay.filter(g => !_ut.has(g)).map(_opt).join("") + `</optgroup>`;
           selK.dataset.xong = "1";
           const doiKenh = async () => {
             const k = m.kenh.find(x => x.slug === selK.value) || m.kenh[0];
