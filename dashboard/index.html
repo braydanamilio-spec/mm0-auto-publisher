@@ -2552,8 +2552,10 @@
             for (const t of LI.truc) { ix.push(n % t); n = Math.floor(n / t); }
             const vai = LI.vai, gay = vai[ix[4]];
             const con = vai.filter(v => v !== gay);
+            const hoTen = LI.ho_lat_ten || Object.keys(LI.ho_lat_ta || {});
             _de = { phong: LI.phong[ix[0]], dao_cu: LI.dao_cu[ix[1]], ap_luc: LI.ap_luc[ix[2]],
-                    kieu_mo: LI.kieu_mo[ix[3]], gay, lat: con[ix[5] % con.length] || gay };
+                    kieu_mo: LI.kieu_mo[ix[3]], gay, lat: con[ix[5] % con.length] || gay,
+                    co_che: (LI.ho_lat_ta || {})[hoTen[ix[6] % Math.max(1, hoTen.length)]] || "" };
             phong = _de.phong;
           } else {                                  // dữ liệu cũ chưa có lịch -> giữ cách cũ
             const ds = Object.keys(K.phong || {});
@@ -2581,8 +2583,9 @@
               + `these, do not swap them: ROOM: ${_de.phong}. THE OBJECT this episode is about: `
               + `${_de.dao_cu}. THE PRESSURE that makes it a scene and not just an incident: `
               + `${_de.ap_luc}. THE OPENING IMAGE must be this kind of wrong: ${_de.kieu_mo}. `
-              + `${_de.gay} caused it and does not admit it. ${_de.lat} delivers the reversal. `
-              + `These six are fixed; everything else is yours to invent fresh. ` : "";
+              + `${_de.gay} caused it and does not admit it. ${_de.lat} delivers the reversal, `
+              + `and delivers it THIS way - not the way that comes to mind first: ${_de.co_che}. `
+              + `These seven are fixed; everything else is yours to invent fresh. ` : "";
             const _thu = await _klGoiAI(K.sys[giay],
               _deBai + (y ? `Idea: ${y}. ` : "") + `Room: ${phong}. `
               + `Return ONLY JSON with keys: title, hook, setup, escalate, payoff, `
