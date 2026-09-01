@@ -2,12 +2,6 @@ firestore_project_env: FIREBASE_PROJECT_ID
 timezone: Asia/Ho_Chi_Minh
 channels:
   KLINGCOMEDY:
-    # 28/8 — KÊNH KLING. Khác 50 kênh kia ở hai chỗ, cố ý:
-    #   • SHORT-ONLY: không theo luật 1 long : 3 short. `kling_lo` đẩy thẳng qua `enqueue_drive`
-    #     nên không đi qua bộ ép tỉ lệ — khác luật, không phải lỗi.
-    #   • nguồn hình là clip Kling do người/API sinh, không phải đồ hoạ Remotion.
-    # Phải có mặt ở đây thì `enqueue.py` mới nhận; thiếu là nó `raise SystemExit` và video đã dựng
-    # xong bị vứt (đúng lỗi đã trả giá ngày 20/8: 27/40 kênh thiếu ở đây, mất video hàng tuần).
     display_name: KLING COMEDY
     enabled: true
     drive_folder_id_env: KLINGCOMEDY_DRIVE_FOLDER_ID
@@ -1326,3 +1320,573 @@ channels:
       - '#degreeworthusa'
       long_title_template: '{topic}'
       short_title_template: '{topic} #shorts'
+  RENTPANIC:
+    display_name: RENT PANIC
+    enabled: true
+    drive_folder_id_env: RENTPANIC_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: RENTPANIC_YT_CLIENT_ID
+      client_secret_env: RENTPANIC_YT_CLIENT_SECRET
+      refresh_token_env: RENTPANIC_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: RENTPANIC_FB_PAGE_ID
+      page_token_env: RENTPANIC_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: rent panic'
+  GYMLIES:
+    display_name: GYM LIES
+    enabled: true
+    drive_folder_id_env: GYMLIES_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: GYMLIES_YT_CLIENT_ID
+      client_secret_env: GYMLIES_YT_CLIENT_SECRET
+      refresh_token_env: GYMLIES_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: GYMLIES_FB_PAGE_ID
+      page_token_env: GYMLIES_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: gym lies'
+  AIRPORTHELL:
+    display_name: AIRPORT HELL
+    enabled: true
+    drive_folder_id_env: AIRPORTHELL_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: AIRPORTHELL_YT_CLIENT_ID
+      client_secret_env: AIRPORTHELL_YT_CLIENT_SECRET
+      refresh_token_env: AIRPORTHELL_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: AIRPORTHELL_FB_PAGE_ID
+      page_token_env: AIRPORTHELL_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: airport hell'
+  CARGUY:
+    display_name: CAR GUY
+    enabled: true
+    drive_folder_id_env: CARGUY_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: CARGUY_YT_CLIENT_ID
+      client_secret_env: CARGUY_YT_CLIENT_SECRET
+      refresh_token_env: CARGUY_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: CARGUY_FB_PAGE_ID
+      page_token_env: CARGUY_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: car guy'
+  OFFICESMALLTALK:
+    display_name: OFFICE SMALL TALK
+    enabled: true
+    drive_folder_id_env: OFFICESMALLTALK_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: OFFICESMALLTALK_YT_CLIENT_ID
+      client_secret_env: OFFICESMALLTALK_YT_CLIENT_SECRET
+      refresh_token_env: OFFICESMALLTALK_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: OFFICESMALLTALK_FB_PAGE_ID
+      page_token_env: OFFICESMALLTALK_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: office small talk'
+  DIETWARS:
+    display_name: DIET WARS
+    enabled: true
+    drive_folder_id_env: DIETWARS_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: DIETWARS_YT_CLIENT_ID
+      client_secret_env: DIETWARS_YT_CLIENT_SECRET
+      refresh_token_env: DIETWARS_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: DIETWARS_FB_PAGE_ID
+      page_token_env: DIETWARS_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: diet wars'
+  TECHSUPPORT:
+    display_name: TECH SUPPORT
+    enabled: true
+    drive_folder_id_env: TECHSUPPORT_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: TECHSUPPORT_YT_CLIENT_ID
+      client_secret_env: TECHSUPPORT_YT_CLIENT_SECRET
+      refresh_token_env: TECHSUPPORT_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: TECHSUPPORT_FB_PAGE_ID
+      page_token_env: TECHSUPPORT_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: tech support'
+  PARENTMODE:
+    display_name: PARENT MODE
+    enabled: true
+    drive_folder_id_env: PARENTMODE_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: PARENTMODE_YT_CLIENT_ID
+      client_secret_env: PARENTMODE_YT_CLIENT_SECRET
+      refresh_token_env: PARENTMODE_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: PARENTMODE_FB_PAGE_ID
+      page_token_env: PARENTMODE_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: parent mode'
+  NEIGHBORWATCH:
+    display_name: NEIGHBOR WATCH
+    enabled: true
+    drive_folder_id_env: NEIGHBORWATCH_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: NEIGHBORWATCH_YT_CLIENT_ID
+      client_secret_env: NEIGHBORWATCH_YT_CLIENT_SECRET
+      refresh_token_env: NEIGHBORWATCH_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: NEIGHBORWATCH_FB_PAGE_ID
+      page_token_env: NEIGHBORWATCH_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: neighbor watch'
+  DATINGAPP:
+    display_name: DATING APP
+    enabled: true
+    drive_folder_id_env: DATINGAPP_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: DATINGAPP_YT_CLIENT_ID
+      client_secret_env: DATINGAPP_YT_CLIENT_SECRET
+      refresh_token_env: DATINGAPP_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: DATINGAPP_FB_PAGE_ID
+      page_token_env: DATINGAPP_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: dating app'
+  BANKRUN:
+    display_name: BANK RUN
+    enabled: true
+    drive_folder_id_env: BANKRUN_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: BANKRUN_YT_CLIENT_ID
+      client_secret_env: BANKRUN_YT_CLIENT_SECRET
+      refresh_token_env: BANKRUN_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: BANKRUN_FB_PAGE_ID
+      page_token_env: BANKRUN_FB_PAGE_TOKEN
+    branding:
+      niche: 'Data explainer shorts: Is your bank actually healthy?'
+  FINEPRINT:
+    display_name: FINE PRINT
+    enabled: true
+    drive_folder_id_env: FINEPRINT_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: FINEPRINT_YT_CLIENT_ID
+      client_secret_env: FINEPRINT_YT_CLIENT_SECRET
+      refresh_token_env: FINEPRINT_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: FINEPRINT_FB_PAGE_ID
+      page_token_env: FINEPRINT_FB_PAGE_TOKEN
+    branding:
+      niche: 'Data explainer shorts: The clause they hope you skip'
+  WHOOWNSIT:
+    display_name: WHO OWNS IT
+    enabled: true
+    drive_folder_id_env: WHOOWNSIT_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: WHOOWNSIT_YT_CLIENT_ID
+      client_secret_env: WHOOWNSIT_YT_CLIENT_SECRET
+      refresh_token_env: WHOOWNSIT_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: WHOOWNSIT_FB_PAGE_ID
+      page_token_env: WHOOWNSIT_FB_PAGE_TOKEN
+    branding:
+      niche: 'Data explainer shorts: Who really owns the brand'
+  KNOWYOURRIGHT:
+    display_name: KNOW YOUR RIGHT
+    enabled: true
+    drive_folder_id_env: KNOWYOURRIGHT_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: KNOWYOURRIGHT_YT_CLIENT_ID
+      client_secret_env: KNOWYOURRIGHT_YT_CLIENT_SECRET
+      refresh_token_env: KNOWYOURRIGHT_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: KNOWYOURRIGHT_FB_PAGE_ID
+      page_token_env: KNOWYOURRIGHT_FB_PAGE_TOKEN
+    branding:
+      niche: 'Data explainer shorts: What you are allowed to do'
+  SUEDINAMERICA:
+    display_name: SUED IN AMERICA
+    enabled: true
+    drive_folder_id_env: SUEDINAMERICA_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: SUEDINAMERICA_YT_CLIENT_ID
+      client_secret_env: SUEDINAMERICA_YT_CLIENT_SECRET
+      refresh_token_env: SUEDINAMERICA_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: SUEDINAMERICA_FB_PAGE_ID
+      page_token_env: SUEDINAMERICA_FB_PAGE_TOKEN
+    branding:
+      niche: 'Data explainer shorts: What Americans sue over'
+  SKYTONIGHT:
+    display_name: SKY TONIGHT
+    enabled: true
+    drive_folder_id_env: SKYTONIGHT_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: SKYTONIGHT_YT_CLIENT_ID
+      client_secret_env: SKYTONIGHT_YT_CLIENT_SECRET
+      refresh_token_env: SKYTONIGHT_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: SKYTONIGHT_FB_PAGE_ID
+      page_token_env: SKYTONIGHT_FB_PAGE_TOKEN
+    branding:
+      niche: 'Data explainer shorts: What is above you right now'
+  ONEEXPERIMENT:
+    display_name: ONE EXPERIMENT
+    enabled: true
+    drive_folder_id_env: ONEEXPERIMENT_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: ONEEXPERIMENT_YT_CLIENT_ID
+      client_secret_env: ONEEXPERIMENT_YT_CLIENT_SECRET
+      refresh_token_env: ONEEXPERIMENT_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: ONEEXPERIMENT_FB_PAGE_ID
+      page_token_env: ONEEXPERIMENT_FB_PAGE_TOKEN
+    branding:
+      niche: 'Data explainer shorts: One study, explained straight'
+  DEEPFIELD:
+    display_name: DEEP FIELD
+    enabled: true
+    drive_folder_id_env: DEEPFIELD_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: DEEPFIELD_YT_CLIENT_ID
+      client_secret_env: DEEPFIELD_YT_CLIENT_SECRET
+      refresh_token_env: DEEPFIELD_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: DEEPFIELD_FB_PAGE_ID
+      page_token_env: DEEPFIELD_FB_PAGE_TOKEN
+    branding:
+      niche: 'Data explainer shorts: The farthest thing we have seen'
+  WHATTHECHARTSAYS:
+    display_name: WHAT THE CHART SAYS
+    enabled: true
+    drive_folder_id_env: WHATTHECHARTSAYS_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: WHATTHECHARTSAYS_YT_CLIENT_ID
+      client_secret_env: WHATTHECHARTSAYS_YT_CLIENT_SECRET
+      refresh_token_env: WHATTHECHARTSAYS_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: WHATTHECHARTSAYS_FB_PAGE_ID
+      page_token_env: WHATTHECHARTSAYS_FB_PAGE_TOKEN
+    branding:
+      niche: 'Data explainer shorts: What your chart does not say out loud'
+  PRICEOFCARE:
+    display_name: PRICE OF CARE
+    enabled: true
+    drive_folder_id_env: PRICEOFCARE_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: PRICEOFCARE_YT_CLIENT_ID
+      client_secret_env: PRICEOFCARE_YT_CLIENT_SECRET
+      refresh_token_env: PRICEOFCARE_YT_REFRESH_TOKEN
+      category_id: '27'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: PRICEOFCARE_FB_PAGE_ID
+      page_token_env: PRICEOFCARE_FB_PAGE_TOKEN
+    branding:
+      niche: 'Data explainer shorts: What care costs now'
+  DMVLINE:
+    display_name: DMV LINE
+    enabled: true
+    drive_folder_id_env: DMVLINE_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: DMVLINE_YT_CLIENT_ID
+      client_secret_env: DMVLINE_YT_CLIENT_SECRET
+      refresh_token_env: DMVLINE_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: DMVLINE_FB_PAGE_ID
+      page_token_env: DMVLINE_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: dmv line'
+  ERBILLING:
+    display_name: ER BILLING
+    enabled: true
+    drive_folder_id_env: ERBILLING_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: ERBILLING_YT_CLIENT_ID
+      client_secret_env: ERBILLING_YT_CLIENT_SECRET
+      refresh_token_env: ERBILLING_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: ERBILLING_FB_PAGE_ID
+      page_token_env: ERBILLING_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: er billing'
+  HOARULES:
+    display_name: HOA RULES
+    enabled: true
+    drive_folder_id_env: HOARULES_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: HOARULES_YT_CLIENT_ID
+      client_secret_env: HOARULES_YT_CLIENT_SECRET
+      refresh_token_env: HOARULES_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: HOARULES_FB_PAGE_ID
+      page_token_env: HOARULES_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: hoa rules'
+  RETURNPOLICY:
+    display_name: RETURN POLICY
+    enabled: true
+    drive_folder_id_env: RETURNPOLICY_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: RETURNPOLICY_YT_CLIENT_ID
+      client_secret_env: RETURNPOLICY_YT_CLIENT_SECRET
+      refresh_token_env: RETURNPOLICY_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: RETURNPOLICY_FB_PAGE_ID
+      page_token_env: RETURNPOLICY_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: return policy'
+  WEDDINGPLAN:
+    display_name: WEDDING PLAN
+    enabled: true
+    drive_folder_id_env: WEDDINGPLAN_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: WEDDINGPLAN_YT_CLIENT_ID
+      client_secret_env: WEDDINGPLAN_YT_CLIENT_SECRET
+      refresh_token_env: WEDDINGPLAN_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: WEDDINGPLAN_FB_PAGE_ID
+      page_token_env: WEDDINGPLAN_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: wedding plan'
+  MOVINGDAY:
+    display_name: MOVING DAY
+    enabled: true
+    drive_folder_id_env: MOVINGDAY_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: MOVINGDAY_YT_CLIENT_ID
+      client_secret_env: MOVINGDAY_YT_CLIENT_SECRET
+      refresh_token_env: MOVINGDAY_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: MOVINGDAY_FB_PAGE_ID
+      page_token_env: MOVINGDAY_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: moving day'
+  VETVISIT:
+    display_name: VET VISIT
+    enabled: true
+    drive_folder_id_env: VETVISIT_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: VETVISIT_YT_CLIENT_ID
+      client_secret_env: VETVISIT_YT_CLIENT_SECRET
+      refresh_token_env: VETVISIT_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: VETVISIT_FB_PAGE_ID
+      page_token_env: VETVISIT_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: vet visit'
+  CABLEBILL:
+    display_name: CABLE BILL
+    enabled: true
+    drive_folder_id_env: CABLEBILL_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: CABLEBILL_YT_CLIENT_ID
+      client_secret_env: CABLEBILL_YT_CLIENT_SECRET
+      refresh_token_env: CABLEBILL_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: CABLEBILL_FB_PAGE_ID
+      page_token_env: CABLEBILL_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: cable bill'
+  SCHOOLRUN:
+    display_name: SCHOOL RUN
+    enabled: true
+    drive_folder_id_env: SCHOOLRUN_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: SCHOOLRUN_YT_CLIENT_ID
+      client_secret_env: SCHOOLRUN_YT_CLIENT_SECRET
+      refresh_token_env: SCHOOLRUN_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: SCHOOLRUN_FB_PAGE_ID
+      page_token_env: SCHOOLRUN_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: school run'
+  SELFCHECKOUT:
+    display_name: SELF CHECKOUT
+    enabled: true
+    drive_folder_id_env: SELFCHECKOUT_DRIVE_FOLDER_ID
+    youtube:
+      enabled: true
+      client_id_env: SELFCHECKOUT_YT_CLIENT_ID
+      client_secret_env: SELFCHECKOUT_YT_CLIENT_SECRET
+      refresh_token_env: SELFCHECKOUT_YT_REFRESH_TOKEN
+      category_id: '23'
+      default_language: en
+      made_for_kids: false
+      privacy: public
+    facebook:
+      enabled: true
+      page_id_env: SELFCHECKOUT_FB_PAGE_ID
+      page_token_env: SELFCHECKOUT_FB_PAGE_TOKEN
+    branding:
+      niche: 'Two-hander comedy shorts: self checkout'
