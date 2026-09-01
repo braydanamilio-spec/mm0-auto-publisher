@@ -2589,8 +2589,17 @@
               ? `\n\nYour previous attempt was rejected. Fix ALL of these and rewrite from scratch:\n`
                 + _loi.map((x, i) => `${i + 1}. ${x}`).join("\n")
               : "";
+            // Đồ đạc của ĐÚNG căn phòng được cấp, liệt kê thẳng trong đề bài.
+            // 1/9 — Đo trên 28 tập: sau khi ba trục kia được sửa, "chỉ dùng đồ căn phòng thật
+            // có" là thứ DUY NHẤT còn chặn đường tới 95 điểm (-40 điểm ở 10/28 tập). Lệnh hệ
+            // thống có liệt kê cả bảy phòng ở phần đầu, nhưng đó là danh sách dài đọc từ xa
+            // còn đề bài thì chốt MỘT phòng — AI nhớ phòng, quên nội thất.
+            const _doPhong = String(K.phong[_de ? _de.phong : phong] || "").split(":").pop()
+              .split(",").map(t => t.trim()).filter(Boolean).join(", ");
             const _deBai = _de ? `THIS EPISODE'S ASSIGNMENT — build the story around exactly `
-              + `these, do not swap them: ROOM: ${_de.phong}. THE OBJECT this episode is about: `
+              + `these, do not swap them: ROOM: ${_de.phong}. The ONLY fixed objects in it are: `
+              + `${_doPhong}. This is machine-checked: naming any other furniture fails the `
+              + `script; a character may CARRY IN a small handheld prop. THE OBJECT this episode is about: `
               + `${_de.dao_cu}. THE PRESSURE that makes it a scene and not just an incident: `
               + `${_de.ap_luc}. THE OPENING IMAGE must be this kind of wrong: ${_de.kieu_mo}. `
               + `${_de.gay} caused it and does not admit it. ${_de.lat} delivers the reversal, `
