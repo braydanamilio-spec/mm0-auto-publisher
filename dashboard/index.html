@@ -2710,7 +2710,12 @@
           const _ke = ["hook","setup","escalate","payoff"].map(lay).join(" ");
           const _noi = new Set(lines.map(l => String(l.who || "").trim()));
           const _comat = Object.keys(K.vai).filter(t => _noi.has(t) || _ke.includes(t));
-          const _dan = _comat.length ? _comat : Object.keys(K.vai);
+          // 2/9 — Câu dự phòng "chưa dò ra ai thì lấy TẤT CẢ" cấp 5 vai cho PET HOUSE và
+          // HOUSE RULES, trong khi ngân sách văn kể bên Python (`_ngan_sach_khuon`) tính theo
+          // trần VAI_TOI_DA = 4. Chạy chính phép ghép này trên chính dữ liệu vừa xuất: 4/240
+          // khuôn tràn 2500 ký tự, tức hàng rào DO NOT bị cắt. Hai bên phải cùng một trần.
+          const _tranVai = (K.luat && K.luat.vai_toi_da) || 4;
+          const _dan = (_comat.length ? _comat : Object.keys(K.vai)).slice(0, _tranVai);
           const _castNames = _dan.join(", ");
           // Hai dạng khoá nhân vật: đầy đủ cho mức nén 0, dạng gọn cho mức ≥1. Điền dạng đầy
           // đủ vào mức đã nén thì thang nén thành vô nghĩa — đo được prompt tràn 200 ký tự.
