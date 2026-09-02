@@ -3716,8 +3716,15 @@
         // hai ô vẫn đếm trên danh sách 200 doc Firestore. Hậu quả đo được: "⚙️ Đang chạy 0" trong
         // khi D1 thấy 13 job đang chạy thật, và "❌ 21 lỗi MỚI" trỏ về sự cố 19/8 đã xong từ lâu.
         // D1 sống thì D1 là sự thật (nó hỏi TOÀN bảng); D1 im thì mới rơi về danh sách như cũ.
-        if(sr)sr.textContent = (window.__d1OK && typeof window.__d1DangChay === "number")
-                                 ? window.__d1DangChay : active;
+        /* 2/9 — Ô NGƯỜI DÙNG NHÌN PHẢI DÙNG CHUNG PHÉP ĐO VỚI CHỖ TÍNH NÓ.
+           `__rsPipeState` ngay trên đã lấy `Math.max` của BA nguồn (sổ job Firestore · nhịp sống ·
+           D1) đúng vì "failover làm một nguồn mù, nguồn kia cứu". Nhưng ô tổng ở đây lại lấy
+           RIÊNG số D1 — tức bỏ đúng cái lưới an toàn vừa dựng. Đo được: 2 luồng đang render thật,
+           D1 trả 0, ô hiện 0, trong khi phép max cho số đúng.
+           Hai chỗ tính cùng một đại lượng bằng hai công thức là chỗ sớm muộn nói hai con số. */
+        if(sr) sr.textContent = Math.max(
+          active,
+          (window.__d1OK && typeof window.__d1DangChay === "number") ? window.__d1DangChay : 0);
         // TỔNG THẬT bằng ĐẾM SERVER (22/8): danh sách chỉ tải 100(A)+200(B) doc để tiết kiệm đọc,
         // đếm theo danh sách làm "Tổng cộng dồn" TỤT ẢO (528 -> 217) khiến user tưởng bị xóa video.
         // count() phía server = 1 lượt đọc/kho, chính xác tuyệt đối, làm mới tối đa 1 lần/5 phút.
