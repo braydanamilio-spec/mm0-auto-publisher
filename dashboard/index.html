@@ -3635,7 +3635,11 @@
         if(now-(window.__jcbAt||0)<15000){ clearTimeout(window.__jcbT); window.__jcbT=setTimeout(()=>{__jobsCbRun(window.__jcbPend)},15200-(now-window.__jcbAt)); return; }
         __jobsCbRun(snap); };
       const __jobsCbRun=(s)=>{ window.__jcbAt=Date.now(); const el=document.getElementById("rsJobs"); const bd=document.getElementById("nvRender");
-        const ds=s.docs.sort((a,b)=>(b.data().created_at||"").localeCompare(a.data().created_at||"")).slice(0,20);
+        /* 2/9 — LỌC TRƯỚC, CẮT SAU. Bản trước cắt 20 job mới nhất rồi MỚI lọc kênh đang
+           dùng: 20 job mới nhất mà toàn kênh đã nghỉ thì nhật ký ra RỖNG, trong khi job
+           của 18 kênh vẫn nằm ngay dưới. Đúng họ lỗi 7dd — cái cần xem nằm ngoài phép cắt. */
+        const ds=s.docs.filter(d=>window.__conSong ? window.__conSong(d.data()||{}) : true)
+          .sort((a,b)=>(b.data().created_at||"").localeCompare(a.data().created_at||"")).slice(0,20);
         const all=s.docs.map(d=>({id:d.id,...d.data()})); window.__rsJobsData = all; window.__rsRenderPlan&&window.__rsRenderPlan(); window.__rsRenderGallery&&window.__rsRenderGallery(); window.__rsRenderChList&&window.__rsRenderChList(); window.__rsPipeState&&window.__rsPipeState();
         // TỰ DỌN job MA (orphan): active nhưng quá 6h (> timeout workflow 350') -> tiến trình đã chết -> đánh dấu failed (rồi bị dọn nếu có bản mới).
         (()=>{ window.__staleClean=window.__staleClean||new Set(); const cut=Date.now()-6*3.6e6;
@@ -3847,8 +3851,7 @@
              Đọc `window.__conSong` NGAY TRONG hàm chứ không nâng lên một `const` ở đầu
              khối: hàm này nằm TRƯỚC chỗ khai báo bộ lọc trong tệp, và hôm qua tôi đã giết
              nguyên một bảng bốn lần bằng đúng kiểu "ReferenceError … before initialization". */
-        const _ds = ds.filter(d=>window.__conSong ? window.__conSong(d.data()||{}) : true);
-        if(el) el.innerHTML = _ds.length? _ds.map(d=>{const j=d.data(); const ic={queued:"⏳",writing:"✍️",rendering:"🎞️",qc:"🔍",done:"✅",failed:"❌",running:"⚙️"}[j.status]||"•";
+        if(el) el.innerHTML = ds.length? ds.map(d=>{const j=d.data(); const ic={queued:"⏳",writing:"✍️",rendering:"🎞️",qc:"🔍",done:"✅",failed:"❌",running:"⚙️"}[j.status]||"•";
           return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${ic} <img src="${window.rsAvatarUri?window.rsAvatarUri(j.channel||"",44):''}" style="width:18px;height:18px;border-radius:4px;vertical-align:middle;margin:0 2px"> <b>${esc(j.channel||"")}</b> · ${esc(j.type||"")} · ${esc(j.step||j.status||"")} ${j.score?`· QC ${esc(j.score)}`:""} ${j.preview?`· <a href="${esc(j.preview)}" target="_blank" style="color:#8b6cff;font-weight:700">▶ Xem</a>`:""}</span><span class="d">${esc((j.created_at||"").slice(11,16))}</span></div>`}).join("") : '<div class="d">Chưa có job nào của 18 kênh đang dùng.</div>'; };
       // GIỚI HẠN 300 job MỚI NHẤT -> Firestore đọc luôn bị chặn dù có hàng chục nghìn video (vẫn free). Index chưa sẵn -> fallback không limit.
       // SHARD: đọc render_jobs từ CẢ A (video CŨ, tĩnh) + B (video MỚI, đang chạy) rồi GỘP -> không mất video cũ, khỏi migrate.
