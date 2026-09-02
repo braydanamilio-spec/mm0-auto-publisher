@@ -923,6 +923,38 @@
                            font-size:11.5px;line-height:1.65;white-space:pre-wrap"
                     placeholder="Prompt hiện ở đây sau khi bấm Tạo kịch bản."></textarea>
         </div>
+
+        <!-- ── BỘ THỨ NĂM: MƯỜI KÊNH THIÊN NHIÊN ─────────────────────────────────────────
+             2/9 — Bộ này KHÔNG dùng engine của bộ hài: không dàn vai, không thoại, không cú
+             lật, và KHÔNG GỌI AI. Prompt tất định hoàn toàn, nên Python xuất thẳng chuỗi cuối
+             cùng và trang này chỉ HIỆN — không ghép lại bằng JS. Đó là lý do khối này không
+             thể lệch với Python: không còn thuật toán nào ở đây để mà lệch. -->
+        <div class="panel" style="margin-top:14px">
+          <div class="p-head">
+            <div class="p-title">🐻‍❄️ Thiên nhiên
+              <span class="d" style="font-size:11px;opacity:.6">10 kênh · short 8–10s · một cú máy · không lời</span>
+            </div>
+          </div>
+          <div id="tnBrand" style="display:none;margin:2px 0 12px"></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+            <label class="d">Kênh
+              <select id="tnKenh" class="inp" style="min-width:230px"></select></label>
+            <label class="d">Độ dài
+              <select id="tnGiay" class="inp" style="min-width:110px"></select></label>
+            <label class="d">Tập
+              <input id="tnSo" type="number" min="0" value="0" class="inp" style="width:84px"/></label>
+            <button class="btn-conn" id="tnHien">👁 Hiện prompt</button>
+            <button class="btn-conn" id="tnChep">📋 Chép</button>
+            <button class="btn-mini" id="tnKe">⏭ Tập kế tiếp</button>
+          </div>
+          <div id="tnTom" style="display:none;margin:6px 0 10px;padding:10px 12px;border-radius:8px;
+               background:rgba(255,255,255,.03);font-size:12.5px;line-height:1.75"></div>
+          <div id="tnTrangThai" class="p-sub" style="padding:2px 0 8px"></div>
+          <textarea id="tnPrompt" class="inp" spellcheck="false" readonly
+                    style="width:100%;min-height:260px;font-family:ui-monospace,Menlo,monospace;
+                           font-size:11.5px;line-height:1.65;white-space:pre-wrap"
+                    placeholder="Chọn kênh + độ dài + số tập rồi bấm 👁 Hiện prompt."></textarea>
+        </div>
       </section>
       <section id="v-render" class="content hide">
         <div class="panel" style="margin-bottom:14px">
@@ -2863,6 +2895,124 @@
           _klBao("❌ " + String(e.message || e), "#ffb3b3");
         } finally { nut.disabled = false; nut.textContent = chuNut; }
       };
+
+      // ══ BỘ THIÊN NHIÊN ═══════════════════════════════════════════════════════════════
+      // Không ghép prompt ở đây. Python xuất chuỗi CUỐI CÙNG cho từng (kênh, tập, độ dài) và
+      // khối này chỉ tra bảng. Bộ Kling hài xuất KHUÔN rồi để JS ghép, và cái giá của lựa chọn
+      // ấy là ba lỗi lệch Python↔JS phải đi truy — mỗi lần đều sai đúng một trường nên trông
+      // như "gần đúng" chứ không như hỏng. Bộ này không cần chịu giá đó.
+      const _tnCache = {};
+      let _tnMuc = null;
+
+      async function _tnNapMuc() {
+        if (_tnMuc) return _tnMuc;
+        const r = await fetch("thien_nhien/index.json", { cache: "no-cache" });
+        if (!r.ok) throw new Error("thien_nhien/index.json " + r.status);
+        _tnMuc = await r.json();
+        return _tnMuc;
+      }
+      async function _tnNapKenh(slug) {
+        if (_tnCache[slug]) return _tnCache[slug];
+        const r = await fetch(`thien_nhien/${slug}.json`, { cache: "no-cache" });
+        if (!r.ok) throw new Error(slug + " " + r.status);
+        _tnCache[slug] = await r.json();
+        return _tnCache[slug];
+      }
+      const _tnEl = (id) => document.getElementById(id);
+      const _tnBao = (t, m) => { const e = _tnEl("tnTrangThai");
+        if (e) { e.textContent = t; e.style.color = m || ""; } };
+
+      window.tnBanDau = async () => {
+        const sel = _tnEl("tnKenh"); if (!sel || sel.dataset.xong) return;
+        try {
+          const m = await _tnNapMuc();
+          // Đánh số TIẾP theo ba mươi kênh Kling hài, vì anh nghĩ về chúng như "mười kênh sau
+          // này" — một dãy số liền mạch nói đúng thứ tự ấy, hai dãy 01–30 và 01–10 thì không.
+          sel.innerHTML = m.kenh.map(k =>
+            `<option value="${esc(k.slug)}">${String(k.so_tt + 30).padStart(2, "0")} · ${esc(k.ten)}</option>`).join("");
+          const g = _tnEl("tnGiay");
+          const ut = new Set(m.giay_uu_tien || []);
+          g.innerHTML = (m.giay || []).map(x =>
+            `<option value="${x}"${x === 8 ? " selected" : ""}>${x} giây${ut.has(x) ? " · ưu tiên" : ""}</option>`).join("");
+          sel.dataset.xong = "1";
+          const b = _tnEl("tnBrand");
+          if (b) {
+            b.style.display = "flex";
+            b.style.cssText += ";gap:8px;flex-wrap:wrap;align-items:center";
+            b.innerHTML = m.kenh.map(k =>
+              `<img src="brand_tn/${String(k.so_tt).padStart(2, "0")}-${esc(k.slug)}_avatar.webp"
+                    title="${String(k.so_tt + 30).padStart(2, "0")} · ${esc(k.ten)}"
+                    style="width:44px;height:44px;border-radius:50%;object-fit:cover"/>`).join("");
+          }
+          _tnBao(`${m.kenh.length} kênh · prompt dựng sẵn ${m.kenh[0].so_tap} tập mỗi kênh`);
+        } catch (e) { _tnBao("không nạp được dữ liệu thiên nhiên: " + e.message, "#ff9d9d"); }
+      };
+
+      window.tnHien = async () => {
+        const slug = _tnEl("tnKenh").value, giay = String(_tnEl("tnGiay").value);
+        const so = Math.max(0, parseInt(_tnEl("tnSo").value || "0", 10));
+        try {
+          const K = await _tnNapKenh(slug);
+          const t = (K.tap || []).find(x => x.so === so);
+          if (!t) { _tnBao(`tập ${so} chưa xuất — đã xuất ${K.tap.length} tập (0–${K.tap.length - 1}). `
+                           + `Chạy thien_nhien.py --xuat-web với --so-tap lớn hơn.`, "#ffd08a"); return; }
+          const p = t.prompt[giay] || "";
+          const ta = _tnEl("tnPrompt");
+          ta.value = p;
+          // Cùng cách chống chép nhầm như bên Kling: đóng DẤU vào ô, vì nghe sự kiện `change`
+          // chỉ bịt đúng con đường mình nghĩ tới.
+          ta.dataset.kenh = slug; ta.dataset.giay = giay; ta.dataset.so = String(so);
+          const tom = _tnEl("tnTom");
+          tom.style.display = "block";
+          tom.innerHTML = `<b>${esc(K.ten)}</b> · tập ${so} · ${giay}s · ${p.length}/${_tnMuc.ky_tu_max} ký tự`
+            + `<div style="opacity:.65;font-size:11.5px;margin-top:5px">`
+            + `${esc(t.loai)} — ${esc(t.hanh_vi)}<br>${esc(t.khuon)}`
+            + (t.anh_sang ? ` · ${esc(t.anh_sang)}` : " · ánh sáng do khuôn hình quy định")
+            + ` · ${esc(t.thoi_tiet)}</div>`;
+          _tnBao("bấm 📋 để chép rồi dán vào Kling · một tập = MỘT clip = một lượt sinh");
+        } catch (e) { _tnBao("lỗi: " + e.message, "#ff9d9d"); }
+      };
+
+      window.tnKe = async () => {
+        const slug = _tnEl("tnKenh").value;
+        try {
+          const K = await _tnNapKenh(slug);
+          const n = Math.min(K.tap.length - 1,
+                             Math.max(0, parseInt(_tnEl("tnSo").value || "0", 10) + 1));
+          _tnEl("tnSo").value = String(n);
+          await window.tnHien();
+        } catch (e) { _tnBao("lỗi: " + e.message, "#ff9d9d"); }
+      };
+
+      window.tnChep = async () => {
+        const ta = _tnEl("tnPrompt"), t = ta.value || "";
+        if (!t.trim()) { _tnBao("chưa có prompt — bấm 👁 Hiện prompt trước", "#ffd08a"); return; }
+        const k = _tnEl("tnKenh").value, g = String(_tnEl("tnGiay").value);
+        const so = String(Math.max(0, parseInt(_tnEl("tnSo").value || "0", 10)));
+        if (ta.dataset.kenh && (ta.dataset.kenh !== k || ta.dataset.giay !== g || ta.dataset.so !== so)) {
+          _tnBao(`⚠️ prompt đang hiện là "${ta.dataset.kenh}" tập ${ta.dataset.so} ${ta.dataset.giay}s — `
+                 + `không khớp lựa chọn hiện tại. Bấm 👁 Hiện prompt lại.`, "#ffd08a"); return; }
+        try { await navigator.clipboard.writeText(t); _tnBao("📋 đã chép — dán vào ô prompt của Kling", "#9fe6a0"); }
+        catch (_) { ta.removeAttribute("readonly"); ta.select(); ta.setAttribute("readonly", "");
+                    _tnBao("bấm Cmd+C để chép giúp em", "#ffd08a"); }
+      };
+
+      document.addEventListener("change", (ev) => {
+        const t = ev.target;
+        if (!t || !["tnKenh", "tnGiay", "tnSo"].includes(t.id)) return;
+        const ta = _tnEl("tnPrompt");
+        if (!ta || !ta.value) return;
+        ta.value = ""; delete ta.dataset.kenh; delete ta.dataset.giay; delete ta.dataset.so;
+        const tom = _tnEl("tnTom"); if (tom) tom.style.display = "none";
+        _tnBao("đã đổi lựa chọn — bấm 👁 Hiện prompt", "#9fd4ff");
+      });
+
+      document.addEventListener("click", (ev) => {
+        const t = ev.target; if (!t || !t.id) return;
+        if (t.id === "tnHien") window.tnHien();
+        if (t.id === "tnChep") window.tnChep();
+        if (t.id === "tnKe") window.tnKe();
+      });
 
       window.klingChep = async () => {
         const ta = _klEl("klPrompt"), t = ta.value || "";
@@ -6386,7 +6536,7 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         // hướng trước đó. Điều hướng vẫn chạy — chỉ có dữ liệu là không bao giờ tới.
         // Bài học: gắn việc nạp vào TRẠNG THÁI đã tới màn hình, đừng gắn vào hành động đưa
         // người dùng tới đó — vì luôn có đường khác dẫn tới cùng màn hình ấy.
-        if(v==="kling"&&window.klingNap){ window.klingNap(); if(window.klingBanDau) window.klingBanDau(); }
+        if(v==="kling"&&window.klingNap){ window.klingNap(); if(window.klingBanDau) window.klingBanDau(); if(window.tnBanDau) window.tnBanDau(); }
         if(v==="tasks"&&window.renderTasks) window.renderTasks(); };
       window.__setTitle=setTitle;
       // ROUTING theo URL hash: mỗi mục 1 đường dẫn (#publish, #channels…) -> F5 giữ nguyên trang
