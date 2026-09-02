@@ -2808,7 +2808,13 @@
           }
           if (vao < 0) { p = than[than.length - 1] || ""; vao = 0; bo = them.length; }
           p = p + "\n" + rao;
+          // 2/9 — ĐÓNG DẤU kênh + độ dài vào chính ô prompt. Không có dấu này thì ô chỉ là một
+          // khối chữ không biết nó thuộc về đâu, và nút 📋 chép bất cứ thứ gì đang nằm đó — kể
+          // cả prompt của kênh anh vừa rời khỏi. Chi phí của một lần chép nhầm không phải là
+          // phiền: nó là một lượt sinh Kling trả tiền cho sai kênh.
           _klEl("klPrompt").value = p;
+          _klEl("klPrompt").dataset.kenh = slug;
+          _klEl("klPrompt").dataset.giay = String(giay);
           const tom = _klEl("klTom");
           tom.style.display = "block";
           tom.innerHTML = `<b>${esc(lay("title"))}</b> · ${esc(phong)} · ${giay}s · tập ${soTap}`
@@ -2859,11 +2865,33 @@
       };
 
       window.klingChep = async () => {
-        const t = _klEl("klPrompt").value || "";
+        const ta = _klEl("klPrompt"), t = ta.value || "";
         if (!t.trim()) { _klBao("chưa có prompt để chép — bấm ✨ Tạo kịch bản trước", "#ffd08a"); return; }
+        // Chặn chép NHẦM KÊNH. Hai ô chọn không có handler nào xoá ô prompt, nên đổi kênh xong
+        // bấm 📋 là chép prompt của kênh cũ trong khi màn hình đang hiện kênh mới. Kiểm bằng
+        // DẤU đóng lúc điền chứ không bằng cách nghe sự kiện `change` — nghe sự kiện chỉ bịt
+        // đúng con đường mình nghĩ tới, còn dấu thì bịt mọi con đường.
+        const kNay = _klEl("klKenh").value, gNay = String(_klEl("klGiay").value);
+        if (ta.dataset.kenh && (ta.dataset.kenh !== kNay || ta.dataset.giay !== gNay)) {
+          _klBao(`⚠️ prompt đang hiện là của "${ta.dataset.kenh}" ${ta.dataset.giay}s, không phải `
+                 + `"${kNay}" ${gNay}s — bấm ✨ Tạo kịch bản lại trước khi chép`, "#ffd08a");
+          return;
+        }
         try { await navigator.clipboard.writeText(t); _klBao("📋 đã chép — dán vào ô prompt của Kling", "#9fe6a0"); }
         catch (_) { _klEl("klPrompt").select(); _klBao("bấm Cmd+C để chép giúp em", "#ffd08a"); }
       };
+
+      // Đổi kênh hoặc đổi độ dài thì ô prompt cũ KHÔNG còn đúng nữa — xoá ngay để anh thấy,
+      // thay vì để nó nằm đó trông như vẫn dùng được.
+      document.addEventListener("change", (ev) => {
+        const t = ev.target;
+        if (!t || (t.id !== "klKenh" && t.id !== "klGiay")) return;
+        const ta = _klEl("klPrompt");
+        if (!ta || !ta.value) return;
+        ta.value = ""; delete ta.dataset.kenh; delete ta.dataset.giay;
+        const tom = _klEl("klTom"); if (tom) tom.style.display = "none";
+        _klBao("đã đổi lựa chọn — bấm ✨ Tạo kịch bản để có prompt mới", "#9fd4ff");
+      });
 
       document.addEventListener("click", (ev) => {
         const t = ev.target;
@@ -4375,7 +4403,21 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       // điểm QC, kho chứa). Lọc ngày do SQL của Worker làm, ĐÚNG cột và ĐÚNG mốc như ô "📅 Hôm nay"
       // -> hai chỗ không thể ra hai con số khác nhau nữa.
       let d1rows = null, _d1cTong = 0;
-      if(dv && window.__d1OK){ try{ d1rows = await rsD1Jobs(dv); }catch(_){ d1rows = null; } }
+      /* 2/9 — "MỌI LÚC" LẠI LÀ MỐC DUY NHẤT KHÔNG HỎI D1.
+         Anh: *"a vẫn chưa thấy videos nào được hiển thị web."* 93 video nằm thật trên Drive, bản
+         ghi đã dựng lại vào D1 (ô xổ hiện "Tất cả kênh (36)"), mà danh sách vẫn trống — vì điều
+         kiện `if(dv && …)`: chỉ khi CÓ lọc ngày mới hỏi D1. Chọn "Mọi lúc" là `dv===""`, nên
+         nhánh D1 không chạy lần nào và danh sách chỉ còn Firestore — nơi đang rỗng.
+
+         Nghịch lý: mốc lọc RỘNG NHẤT lại là mốc thấy ÍT NHẤT. Cùng họ lỗi "cái cần xem nằm ngoài
+         phép lọc" (7dd), lần này phép lọc là chính điều kiện quyết định có đi hỏi hay không.
+
+         Nay: hỏi D1 khi có lọc ngày, HOẶC khi Firestore không trả về gì (đúng lúc cần đường lui
+         nhất). Với "Mọi lúc" thì hỏi cửa sổ rộng; khối lọc ngày phía dưới bỏ qua `dv===""` nên
+         không cắt nhầm gì. */
+      if(window.__d1OK && (dv || !all.length)){
+        try{ d1rows = await rsD1Jobs(dv || "3650"); }catch(_){ d1rows = null; }
+      }
       if(d1rows){
         const co = new Map(all.map(j=>[j.id, j]));
         // 25/8 — D1 giờ mang cả kho chứa/thumbnail/size/QC (4 cột mới): hết cảnh video làm lúc
