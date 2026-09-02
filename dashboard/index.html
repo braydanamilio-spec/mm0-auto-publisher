@@ -3840,8 +3840,16 @@
               +(oldFails?` <span style="opacity:.85">${oldFails} lỗi cũ đã khắc phục</span> <button class="btn-mini" style="margin-left:6px" onclick="window.rsCmd&&window.rsCmd('clean_jobs')">🧹 Dọn báo lỗi cũ</button>`:"");
           } else al.style.display="none";
         }
-        if(el) el.innerHTML = ds.length? ds.map(d=>{const j=d.data(); const ic={queued:"⏳",writing:"✍️",rendering:"🎞️",qc:"🔍",done:"✅",failed:"❌",running:"⚙️"}[j.status]||"•";
-          return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${ic} <img src="${window.rsAvatarUri?window.rsAvatarUri(j.channel||"",44):''}" style="width:18px;height:18px;border-radius:4px;vertical-align:middle;margin:0 2px"> <b>${esc(j.channel||"")}</b> · ${esc(j.type||"")} · ${esc(j.step||j.status||"")} ${j.score?`· QC ${esc(j.score)}`:""} ${j.preview?`· <a href="${esc(j.preview)}" target="_blank" style="color:#8b6cff;font-weight:700">▶ Xem</a>`:""}</span><span class="d">${esc((j.created_at||"").slice(11,16))}</span></div>`}).join("") : '<div class="d">Chưa có job nào. Bấm “Render ngay” để thử.</div>'; };
+        /* 2/9 — NHẬT KÝ CŨNG PHẢI CHỈ KỂ CHUYỆN CỦA 18 KÊNH ĐANG DÙNG.
+             Anh: "nhớ dọn hết các tiến trình channel cũ đã xoá". Ô ❌ Lỗi đã hiện 0 và
+             bảng tiến trình đã sạch, nhưng "Nhật ký gần đây" vẫn liệt kê COURTKINGS,
+             FAMECURVE… — nên trang tự mâu thuẫn: 0 lỗi ở trên, một cột ❌ ngay dưới.
+             Đọc `window.__conSong` NGAY TRONG hàm chứ không nâng lên một `const` ở đầu
+             khối: hàm này nằm TRƯỚC chỗ khai báo bộ lọc trong tệp, và hôm qua tôi đã giết
+             nguyên một bảng bốn lần bằng đúng kiểu "ReferenceError … before initialization". */
+        const _ds = ds.filter(d=>window.__conSong ? window.__conSong(d.data()||{}) : true);
+        if(el) el.innerHTML = _ds.length? _ds.map(d=>{const j=d.data(); const ic={queued:"⏳",writing:"✍️",rendering:"🎞️",qc:"🔍",done:"✅",failed:"❌",running:"⚙️"}[j.status]||"•";
+          return `<div class="row" style="display:flex;justify-content:space-between;padding:6px 0"><span>${ic} <img src="${window.rsAvatarUri?window.rsAvatarUri(j.channel||"",44):''}" style="width:18px;height:18px;border-radius:4px;vertical-align:middle;margin:0 2px"> <b>${esc(j.channel||"")}</b> · ${esc(j.type||"")} · ${esc(j.step||j.status||"")} ${j.score?`· QC ${esc(j.score)}`:""} ${j.preview?`· <a href="${esc(j.preview)}" target="_blank" style="color:#8b6cff;font-weight:700">▶ Xem</a>`:""}</span><span class="d">${esc((j.created_at||"").slice(11,16))}</span></div>`}).join("") : '<div class="d">Chưa có job nào của 18 kênh đang dùng.</div>'; };
       // GIỚI HẠN 300 job MỚI NHẤT -> Firestore đọc luôn bị chặn dù có hàng chục nghìn video (vẫn free). Index chưa sẵn -> fallback không limit.
       // SHARD: đọc render_jobs từ CẢ A (video CŨ, tĩnh) + B (video MỚI, đang chạy) rồi GỘP -> không mất video cũ, khỏi migrate.
       let __jA={}, __jB={};
