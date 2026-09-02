@@ -2716,7 +2716,19 @@
           // đủ vào mức đã nén thì thang nén thành vô nghĩa — đo được prompt tràn 200 ký tự.
           const _castM = (m) => _dan.map(t => (m < 1 ? K.vai[t] : (K.vai_gon || K.vai)[t])).join("\n");
 
+          // KHUÔN HÌNH của tập này. 2/9 — trước đây câu máy quay bị nướng cứng vào khuôn web
+          // nên mọi tập sinh từ trình duyệt đều mang khuôn hình của tập 0. Công thức phải
+          // GIỐNG HỆT `_khuon_hinh` bên Python: bảng đã lọc theo kênh, bước do Python tính và
+          // gửi kèm (`khuon_buoc`) — đừng ghi cứng 3, kênh bị lọc còn 6 khuôn thì bước 3 chỉ
+          // đi qua hai ô.
+          const _KH = (K.lich && K.lich.khuon_hinh) || [];
+          const _may = _KH.length
+            ? _KH[(((K.lich.goc || 0) + soTap * (K.lich.khuon_buoc || 3)) % _KH.length
+                   + _KH.length) % _KH.length][1]
+            : "Camera locked off at standing eye level, wide.";
+
           const dien = (t, _m) => String(t || "")
+            .split("@@MAY@@").join(_may)
             .split("@@CAST@@").join(_castM(_m || 0))
             .split("@@CASTNAMES@@").join(_castNames)
             .split("@@ROOMDESC@@").join(K.phong[phong] || phong)
@@ -3780,7 +3792,13 @@
           const c=(await getCountFromServer(query(collection(base,"render_jobs"),where("owner","==",o),where("status","==","done"),where("created_at",">=",today)))).data().count;
           window.__cntTd=c; if(stt) stt.textContent=c;
         }catch(e){} })();
-        const byCh={}; all.forEach(j=>{const c=j.channel||"?";(byCh[c]=byCh[c]||[]).push(j);});
+        /* 2/9 — BẢNG "TIẾN TRÌNH THEO KÊNH" CHỈ HIỆN KÊNH ĐANG DÙNG.
+           Ảnh chụp: bảng liệt kê ALERTNOW · AMERICALOOKEDUP · ARCHIVEREEL … — 50 kênh đã nghỉ,
+           mỗi dòng một dấu ⚠ và "long 0✅ 1❌", trong khi ô ❌ Lỗi ngay trên hiện 0. Người vận
+           hành nhìn xuống thấy một bảng toàn cảnh báo cho việc không còn tồn tại.
+           `all` là bản ghi Firestore cũ; lọc bằng cùng một hàm với mọi chỗ khác để cả trang
+           nói một giọng. */
+        const byCh={}; all.filter(_conSong).forEach(j=>{const c=j.channel||"?";(byCh[c]=byCh[c]||[]).push(j);});
         const cp=document.getElementById("rsChanProg");
         const chMeta={}; (window.__rsChannelsData||[]).forEach(c=>chMeta[(c.name||"").toUpperCase()]=c);
         const bar=(done,target,color)=>{ if(!target) return ""; const pct=Math.min(100,Math.round(done/target*100));
@@ -3798,7 +3816,7 @@
           const m=chMeta[c.toUpperCase()]||{}; const lt=m.long_target||0, st=m.short_target||0;
           const tgt=(lt||st)?`<span class="d"> · 🎯 ${lt?`long ${ld}/${lt}`:""}${lt&&st?" · ":""}${st?`short ${shd}/${st}`:""}</span>`:"";
           return `<div class="row" style="display:block;padding:7px 0"><div style="display:flex;justify-content:space-between"><span>${bg} <img src="${window.rsAvatarUri?window.rsAvatarUri(c,44):''}" style="width:18px;height:18px;border-radius:4px;vertical-align:middle;margin:0 2px"> <b>${esc(c)}</b>${tgt}</span><span class="d">long ${ld}✅${lf?" "+lf+"❌":""} · short ${shd}/${sh.length}${shf?" "+shf+"❌":""}</span></div>${bar(ld,lt,"#8b6cff")}${bar(shd,st,"#4ea1ff")}</div>`;
-        }).join("") : '<div class="d">Chưa có dữ liệu — chạy pipeline để thấy tiến trình từng kênh.</div>'; }
+        }).join("") : '<div class="d">Chưa có video nào của 18 kênh đang dùng — bảng sẽ hiện khi lượt render đầu tiên đẩy xong.</div>'; }
         const al=document.getElementById("rsAlert");
         if(al){
           // 25/8 — BĂNG RÔN PHẢI CÙNG NGUỒN VỚI Ô ❌. Ô Lỗi đã chuyển sang D1 `loi_moi` (đếm toàn

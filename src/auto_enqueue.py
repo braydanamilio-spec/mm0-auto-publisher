@@ -37,6 +37,56 @@ def _owner() -> str:
     return os.environ.get("OWNER_UID", "") or os.environ.get("OWNER", "")
 
 
+_D1_CAUHINH = "pub_overrides"
+
+
+def _hot_goi(lenh: str, tham: dict, timeout: int = 20) -> dict:
+    """Gọi Worker /api/hot — KHÔNG đụng Firestore. Thiếu User-Agent thì Cloudflare chặn mã 1010
+    và trả 403 y như sai khoá (bài học đã ghi trong `hot_db.goi`)."""
+    import json as _json
+    import urllib.request as _u
+    k = os.environ.get("HOT_KEY", "")
+    if not k:
+        return {}
+    url = os.environ.get("HOT_URL") or "https://mm0-connect.adisondurham-ef1.workers.dev/api/hot"
+    try:
+        req = _u.Request(url, method="POST",
+                         data=_json.dumps({"lenh": lenh, "tham": tham}).encode(),
+                         headers={"content-type": "application/json", "x-hot-key": k,
+                                  "user-agent": "MM0-Pipeline/1.0"})
+        with _u.urlopen(req, timeout=timeout) as r:
+            return _json.loads(r.read().decode("utf-8", "ignore")) or {}
+    except Exception:
+        return {}
+
+
+def _cau_hinh_d1() -> dict:
+    """Cấu hình đăng (auto_publish, template theo kênh) lấy từ D1 — không cần Firestore."""
+    import json as _json
+    d = _hot_goi("nho_doc", {"k": _D1_CAUHINH})
+    js = (d or {}).get("js") or ""
+    if not js:
+        return {}
+    try:
+        ra = _json.loads(js)
+        if ra:
+            print(f"   💾 cấu hình đăng lấy từ D1 ({len(ra.get('auto_publish') or {})} kênh bật).")
+        return ra
+    except Exception:
+        return {}
+
+
+def _luu_cau_hinh_d1(ov: dict) -> None:
+    """Ghi cấu hình vào D1 để lần sau không cần Firestore. Hỏng thì im lặng bỏ qua."""
+    import json as _json
+    from datetime import datetime as _dt, timezone as _tz
+    try:
+        _hot_goi("nho_ghi", {"k": _D1_CAUHINH, "js": _json.dumps(ov),
+                             "at": _dt.now(_tz.utc).isoformat()})
+    except Exception:
+        pass
+
+
 def _load_templates() -> dict:
     if not yaml:
         return {}
@@ -63,7 +113,19 @@ def run(dry_run: bool = False):
     owner = _owner()
     if not owner:
         return
-    ov = state.get_doc("settings", "overrides__" + owner) or state.get_doc("settings", "overrides") or {}
+    # ── CẤU HÌNH ĐỌC TỪ HAI NGUỒN, D1 TRƯỚC  (2/9/2026) ────────────────────────────────────
+    # Anh: *"đừng có 1 phương án firebase trong khi suốt ngày cạn."* Đúng — cờ `auto_publish`
+    # quyết định cả dây chuyền đăng có chạy hay không, mà nó chỉ nằm ở Firestore. Hôm Firestore
+    # cạn (đã xảy ra hai ngày liền) thì `ov` rỗng, `on_channels` rỗng, hàm `return` NGAY — và
+    # không đăng gì mà cũng không báo gì.
+    #
+    # D1 đi qua Worker, không đụng hạn mức Firestore. Đọc D1 trước; Firestore chỉ để bổ sung và
+    # để ghi lại vào D1 mỗi khi đọc được — cùng cách đã cứu đường lấy hồ kho Drive.
+    ov = _cau_hinh_d1() or {}
+    if not ov:
+        ov = state.get_doc("settings", "overrides__" + owner) or state.get_doc("settings", "overrides") or {}
+        if ov:
+            _luu_cau_hinh_d1(ov)      # đọc được lần nào là lần sau không cần Firestore nữa
     auto = ov.get("auto_publish") or {}
     on_channels = {k for k, v in auto.items() if v}
     if not on_channels:
