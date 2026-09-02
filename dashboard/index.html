@@ -4297,7 +4297,22 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       const B={ideal:[],doing:[],done:[],cu:[]};
       RS_PRESETS.forEach(p=>{
         const added=byName[p.name]; const js=jobs.filter(j=>(j.channel||"").toUpperCase()===p.name);
-        const d=js.filter(j=>j.status==="done").length, a=js.filter(j=>["queued","running","writing","rendering","qc"].includes(j.status)).length, f=js.filter(j=>j.status==="failed").length;
+        /* 2/9 — MỘT MÀN HÌNH KHÔNG ĐƯỢC NÓI HAI CON SỐ NGƯỢC NHAU.
+           Anh chụp màn: ô kho ghi "✅ Video trong kho: 142 ✓ kho thật" mà ngay dưới là
+           "✅ Đã có video (0)". Hai ô đếm HAI NGUỒN: ô kho đếm TỆP THẬT trên Drive, dòng này
+           đếm BẢN GHI JOB — mà bản ghi đang rỗng vì lượt render 12:41 chạy bằng mã cũ (lệnh
+           `ghi_job` Worker không nhận, HTTP 500). Video có thật, chỉ là không ai ghi sổ.
+
+           `__chStats` (đếm theo kênh, lấy từ D1 — cùng họ nguồn với ô kho) đã có sẵn trên trang
+           và tự làm mới mỗi 5 phút. Dùng làm ĐƯỜNG LUI khi bản ghi job rỗng: thà lấy số của kho
+           thật còn hơn báo 0 trong khi kho có 142.
+
+           Lấy MAX chứ không thay hẳn — bản ghi job biết những video D1 chưa kịp đếm và ngược
+           lại. Cùng bài học với ô "Đang chạy": chỗ người dùng nhìn phải dùng công thức đầy đủ
+           nhất, không phải công thức ngắn nhất. */
+        const _kho=(window.__chStats||{})[p.name]||{};
+        const _khoN=(Number(_kho.l)||0)+(Number(_kho.s)||0);
+        const d=Math.max(js.filter(j=>j.status==="done").length, _khoN), a=js.filter(j=>["queued","running","writing","rendering","qc"].includes(j.status)).length, f=js.filter(j=>j.status==="failed").length;
         const info={...p,d,a,f,mix:added?(added.mix||""):""};
         if(!added) (info.the_he===2?B.ideal:B.cu).push(info); else if(d>0) B.done.push(info); else B.doing.push(info);
       });
