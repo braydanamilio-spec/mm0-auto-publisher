@@ -4274,7 +4274,13 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         // trong kho"). Một ô xổ không cộng đúng chính nó thì không con số nào còn đáng tin.
         const _tot=_d1c?_d1c.tong
                   :(dv?all.length:(window.__cntCache||(Object.keys(_st).length?Object.values(_st).reduce((a,v)=>a+((v&&v.l)||0)+((v&&v.s)||0),0):all.length)));
-        const opts='<option value="">Tất cả kênh ('+_tot+')</option>'+chans.map((c,i)=>`<option value="${esc(c)}">${String(i+1).padStart(2,"0")}. ${esc(c)} (${_cnt(c)})</option>`).join("");
+        /* TỔNG = ĐÚNG TỔNG CÁC DÒNG CÒN LẠI sau khi lọc. `_tot` lấy từ server nên nó đếm cả
+             kênh đã nghỉ; giữ nguyên là ô xổ lại tự mâu thuẫn, chỉ theo chiều ngược. */
+          const _totLoc=chans.reduce((a,c)=>a+(Number(_cnt(c))||0),0);
+          /* TỔNG = ĐÚNG TỔNG CÁC DÒNG CÒN LẠI sau khi lọc. `_tot` lấy từ server nên nó đếm cả
+             kênh đã nghỉ; giữ nguyên là ô xổ lại tự mâu thuẫn, chỉ theo chiều ngược. */
+          const _totLoc=chans.reduce((a,c)=>a+(Number(_cnt(c))||0),0);
+          const opts='<option value="">Tất cả kênh ('+_totLoc+')</option>'+chans.map((c,i)=>`<option value="${esc(c)}">${String(i+1).padStart(2,"0")}. ${esc(c)} (${_cnt(c)})</option>`).join("");
         // NÓI RÕ KHI DANH SÁCH BỊ CẮT: D1 trả tối đa 400 dòng mỗi lượt. Nếu ô "📅 Hôm nay" báo
         // nhiều hơn số thẻ đang hiện thì phải nói ra, đừng để người xem tưởng mất video.
         if(chSel){
