@@ -91,7 +91,7 @@ def _kenh_cua(drv, ten_json: dict) -> str:
 
 
 def don_mot_kho(acc, giu: set, that: bool, rac: bool) -> tuple:
-    """Trả (số file xoá, số byte thu hồi, số file không xác định được kênh, đếm theo kênh)."""
+    """Trả (số xoá, byte thu hồi, số file không xác định được kênh, đếm theo kênh, số file SOI ĐƯỢC)."""
     # Mở kho bằng ĐÚNG đường mà `wipe_queue.py` dùng. `Drive(acc)` trông hợp lý và sai:
     # `Drive.__init__(self, service=None)` không nhận hồ sơ kho, nên `Drive(acc)` sẽ coi cái dict
     # ấy là `service` và chết ở lệnh gọi đầu tiên — sau khi đã quét xong, tức đúng lúc tệ nhất.
@@ -99,7 +99,7 @@ def don_mot_kho(acc, giu: set, that: bool, rac: bool) -> tuple:
     drv = ST.account_drive(acc)
     root = acc.get("root") or ""
     if not root:
-        return 0, 0, 0, Counter()
+        return 0, 0, 0, Counter(), 0
     tep = _quet(drv, root)
     theo_goc = {}
     for f in tep:
@@ -107,6 +107,7 @@ def don_mot_kho(acc, giu: set, that: bool, rac: bool) -> tuple:
         theo_goc.setdefault(goc, []).append(f)
 
     xoa = byte = mo = 0
+    thay = len(tep)          # SOI ĐƯỢC BAO NHIÊU — xem chú thích ở `main`
     dem = Counter()
     for goc, nhom in theo_goc.items():
         js = next((x for x in nhom if x["name"].lower().endswith(".json")), None)
@@ -129,7 +130,7 @@ def don_mot_kho(acc, giu: set, that: bool, rac: bool) -> tuple:
                     print(f"      ⚠ không xoá được {f['name'][:40]}: {str(e)[:60]}")
                     continue
             xoa += 1
-    return xoa, byte, mo, dem
+    return xoa, byte, mo, dem, thay
 
 
 def main() -> int:
@@ -152,20 +153,36 @@ def main() -> int:
     print(f"→ {len(ho)} kho Drive · chế độ: "
           f"{'XOÁ THẬT' if a.that and not a.rac else ('BỎ THÙNG RÁC' if a.that else 'chạy thử')}")
 
-    t_xoa = t_byte = t_mo = 0
+    t_xoa = t_byte = t_mo = t_thay = 0
+    t_kho_soi = 0
     tong = Counter()
     for i, acc in enumerate(ho, 1):
         ten = acc.get("email") or acc.get("name") or f"kho{i}"
         try:
-            x, b, m, d = don_mot_kho(acc, giu, a.that, a.rac)
+            x, b, m, d, thay = don_mot_kho(acc, giu, a.that, a.rac)
         except Exception as e:
             print(f"   ⚠ {ten[:28]:28s} lỗi: {str(e)[:70]}")
             continue
-        t_xoa += x; t_byte += b; t_mo += m; tong.update(d)
+        t_xoa += x; t_byte += b; t_mo += m; t_thay += thay; tong.update(d)
+        if thay:
+            t_kho_soi += 1
         if x or m:
             print(f"   {ten[:28]:28s} {x:4d} file kênh cũ · {m} file không rõ kênh (giữ)")
 
-    print(f"\n📊 {'ĐÃ XOÁ' if a.that else 'SẼ XOÁ'} {t_xoa} file · {t_byte/1e9:.2f} GB")
+    # ── "0" PHẢI NÓI RÕ LÀ 0 NÀO  (2/9/2026) ────────────────────────────────────────────
+    # Bản đầu in đúng một dòng `ĐÃ XOÁ 0 file`. Con số ấy có HAI nghĩa ngược nhau — "đã soi hết,
+    # không có gì của kênh cũ" và "chưa soi được file nào" — mà log không tách được. Đây đúng cái
+    # mù đã tốn cả ngày hôm nay ở ba chỗ khác (`kiem_kho` chết câm · `_kho_tu_kv` nuốt NameError ·
+    # `day_kho` vứt đầu ra của `enqueue`), và tôi vừa viết lại nó vào script mới của chính mình.
+    #
+    # Nên in luôn MẪU SỐ: soi được bao nhiêu kho, bao nhiêu file. `0/0` là chưa soi được gì;
+    # `0/12.480` là kho thật sự sạch. Hai câu ấy dẫn tới hai hành động khác hẳn nhau.
+    print(f"\n📊 soi {t_thay:,} file trong {t_kho_soi}/{len(ho)} kho đọc được")
+    print(f"   {'ĐÃ XOÁ' if a.that else 'SẼ XOÁ'} {t_xoa} file · {t_byte/1e9:.2f} GB")
+    if t_thay == 0:
+        print("   ⚠ KHÔNG soi được file nào trên bất kỳ kho nào — đây KHÔNG phải bằng chứng kho sạch.")
+        print("     Kiểm quyền của khoá dịch vụ với các kho trước khi kết luận.")
+        return 1
     if tong:
         print("   theo kênh: " + ", ".join(f"{k}×{v}" for k, v in tong.most_common(12)))
     if t_mo:
