@@ -4276,7 +4276,6 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
                   :(dv?all.length:(window.__cntCache||(Object.keys(_st).length?Object.values(_st).reduce((a,v)=>a+((v&&v.l)||0)+((v&&v.s)||0),0):all.length)));
         /* TỔNG = ĐÚNG TỔNG CÁC DÒNG CÒN LẠI sau khi lọc. `_tot` lấy từ server nên nó đếm cả
              kênh đã nghỉ; giữ nguyên là ô xổ lại tự mâu thuẫn, chỉ theo chiều ngược. */
-          const _totLoc=chans.reduce((a,c)=>a+(Number(_cnt(c))||0),0);
           /* TỔNG = ĐÚNG TỔNG CÁC DÒNG CÒN LẠI sau khi lọc. `_tot` lấy từ server nên nó đếm cả
              kênh đã nghỉ; giữ nguyên là ô xổ lại tự mâu thuẫn, chỉ theo chiều ngược. */
           const _totLoc=chans.reduce((a,c)=>a+(Number(_cnt(c))||0),0);
