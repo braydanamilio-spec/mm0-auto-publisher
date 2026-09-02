@@ -4277,9 +4277,16 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         try{ _d1c = await rsD1Chans(dv); }catch(_){ _d1c = null; }
         if(_d1c && _d1c.tong) _d1cTong = _d1c.tong;   // dòng đếm phía dưới cần con số này
         const _st=dv?{}:(window.__chStats||{});
+        /* 2/9 — Ô XỔ CHỈ LIỆT KÊ KÊNH ĐANG DÙNG. Ảnh chụp: đầu ô ghi "Tất cả kênh (0)" mà
+           bên dưới vẫn 55 kênh đã nghỉ kèm số đếm. Ba nguồn đổ vào đây (bản ghi Firestore ·
+           map D1 · sổ thống kê) đều còn giữ kênh cũ; lọc ở chỗ hợp nhất là nơi duy nhất chạm
+           được cả ba. Nền lọc là RS_PRESETS (nhúng thẳng trong trang) nên không lúc nào rỗng. */
+        const _kd=window.__kenhDung();
         const chans=[...new Set([...all.map(j=>j.channel||"?"),
                                  ...(_d1c?Object.keys(_d1c.map):[]),
-                                 ...Object.keys(_st)])].sort();
+                                 ...Object.keys(_st)])]
+                              .filter(c=>!_kd.size||_kd.has(String(c||"").toUpperCase()))
+                              .sort();
         const _cnt=c=>{ const K=String(c||"").toUpperCase();
           if(_d1c && K in _d1c.map) return _d1c.map[K];
           const v=_st[K]; return v?((v.l||0)+(v.s||0)):all.filter(j=>(j.channel||"?")===c).length; };
