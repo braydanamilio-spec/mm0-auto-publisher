@@ -201,10 +201,19 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
         import hot_db as _H
         if _H.bat_ghi():
             from datetime import datetime as _dt, timezone as _tz
-            _H.ghi_job(owner, f"gt-{channel.lower()}-{meta['type']}-{os.path.basename(video)}",
-                       channel.upper(), meta["type"], "done", step="đã lên kho",
-                       title=meta.get("title"), drive_id=created["id"],
-                       at=_dt.now(_tz.utc).isoformat())
+            # GỌI THẲNG `goi("ghi_job")`, KHÔNG dùng `ghi_job()`.
+            # `hot_db.ghi_job` GOM ĐỆM rồi xả theo lô — hợp lý cho tiến trình chạy dài, nhưng
+            # `enqueue.py` là tiến trình con sống vài giây rồi thoát, nên đệm chưa xả là bản ghi
+            # MẤT. Đo thật: luồng 18 đẩy "2/2 video vào hàng đợi", Drive nhận, mà `hot-jobs` vẫn
+            # 0 dòng và không một dòng lỗi nào — vì không có lỗi, chỉ có đệm chưa xả.
+            # `bao_chay.py` gọi thẳng và ô "Đang chạy" chạy đúng; làm y như vậy.
+            _r = _H.goi("ghi_job", {
+                "id": f"gt-{channel.lower()}-{meta['type']}-{os.path.basename(video)}",
+                "owner": owner, "channel": channel.upper(), "vtype": meta["type"],
+                "status": "done", "step": "đã lên kho", "title": meta.get("title"),
+                "drive_id": created["id"], "queued": False,
+                "at": _dt.now(_tz.utc).isoformat()})
+            print(f"   🗂 ghi bản ghi D1: {'ok' if _r else 'hụt'}")
     except Exception as e:
         print(f"   ⚠️  Ghi bản ghi D1 lỗi ({str(e)[:80]}) — video vẫn ở Drive, chỉ số đếm chậm.")
 
