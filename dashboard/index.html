@@ -3640,6 +3640,11 @@
         Băng rôn xanh khoe "53 video xong · 67 lỗi cũ" trong khi 18 kênh mới có ĐÚNG 0 video —
         những con số ấy là bản ghi Firestore của kênh đã nghỉ. Lọc lỗi mà quên lọc "done" thì
         vẫn còn một nửa lời nói dối. */
+        /* 2/9 — KHAI TRƯỚC MỌI CHỖ DÙNG. Bản trước khai ở giữa, sau dòng `done` đã gọi tới nó,
+           nên trang ném `ReferenceError: Cannot access '_conSong' before initialization` và
+           cả bảng tiến trình chết — `const` nằm trong vùng chết thời gian tới lúc khai. */
+        const _kenhSong = new Set((window.__rsChannelsData||[]).map(c=>String(c.name||"").toUpperCase()));
+        const _conSong = f => !_kenhSong.size || _kenhSong.has(String(f.channel||"").toUpperCase());
         const done=all.filter(j=>j.status==="done").filter(_conSong);
         const failed=all.filter(j=>j.status==="failed");
         // LỖI THẬT = lỗi XẢY RA SAU lần thành công gần nhất; lỗi trước đó coi như ĐÃ KHẮC PHỤC.
@@ -3650,8 +3655,6 @@
              cũ; những kênh ấy không còn trong `render_channels` nên lỗi của chúng không còn nghĩa.
              Lọc theo danh sách kênh ĐANG DÙNG: một trang hai giọng thì người vận hành không tin
              được giọng nào. */
-          const _kenhSong = new Set((window.__rsChannelsData||[]).map(c=>String(c.name||"").toUpperCase()));
-          const _conSong = f => !_kenhSong.size || _kenhSong.has(String(f.channel||"").toUpperCase());
         const activeFails=failed.filter(f=>!lastDoneAt || (f.created_at||"")>lastDoneAt).filter(_conSong);
         const oldFails=failed.length-activeFails.length;
         if(bd) bd.textContent=active;
