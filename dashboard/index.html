@@ -1688,7 +1688,7 @@
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
       signInWithEmailAndPassword, createUserWithEmailAndPassword }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, query, where, orderBy, limit, doc, setDoc, addDoc, deleteDoc, getDocs, getDoc, disableNetwork, enableNetwork, getCountFromServer, increment }
+    import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, query, where, orderBy, limit, doc, setDoc, addDoc, deleteDoc, getDocs, getDoc, disableNetwork, enableNetwork, getCountFromServer, writeBatch, increment }
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -3442,7 +3442,31 @@
     // ⚡ KIỂM NGAY (tuần tự, client-side): test từng key qua models.list, GIÃN 1.1s/key -> không spam. Cập nhật Firestore + UI liền.
     window.__rsCheckNow=async()=>{
       if(window.__checkingKeys){ try{toastMsg("Đang kiểm rồi, chờ chút…");}catch(_){}; return; }
-      const ks=(window.__rsKeysData||[]).slice(); if(!ks.length) return alert("Chưa có key nào.");
+      /* ── CHỈ KIỂM KHOÁ ĐÃ CŨ, VÀ GHI THEO LÔ  (2/9/2026) ──────────────────────────────
+         Anh: *"xem phần check live api key ổn ko, tối ưu quota token khi check chưa."*
+
+         HAI ĐIỀU BỘ KIỂM NÀY VỐN ĐÃ ĐÚNG — giữ nguyên, không đụng:
+           · gọi endpoint LIỆT KÊ MODEL (`/v1beta/models`, `/v1/models`) chứ không sinh chữ,
+             nên **không tốn một token nào**;
+           · gặp 429/quota vẫn ghi `alive:true`, chỉ 403/401 mới coi là chết. Cạn hạn mức không
+             phải chết — và đó là lý do hôm nay **0 khoá bị đánh chết oan**.
+
+         HAI CHỖ PHÍ, SỬA Ở ĐÂY:
+           1. Mỗi lần bấm là kiểm lại cả 295 khoá, kể cả khoá vừa kiểm mười phút trước — 295
+              lượt gọi nhà cung cấp + 295 lượt GHI Firestore, mất ~5,4 phút. Nay bỏ qua khoá đã
+              kiểm trong 6 giờ; giữ Shift khi bấm để ép kiểm lại tất cả.
+           2. Ghi từng khoá một (`setDoc` × 295). Gom thành LÔ: cùng số lượt ghi tính tiền,
+              nhưng một vòng mạng thay cho hàng trăm.
+
+         Và từ 2/9 dây chuyền render tự ghi sức khoẻ khoá TỪ LƯỢT DÙNG THẬT, nên phần lớn khoá
+         luôn "còn mới" — nút này chỉ còn lo mấy khoá dây chuyền chưa chạm tới. */
+      const _EP = (window.event && window.event.shiftKey) ? 0 : 6*3600*1000;
+      const _tatCa=(window.__rsKeysData||[]).slice(); if(!_tatCa.length) return alert("Chưa có key nào.");
+      const ks=_tatCa.filter(k=>{ if(!_EP) return true;
+        const t=Date.parse(k.last_checked||""); return !t || (Date.now()-t)>_EP; });
+      if(!ks.length){ try{toastMsg(`✅ Cả ${_tatCa.length} khoá đều đã kiểm trong 6h — không gọi lại lượt nào. Giữ Shift để ép kiểm lại.`);}catch(_){}; return; }
+      if(ks.length<_tatCa.length){ try{toastMsg(`⚡ Chỉ kiểm ${ks.length}/${_tatCa.length} khoá đã cũ — bỏ qua ${_tatCa.length-ks.length} khoá vừa kiểm.`);}catch(_){} }
+      const _lo=[];   // gom ghi, xả theo lô ở cuối
       window.__checkingKeys=true; const btn=document.getElementById("rsCheckNowBtn"); const _t0=btn?btn.textContent:"";
       let done=0,aliveN=0,deadN=0,rateN=0,corsN=0;
       for(const k of ks){
@@ -3468,13 +3492,17 @@
             ? await fetch("https://mm0-connect.adisondurham-ef1.workers.dev/api/cf-accounts",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token:k.key.split(":").slice(2).join(":")})})
             : await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(k.key)}`);
           const txt=await r.text().catch(()=>"" ); const low=(txt||"").toLowerCase(); const now=new Date().toISOString();
-          if(r.ok){ aliveN++; await setDoc(doc(db,"gemini_keys",k.id),{alive:true,dead_kind:"",dead_reason:"",last_checked:now},{merge:true}); }
+          if(r.ok){ aliveN++; _lo.push([k.id,{alive:true,dead_kind:"",dead_reason:"",last_checked:now}]); }
           else if(r.status===429||low.includes("quota")||low.includes("exhausted")||low.includes("rate limit")){ rateN++; await setDoc(doc(db,"gemini_keys",k.id),{alive:true,dead_reason:"",last_checked:now},{merge:true}); }  // rate-limited = VẪN SỐNG
           else if(r.status===403||r.status===401||low.includes("denied")||low.includes("suspended")||low.includes("invalid")||low.includes("forbidden")||low.includes("not valid")){ deadN++; await setDoc(doc(db,"gemini_keys",k.id),{alive:false,dead_kind:"permanent",dead_reason:(txt||"denied").slice(0,80),last_checked:now},{merge:true}); }
           // còn lại = chưa chắc -> KHÔNG đổi (tránh đánh nhầm)
         }catch(e){ corsN++; }   // CORS/mạng -> chưa rõ, bỏ qua
         await new Promise(res=>setTimeout(res,1100));   // GIÃN 1.1s -> tuần tự, không dội
       }
+      // XẢ LÔ: cùng số lượt ghi tính tiền, nhưng một vòng mạng thay cho hàng trăm.
+      try{ for(let _i=0;_i<_lo.length;_i+=400){ const _b=writeBatch(db);
+            _lo.slice(_i,_i+400).forEach(([id,v])=>_b.set(doc(db,"gemini_keys",id),v,{merge:true}));
+            await _b.commit(); } }catch(e){ console.warn("[MM0] xả lô trạng thái khoá hụt:",e); }
       window.__checkingKeys=false; if(btn) btn.textContent=_t0||"⚡ Kiểm ngay (tuần tự)"; window.__loadKeys&&window.__loadKeys(true);   // refresh sau khi kiểm (không realtime nữa)
       try{ if(corsN===ks.length) toastMsg("⚠️ Trình duyệt bị chặn (CORS) — dùng nút 🩺 Qua pipeline nhé.");
         else toastMsg(`✅ Kiểm xong ${done}: 🟢${aliveN} sống · 🔴${deadN} chết · 😴${rateN} bận · ${corsN} chưa rõ`); }catch(_){}
