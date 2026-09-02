@@ -201,12 +201,10 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
         import hot_db as _H
         if _H.bat_ghi():
             from datetime import datetime as _dt, timezone as _tz
-            # GỌI THẲNG `goi("ghi_job")`, KHÔNG dùng `ghi_job()`.
-            # `hot_db.ghi_job` GOM ĐỆM rồi xả theo lô — hợp lý cho tiến trình chạy dài, nhưng
-            # `enqueue.py` là tiến trình con sống vài giây rồi thoát, nên đệm chưa xả là bản ghi
-            # MẤT. Đo thật: luồng 18 đẩy "2/2 video vào hàng đợi", Drive nhận, mà `hot-jobs` vẫn
-            # 0 dòng và không một dòng lỗi nào — vì không có lỗi, chỉ có đệm chưa xả.
-            # `bao_chay.py` gọi thẳng và ô "Đang chạy" chạy đúng; làm y như vậy.
+            # LƯU Ý CHẨN ĐOÁN CŨ (vẫn đúng, và là NỬA đầu của câu chuyện): `hot_db.ghi_job` gom
+            # đệm rồi xả theo lô — hợp lý cho tiến trình chạy dài, nhưng `enqueue.py` sống vài
+            # giây rồi thoát, nên đệm chưa xả là bản ghi MẤT. Nửa sau ở khối ngay dưới: cách né
+            # đệm bằng `goi("ghi_job")` lại sai tên lệnh. Lời giải đúng là `ghi_job()` + `xa_het()`.
             # ── DÙNG `ghi_job()` RỒI `xa_het()`, KHÔNG TỰ GỌI LỆNH LẠ  (2/9/2026) ───────────
             # Bản trước gọi thẳng `goi("ghi_job", {...})` để né bộ đệm. Đo trên lượt 33631376874:
             # `⚠️ D1 hụt (1 lần): HTTP Error 500` — vì **`ghi_job` không có trong danh sách lệnh
