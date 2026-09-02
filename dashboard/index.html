@@ -3530,7 +3530,24 @@
       const nGem=ks.filter(k=>provOf(k)==="gemini").length, nGrq=ks.filter(k=>provOf(k)==="groq").length;
       const provChips=`<div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">${[["","Tất cả "+ks.length],["gemini","◆ Gemini "+nGem],["groq","⚡ Groq "+nGrq],["cloudflare","⛅ CF "+ks.filter(k=>provOf(k)==="cloudflare").length],["pexels","🖼️ Pexels "+ks.filter(k=>String(k.key||"").startsWith("px:")).length],["pixabay","🧩 Pixabay "+ks.filter(k=>String(k.key||"").startsWith("pb:")).length],["nara","🏛 NARA "+ks.filter(k=>provOf(k)==="nara").length],["dvids","🎖 DVIDS "+ks.filter(k=>provOf(k)==="dvids").length]].map(([v,l])=>`<button class="btn-mini" style="${pv===v?"background:#8b6cff;color:#fff":""}" onclick="window.__rsKeyProv='${v}';(window.__rsKeyVeLai||window.__loadKeys)()">${l}</button>`).join("")}</div>`;
       const nowIso=new Date().toISOString();
-      el.innerHTML=provChips+(q||sf||pv?`<div class="p-sub" style="margin-bottom:6px">🔎 ${list.length}/${ks.length} key khớp</div>`:"")
+      /* ── DÒNG TÌNH TRẠNG HỒ KHOÁ  (2/9/2026) ──────────────────────────────────────────
+         Anh: *"nhớ cập nhật lên trang web để a biết tình trạng, tiết kiệm quota mà vẫn hiệu quả."*
+
+         Trước đây muốn biết hồ khoá ra sao phải mở ô lọc trạng thái đọc từng dòng. Nay một dòng
+         nói đủ — và quan trọng nhất là nói **NGUỒN**: số này đến từ lượt dùng thật của dây chuyền
+         render, không phải từ một lượt đi dò. Người đọc cần biết điều đó để khỏi bấm "kiểm ngay"
+         một cách vô ích; đó chính là chỗ tiết kiệm quota.
+
+         Và nó nói rõ 😴 **cạn hạn mức ≠ hỏng**: khoá cạn tự hồi lúc 00:00 UTC, không cần thay.
+         Thiếu câu ấy thì thấy 97 khoá CF nằm cột 😴 là người ta đi mua khoá mới. */
+      const _tuDung=ks.filter(k=>k.nguon_kiem==="dùng thật").length;
+      const _moiNhat=ks.map(k=>k.last_checked||"").filter(Boolean).sort().slice(-1)[0]||"";
+      const _tomTat=`<div class="p-sub" style="margin-bottom:8px;padding:8px 10px;border:1px solid #ffffff14;border-radius:9px;background:#ffffff06;line-height:1.65">
+          <b>🗝 ${ks.length} khoá</b> · 🟢 ${_cnt.alive} sống · 😴 ${_cnt.cooling} cạn hạn mức hôm nay · 🔴 ${_deadAll} hỏng · ⚪ ${_cnt.unknown} chưa kiểm
+          ${_moiNhat?`<br><span class="d">cập nhật gần nhất ${ago(_moiNhat)}${_tuDung?` · <b style="color:#4ade80">${_tuDung} khoá đo từ LƯỢT DÙNG THẬT</b> (không tốn lượt gọi dò nào)`:""}</span>`:""}
+          ${_cnt.cooling?`<br><span class="d">😴 khoá cạn hạn mức tự hồi lúc 00:00 UTC — <b>không cần thay</b>.</span>`:""}
+        </div>`;
+      el.innerHTML=_tomTat+provChips+(q||sf||pv?`<div class="p-sub" style="margin-bottom:6px">🔎 ${list.length}/${ks.length} key khớp</div>`:"")
         +(list.length? list.map(k=>{ const cooling=k.cooling_until&&k.cooling_until>nowIso;
           const dot=(k._st==="dead"||k._st==="warn"||k._st==="replace")?'🔴':(cooling?'😴':(k.alive===true?'🟢':'⚪'));
           const chk=k.last_checked?` · <span class="d">kiểm ${ago(k.last_checked)}</span>`:'';
