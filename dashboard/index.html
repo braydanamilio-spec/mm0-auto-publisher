@@ -286,6 +286,35 @@
   </style>
 </head>
 <body>
+<script>
+/* ── ẢNH AVATAR HỎNG THÌ NHƯỜNG CHỖ CHO Ô VẼ BẰNG CODE  (2/9/2026) ────────────────────────
+   Quét từng mục trên Chrome: 17 thẻ <img> vỡ ở MỌI trang, tất cả là avatar `.jpg` tải từ tên
+   miền ngoài và 404. Chúng không có `alt`, không `data-ch`, không chữ bên cạnh — nên người xem
+   chỉ thấy một ô trắng.
+
+   Nhưng ô chứa chúng (`.ava` / `.chpick-ava`) ĐÃ có sẵn nền gradient + chữ viết tắt kênh. Tức
+   phần đẹp vẫn ở đó, chỉ bị tấm ảnh hỏng phủ lên. Gỡ tấm ảnh ra là xong — không phải vẽ gì mới.
+
+   Đặt ở đây, NGAY SAU <body> và trước mọi script khác, vì `error` của ảnh bắn đúng một lần lúc
+   tải: gắn muộn là bỏ sót cả loạt ảnh của lượt vẽ đầu, và bỏ sót thì trông y hệt chưa sửa.
+   Dùng pha CAPTURE — sự kiện `error` của ảnh KHÔNG nổi bọt, nghe ở pha thường sẽ không bao giờ
+   nhận được.
+
+   Chỉ đụng ảnh ĐÃ hỏng, nên không thể làm hỏng thứ đang chạy tốt. */
+(function(){
+  document.addEventListener("error", function(e){
+    var el = e && e.target;
+    if (!el || el.tagName !== "IMG" || el.dataset.avaFix) return;
+    var cha = el.parentElement;
+    if (!cha || !/\b(ava|chpick-ava)\b/.test(cha.className || "")) return;
+    el.dataset.avaFix = "1";
+    // thử ô vẽ bằng code trước (nếu suy được tên kênh), không thì trả ô về nền gradient sẵn có
+    var ten = el.getAttribute("data-ch") || el.alt || "";
+    if (ten && window.rsAvatarUri) { el.src = window.rsAvatarUri(ten, 44); return; }
+    el.remove();
+  }, true);
+})();
+</script>
   <div id="splash"><div><div class="spin"></div><div class="lbl">Đang tải bảng điều khiển…</div></div></div>
 
   <div id="login" class="hide">
