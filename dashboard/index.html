@@ -4690,33 +4690,68 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
     window.rsBrandDesc=k=>{ const b=RS_BRANDS[k]; return `${b.t} Cinematic US shorts about ${b.niche.replace(/\(.*?\)/,"").trim()}. Fresh videos every day — hit subscribe so you don't miss a drop.\n\n${b.ht}`; };
     window.rsBrandCopy=(k,what)=>{ const b=RS_BRANDS[k]; const txt=what==="desc"?rsBrandDesc(k):what==="tags"?b.niche.replace(/[(),]/g," ").split(/\s+/).filter(w=>w.length>2).join(", "):b.ht;
       try{ navigator.clipboard.writeText(txt); }catch(_){}; try{toastMsg("📋 Đã copy "+(what==="desc"?"mô tả":what==="tags"?"keywords":"hashtags"));}catch(_){}; };
+    /* ── BRAND KIT: GỌN TRƯỚC, CHI TIẾT SAU MỘT CÚ BẤM  (2/9/2026) ───────────────────────
+       Anh: *"phần này cần gọn đẹp chuyên nghiệp hơn nha, nhấn vào thì mới ra chi tiết."*
+
+       Bản cũ đổ MỌI THỨ ra cùng lúc — cover 420px, mô tả ba dòng, keywords, hàng kết nối — nên
+       một kênh chiếm gần trọn màn hình, và cột avatar để lại một khoảng trống cao bằng cả cover.
+       Việc người ta mở trang này để làm là **tải ba tệp**; mô tả và tag chỉ cần lúc thật sự đi
+       tạo kênh. Nên ba nút tải nằm ngay hàng danh tính, phần còn lại gấp lại.
+
+       VÀ: gộp hai nhánh (ảnh thật `b.art` / SVG vẽ tại chỗ) vào MỘT khuôn. Bản cũ chép khuôn hai
+       lần, nên mỗi lần sửa bố cục là một lần quên nhánh kia — đúng họ lỗi "vá một nhánh, để
+       nguyên nhánh song song". Nay hai nhánh chỉ còn khác ở nguồn ảnh và ba nút tải. */
+    window.__bkMo = window.__bkMo || false;
+    window.rsBrandToggle = () => { window.__bkMo = !window.__bkMo;
+      const d = document.getElementById("bkChiTiet"), n = document.getElementById("bkNut");
+      if (d) d.style.display = window.__bkMo ? "block" : "none";
+      if (n) n.textContent = window.__bkMo ? "Thu gọn ▴" : "Chi tiết ▾"; };
     window.rsRenderBrand=(hostId,selId)=>{ const host=document.getElementById(hostId); if(!host) return;
       const k=((document.getElementById(selId)||{}).value)||Object.keys(RS_BRANDS)[0]; const b=RS_BRANDS[k]; if(!b) return;
-      // KÊNH CÓ ART NHÂN VẬT THẬT (vẽ FLUX, file host tại /brand/) -> hiện ảnh thật thay SVG chữ+emoji
-      if(b.art){ host.innerHTML=`<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
-        <div><div class="d" style="margin-bottom:4px">👤 Profile / Avatar (nhân vật thật)</div><img src="${b.art.avatar}" style="width:130px;height:130px;border-radius:16px;border:2px solid ${b.a};object-fit:cover"/><div style="margin-top:6px"><a class="btn-mini" style="text-decoration:none" href="${b.art.avatar}" download>⬇ Avatar 800×800</a></div></div>
-        <div style="flex:1;min-width:260px"><div class="d" style="margin-bottom:4px">🖼️ Cover / Banner (nhân vật thật)</div><img src="${b.art.cover}" style="width:100%;max-width:420px;border-radius:12px;border:1px solid #ffffff22"/>
-          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><a class="btn-mini" style="text-decoration:none" href="${b.art.cover}" download>⬇ YouTube 2560×1440</a><a class="btn-mini" style="text-decoration:none" href="${b.art.fb_cover||b.art.cover}" download>⬇ Facebook 820×312</a><a class="btn-mini" style="text-decoration:none" href="${b.art.avatar}" download>⬇ IG/FB avatar 800×800</a></div>
-          <div style="margin-top:10px"><b style="color:${b.a}">${esc(b.d)}</b> · ${esc(b.h)} · <span class="d">${esc(b.t)}</span></div>
-          <div style="margin:8px 0"><div class="d">📝 Mô tả</div><div style="white-space:pre-wrap;font-size:13px">${esc(rsBrandDesc(k))}</div><button class="btn-mini" style="margin-top:4px" onclick="window.rsBrandCopy('${k}','desc')">📋 Copy mô tả</button></div>
-          <div style="margin:8px 0"><div class="d">🏷️ Keywords/Tags</div><div style="font-size:13px">${esc(b.niche.replace(/[(),]/g," ").split(/\s+/).filter(w=>w.length>2).join(", "))}</div><button class="btn-mini" style="margin-top:4px" onclick="window.rsBrandCopy('${k}','tags')">📋 Copy keywords</button> <button class="btn-mini" onclick="window.rsBrandCopy('${k}','ht')">📋 Copy hashtags</button></div>
-          ${window.rsBrandConnRow?window.rsBrandConnRow(k):""}</div></div>`; return; }
-      const av=rsBrandSvg(k,800,800,"avatar"), cov=rsBrandSvg(k,1640,624,"cover");
       const embed=svg=>"data:image/svg+xml;utf8,"+encodeURIComponent(svg);
-      host.innerHTML=`<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
-        <div><div class="d" style="margin-bottom:4px">👤 Profile / Avatar</div><img src="${embed(av)}" style="width:130px;height:130px;border-radius:16px;border:2px solid ${b.a}"/><div style="margin-top:6px"><button class="btn-mini" onclick="window.rsBrandDownload('${k}',800,800,'avatar','avatar_800')">⬇ Avatar 800×800 (YT/FB/IG)</button></div></div>
-        <div style="flex:1;min-width:260px"><div class="d" style="margin-bottom:4px">🖼️ Cover / Banner</div><img src="${embed(cov)}" style="width:100%;max-width:420px;border-radius:12px;border:1px solid #ffffff22"/>
-          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
-            <button class="btn-mini" onclick="window.rsBrandDownload('${k}',2560,1440,'cover','yt_banner_2560x1440')">⬇ YouTube 2560×1440</button>
-            <button class="btn-mini" onclick="window.rsBrandDownload('${k}',1640,624,'cover','fb_cover_1640x624')">⬇ Facebook 1640×624</button>
-            <button class="btn-mini" onclick="window.rsBrandDownload('${k}',1080,1080,'avatar','ig_1080')">⬇ Instagram 1080×1080</button>
-          </div></div>
-        <div style="flex:1;min-width:240px">
-          <div><b style="color:${b.a}">${esc(b.d)}</b> · ${esc(b.h)} · 🎨 ${esc(b.a)} · <span class="d">danh mục YT ${esc(RS_BRANDS[k].cat||"")}</span></div>
-          <div style="margin:6px 0"><div class="d">📝 Mô tả</div><div style="white-space:pre-wrap;font-size:13px">${esc(rsBrandDesc(k))}</div><button class="btn-mini" style="margin-top:4px" onclick="window.rsBrandCopy('${k}','desc')">📋 Copy mô tả</button></div>
-          <div style="margin:6px 0"><div class="d">🏷️ Keywords/Tags</div><div style="font-size:13px">${esc(b.niche.replace(/[(),]/g," ").split(/\s+/).filter(w=>w.length>2).join(", "))}</div><button class="btn-mini" style="margin-top:4px" onclick="window.rsBrandCopy('${k}','tags')">📋 Copy keywords</button> <button class="btn-mini" onclick="window.rsBrandCopy('${k}','ht')">📋 Copy hashtags</button></div>
-          ${window.rsBrandConnRow(k)}
-        </div></div>`;
+      const avSrc  = b.art ? b.art.avatar : embed(rsBrandSvg(k,800,800,"avatar"));
+      const covSrc = b.art ? b.art.cover  : embed(rsBrandSvg(k,1640,624,"cover"));
+      const tai = b.art
+        ? `<a class="btn-mini" style="text-decoration:none" href="${b.art.avatar}" download>⬇ Avatar 800</a>
+           <a class="btn-mini" style="text-decoration:none" href="${b.art.cover}" download>⬇ YouTube 2560×1440</a>
+           <a class="btn-mini" style="text-decoration:none" href="${b.art.fb_cover||b.art.cover}" download>⬇ Facebook 820×312</a>`
+        : `<button class="btn-mini" onclick="window.rsBrandDownload('${k}',800,800,'avatar','avatar_800')">⬇ Avatar 800</button>
+           <button class="btn-mini" onclick="window.rsBrandDownload('${k}',2560,1440,'cover','yt_banner_2560x1440')">⬇ YouTube 2560×1440</button>
+           <button class="btn-mini" onclick="window.rsBrandDownload('${k}',1640,624,'cover','fb_cover_1640x624')">⬇ Facebook 1640×624</button>`;
+      const keys = esc(b.niche.replace(/[(),]/g," ").split(/\s+/).filter(w=>w.length>2).join(", "));
+      const noi  = window.rsBrandConnRow ? window.rsBrandConnRow(k) : "";
+      host.innerHTML = `
+      <div style="border:1px solid #ffffff14;border-radius:14px;overflow:hidden;background:#ffffff06">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px">
+          <img src="${avSrc}" alt="" style="width:52px;height:52px;flex:0 0 52px;border-radius:12px;object-fit:cover;border:1.5px solid ${b.a}"/>
+          <div style="min-width:0;flex:1">
+            <div style="font-weight:800;color:${b.a};letter-spacing:.2px">${esc(b.d)}</div>
+            <div class="d" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(b.h)} · ${esc(b.t)}</div>
+          </div>
+          <button id="bkNut" class="btn-mini" onclick="window.rsBrandToggle()" style="flex:0 0 auto">${window.__bkMo?"Thu gọn ▴":"Chi tiết ▾"}</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 12px">${tai}</div>
+        <div id="bkChiTiet" style="display:${window.__bkMo?"block":"none"};border-top:1px solid #ffffff14;padding:14px">
+          <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+            <div style="flex:1 1 320px;min-width:260px">
+              <div class="d" style="margin-bottom:5px">🖼️ Cover / Banner</div>
+              <img src="${covSrc}" alt="" style="width:100%;max-width:420px;border-radius:10px;border:1px solid #ffffff22;display:block"/>
+            </div>
+            <div style="flex:1 1 280px;min-width:250px">
+              <div class="d" style="margin-bottom:5px">📝 Mô tả</div>
+              <div style="white-space:pre-wrap;font-size:12.5px;line-height:1.5;opacity:.92">${esc(rsBrandDesc(k))}</div>
+              <button class="btn-mini" style="margin-top:6px" onclick="window.rsBrandCopy('${k}','desc')">📋 Copy mô tả</button>
+              <div class="d" style="margin:12px 0 5px">🏷️ Keywords / Tags</div>
+              <div style="font-size:12.5px;opacity:.92">${keys}</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+                <button class="btn-mini" onclick="window.rsBrandCopy('${k}','tags')">📋 Copy keywords</button>
+                <button class="btn-mini" onclick="window.rsBrandCopy('${k}','ht')">📋 Copy hashtags</button>
+              </div>
+            </div>
+          </div>
+          ${noi ? `<div style="margin-top:14px;padding-top:12px;border-top:1px solid #ffffff10">${noi}</div>` : ""}
+        </div>
+      </div>`;
     };
     // 🔗 Kết nối thật: YouTube (__C[k], gán qua assignChannelGmail) + FB/IG (__OVERRIDES.fb_map[k] -> __FBP), 1-click xem, hoặc gán ngay nếu chưa có.
     window.rsBrandConnRow=(k)=>{
