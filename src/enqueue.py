@@ -207,13 +207,24 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
             # MẤT. Đo thật: luồng 18 đẩy "2/2 video vào hàng đợi", Drive nhận, mà `hot-jobs` vẫn
             # 0 dòng và không một dòng lỗi nào — vì không có lỗi, chỉ có đệm chưa xả.
             # `bao_chay.py` gọi thẳng và ô "Đang chạy" chạy đúng; làm y như vậy.
-            _r = _H.goi("ghi_job", {
-                "id": f"gt-{channel.lower()}-{meta['type']}-{os.path.basename(video)}",
-                "owner": owner, "channel": channel.upper(), "vtype": meta["type"],
-                "status": "done", "step": "đã lên kho", "title": meta.get("title"),
-                "drive_id": created["id"], "queued": False,
-                "at": _dt.now(_tz.utc).isoformat()})
-            print(f"   🗂 ghi bản ghi D1: {'ok' if _r else 'hụt'}")
+            # ── DÙNG `ghi_job()` RỒI `xa_het()`, KHÔNG TỰ GỌI LỆNH LẠ  (2/9/2026) ───────────
+            # Bản trước gọi thẳng `goi("ghi_job", {...})` để né bộ đệm. Đo trên lượt 33631376874:
+            # `⚠️ D1 hụt (1 lần): HTTP Error 500` — vì **`ghi_job` không có trong danh sách lệnh
+            # mà `hot_db` dùng**; nó chỉ có `ghi_job_loat` (một LÔ, không phải một dòng). Tôi né
+            # được bộ đệm nhưng đổi lấy một tên lệnh Worker không nhận, nên bản ghi mất sạch —
+            # và đó chính là lý do màn hình vẫn hiện 0 dù video đã lên Drive thật.
+            #
+            # `hot_db` đã có sẵn đúng cặp cần dùng: `ghi_job()` xếp vào đệm, `xa_het()` xả ngay.
+            # `xa_het` viết ra chính xác cho tình huống này — chú thích của nó: *"Gọi cuối luồng —
+            # thiếu bước này là MẤT các lượt ghi cuối."* Đọc client cũ trước khi viết lối gọi mới.
+            _H.ghi_job(owner=owner,
+                       jid=f"gt-{channel.lower()}-{meta['type']}-{os.path.basename(video)}",
+                       channel=channel.upper(), vtype=meta["type"], status="done",
+                       step="đã lên kho", title=meta.get("title"),
+                       drive_id=created["id"], queued=False,
+                       at=_dt.now(_tz.utc).isoformat())
+            _n = _H.xa_het()
+            print(f"   🗂 ghi bản ghi D1: {'ok' if _n else 'HỤT — bản ghi không vào D1'}")
     except Exception as e:
         print(f"   ⚠️  Ghi bản ghi D1 lỗi ({str(e)[:80]}) — video vẫn ở Drive, chỉ số đếm chậm.")
 
