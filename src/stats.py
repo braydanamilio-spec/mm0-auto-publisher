@@ -84,6 +84,20 @@ def refresh_conn(uid: str, channel: str, creds: dict, state: State):
 
 
 def main():
+    # ── TƯỜNG HẠN MỨC: VIỆC PHỤ NHƯỜNG VIỆC THIẾT YẾU  (2/9/2026) ────────────────────────
+    # Anh: *"đừng để Firestore làm ảnh hưởng hệ thống một lần nào nữa."* Sáu workflow cron chạy
+    # mỗi giờ (~144 lượt/ngày) cùng đọc Firestore mà không cái nào nhường cái nào. Bước này
+    # hoãn được: không chạy thì chỉ thiếu vài con số trên màn hình, còn hạn mức bị nó tiêu thì
+    # đường ĐẨY VIDEO mất chỗ — và mất chỗ ở đó là mất cả lượt render đã dựng xong.
+    # Bắt riêng phần nạp: cổng canh không được phép là thứ gây hỏng việc nó đi canh.
+    try:
+        import ngan_sach as _NS
+    except Exception:
+        _NS = None
+    if _NS is not None and _NS.chan_neu_het(
+            (__doc__ or "bước này").splitlines()[0][:40]):
+        return 0
+
     state = State()
     print("📈 Refresh thống kê (per-user)...")
     for c in state.list_connections("youtube"):

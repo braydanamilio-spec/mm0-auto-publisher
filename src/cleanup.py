@@ -259,6 +259,20 @@ def run(dry_run=False, force_now=False):
 
 
 def main():
+    # ── TƯỜNG HẠN MỨC: VIỆC PHỤ NHƯỜNG VIỆC THIẾT YẾU  (2/9/2026) ────────────────────────
+    # Anh: *"đừng để Firestore làm ảnh hưởng hệ thống một lần nào nữa."* Sáu workflow cron chạy
+    # mỗi giờ (~144 lượt/ngày) cùng đọc Firestore mà không cái nào nhường cái nào. Bước này
+    # hoãn được: không chạy thì chỉ thiếu vài con số trên màn hình, còn hạn mức bị nó tiêu thì
+    # đường ĐẨY VIDEO mất chỗ — và mất chỗ ở đó là mất cả lượt render đã dựng xong.
+    # Bắt riêng phần nạp: cổng canh không được phép là thứ gây hỏng việc nó đi canh.
+    try:
+        import ngan_sach as _NS
+    except Exception:
+        _NS = None
+    if _NS is not None and _NS.chan_neu_het(
+            (__doc__ or "bước này").splitlines()[0][:40]):
+        return 0
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--now", action="store_true", help="Dọn ngay, bỏ qua keep_days.")
