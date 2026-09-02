@@ -3640,7 +3640,15 @@
         const failed=all.filter(j=>j.status==="failed");
         // LỖI THẬT = lỗi XẢY RA SAU lần thành công gần nhất; lỗi trước đó coi như ĐÃ KHẮC PHỤC.
         const lastDoneAt=done.reduce((m,j)=>((j.created_at||"")>m?(j.created_at||""):m),"");
-        const activeFails=failed.filter(f=>!lastDoneAt || (f.created_at||"")>lastDoneAt);
+        /* 2/9 — LỖI CỦA KÊNH ĐÃ NGHỈ KHÔNG PHẢI LỖI CỦA HÔM NAY.
+             Băng rôn hét "21 lỗi MỚI — STATEWARS (job ma, dọn tay 19/8)" trong khi STATEWARS đã bị
+             xoá khỏi hệ từ lâu và ô ❌ ngay cạnh hiện 0. Danh sách `failed` đọc bản ghi Firestore
+             cũ; những kênh ấy không còn trong `render_channels` nên lỗi của chúng không còn nghĩa.
+             Lọc theo danh sách kênh ĐANG DÙNG: một trang hai giọng thì người vận hành không tin
+             được giọng nào. */
+          const _kenhSong = new Set((window.__rsChannelsData||[]).map(c=>String(c.name||"").toUpperCase()));
+          const _conSong = f => !_kenhSong.size || _kenhSong.has(String(f.channel||"").toUpperCase());
+        const activeFails=failed.filter(f=>!lastDoneAt || (f.created_at||"")>lastDoneAt).filter(_conSong);
         const oldFails=failed.length-activeFails.length;
         if(bd) bd.textContent=active;
         const sd=document.getElementById("rsSumDone"),sr=document.getElementById("rsSumRun"),sf=document.getElementById("rsSumFail");
@@ -3925,7 +3933,15 @@
       h+=`• Kênh: <b>${s.chans.length}</b>${s.chans.length?` — ${s.chans.map(c=>esc(c.name)).join(", ")}`:" (chưa có — thêm ở dưới)"}<br>`;
       h+=`• Gemini key: <b>${s.keys.length}</b>${s.dead?` · <span style="color:#ff5a5a">${s.dead} chết</span>`:(s.keys.some(k=>k.last_checked)?" · tất cả sống 🟢":"")}<br>`;
       const lastDoneAt=s.done.reduce((m,j)=>((j.created_at||"")>m?(j.created_at||""):m),"");
-      const activeFails=s.failed.filter(f=>!lastDoneAt || (f.created_at||"")>lastDoneAt);
+      /* 2/9 — LỖI CỦA KÊNH ĐÃ NGHỈ KHÔNG PHẢI LỖI CỦA HÔM NAY.
+             Băng rôn hét "21 lỗi MỚI — STATEWARS (job ma, dọn tay 19/8)" trong khi STATEWARS đã bị
+             xoá khỏi hệ từ lâu và ô ❌ ngay cạnh hiện 0. Danh sách `failed` đọc bản ghi Firestore
+             cũ; những kênh ấy không còn trong `render_channels` nên lỗi của chúng không còn nghĩa.
+             Lọc theo danh sách kênh ĐANG DÙNG: một trang hai giọng thì người vận hành không tin
+             được giọng nào. */
+          const _kenhSong = new Set((window.__rsChannelsData||[]).map(c=>String(c.name||"").toUpperCase()));
+          const _conSong = f => !_kenhSong.size || _kenhSong.has(String(f.channel||"").toUpperCase());
+      const activeFails=s.failed.filter(f=>!lastDoneAt || (f.created_at||"")>lastDoneAt).filter(_conSong);
       const oldFails=s.failed.length-activeFails.length;
       h+=`• Job: ⚙️ <b>${s.active.length}</b> đang chạy · ✅ <b>${s.done.length}</b> xong (hôm nay ${doneToday}) · ❌ <b>${activeFails.length}</b> lỗi mới${oldFails?` <span class="d">(${oldFails} lỗi cũ đã fix)</span>`:""}<br>`;
       if(s.active.length) h+=`• Đang làm: ${s.active.slice(0,6).map(j=>`${esc(j.channel)}/${esc(j.type)} — ${esc(j.step||j.status)}`).join("; ")}<br>`;

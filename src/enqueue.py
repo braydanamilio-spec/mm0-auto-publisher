@@ -183,6 +183,31 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
         except Exception as e:
             print(f"   ⚠️  Ghi sổ chống trùng lỗi ({e}).")
 
+    # ── GHI BẢN GHI VÀO D1 — KHO MÀ DASHBOARD THẬT SỰ ĐỌC  (2/9/2026) ──────────────────────
+    # Video lên Drive rồi mà màn hình vẫn hiện "Video trong kho: 0". Vì sổ ở trên ghi vào
+    # **Firestore**, còn `apiHotStat` (thứ dashboard gọi) đếm bảng `render_job` bên **D1** —
+    # hai kho song song, và mắt xích này chỉ chạm một. Đo thật: 18/18 luồng đẩy "2/2 video vào
+    # hàng đợi đăng", `hot-jobs` trả 0 dòng, dashboard 0.
+    #
+    # Và Firestore là thứ hay cạn nhất: đúng hôm cạn thì cả sổ Firestore lẫn màn hình đều mù,
+    # trong khi video vẫn nằm ngon trên Drive. `hot_db.ghi_job` đi qua Worker, KHÔNG đụng
+    # Firestore, nên đường này sống cả khi kho kia chết.
+    #
+    # Không để trong cùng `try` với sổ Firestore: một cái hỏng không được kéo cái kia theo.
+    try:
+        import sys as _sys, os as _os
+        _sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.dirname(
+            _os.path.dirname(_os.path.abspath(__file__)))), "render-pipeline"))
+        import hot_db as _H
+        if _H.bat_ghi():
+            from datetime import datetime as _dt, timezone as _tz
+            _H.ghi_job(owner, f"gt-{channel.lower()}-{meta['type']}-{os.path.basename(video)}",
+                       channel.upper(), meta["type"], "done", step="đã lên kho",
+                       title=meta.get("title"), drive_id=created["id"],
+                       at=_dt.now(_tz.utc).isoformat())
+    except Exception as e:
+        print(f"   ⚠️  Ghi bản ghi D1 lỗi ({str(e)[:80]}) — video vẫn ở Drive, chỉ số đếm chậm.")
+
     print(f"✅ Đã đưa vào hàng đợi [{where}] kênh {channel} [{meta['type']}]: {meta['title']!r}")
     print(f"   Drive file id: {created['id']}")
     if warns:
