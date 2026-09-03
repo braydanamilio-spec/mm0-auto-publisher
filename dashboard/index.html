@@ -1573,6 +1573,12 @@
         .kl-o b{display:block;font-size:9.5px;line-height:1.25;margin-top:4px;font-weight:700;
           overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .kl-o s{display:block;font-size:9px;opacity:.55;text-decoration:none;font-variant-numeric:tabular-nums}
+        /* Tiêu đề nhóm chiếm TRỌN một hàng của lưới — nếu không nó chen vào giữa các ô và
+           lưới vỡ. `grid-column:1/-1` là cách duy nhất đúng ở đây. */
+        .kl-nhom{grid-column:1/-1;font-size:10.5px;font-weight:800;letter-spacing:.04em;
+          text-transform:uppercase;color:var(--muted);padding:8px 4px 2px;
+          border-top:1px solid var(--border);margin-top:4px}
+        .kl-nhom:first-child{border-top:none;margin-top:0;padding-top:2px}
         .kl-dem{height:5px;border-radius:3px;background:var(--surface2);overflow:hidden;margin:7px 0 2px}
         .kl-dem i{display:block;height:100%;border-radius:3px;transition:width .2s}
         .btn-mini{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 11px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--sans);text-decoration:none;display:inline-block}
@@ -2295,11 +2301,8 @@
           // để lưới giữ trạng thái riêng — là tạo nguồn sự thật thứ hai, thứ luật 13.5 đã cấm.
           const _luoi = _klEl("klLuoi");
           if (_luoi) {
-            _luoi.innerHTML = m.kenh.map((k, i) =>
-              `<div class="kl-o" data-slug="${esc(k.slug)}" title="${esc(k.ten)}">
-                 <img loading="lazy" src="brand_kling/${String(i + 1).padStart(2, "0")}-${esc(k.slug)}_avatar.webp" alt="">
-                 <b>${esc(k.ten)}</b><s>${String(i + 1).padStart(2, "0")}</s>
-               </div>`).join("");
+            window.klDungLuoi(_luoi, m.kenh,
+              (k, i) => `brand_kling/${String(i + 1).padStart(2, "0")}-${esc(k.slug)}_avatar.webp`, 0);
             _luoi.addEventListener("click", (ev) => {
               const o = ev.target.closest(".kl-o"); if (!o) return;
               selK.value = o.dataset.slug;
@@ -3044,11 +3047,8 @@
           // là cách chọn nhanh. Đánh số TIẾP 31–44 để một dãy liền mạch nói đúng thứ tự.
           const luoi = _tnEl("tnLuoi");
           if (luoi) {
-            luoi.innerHTML = m.kenh.map(k =>
-              `<div class="kl-o" data-slug="${esc(k.slug)}" title="${esc(k.mo_ta)}">
-                 <img loading="lazy" src="brand_tn/${String(k.so_tt).padStart(2, "0")}-${esc(k.slug)}_avatar.webp" alt="">
-                 <b>${esc(k.ten)}</b><s>${String(k.so_tt + 30).padStart(2, "0")}</s>
-               </div>`).join("");
+            window.klDungLuoi(luoi, m.kenh,
+              (k) => `brand_tn/${String(k.so_tt).padStart(2, "0")}-${esc(k.slug)}_avatar.webp`, 30);
             luoi.addEventListener("click", (ev) => {
               const o = ev.target.closest(".kl-o"); if (!o) return;
               sel.value = o.dataset.slug;
@@ -3191,6 +3191,28 @@
       // tại vào đúng thời điểm được gọi, và ba ô chọn ở lại rỗng. Kiểm trên bản live thì thấy rõ:
       // dữ liệu tải tốt (HTTP 200, 10 kênh) mà `window.klingBanDau` vẫn là undefined.
       // Hàm tự thoát nếu đã dựng xong, nên gọi thừa không tốn gì.
+      // Dựng lưới CÓ TIÊU ĐỀ NHÓM. Viết một lần cho cả hai bộ: hai bản sao của cùng một phép
+      // dựng là hai chỗ để lệch nhau sau lần sửa đầu tiên (luật 13.5).
+      //
+      // Nhóm giữ nguyên THỨ TỰ XUẤT HIỆN trong dữ liệu, không sắp lại theo bảng chữ cái: thứ tự
+      // ấy do Python quyết và nó có ý nghĩa (số thứ tự kênh chạy liên tục trong mỗi nhóm).
+      window.klDungLuoi = (el, ds, anh, so0) => {
+        if (!el) return;
+        const nhom = [];
+        ds.forEach((k, i) => {
+          const g = k.nhom || "Khác";
+          let o = nhom.find(x => x.g === g);
+          if (!o) nhom.push(o = { g, ds: [] });
+          o.ds.push([k, i]);
+        });
+        el.innerHTML = nhom.map(({ g, ds: dd }) =>
+          `<div class="kl-nhom">${esc(g)} · ${dd.length}</div>` + dd.map(([k, i]) =>
+            `<div class="kl-o" data-slug="${esc(k.slug)}" title="${esc(k.mo_ta || k.ten)}">
+               <img loading="lazy" src="${anh(k, i)}" alt="">
+               <b>${esc(k.ten)}</b><s>${String(so0 + i + 1).padStart(2, "0")}</s>
+             </div>`).join("")).join("");
+      };
+
       // ── CHUYỂN GIỮA HAI BỘ ──────────────────────────────────────────────────────────────
       // Số kênh lấy từ CHÍNH dữ liệu vừa nạp, không ghi tay: nhãn "10 kênh" ghi cứng trước đây
       // đã đứng sai suốt từ lúc lên 12 rồi 14. Một con số ghi tay là một con số sẽ sai.
