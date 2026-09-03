@@ -1991,7 +1991,10 @@
       // F5 vẫn 538 lượt server, gần hết là các getDocs một-phát). Key/kênh đổi theo thao tác tay,
       // không theo giây: trong hạn tuổi thì trả đệm (0 lượt), chỗ cần tươi truyền tuoiGiay=0.
       // Sau thêm/xoá đã có __rsKeyThem/__rsKeyBo sửa tại chỗ nên đệm không che dữ liệu mới.
-      const tuoi = (tuoiGiay === undefined ? 1800 : tuoiGiay);
+      // 3/9 — 1800s -> 7200s. Khoá và kênh chỉ đổi khi anh THAO TÁC TAY, và mọi thao tác tay
+        // (thêm/xoá/kiểm) đều đã vá đệm tại chỗ. Nên hạn 30 phút chỉ tạo ra những lượt đọc lại
+        // không mang thông tin mới. 2 giờ vẫn bắt kịp thay đổi từ máy khác, mà cắt 4 lần số lượt.
+        const tuoi = (tuoiGiay === undefined ? 7200 : tuoiGiay);
       if (tuoi > 0) {
         try { const luc = Number(localStorage.getItem(k + ":luc") || 0);
           if (luc && (Date.now() - luc) < tuoi * 1000) {
@@ -3700,7 +3703,26 @@
       try{ for(let _i=0;_i<_lo.length;_i+=400){ const _b=writeBatch(db);
             _lo.slice(_i,_i+400).forEach(([id,v])=>_b.set(doc(db,"gemini_keys",id),v,{merge:true}));
             await _b.commit(); } }catch(e){ console.warn("[MM0] xả lô trạng thái khoá hụt:",e); }
-      window.__checkingKeys=false; if(btn) btn.textContent=_t0||"⚡ Kiểm ngay (tuần tự)"; window.__loadKeys&&window.__loadKeys(true);   // refresh sau khi kiểm (không realtime nữa)
+      /* ── VÁ TẠI CHỖ, KHÔNG ĐỌC LẠI CẢ HỒ  (3/9/2026) ────────────────────────────────────
+         Anh: *"khi cập nhật/get các key api thì việc F5 hay đồng bộ nhớ tìm cơ chế để không tốn
+         quota firebase."*
+
+         Đệm 30 phút đã lo phần F5, và thêm khoá thì `__rsKeyThem` vá tại chỗ. Nhưng còn đúng
+         một chỗ vẫn đọc lại toàn bộ: sau khi kiểm xong, dòng này gọi `__loadKeys(true)` với
+         `tuoiGiay=0` — **ép đọc thật 295 doc**, ngay sau khi vừa ghi chính những doc ấy.
+
+         Đọc lại thứ mình vừa ghi là trả tiền hai lần cho cùng một thông tin. `_lo` đang giữ
+         nguyên trạng thái mới của từng khoá; vá thẳng vào `__rsKeysData` rồi vẽ lại là đủ,
+         và tốn **0 lượt đọc**. */
+      try{
+        const _m = new Map(_lo);
+        window.__rsKeysData = (window.__rsKeysData||[]).map(k => _m.has(k.id) ? {...k, ..._m.get(k.id)} : k);
+        // đệm cũng phải theo, nếu không thì F5 kế lại thấy trạng thái cũ
+        try{ const _k=_khoaDem(q("gemini_keys"));
+             localStorage.setItem(_k, JSON.stringify(window.__rsKeysData));
+             localStorage.setItem(_k+":luc", String(Date.now())); }catch(_){}
+      }catch(e){ console.warn("[MM0] vá tại chỗ hụt:",e); }
+      window.__checkingKeys=false; if(btn) btn.textContent=_t0||"⚡ Kiểm ngay (tuần tự)"; window.__rsRenderKeys&&window.__rsRenderKeys();   // refresh sau khi kiểm (không realtime nữa)
       try{ if(corsN===ks.length) toastMsg("⚠️ Trình duyệt bị chặn (CORS) — dùng nút 🩺 Qua pipeline nhé.");
         else toastMsg(`✅ Kiểm xong ${done}: 🟢${aliveN} sống · 🔴${deadN} chết · 😴${rateN} bận · ${corsN} chưa rõ`); }catch(_){}
     };
