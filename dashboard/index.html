@@ -305,13 +305,32 @@
   document.addEventListener("error", function(e){
     var el = e && e.target;
     if (!el || el.tagName !== "IMG" || el.dataset.avaFix) return;
-    var cha = el.parentElement;
-    if (!cha || !/\b(ava|chpick-ava)\b/.test(cha.className || "")) return;
     el.dataset.avaFix = "1";
-    // thử ô vẽ bằng code trước (nếu suy được tên kênh), không thì trả ô về nền gradient sẵn có
-    var ten = el.getAttribute("data-ch") || el.alt || "";
-    if (ten && window.rsAvatarUri) { el.src = window.rsAvatarUri(ten, 44); return; }
-    el.remove();
+    var cha = el.parentElement;
+    if (cha && /\b(ava|chpick-ava)\b/.test(cha.className || "")) {
+      // avatar: thử ô vẽ bằng code, không suy được tên kênh thì trả ô về nền gradient sẵn có
+      var ten = el.getAttribute("data-ch") || el.alt || "";
+      if (ten && window.rsAvatarUri) { el.src = window.rsAvatarUri(ten, 44); return; }
+      el.remove();
+      return;
+    }
+    /* ── THUMBNAIL VIDEO HỎNG: THAY BẰNG TẤM NỀN VẼ SẴN  (3/9/2026) ────────────────────────
+       Sau khi thư viện bắt đầu hiện video thật, 40 ảnh vỡ MỚI xuất hiện — 120×68 và 68×68, tải
+       từ Drive. Đó là thumbnail của tệp VỪA đẩy lên: Drive chưa kịp sinh ảnh xem trước nên URL
+       trả 404 trong vài phút đầu.
+
+       Không phải lỗi của mình và cũng không sửa được từ phía này — nhưng để nguyên thì người xem
+       thấy 40 ô vỡ và đọc ra "hệ thống hỏng". Thay bằng tấm nền vẽ sẵn (khối tối + dấu ▶): nói
+       đúng sự thật *"video có, ảnh xem trước chưa sẵn sàng"*, và không gọi mạng lần nào.
+
+       Bản vá hôm qua `return` sớm với MỌI ảnh không phải avatar, nên loại ảnh vỡ thứ hai này đi
+       thẳng qua. Vá một nhánh, để nguyên nhánh song song — lần thứ sáu trong ba ngày. */
+    el.src = "data:image/svg+xml;utf8," + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="68">'
+      + '<rect width="120" height="68" rx="6" fill="#1b1f2e"/>'
+      + '<circle cx="60" cy="34" r="15" fill="#ffffff18"/>'
+      + '<path d="M55 26 L72 34 L55 42 Z" fill="#ffffff9a"/></svg>');
+    el.style.objectFit = "cover";
   }, true);
 })();
 </script>
