@@ -892,6 +892,7 @@
             <div class="p-sub">Chọn kênh và thời lượng — nhân vật, bối cảnh và luật hình ảnh đã khoá sẵn</div>
           </div>
 
+          <div id="klLuoi" class="kl-luoi"></div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin:10px 0 4px">
             <label class="d" style="display:flex;flex-direction:column;gap:4px;min-width:190px">
               <span style="font-size:11px;opacity:.7">KÊNH</span>
@@ -951,10 +952,10 @@
         <div class="panel" style="margin-top:14px">
           <div class="p-head">
             <div class="p-title">🐻‍❄️ Thiên nhiên
-              <span class="d" style="font-size:11px;opacity:.6">10 kênh · short 8–10s · một cú máy · không lời</span>
+              <span class="d" id="tnNhan" style="font-size:11px;opacity:.6">short 8–10s · một cú máy · không lời</span>
             </div>
           </div>
-          <div id="tnBrand" style="display:none;margin:2px 0 12px"></div>
+          <div id="tnLuoi" class="kl-luoi"></div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
             <label class="d">Kênh
               <select id="tnKenh" class="inp" style="min-width:230px"></select></label>
@@ -965,6 +966,8 @@
             <button class="btn-conn" id="tnHien">👁 Hiện prompt</button>
             <button class="btn-conn" id="tnChep">📋 Chép</button>
             <button class="btn-mini" id="tnKe">⏭ Tập kế tiếp</button>
+            <a class="btn-mini" href="https://app.klingai.com/global/text-to-video/new"
+               target="_blank" rel="noopener">🎬 Mở Kling</a>
           </div>
           <div id="tnTom" style="display:none;margin:6px 0 10px;padding:10px 12px;border-radius:8px;
                background:rgba(255,255,255,.03);font-size:12.5px;line-height:1.75"></div>
@@ -1530,6 +1533,22 @@
         .conn-click:hover,.chan-click:hover{border-color:var(--accent);transform:translateY(-1px)}
         .chan-go{font-size:11px;color:var(--accent);font-weight:700;opacity:0;transition:opacity .15s}
         .conn-click:hover .chan-go,.chan-click:hover .chan-go{opacity:1}
+        /* 3/9 — LƯỚI KÊNH BẤM CHỌN. Ô xổ 30 cái tên viết hoa là thứ đọc chậm nhất có thể:
+           mắt phải đọc chữ rồi mới nhớ ra kênh nào. Brand kit đã vẽ sẵn 44 ảnh đại diện, mà
+           trang chỉ hiện avatar của kênh ĐANG chọn — tức dữ liệu đã có, chỉ thiếu chỗ bày. */
+        .kl-luoi{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:8px;
+          max-height:196px;overflow-y:auto;padding:4px 2px;margin:2px 0 12px;
+          border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+        .kl-o{border:2px solid transparent;border-radius:12px;padding:5px 3px 6px;cursor:pointer;
+          text-align:center;transition:.14s;background:transparent}
+        .kl-o:hover{background:var(--surface2);transform:translateY(-1px)}
+        .kl-o.chon{border-color:var(--accent);background:var(--accent-soft)}
+        .kl-o img{width:46px;height:46px;border-radius:50%;object-fit:cover;display:block;margin:0 auto}
+        .kl-o b{display:block;font-size:9.5px;line-height:1.25;margin-top:4px;font-weight:700;
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .kl-o s{display:block;font-size:9px;opacity:.55;text-decoration:none;font-variant-numeric:tabular-nums}
+        .kl-dem{height:5px;border-radius:3px;background:var(--surface2);overflow:hidden;margin:7px 0 2px}
+        .kl-dem i{display:block;height:100%;border-radius:3px;transition:width .2s}
         .btn-mini{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 11px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:var(--sans);text-decoration:none;display:inline-block}
         .btn-mini:hover{border-color:var(--accent);color:var(--accent)}
         .btn-mini.danger{color:var(--bad);border-color:var(--bad)} .btn-mini.danger:hover{background:var(--bad);color:#fff}
@@ -2237,6 +2256,33 @@
           // chỗ cho người xem đoán trước khi bị lật — hai khuôn ấy phủ hết thứ short hài cần.
           // Từ 10 giây trở lên vẫn chọn được, nhưng mỗi giây thêm là tiền thêm mà số đo không
           // hứa thêm gì: vùng tối ưu đo được của hài short là 18–28 giây, quá xa 15.
+          // LƯỚI ẢNH ĐẠI DIỆN. Không thay ô xổ mà ĐI KÈM nó: ô xổ vẫn là nguồn sự thật (mọi
+          // hàm khác đọc `klKenh.value`), lưới chỉ là một cách chọn nhanh hơn. Làm ngược lại —
+          // để lưới giữ trạng thái riêng — là tạo nguồn sự thật thứ hai, thứ luật 13.5 đã cấm.
+          const _luoi = _klEl("klLuoi");
+          if (_luoi) {
+            _luoi.innerHTML = m.kenh.map((k, i) =>
+              `<div class="kl-o" data-slug="${esc(k.slug)}" title="${esc(k.ten)}">
+                 <img loading="lazy" src="brand_kling/${String(i + 1).padStart(2, "0")}-${esc(k.slug)}_avatar.webp" alt="">
+                 <b>${esc(k.ten)}</b><s>${String(i + 1).padStart(2, "0")}</s>
+               </div>`).join("");
+            _luoi.addEventListener("click", (ev) => {
+              const o = ev.target.closest(".kl-o"); if (!o) return;
+              selK.value = o.dataset.slug;
+              // Phát `change` để mọi thứ đang nghe nó chạy y như khi anh chọn bằng ô xổ — kể cả
+              // lớp chống chép nhầm vừa dựng. Gọi tay từng hàm là cách chắc chắn để quên một cái.
+              selK.dispatchEvent(new Event("change", { bubbles: true }));
+              window.__klDauLuoi && window.__klDauLuoi();
+            });
+          }
+          window.__klDauLuoi = () => {
+            const v = selK.value;
+            [..._luoi.querySelectorAll(".kl-o")].forEach(o =>
+              o.classList.toggle("chon", o.dataset.slug === v));
+            const o = _luoi.querySelector(".kl-o.chon");
+            if (o) o.scrollIntoView({ block: "nearest" });
+          };
+          selK.addEventListener("change", () => window.__klDauLuoi());
           const _ut = new Set(m.giay_uu_tien || [5, 6, 7, 8]);
           const _opt = g => `<option value="${g}"${g === 8 ? " selected" : ""}>${g} giây</option>`;
           _klEl("klGiay").innerHTML =
@@ -2957,15 +3003,36 @@
           g.innerHTML = (m.giay || []).map(x =>
             `<option value="${x}"${x === 8 ? " selected" : ""}>${x} giây${ut.has(x) ? " · ưu tiên" : ""}</option>`).join("");
           sel.dataset.xong = "1";
-          const b = _tnEl("tnBrand");
-          if (b) {
-            b.style.display = "flex";
-            b.style.cssText += ";gap:8px;flex-wrap:wrap;align-items:center";
-            b.innerHTML = m.kenh.map(k =>
-              `<img src="brand_tn/${String(k.so_tt).padStart(2, "0")}-${esc(k.slug)}_avatar.webp"
-                    title="${String(k.so_tt + 30).padStart(2, "0")} · ${esc(k.ten)}"
-                    style="width:44px;height:44px;border-radius:50%;object-fit:cover"/>`).join("");
+          // Lưới ảnh đại diện — cùng cơ chế với bộ hài: ô xổ vẫn là nguồn sự thật, lưới chỉ
+          // là cách chọn nhanh. Đánh số TIẾP 31–44 để một dãy liền mạch nói đúng thứ tự.
+          const luoi = _tnEl("tnLuoi");
+          if (luoi) {
+            luoi.innerHTML = m.kenh.map(k =>
+              `<div class="kl-o" data-slug="${esc(k.slug)}" title="${esc(k.mo_ta)}">
+                 <img loading="lazy" src="brand_tn/${String(k.so_tt).padStart(2, "0")}-${esc(k.slug)}_avatar.webp" alt="">
+                 <b>${esc(k.ten)}</b><s>${String(k.so_tt + 30).padStart(2, "0")}</s>
+               </div>`).join("");
+            luoi.addEventListener("click", (ev) => {
+              const o = ev.target.closest(".kl-o"); if (!o) return;
+              sel.value = o.dataset.slug;
+              sel.dispatchEvent(new Event("change", { bubbles: true }));
+              window.__tnDauLuoi();
+            });
           }
+          window.__tnDauLuoi = () => {
+            const v = sel.value;
+            [...luoi.querySelectorAll(".kl-o")].forEach(o =>
+              o.classList.toggle("chon", o.dataset.slug === v));
+            const o = luoi.querySelector(".kl-o.chon");
+            if (o) o.scrollIntoView({ block: "nearest" });
+          };
+          sel.addEventListener("change", () => window.__tnDauLuoi());
+          window.__tnDauLuoi();
+          // Nhãn số kênh lấy từ DỮ LIỆU, không ghi cứng: bản trước ghi "10 kênh" và nó đứng
+          // sai suốt từ lúc lên 12 rồi 14 — một con số ghi tay là một con số sẽ sai.
+          const nhan = _tnEl("tnNhan");
+          if (nhan) nhan.textContent =
+            `${m.kenh.length} kênh · short 8–10s · một cú máy · không lời`;
           _tnBao(`${m.kenh.length} kênh · prompt dựng sẵn ${m.kenh[0].so_tap} tập mỗi kênh`);
         } catch (e) { _tnBao("không nạp được dữ liệu thiên nhiên: " + e.message, "#ff9d9d"); }
       };
@@ -2986,7 +3053,15 @@
           ta.dataset.kenh = slug; ta.dataset.giay = giay; ta.dataset.so = String(so);
           const tom = _tnEl("tnTom");
           tom.style.display = "block";
-          tom.innerHTML = `<b>${esc(K.ten)}</b> · tập ${so} · ${giay}s · ${p.length}/${_tnMuc.ky_tu_max} ký tự`
+          // Thanh đếm thay cho con số trần trụi: "2438/2500" bắt anh tự tính còn bao nhiêu,
+          // còn một vạch gần đầy thì đọc ra trong nửa giây. Đổi màu ở 96% vì đó là chỗ khối
+          // LOOK bắt đầu bị cắt — tức chỗ prompt bắt đầu MẤT thứ gì đó.
+          const _ty = Math.min(1, p.length / (_tnMuc.ky_tu_max || 2500));
+          const _mau = _ty > .96 ? "#ffd08a" : "#7ee08a";
+          tom.innerHTML = `<b>${esc(K.ten)}</b> · tập ${so} · ${giay}s`
+            + `<div class="kl-dem"><i style="width:${(_ty * 100).toFixed(1)}%;background:${_mau}"></i></div>`
+            + `<div style="font-size:11px;opacity:.6">${p.length} / ${_tnMuc.ky_tu_max} ký tự`
+            + ` — còn ${(_tnMuc.ky_tu_max || 2500) - p.length}</div>`
             + `<div style="opacity:.65;font-size:11.5px;margin-top:5px">`
             + `${esc(t.loai)} — ${esc(t.hanh_vi)}<br>${esc(t.khuon)}`
             + (t.anh_sang ? ` · ${esc(t.anh_sang)}` : " · ánh sáng do khuôn hình quy định")
