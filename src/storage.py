@@ -263,6 +263,7 @@ def _kho_tu_kv() -> list:
                 print(f"   🆘 KHO LẤY TỪ KV CỦA WORKER: {len(_accs)} tài khoản "
                       f"(Firestore tắt cả 3 đường — đây là lớp cứu cuối, KHÔNG đụng Firestore).")
                 _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), _accs
+                _pool_ra_dia(_accs)      # đọc được MỘT lần là cả lượt chạy khỏi cần mạng
                 return _accs
     except Exception as e:
         # 2/9 — `except: pass` CÂM ĐÃ GIẤU MỘT NAMEERROR SUỐT HAI NGÀY.
@@ -274,6 +275,58 @@ def _kho_tu_kv() -> list:
         # Đo được: enqueue nhận 0 kho -> "0/2 video vào hàng đợi" -> 18 lượt render nằm lại.
         print(f"   ⚠ KV hụt ({type(e).__name__}: {str(e)[:70]}) — không lấy được kho từ KV")
     return []
+
+
+# Đệm hồ kho trên ĐĨA — xem chú thích trong `firestore_pool_accounts`.
+# `/tmp` chứ không phải thư mục repo: repo được checkout lại mỗi job, còn `/tmp` sống suốt lượt
+# chạy và không bao giờ bị commit nhầm. Tệp chứa refresh_token nên chỉ nằm trên runner tạm thời,
+# không đi đâu cả — nhưng vẫn đặt quyền 0600 vì thói quen ấy rẻ.
+_POOL_DIA = "/tmp/mm0_ho_kho.json"
+POOL_DIA_TTL = 6 * 3600      # 6 giờ: dài hơn một lượt render (4,75h), ngắn hơn một ngày
+
+
+def _pool_tu_dia() -> list:
+    """Hồ kho đã lưu trên đĩa của lượt chạy này. Rỗng nếu chưa có / quá cũ / hỏng."""
+    try:
+        import json as _j, time as _t2
+        if not os.path.exists(_POOL_DIA):
+            return []
+        if _t2.time() - os.path.getmtime(_POOL_DIA) > POOL_DIA_TTL:
+            return []
+        with open(_POOL_DIA, encoding="utf-8") as _f:
+            d = _j.loads(_f.read()) or []
+        # Kiểm HÌNH DẠNG, không chỉ kiểm rỗng: một tệp hỏng đọc ra `[{}]` vẫn truthy và sẽ
+        # làm mọi tầng sau bị bỏ qua — đúng kiểu "đệm che mất đường cứu".
+        d = [x for x in d if isinstance(x, dict) and x.get("root")]
+        if d:
+            print(f"   💾 hồ kho lấy từ ĐỆM ĐĨA: {len(d)} tài khoản (không gọi mạng lần nào)")
+        return d
+    except Exception:
+        return []
+
+
+def _pool_ra_dia(accs: list) -> None:
+    """Lưu hồ kho xuống đĩa. Hỏng thì im — lưu đệm không được phép làm hỏng việc chính."""
+    try:
+        import json as _j
+        good = [x for x in (accs or []) if isinstance(x, dict) and x.get("root")]
+        if not good:
+            return
+        with open(_POOL_DIA, "w", encoding="utf-8") as _f:
+            _f.write(_j.dumps(good, ensure_ascii=False))
+        try:
+            os.chmod(_POOL_DIA, 0o600)
+        except Exception:
+            pass
+    except Exception as e:
+        # KÊU MỘT LẦN, KHÔNG NUỐT CÂM. Bản đầu của chính hàm này viết `io.open` trong khi
+        # `storage.py` **không import io** — NameError, và `except: pass` nuốt trọn. Đệm đĩa
+        # chưa từng ghi được một dòng nào, mà nhìn từ ngoài y hệt "đệm hoạt động, chỉ là chưa
+        # có dữ liệu". Đúng họ lỗi đã tốn hai ngày ở `_kho_tu_kv`, và tôi viết lại nó trong
+        # đúng bản vá dựng ra để chống nó.
+        if not getattr(_pool_ra_dia, "_keu", False):
+            _pool_ra_dia._keu = True
+            print(f"   ⚠ không lưu được đệm hồ kho ({type(e).__name__}: {str(e)[:60]})")
 
 
 def firestore_pool_accounts() -> list[dict]:
@@ -290,6 +343,29 @@ def firestore_pool_accounts() -> list[dict]:
     import time as _t
     if _POOL_CACHE["val"] is not None and (_t.time() - _POOL_CACHE["at"]) < POOL_TTL:
         return _POOL_CACHE["val"]
+    # ── ĐỆM TRÊN ĐĨA: MỘT LẦN ĐỌC ĐƯỢC LÀ CẢ LƯỢT CHẠY KHÔNG CẦN MẠNG NỮA  (3/9/2026) ──────
+    # Anh: *"suốt ngày mày đổ tại firebase."* Đúng, và đêm qua đã có bằng chứng để truy tận gốc:
+    #
+    #   ❌ có 5 tệp nhưng KHÔNG đẩy được tệp nào
+    #   🆘 KHO LẤY TỪ KV CỦA WORKER: 100 tài khoản   ← in 35 lần
+    #   ⚠️ D1 hụt: HTTP Error 500                    ← in 35 lần
+    #
+    # 35 lần KV thành công trên ~40 lượt gọi `enqueue`, và đúng **5 lượt không có KV** là 5 tệp
+    # mất. Tức KV **hỏng ngắt quãng** (Worker 500), chứ không phải chết hẳn. Mà `enqueue` là
+    # tiến trình con sống vài giây: `_POOL_CACHE` trong RAM chết theo nó, nên mỗi video lại đi
+    # hỏi mạng từ đầu và lại có cơ hội trúng đúng lúc Worker nấc.
+    #
+    # Bốn tầng (KV → D1 → Firestore B → A) đều là tầng MẠNG. Xếp thêm tầng mạng thứ năm cũng
+    # không đổi bản chất: cả bốn cùng hỏng một lúc là mất. Tầng phải khác BẢN CHẤT — và đĩa của
+    # runner thì không có hạn mức, không có 429, không có rate-limit.
+    #
+    # Một lần đọc được trong lượt chạy là mọi tiến trình con sau đó dùng lại, kể cả khi Worker
+    # và Firestore cùng chết. Đây đúng nguyên tắc bốn tầng nền của §7: **tầng cuối không gọi
+    # mạng nên không bao giờ hỏng.**
+    _dia = _pool_tu_dia()
+    if _dia:
+        _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), _dia
+        return _dia
     # ══ KV TRƯỚC, FIRESTORE SAU ════════════════════════════════════════════════════════════
     # Anh hỏi vì sao suốt ngày cạn hạn mức. Đây là câu trả lời: hàm này đọc trọn collection
     # ~70 kho và nằm trong đường đẩy video, nên ở đỉnh tải nó một mình đốt hết 50K lượt đọc/ngày.
@@ -298,6 +374,7 @@ def firestore_pool_accounts() -> list[dict]:
     _kv = _kho_tu_kv()
     if _kv:
         _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), _kv
+        _pool_ra_dia(_kv)      # đọc được MỘT lần là cả lượt chạy khỏi cần mạng
         return _kv
     # D1 SAU KV, TRƯỚC FIRESTORE. Cả hai đều không đụng hạn mức Firestore; D1 có lợi thế là nó
     # TỰ ĐẦY từ lần đọc Firestore thành công gần nhất, nên nó có dữ liệu kể cả với những kho nối
@@ -305,6 +382,7 @@ def firestore_pool_accounts() -> list[dict]:
     _d1 = _kho_tu_d1()
     if _d1:
         _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), _d1
+        _pool_ra_dia(_d1)      # đọc được MỘT lần là cả lượt chạy khỏi cần mạng
         return _d1
     # 22/8 tối: Firestore A nghẽn 1 nhịp -> except trả [] -> enqueue hiểu là "0 kho" -> 9 video
     # EMPIREUSA QC 98 vừa render xong bị TỪ CHỐI đẩy Drive (mất trắng công render). Lỗi mạng/quota
@@ -358,6 +436,7 @@ def firestore_pool_accounts() -> list[dict]:
                 if _which == "B2":
                     print(f"   🔀 danh sách kho lấy từ B2 (B nghẽn) — {len(_out)} kho")
                 _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), _out
+                _pool_ra_dia(_out)      # đọc được MỘT lần là cả lượt chạy khỏi cần mạng
                 return _out
         except Exception as e:
             print(f"   ⚠️ đọc danh sách kho ở {_which} hụt ({str(e)[:60]})")
@@ -375,6 +454,7 @@ def firestore_pool_accounts() -> list[dict]:
                     if c.get("refresh_token") and _root_xai_duoc(c) and _trong_ho(c) and c.get("client_id")]
             if _out:
                 _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), _out
+                _pool_ra_dia(_out)      # đọc được MỘT lần là cả lượt chạy khỏi cần mạng
                 return _out
     except Exception:
         pass
@@ -405,6 +485,7 @@ def firestore_pool_accounts() -> list[dict]:
                                   "refresh_token": c["refresh_token"]},
                     })
             _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), out
+            _pool_ra_dia(out)      # đọc được MỘT lần là cả lượt chạy khỏi cần mạng
             # GHI LẠI VÀO D1: đọc Firestore được MỘT lần là từ đó không cần nó nữa. Đây là chỗ
             # bịt lỗ hổng đã làm 17 lượt render không đẩy được kho hôm nay (buglog 7cw).
             _luu_kho_vao_d1(out)
@@ -437,6 +518,7 @@ def firestore_pool_accounts() -> list[dict]:
         if out:
             print(f"   🪞 A nghẽn — dùng GƯƠNG kho ở {label}: {len(out)} tài khoản.")
             _POOL_CACHE["at"], _POOL_CACHE["val"] = _t.time(), out
+            _pool_ra_dia(out)      # đọc được MỘT lần là cả lượt chạy khỏi cần mạng
             _luu_kho_vao_d1(out)      # gương đọc được cũng ghi vào D1
         return out
     try:
