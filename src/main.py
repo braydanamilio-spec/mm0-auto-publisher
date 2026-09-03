@@ -446,6 +446,36 @@ def process_pool(channels_cfg, templates, safety, tz, dry_run, state, now, overr
 def process_users(channels_cfg, templates, safety, tz, dry_run, state, now):
     """PHASE 2 multi-tenant: chạy pipeline PER-USER dựa trên connections (Firestore).
     Mỗi user: kênh YouTube (token) + kho Drive (pool) đã kết nối -> đăng, stamp owner=uid."""
+    # ── HỎI D1 TRƯỚC: CÓ KÊNH NÀO NỐI YOUTUBE KHÔNG?  (3/9/2026) ────────────────────────
+    # Anh: *"đừng để tình trạng cạn quota xảy ra."* Đo được nguyên nhân lớn nhất còn lại:
+    #
+    #   publish.yml        cron */30      -> 48 lượt/ngày
+    #   publish_social.yml cron 15,45     -> 48 lượt/ngày
+    #   thumb_requests.yml cron */30      -> 48 lượt/ngày
+    #
+    # Mỗi lượt `publish` đọc TRỌN collection `connections` (~100-200 doc) ngay ở dòng dưới —
+    # ~7.200 lượt đọc/ngày cho một workflow, và **chưa kênh nào nối YouTube** nên toàn bộ số ấy
+    # tiêu cho một việc chắc chắn không có gì để làm.
+    #
+    # `yt_kenh_doi` bên D1 trả về danh sách kênh đang chờ đăng mà KHÔNG đụng Firestore. Hỏi nó
+    # trước: rỗng thì thoát ngay, chưa đọc một doc nào. Có việc thì mới trả tiền.
+    #
+    # Đây đúng nguyên tắc đã dựng cho hồ kho: **hỏi tầng rẻ trước, tầng đắt sau** — chỉ khác là
+    # ở đây tầng rẻ không thay thế tầng đắt, nó chỉ trả lời câu *"có đáng hỏi tầng đắt không"*.
+    try:
+        import sys as _s, os as _o
+        _s.path.insert(0, _o.path.join(_o.path.dirname(_o.path.dirname(
+            _o.path.dirname(_o.path.abspath(__file__)))), "render-pipeline"))
+        import hot_db as _H
+        if _H.bat_doc():
+            _cho = _H.goi("yt_kenh_doi", {"owner": _o.environ.get("OWNER_UID", "")}) or {}
+            _ds = _cho.get("kenh") if isinstance(_cho, dict) else None
+            if isinstance(_ds, list) and not _ds:
+                print("  ⏭ D1: không kênh nào đang chờ đăng — thoát trước khi đọc Firestore "
+                      "(tiết kiệm ~150 lượt đọc/lượt chạy).")
+                return
+    except Exception:
+        pass          # D1 im thì cứ đi đường cũ; đây là lối TẮT, không phải điều kiện bắt buộc
     try:
         import storage as ST
         yt_conns = state.list_connections("youtube")
