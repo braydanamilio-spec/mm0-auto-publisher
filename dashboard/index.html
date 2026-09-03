@@ -877,6 +877,13 @@
              trang cho một dòng "Đang tải…" đứng im; (b) KHÔNG tự truy vấn Firestore lúc mở tab,
              chỉ chạy khi bấm nút. Đo trên bản live: truy vấn ấy không bao giờ trả về, tức mỗi
              lần mở tab là một lượt đọc trả cho một panel không ai nhìn. -->
+        <div class="kl-bo" id="klBo">
+          <button id="klBoHai" class="chon" type="button">😄 Hài — người, thoại, cú lật
+            <small id="klBoHaiSo">đang nạp…</small></button>
+          <button id="klBoTN" type="button">🐻‍❄️ Thiên nhiên — động vật, không lời
+            <small id="klBoTNSo">đang nạp…</small></button>
+        </div>
+
         <div class="panel" id="klCuPanel" style="display:none">
           <div class="p-head">
             <div class="p-title">🎞️ Bảng chụp cũ <span class="d" style="font-size:11px;opacity:.6">kling_studio.py</span></div>
@@ -891,7 +898,7 @@
              Khuôn prompt do Python xuất sẵn (kling/<kênh>.json), trang này chỉ điền vào chỗ
              trống. Cố ý KHÔNG ghép prompt bằng JavaScript: ghép ở hai nơi thì sửa một luật hài
              bên Python mà quên bên này, web sẽ lặng lẽ sinh theo luật cũ và không ai biết. -->
-        <div class="panel" style="margin-top:14px">
+        <div class="panel" id="klPanelHai" style="margin-top:14px">
           <div class="p-head">
             <div class="p-title">✨ Tạo prompt</div>
             <div class="p-sub">Chọn kênh và thời lượng — nhân vật, bối cảnh và luật hình ảnh đã khoá sẵn</div>
@@ -954,7 +961,7 @@
              lật, và KHÔNG GỌI AI. Prompt tất định hoàn toàn, nên Python xuất thẳng chuỗi cuối
              cùng và trang này chỉ HIỆN — không ghép lại bằng JS. Đó là lý do khối này không
              thể lệch với Python: không còn thuật toán nào ở đây để mà lệch. -->
-        <div class="panel" style="margin-top:14px">
+        <div class="panel" id="klPanelTN" style="margin-top:14px;display:none">
           <div class="p-head">
             <div class="p-title">🐻‍❄️ Thiên nhiên
               <span class="d" id="tnNhan" style="font-size:11px;opacity:.6">short 8–10s · một cú máy · không lời</span>
@@ -1541,6 +1548,18 @@
         /* 3/9 — LƯỚI KÊNH BẤM CHỌN. Ô xổ 30 cái tên viết hoa là thứ đọc chậm nhất có thể:
            mắt phải đọc chữ rồi mới nhớ ra kênh nào. Brand kit đã vẽ sẵn 44 ảnh đại diện, mà
            trang chỉ hiện avatar của kênh ĐANG chọn — tức dữ liệu đã có, chỉ thiếu chỗ bày. */
+        /* 3/9 — THANH CHUYỂN BỘ. Hai bộ nằm ở hai panel vì chúng là hai engine khác nhau, và
+           panel thứ hai bắt đầu ở y=1004 trong khi màn hình cao 720 — đo được nó nằm 284px DƯỚI
+           mép màn hình. Anh mở tab Kling và thấy đúng 30 kênh, không có gì báo còn bộ thứ hai.
+           Một tính năng không nhìn thấy được thì bằng không có. */
+        .kl-bo{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}
+        .kl-bo button{flex:1;min-width:190px;border:1px solid var(--border);background:var(--surface);
+          color:var(--muted);border-radius:12px;padding:11px 14px;cursor:pointer;font-family:var(--sans);
+          font-size:13.5px;font-weight:700;transition:.15s;text-align:left;line-height:1.35}
+        .kl-bo button:hover{border-color:var(--accent);color:var(--text)}
+        .kl-bo button.chon{background:linear-gradient(145deg,var(--accent),var(--violet));
+          color:#fff;border-color:transparent;box-shadow:0 6px 18px var(--accent-soft)}
+        .kl-bo button small{display:block;font-weight:600;font-size:11px;opacity:.75;margin-top:2px}
         .kl-luoi{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:8px;
           max-height:196px;overflow-y:auto;padding:4px 2px;margin:2px 0 12px;
           border:1px solid var(--border);border-radius:12px;background:var(--surface)}
@@ -2299,6 +2318,8 @@
           };
           selK.addEventListener("change", () => window.__klDauLuoi());
           window.__klDauLuoi();          // đánh dấu NGAY, đừng đợi lần đổi đầu tiên
+          const _nH = document.getElementById("klBoHaiSo");
+          if (_nH) _nH.textContent = `${m.kenh.length} kênh · 5–15 giây · có thoại`;
           const _ut = new Set(m.giay_uu_tien || [5, 6, 7, 8]);
           const _opt = g => `<option value="${g}"${g === 8 ? " selected" : ""}>${g} giây</option>`;
           _klEl("klGiay").innerHTML =
@@ -3046,6 +3067,8 @@
           window.__tnDauLuoi();
           // Nhãn số kênh lấy từ DỮ LIỆU, không ghi cứng: bản trước ghi "10 kênh" và nó đứng
           // sai suốt từ lúc lên 12 rồi 14 — một con số ghi tay là một con số sẽ sai.
+          const _nT = document.getElementById("klBoTNSo");
+          if (_nT) _nT.textContent = `${m.kenh.length} kênh · 8–10 giây · một cú máy`;
           const nhan = _tnEl("tnNhan");
           if (nhan) nhan.textContent =
             `${m.kenh.length} kênh · short 8–10s · một cú máy · không lời`;
@@ -3168,12 +3191,39 @@
       // tại vào đúng thời điểm được gọi, và ba ô chọn ở lại rỗng. Kiểm trên bản live thì thấy rõ:
       // dữ liệu tải tốt (HTTP 200, 10 kênh) mà `window.klingBanDau` vẫn là undefined.
       // Hàm tự thoát nếu đã dựng xong, nên gọi thừa không tốn gì.
+      // ── CHUYỂN GIỮA HAI BỘ ──────────────────────────────────────────────────────────────
+      // Số kênh lấy từ CHÍNH dữ liệu vừa nạp, không ghi tay: nhãn "10 kênh" ghi cứng trước đây
+      // đã đứng sai suốt từ lúc lên 12 rồi 14. Một con số ghi tay là một con số sẽ sai.
+      window.klBoChon = (bo) => {
+        const H = document.getElementById("klPanelHai"), T = document.getElementById("klPanelTN");
+        const bH = document.getElementById("klBoHai"), bT = document.getElementById("klBoTN");
+        if (!H || !T) return;
+        const la = bo === "tn";
+        H.style.display = la ? "none" : "";
+        T.style.display = la ? "" : "none";
+        bH && bH.classList.toggle("chon", !la);
+        bT && bT.classList.toggle("chon", la);
+        try { localStorage.setItem("kl_bo", bo); } catch (_) {}
+        // Bộ nào được mở thì dựng lưới của bộ ấy — gọi thừa không tốn gì vì cả hai hàm tự thoát
+        // khi đã dựng xong, và gọi thiếu thì lưới ở lại rỗng.
+        if (la) window.tnBanDau && window.tnBanDau();
+        else window.klingBanDau && window.klingBanDau();
+      };
+      document.getElementById("klBoHai") &&
+        (document.getElementById("klBoHai").onclick = () => window.klBoChon("hai"));
+      document.getElementById("klBoTN") &&
+        (document.getElementById("klBoTN").onclick = () => window.klBoChon("tn"));
+
       window.klingBanDau();
       // 3/9 — Bộ thiên nhiên phải đi qua ĐÚNG cửa này. Em móc nó vào dòng chuyển view ở khối
       // `classic` phía dưới và nó KHÔNG BAO GIỜ chạy — đúng cái bẫy mà chú thích ngay trên đây
       // đã tả từ 31/8, và em vẫn đi lại vào. Cơ chế có sẵn thì dùng nó, đừng viết cơ chế thứ hai
       // (luật 13.1).
       window.tnBanDau();
+      // Dựng cả hai lưới ngay: nhãn trên hai nút cần SỐ KÊNH của cả hai bộ, mà số ấy chỉ có sau
+      // khi nạp danh mục. Hai tệp index.json cộng lại 16 KB — rẻ hơn nhiều so với việc anh mở
+      // tab rồi thấy "đang nạp…" ở nút mình chưa bấm.
+      try { window.klBoChon(localStorage.getItem("kl_bo") || "hai"); } catch (_) { window.klBoChon("hai"); }
       document.addEventListener("click", (ev) => {
         const n = ev.target && ev.target.closest && ev.target.closest('[data-view="kling"]');
         if (n) setTimeout(() => { window.klingBanDau && window.klingBanDau();
