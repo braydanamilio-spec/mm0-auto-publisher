@@ -4408,8 +4408,22 @@
           const sach = {};
           for(const k in d){ const v = d[k];
             if(v && typeof v === "object" && ("l" in v || "s" in v)) sach[k] = v; }
-          window.__chStats = sach; try{_mergeJobs();}catch(_){}}
-      }catch(e){} finally{ setTimeout(_loadStats, 300000); } })();
+          window.__chStats = sach; window.__rsStatsError = ""; try{_mergeJobs();}catch(_){}}
+          else { window.__rsStatsError = "sổ render_stats chưa có bản ghi nào"; }
+      }catch(e){
+        /* 3/9 — `catch(e){}` RỖNG: LỖI BỊ NÉM ĐI TRƯỚC KHI AI KỊP ĐỌC.
+           Anh chụp màn: "⚙️ Đang làm (18)" cạnh "✅ Đã có video (0)" trong khi log luồng render
+           cùng ngày ghi "✅ 5/5 video vào hàng đợi đăng" bảy vòng liền và "mọi video đã lên Drive".
+
+           `d = max(bản ghi job, __chStats)` đã là công thức đúng — nhưng cả hai nguồn cùng rỗng
+           khi lượt đọc `render_stats/{owner}` HỎNG, và hôm nay Firestore ăn 429 suốt buổi. Bắt
+           lỗi rồi bỏ đi thì màn hình nói "không có video nào" trong khi sự thật là "tôi không
+           đọc được sổ" — hai điều dẫn tới hai hành động hoàn toàn khác nhau (§15.2).
+
+           Ghi lại lý do để chỗ hiển thị nói đúng hiện trạng. Không đổi hành vi nào khác: vẫn
+           thử lại sau 5 phút, vẫn không chặn gì. */
+        window.__rsStatsError = (e && e.message ? String(e.message) : "không đọc được sổ đếm").slice(0, 90);
+      } finally{ setTimeout(_loadStats, 300000); } })();
       // TẢI THÊM THEO YÊU CẦU (22/8): danh sách thường trực chỉ 100(A)+200(B) doc cho rẻ; muốn xem
       // kho cũ sâu hơn thì bấm nút — mỗi lần bấm nạp thêm 300 doc CŨ HƠN (chỉ tốn đọc khi thật sự cần).
       window.__rsGalMore=async(btn)=>{ try{
@@ -4765,7 +4779,12 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       const sec=(t,arr,hint,act)=>`<div style="margin-bottom:12px"><div class="d" style="margin-bottom:5px">${t} <span style="opacity:.55">(${arr.length})</span> — ${hint}</div><div style="display:flex;flex-wrap:wrap;gap:4px">${arr.length?arr.map(p=>chip(p,act)).join(""):'<span class="d">—</span>'}</div></div>`;
       host.innerHTML = sec("💡 Sẵn sàng — bấm để THÊM NGAY",B.ideal,`1 chạm = thêm 1 kênh (đúng format). ${B.ideal.length?`<button class="btn-mini" style="margin-left:4px" onclick="window.rsQuickAddAll()">➕ THÊM TẤT CẢ (${B.ideal.length})</button>`:""} Muốn tuỳ chỉnh → form dưới.`,"window.rsQuickAdd")
         + sec("⚙️ Đang làm",B.doing,"bấm để xem tiến trình","window.rsScrollStatus")
-        + sec("✅ Đã có video",B.done,"bấm để coi ở Trạng thái Render","window.rsScrollStatus")
+        + sec("✅ Đã có video",B.done,
+              /* Không nói "0" trơn khi chính phép đếm hỏng — xem chú thích ở `_loadStats`. */
+              (!B.done.length && window.__rsStatsError)
+                ? `⚠ KHÔNG ĐẾM ĐƯỢC (${esc(window.__rsStatsError)}) — con số này không có nghĩa là chưa có video`
+                : "bấm để coi ở Trạng thái Render",
+              "window.rsScrollStatus")
         + (B.cu.length?`<details style="margin-top:6px"><summary class="d" style="cursor:pointer">🗄 Kênh thế hệ 1 — đã nghỉ <span style="opacity:.55">(${B.cu.length})</span> · giữ nguyên cấu hình, bấm để mở</summary><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;opacity:.7">${B.cu.map(p=>chip(p,"window.rsQuickAdd")).join("")}</div></details>`:"");
     }
     window.__rsRenderPlan=rsRenderPlan;

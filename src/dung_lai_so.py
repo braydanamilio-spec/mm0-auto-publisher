@@ -30,6 +30,8 @@ lần cũng chỉ ghi đè chính nó, không đẻ dòng rác.
 """
 import argparse
 import json
+import re as _re
+import concurrent.futures as _tp
 import os
 import sys
 
@@ -94,23 +96,48 @@ def main() -> int:
         goc = {}
         for f in tep:
             goc.setdefault(f["name"].rsplit(".", 1)[0], []).append(f)
+        can = []
         for base, nhom in goc.items():
             mp4 = next((x for x in nhom if x["name"].lower().endswith(".mp4")), None)
             js = next((x for x in nhom if x["name"].lower().endswith(".json")), None)
             if not mp4:
                 continue
             thay += 1
-            if not js:
-                bo += 1
-                continue
-            try:
-                d = json.loads(drv.svc.files().get_media(
-                    fileId=js["id"]).execute().decode("utf-8", "ignore"))
-            except Exception:
-                bo += 1
-                continue
-            kenh = str(d.get("channel") or "").upper().replace(" ", "")
-            loai = "long" if str(d.get("type") or "") == "long" else "short"
+            can.append((base, mp4, js))
+        # ── TẢI SIDECAR SONG SONG  (3/9/2026) ─────────────────────────────────────────────
+        # Bản đầu tải `.json` của từng video TUẦN TỰ trong vòng lặp. Với hơn 1.300 video đó là
+        # 1.300 vòng mạng nối đuôi nhau — đo được 18 phút, mà job `don_kho.yml` chỉ có
+        # `timeout-minutes: 20`, nên nó bị huỷ TRƯỚC bước đối chiếu cuối. Nhìn từ dashboard cả
+        # lượt hiện ra "cancelled", che mất việc phần dọn Firestore đã chạy xong sạch ở bước đầu.
+        #
+        # Đã thử bỏ hẳn sidecar và đọc kênh/loại từ tên `v9_<kênh>_NNNN[_long]`. Nhanh tuyệt
+        # đối, nhưng TIÊU ĐỀ chỉ có trong sidecar — 1.300 bản ghi sẽ mang tên tệp làm tiêu đề
+        # và thư viện trên web đọc ra "v9_howloud_0000_long". Đổi một lỗi lấy một lỗi.
+        #
+        # Nên giữ sidecar và làm nó song song. Tám luồng vì đây là việc CHỜ MẠNG, không phải
+        # việc tính; cao hơn thì Drive bắt đầu trả 403 rateLimitExceeded.
+        def _doc(bo3):
+            base3, mp43, js3 = bo3
+            d3 = {}
+            if js3:
+                try:
+                    d3 = json.loads(drv.svc.files().get_media(
+                        fileId=js3["id"]).execute().decode("utf-8", "ignore"))
+                except Exception:
+                    d3 = {}
+            k3 = str(d3.get("channel") or "").upper().replace(" ", "")
+            l3 = "long" if str(d3.get("type") or "") == "long" else "short"
+            # Sidecar thiếu hoặc tải hỏng thì tên tệp vẫn đủ để biết kênh và loại — mất tiêu
+            # đề còn hơn mất cả bản ghi, vì bản ghi mất là video ấy biến khỏi kho trên web.
+            if not k3:
+                m3 = _re.match(r"^v9_([a-z0-9]+)_\d+(_long)?$", base3, _re.I)
+                if m3:
+                    k3, l3 = m3.group(1).upper(), ("long" if m3.group(2) else "short")
+            return base3, mp43, d3, k3, l3
+
+        with _tp.ThreadPoolExecutor(max_workers=8) as ex:
+            ket = list(ex.map(_doc, can))
+        for base, mp4, d, kenh, loai in ket:
             if not kenh:
                 bo += 1
                 continue
