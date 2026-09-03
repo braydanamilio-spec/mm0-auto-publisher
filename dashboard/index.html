@@ -6664,7 +6664,17 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         // hướng trước đó. Điều hướng vẫn chạy — chỉ có dữ liệu là không bao giờ tới.
         // Bài học: gắn việc nạp vào TRẠNG THÁI đã tới màn hình, đừng gắn vào hành động đưa
         // người dùng tới đó — vì luôn có đường khác dẫn tới cùng màn hình ấy.
-        if(v==="kling"&&window.klingNap){ window.klingNap(); if(window.klingBanDau) window.klingBanDau(); if(window.tnBanDau) window.tnBanDau(); }
+        // 3/9 — `if (window.tnBanDau) window.tnBanDau()` IM LẶNG BỎ QUA khi hàm chưa được
+        // định nghĩa. Hai hàm này nằm trong khối `module` (byte 187k và 236k) còn dòng này ở
+        // khối `classic` sau đó; nếu việc chuyển tab xảy ra lúc module MỚI CHẠY ĐƯỢC NỬA thì
+        // `klingBanDau` đã có mà `tnBanDau` thì chưa — đo được đúng như vậy trên bản live:
+        // lưới bộ hài dựng 30 ô, lưới thiên nhiên 0 ô, và không một lỗi nào trong console.
+        //
+        // Câu `if (f) f()` là một `|| true` đội lốt: nó biến "chưa sẵn sàng" thành "không cần
+        // làm". Hoãn sang tick sau thì module chắc chắn đã chạy xong.
+        if(v==="kling"&&window.klingNap){ window.klingNap();
+          setTimeout(()=>{ window.klingBanDau && window.klingBanDau();
+                           window.tnBanDau && window.tnBanDau(); }, 0); }
         if(v==="tasks"&&window.renderTasks) window.renderTasks(); };
       window.__setTitle=setTitle;
       // ROUTING theo URL hash: mỗi mục 1 đường dẫn (#publish, #channels…) -> F5 giữ nguyên trang
