@@ -872,9 +872,14 @@
              người là DÁN PROMPT + TẢI CLIP. Trang này lo phần còn lại: hiện sẵn prompt đã qua bộ
              chấm (chặn trôi góc máy, chữ trong ảnh, mặt cận cảnh — ba thứ Kling làm hỏng), mỗi
              cảnh một nút chép. Ngày anh mua API thì trang này không đổi, chỉ khác là clip tự về. -->
-        <div class="panel">
+        <!-- 3/9 — Panel này là bảng chụp của `kling_studio.py`, chỉ có nội dung khi anh chạy
+             lệnh ấy. Anh không dùng nó nữa, nên: (a) ẩn sẵn — nó đang lấy chỗ đẹp nhất của
+             trang cho một dòng "Đang tải…" đứng im; (b) KHÔNG tự truy vấn Firestore lúc mở tab,
+             chỉ chạy khi bấm nút. Đo trên bản live: truy vấn ấy không bao giờ trả về, tức mỗi
+             lần mở tab là một lượt đọc trả cho một panel không ai nhìn. -->
+        <div class="panel" id="klCuPanel" style="display:none">
           <div class="p-head">
-            <div class="p-title">🎞️ Kling Studio <span class="d" style="font-size:11px;opacity:.6">bảng chụp phim ngắn hài</span></div>
+            <div class="p-title">🎞️ Bảng chụp cũ <span class="d" style="font-size:11px;opacity:.6">kling_studio.py</span></div>
             <span style="flex:1"></span>
             <button class="btn-mini" onclick="klingNap()">🔄 Nạp lại</button>
           </div>
@@ -1543,6 +1548,8 @@
           text-align:center;transition:.14s;background:transparent}
         .kl-o:hover{background:var(--surface2);transform:translateY(-1px)}
         .kl-o.chon{border-color:var(--accent);background:var(--accent-soft)}
+        .kl-o.chon img{box-shadow:0 0 0 3px var(--accent)}
+        .kl-o.chon b{color:var(--accent)}
         .kl-o img{width:46px;height:46px;border-radius:50%;object-fit:cover;display:block;margin:0 auto}
         .kl-o b{display:block;font-size:9.5px;line-height:1.25;margin-top:4px;font-weight:700;
           overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2163,12 +2170,20 @@
             .sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
           const nb = document.getElementById("nvKling"); if (nb) nb.textContent = ds.length;
           if (!ds.length) {
+            // 3/9 — ẨN HẲN khi rỗng. Panel này là bảng chụp của `kling_studio.py`, chỉ có nội
+            // dung khi anh chạy lệnh ấy — mà anh không dùng nó nữa. Để nó đứng trên cùng với
+            // dòng "Đang tải…" là lấy chỗ đẹp nhất của trang cho một khoảng chết, và nó còn là
+            // thứ đầu tiên mắt đọc phải.
+            const _pn = document.getElementById("klCuPanel");
+            if (_pn) _pn.style.display = "none";
             st.textContent = "Chưa có bảng chụp nào.";
             el.innerHTML = `<div class="p-sub" style="padding:12px 0;line-height:1.7">
               Tạo bằng lệnh:<br><code>python render-pipeline/kling_studio.py "ý tưởng của anh" --len-web</code>
               <br><br>Bảng chụp sẽ hiện ở đây, mỗi cảnh một nút chép — anh dán thẳng vào Kling.</div>`;
             return;
           }
+          const _pn2 = document.getElementById("klCuPanel");
+          if (_pn2) _pn2.style.display = "";
           st.textContent = `${ds.length} bảng chụp · bấm 📋 để chép prompt rồi dán vào Kling`;
           el.innerHTML = ds.map((d, i) => {
             const sc = (d.scenes || []);
@@ -2208,10 +2223,10 @@
           st.textContent = "Lỗi tải: " + (e && e.message || e);
         }
       };
-      document.addEventListener("click", (ev) => {
-        const n = ev.target && ev.target.closest && ev.target.closest('[data-view="kling"]');
-        if (n) setTimeout(() => window.klingNap && window.klingNap(), 60);
-      });
+      // 3/9 — Bỏ hẳn lớp tự gọi khi bấm vào tab Kling. `klingNap` truy vấn Firestore
+      // (`kling_shots`) cho một panel nay đã ẩn sẵn, tức mỗi lần anh mở tab là một lượt đọc trả
+      // cho thứ không ai nhìn — và trên bản live truy vấn ấy còn không bao giờ trả về. Panel vẫn
+      // mở được bằng nút "Nạp lại" của chính nó khi nào anh cần.
 
       // ══ BÀN LÀM VIỆC KLING ═══════════════════════════════════════════════════════════════
       // Khuôn prompt do `kling_kenh.py --xuat-web` sinh ra: mọi khối khoá, luật hình ảnh và
@@ -2283,6 +2298,7 @@
             if (o) o.scrollIntoView({ block: "nearest" });
           };
           selK.addEventListener("change", () => window.__klDauLuoi());
+          window.__klDauLuoi();          // đánh dấu NGAY, đừng đợi lần đổi đầu tiên
           const _ut = new Set(m.giay_uu_tien || [5, 6, 7, 8]);
           const _opt = g => `<option value="${g}"${g === 8 ? " selected" : ""}>${g} giây</option>`;
           _klEl("klGiay").innerHTML =
@@ -3153,9 +3169,15 @@
       // dữ liệu tải tốt (HTTP 200, 10 kênh) mà `window.klingBanDau` vẫn là undefined.
       // Hàm tự thoát nếu đã dựng xong, nên gọi thừa không tốn gì.
       window.klingBanDau();
+      // 3/9 — Bộ thiên nhiên phải đi qua ĐÚNG cửa này. Em móc nó vào dòng chuyển view ở khối
+      // `classic` phía dưới và nó KHÔNG BAO GIỜ chạy — đúng cái bẫy mà chú thích ngay trên đây
+      // đã tả từ 31/8, và em vẫn đi lại vào. Cơ chế có sẵn thì dùng nó, đừng viết cơ chế thứ hai
+      // (luật 13.1).
+      window.tnBanDau();
       document.addEventListener("click", (ev) => {
         const n = ev.target && ev.target.closest && ev.target.closest('[data-view="kling"]');
-        if (n) setTimeout(() => window.klingBanDau && window.klingBanDau(), 60);
+        if (n) setTimeout(() => { window.klingBanDau && window.klingBanDau();
+                                  window.tnBanDau && window.tnBanDau(); }, 60);
       });
 
       window.__loadStorage = async () => {
@@ -6672,9 +6694,9 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         //
         // Câu `if (f) f()` là một `|| true` đội lốt: nó biến "chưa sẵn sàng" thành "không cần
         // làm". Hoãn sang tick sau thì module chắc chắn đã chạy xong.
-        if(v==="kling"&&window.klingNap){ window.klingNap();
-          setTimeout(()=>{ window.klingBanDau && window.klingBanDau();
-                           window.tnBanDau && window.tnBanDau(); }, 0); }
+        // Hai lưới do khối module tự khởi động (xem `window.tnBanDau()` ở đó). KHÔNG gọi
+        // `klingNap()` ở đây nữa: nó truy vấn Firestore cho một panel đang ẩn.
+        if(v==="kling"){ /* không truy vấn gì lúc mở tab */ }
         if(v==="tasks"&&window.renderTasks) window.renderTasks(); };
       window.__setTitle=setTitle;
       // ROUTING theo URL hash: mỗi mục 1 đường dẫn (#publish, #channels…) -> F5 giữ nguyên trang
