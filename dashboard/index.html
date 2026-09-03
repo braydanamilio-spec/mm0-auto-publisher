@@ -4542,7 +4542,19 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
 
     async function rsGalInto(hostId, searchId, viewId, countId, channelId, dateId){
       const host=document.getElementById(hostId); if(!host) return;
-      let all=(window.__rsJobsData||[]).filter(j=>j.status==="done" && (j.drive_id||j.preview));
+      /* 3/9 — THƯ VIỆN LÀ CHỖ CUỐI CÙNG CÒN HIỆN KÊNH ĐÃ NGHỈ.
+         Anh dọn kho xong, mở thư viện vẫn thấy 53 video của AMERICALOOKEDUP · CALORIESHOCK ·
+         COURTKINGS… — bản ghi MA trong Firestore trỏ vào tệp đã bỏ thùng rác.
+
+         Hôm qua tôi lọc bảng "Tiến trình theo kênh" và "Nhật ký gần đây" bằng `__conSong`, rồi
+         **quên đúng chỗ người ta nhìn nhiều nhất**. Vá hai nhánh, để nguyên nhánh thứ ba — họ
+         lỗi đã lặp năm lần trong ba ngày.
+
+         Lọc ở ĐÂY chứ không đợi dọn xong Firestore: dọn bị chặn bởi hạn mức 429 và có thể còn
+         chặn nhiều giờ nữa, trong khi màn hình phải nói thật NGAY. Dọn sổ và hiện đúng là hai
+         việc khác nhau; đừng để việc này chờ việc kia. */
+      let all=(window.__rsJobsData||[]).filter(j=>j.status==="done" && (j.drive_id||j.preview))
+                                       .filter(j=>window.__conSong ? window.__conSong(j) : true);
       // LỌC THEO NGÀY: "" mọi lúc · today hôm nay · 7/30 ngày gần nhất
       const dv=((document.getElementById(dateId)||{}).value)||"";
       // 25/8 — "Tất cả kênh (0)" khi lọc Hôm nay, mà 7 ngày vẫn ra 85. Biểu thức lọc không sai:
