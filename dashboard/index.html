@@ -8097,9 +8097,34 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       const luuDem = ()=>{ try{ localStorage.setItem("mm0_tokcheck", JSON.stringify(dem)); }catch(_){} };
       const nay = Date.now();
       const rows=[]; let lienTiep=0, ngat=false, tuDem=0;
+      /* ── TẦNG TIẾT KIỆM THỨ BA: LẦN ĐỌC DUNG LƯỢNG GẦN NHẤT  (4/9/2026) ───────────────
+         Anh: *"cơ chế check tiết kiệm quota thông minh qua số lần gọi sử dụng lưu trữ gần
+         nhất"*. Đúng vào chỗ mấu chốt, và nó rẻ hơn cả hai tầng trên.
+
+         Đọc được `used`/`cap` của một kho nghĩa là lệnh `drive.about` vừa chạy THÀNH CÔNG
+         bằng chính token ấy — tức token sống, và quyền đọc còn. Đó KHÔNG phải suy đoán: nó
+         là kết quả của một lệnh gọi đã xảy ra. Hỏi `/api/token-check` thêm lần nữa là hỏi
+         một câu vừa được trả lời, và mỗi lần hỏi tốn một lượt đọc Firestore + một lượt làm
+         mới OAuth — đúng hạn mức mà khâu ĐẨY VIDEO đang cần (§13.7).
+
+         Giới hạn phải nói rõ, vì đây là chỗ dễ suy quá đà: đọc được dung lượng chứng minh
+         token SỐNG, **không** chứng minh có quyền GHI đầy đủ (`drive.file` vs `drive`). Nên
+         tầng này chỉ kết luận `healthy`, và để `fullEdit: undefined` — bộ lọc "🔒 Thiếu quyền"
+         vì thế không bắt oan kho chưa soi quyền, còn "✅ Full quyền" cũng không nhận bừa.
+         Một bằng chứng chỉ được dùng cho đúng điều nó chứng minh. */
+      const DUNG_TTL = 12*3600*1000;
+      const _dl = {};
+      ((__STORAGE&&__STORAGE.accounts)||[]).forEach(x=>{ _dl[x.name]=x; });
       for(let i=0;i<accs.length;i++){ const a=accs[i];
         const d0 = dem[a];
         if(d0 && (nay - (d0.t||0)) < DEM_TTL){ rows.push({a,healthy:d0.healthy,invalid:d0.invalid,fullEdit:d0.fullEdit}); tuDem++; continue; }
+        const ac = _dl[a] || {};
+        const tDung = Date.parse(ac.usage_at || ac.checked_at || ac.updated_at || "") || 0;
+        if(tDung && (nay - tDung) < DUNG_TTL && (ac.cap||0) > 0){
+          rows.push({a, healthy:true, tuDungLuong:true});
+          dem[a]={t:nay, healthy:true};      // ghi đệm để lượt sau khỏi tính lại
+          tuDem++; continue;
+        }
         if(ngat){ rows.push({a,unknown:true}); continue; }
         if(rows.length && tuDem<rows.length) await new Promise(r=>setTimeout(r,140));   // GIÃN NHỊP -> tránh Firestore/OAuth rate-limit
         let done=false;
@@ -8164,7 +8189,13 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
           ok++;
           if(_r && typeof _r.used === "number" && window.__STORAGE && window.__STORAGE.accounts){
             const _k = window.__STORAGE.accounts.find(a=>a.name===accs[i]);
-            if(_k) _k.used = _r.used;
+            /* ĐÓNG DẤU THỜI GIAN LẦN ĐỌC THÀNH CÔNG. `checkDriveTokens` dùng chính dấu này
+               để KHỎI hỏi lại token: đọc được dung lượng nghĩa là `drive.about` vừa chạy
+               thành công bằng token ấy — token sống, đã chứng minh bằng một lệnh gọi thật.
+               Không có dấu này thì tầng tiết kiệm ấy đọc `undefined` và **im lặng không bao
+               giờ chạy** — đúng lỗi "ghi một trường mà không ai đọc / đọc một trường mà không
+               ai ghi" (§15.12). Nên hai đầu phải nối trong cùng một bản sửa. */
+            if(_k){ _k.used = _r.used; _k.usage_at = new Date().toISOString(); }
             if(_r.ghi_hut) _hut++;
           }
         }catch(_){} }

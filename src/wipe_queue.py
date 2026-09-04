@@ -89,9 +89,69 @@ def _wipe_account(acc, dry: bool, scope: str) -> tuple[int, int, str]:
     return seen, done, err
 
 
+def don_ban_ghi(ten_kho: set, dry: bool) -> int:
+    """Xoá bản ghi `render_jobs` của những kho vừa bị dọn sạch tệp.
+
+    ── VÌ SAO CẦN  (4/9/2026) ──────────────────────────────────────────────────────────────
+    Anh: *"sao vẫn hiện 90 videos chưa dọn sạch"* — trong khi ô hồ chứa cùng màn hình hiện
+    **0 B / 15 GB**. Hai con số nói ngược nhau, và cả hai đều "đúng":
+
+        tệp trên Drive : đã xoá  (wipe_queue làm việc này)
+        bản ghi render_jobs : còn nguyên  (KHÔNG ai xoá)
+
+    Dashboard đếm BẢN GHI chứ không đếm TỆP (§12.9 đã ghi đúng bẫy này từ 1/9 và vá bằng cách
+    ĐỔI CHỖ ĐẾM — nguồn mới vẫn là bản ghi). Nên xoá sạch kho mà con số không đổi một đơn vị.
+
+    ── VÌ SAO CHỈ XOÁ KHI CHỨNG MINH ĐƯỢC  (§15.6) ─────────────────────────────────────────
+    Chỉ xoá bản ghi của những kho mà lượt này VỪA dọn sạch, và chỉ khi lượt ấy chạy thật. Kho
+    không dọn được (token hỏng) thì tệp còn nguyên, xoá bản ghi của nó là làm mất dấu một video
+    ĐANG SỐNG. `ten_kho` vì thế là danh sách kho ĐÃ dọn xong, không phải danh sách kho định dọn.
+
+    Và như mọi lệnh dọn: **danh sách rỗng thì DỪNG**, vì "không kho nào vừa dọn" đọc ra y hệt
+    "dọn tất".
+    """
+    if not ten_kho:
+        print("   ⏸ không kho nào dọn xong — KHÔNG đụng bản ghi (rỗng ≠ tất cả)")
+        return 0
+    try:
+        from firestore_state import client_render_jobs
+        db = client_render_jobs()
+    except Exception as e:
+        print(f"   ⚠ không mở được Firestore ({type(e).__name__}) — bỏ qua dọn bản ghi")
+        return 0
+    owner = os.environ.get("OWNER_UID") or os.environ.get("MM0_OWNER") or ""
+    if not owner:
+        print("   ⚠ thiếu OWNER_UID — bỏ qua dọn bản ghi (không dám xoá toàn bảng)")
+        return 0
+    n = 0
+    # TRẦN: mỗi lượt tối đa 800 bản ghi. Không trần thì một bảng lớn nuốt trọn hạn mức xoá,
+    # và lượt sau không còn gì để chạy tiếp — thà dọn nhiều lượt còn hơn cạn giữa chừng (§13.7).
+    q = (db.collection("render_jobs").where("owner", "==", owner)
+           .where("status", "==", "done").limit(800))
+    lo = db.batch() if not dry else None
+    for d in q.stream():
+        j = d.to_dict() or {}
+        if (j.get("drive_account") or "") not in ten_kho:
+            continue
+        n += 1
+        if not dry:
+            lo.delete(d.reference)
+            if n % 400 == 0:
+                lo.commit()
+                lo = db.batch()
+    if not dry and n:
+        lo.commit()
+    print(f"   🧾 bản ghi render_jobs của {len(ten_kho)} kho vừa dọn: "
+          f"{'sẽ xoá' if dry else 'đã xoá'} {n}")
+    return n
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true", help="chỉ đếm, không đụng file")
+    ap.add_argument("--don-ban-ghi", action="store_true",
+                    help="xoá luôn BẢN GHI render_jobs của những kho vừa dọn "
+                         "(mặc định KHÔNG — xem `don_ban_ghi`)")
     ap.add_argument("--scope", choices=("store", "queue"), default="store",
                     help="store = mọi file dưới MM0-STORE (mặc định) · queue = chỉ _QUEUE")
     a = ap.parse_args()
@@ -109,6 +169,7 @@ def main() -> int:
     print(f"🧹 Dọn [{a.scope}] trên {len(accs)} kho {'(CHẠY THỬ)' if a.dry_run else ''}", flush=True)
     tot_seen = tot_done = 0
     loi = []
+    xong = set()          # kho DỌN XONG (không lỗi) — chỉ những kho này mới được xoá bản ghi
     for i, acc in enumerate(accs, 1):
         seen, done, err = _wipe_account(acc, a.dry_run, a.scope)
         if err and alt.get(acc.get("root")) and alt[acc["root"]].get("creds") != acc.get("creds"):
@@ -118,10 +179,23 @@ def main() -> int:
         tot_done += done
         if err:
             loi.append(f"{acc.get('name')}: {err}")
+        else:
+            # DỌN XONG mới ghi vào danh sách. Kho lỗi (token hỏng) còn nguyên tệp, xoá bản ghi
+            # của nó là làm mất dấu một video ĐANG SỐNG — §15.6: chỉ xoá khi chứng minh được.
+            xong.add(acc.get("name") or "")
         if seen or err:
             print(f"  [{i}/{len(accs)}] {acc.get('name'):<22} thấy {seen:>4} · dọn {done:>4}"
                   + (f" · ⚠️ {err}" if err else ""), flush=True)
     print(f"\n📊 TỔNG: thấy {tot_seen} file · đã bỏ thùng rác {tot_done} · lỗi {len(loi)}")
+
+    # ── XOÁ TỆP RỒI PHẢI XOÁ CẢ BẢN GHI  (4/9/2026) ────────────────────────────────────────
+    # Anh: *"sao vẫn hiện 90 videos chưa dọn sạch"* trong khi ô hồ chứa cùng màn hình hiện
+    # 0 B / 15 GB. Cả hai đều đúng: tệp đã xoá, bản ghi `render_jobs` còn nguyên — và dashboard
+    # đếm BẢN GHI (§12.9). Nên xoá sạch kho mà con số không đổi một đơn vị.
+    # Mặc định TẮT: lệnh này vốn chỉ hứa dọn tệp, và xoá bản ghi là mất lịch sử. `lam_lai.yml`
+    # bật nó vì mục đích của luồng ấy đúng là làm lại từ đầu.
+    if getattr(a, "don_ban_ghi", False):
+        don_ban_ghi(xong - {""}, a.dry_run)
 
     # ══ ĐÓNG SỔ NGAY TRONG CÙNG THAO TÁC ═══════════════════════════════════════════════════
     # 31/8 — Anh báo "vẫn chưa dọn, kho còn 2067" trong khi kho đã sạch từ trước. Con số ấy là
