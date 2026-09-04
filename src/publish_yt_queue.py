@@ -49,7 +49,21 @@ def run(dry_run: bool = False):
     state = State()
     now = datetime.now(timezone.utc)
     try:
-        items = _theo_gio(state.list_yt_queue())
+        # ── ĐỌC ĐÚNG PHẦN TỚI GIỜ, KHÔNG ĐỌC CẢ HÀNG ĐỢI  (4/9/2026) ─────────────────────
+        # Xem `State.yt_queue_toi_gio`. Bản cũ đọc trọn hàng đợi chờ (tới 2.000 mục) rồi lọc
+        # `publish_at <= now` bằng Python — chi phí tỉ lệ với ĐỘ DÀI HÀNG ĐỢI, mà hàng đợi
+        # dài ra đúng bằng phần sản lượng vượt năng lực đăng. Nay chi phí tỉ lệ với SỐ MỤC
+        # TỚI GIỜ, một con số bị chặn bởi trần đăng của YouTube — nên nó đứng yên dù dựng
+        # bao nhiêu video đi nữa.
+        #
+        # Thiếu index thì truy vấn ném lỗi; lùi về lối cũ để khâu đăng KHÔNG đứng, và nói ra
+        # để còn biết mà tạo index (im lặng lùi là cách bản vá này chết mà vẫn trông như sống).
+        try:
+            items = _theo_gio(state.yt_queue_toi_gio(now))
+        except Exception as _e:
+            print(f"  ⚠️ lối đọc 'tới giờ' hụt ({str(_e)[:80]}) — lùi về đọc cả hàng đợi. "
+                  f"Cần index (owner, status, publish_at) để lối nhanh hoạt động.")
+            items = _theo_gio(state.list_yt_queue())
     except Exception as e:
         print(f"  ⚠️ yt_queue: {e}")
         return

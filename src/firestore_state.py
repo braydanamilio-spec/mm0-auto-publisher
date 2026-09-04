@@ -387,10 +387,46 @@ class State:
             return self._dem_ytq
         q = (self.pub.collection("yt_queue")
              .where("status", "in", ["pending", "processing"]).limit(2000))
+        return self._doc_ytq(q)
+
+    def yt_queue_toi_gio(self, now: datetime, tran: int = 120) -> list[dict]:
+        """CHỈ item đã tới giờ đăng. Đây là thứ khâu đăng thật sự cần.
+
+        ── VÌ SAO ĐỔI, KHI ANH MUỐN SẢN LƯỢNG TỐI ĐA  (4/9/2026) ─────────────────────────
+        `publish_yt_queue` đang gọi `list_yt_queue()` — đọc TOÀN BỘ hàng đợi chờ (tới 2.000
+        mục) rồi lọc `publish_at <= now` **bằng Python**, để hành động trên vài mục.
+
+        Chừng nào còn lọc ở phía Python thì chi phí đọc tỉ lệ với ĐỘ DÀI HÀNG ĐỢI. Mà hàng đợi
+        dài ra đúng bằng phần sản lượng vượt năng lực đăng — tức **càng dựng nhiều càng đắt**,
+        và mọi cách cắt tần suất chỉ mua thêm thời gian. Anh nói sẽ tăng sản lượng và thêm kênh,
+        nên phép đo phải thôi phụ thuộc vào độ dài hàng đợi trước đã.
+
+        Lọc ở phía Firestore thì chi phí tỉ lệ với SỐ MỤC TỚI GIỜ — một con số bị chặn cứng bởi
+        trần đăng của YouTube (~6 video/kênh/ngày), nên nó đứng yên dù hàng đợi có dài bao nhiêu.
+        Hàng đợi 50.000 mục cũng đọc bấy nhiêu.
+
+        AN TOÀN CHO PHÉP LỌC NÀY: Firestore **loại hẳn** tài liệu thiếu trường đang lọc, nên
+        điều kiện đủ là mọi lối ghi đều đặt `publish_at`. Đã kiểm cả ba lối:
+            auto_enqueue.py:367            "publish_at": when
+            dashboard `__ytQueueAdd` (2 nút)  publish_at = new Date().toISOString() mặc định
+        Không lối nào để trống — nếu sau này thêm lối thứ tư mà quên, mục ấy sẽ nằm im trong
+        hàng đợi thay vì được đăng, nên bất kỳ ai thêm lối ghi phải đặt trường này.
+        """
+        q = (self.pub.collection("yt_queue")
+             .where("status", "in", ["pending", "processing"])
+             .where("publish_at", "<=", now.isoformat())
+             .order_by("publish_at").limit(tran))
+        return self._doc_ytq(q, dem=False)
+
+    def _doc_ytq(self, q, dem: bool = True) -> list[dict]:
         out = []
         for d in _retry(lambda: list(q.stream())):
             row = d.to_dict(); row["id"] = d.id; out.append(row)
-        self._dem_ytq = out
+        # `dem=False` cho truy vấn TỚI GIỜ: nó là một tập CON, ghi đè đệm bằng nó thì lượt đọc
+        # sau (cần cả hàng đợi) sẽ nhận về một danh sách thiếu mà tưởng là đủ — đúng kiểu lỗi
+        # "đệm che mất đường đọc thật" đã trả giá ở `_pool_tu_dia`.
+        if dem:
+            self._dem_ytq = out
         return out
 
     def xoa_dem_ytq(self):
