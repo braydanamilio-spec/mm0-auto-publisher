@@ -8029,18 +8029,56 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       const accs=((__STORAGE&&__STORAGE.accounts)||[]).map(a=>a.name);
       if(!accs.length){ box.innerHTML=`<div class="p-sub">Chưa có kho nào.</div>`; return; }
       box.innerHTML=`<div class="p-sub">🩺 Đang kiểm tra ${accs.length} kho…</div>`;
-      const rows=[];
+      /* ── ĐỆM KẾT QUẢ + CẦU DAO  (4/9/2026) ───────────────────────────────────────────
+         Anh: *"⏳ 100 kho chưa kiểm được (rate-limit, bấm kiểm lại)"* và *"check live die
+         api key driver tiết kiệm quota thông minh"*.
+
+         Vòng cũ gọi `/api/token-check` cho ĐỦ 100 kho, mỗi kho 2 lượt thử. Mỗi lượt gọi ấy
+         bên Worker phải đọc Firestore (bản ghi kết nối) rồi làm mới token OAuth. Khi hạn mức
+         đọc Firestore đã cạn — đúng tình trạng hôm nay, trang còn tự báo *"quota nghẽn"* ở
+         hai chỗ khác — thì **cả 100 kho đều trả lỗi**, và ta vừa tiêu 200 lượt gọi để thu về
+         đúng 0 thông tin. Bấm "kiểm lại" thì tiêu thêm 200 lượt nữa.
+
+         Hai thứ, mỗi thứ chặn một kiểu lãng phí:
+           1. ĐỆM — kho nào vừa kiểm trong 6 giờ thì không hỏi lại. Token OAuth sống hàng
+              tháng; hỏi lại sau vài phút là hỏi một thứ không thể đổi.
+           2. CẦU DAO — 6 kho liên tiếp trượt vì rate-limit thì DỪNG. Kho thứ bảy chắc chắn
+              cũng trượt: hạn mức là trạng thái của cả ngày, không phải của một kho. Cứ chạy
+              tiếp là đốt hạn mức của khâu ĐẨY VIDEO, tức lấy tài nguyên của việc chính để
+              phục vụ một ô hiển thị (§13.7 — ngân sách hạn mức là tài nguyên DÙNG CHUNG).
+
+         Và nói rõ đã dừng ở đâu, vì sao. "Chưa kiểm được" mà không nói lý do thì người đọc
+         chỉ biết bấm lại — đúng hành động làm mọi thứ tệ hơn. */
+      const DEM_TTL = 6*3600*1000, DUT = 6;
+      let dem = {};
+      try{ dem = JSON.parse(localStorage.getItem("mm0_tokcheck")||"{}")||{}; }catch(_){ dem={}; }
+      const luuDem = ()=>{ try{ localStorage.setItem("mm0_tokcheck", JSON.stringify(dem)); }catch(_){} };
+      const nay = Date.now();
+      const rows=[]; let lienTiep=0, ngat=false, tuDem=0;
       for(let i=0;i<accs.length;i++){ const a=accs[i];
-        if(i) await new Promise(r=>setTimeout(r,140));   // GIÃN NHỊP -> tránh Firestore/OAuth rate-limit (kiểm nhiều kho dồn)
+        const d0 = dem[a];
+        if(d0 && (nay - (d0.t||0)) < DEM_TTL){ rows.push({a,healthy:d0.healthy,invalid:d0.invalid,fullEdit:d0.fullEdit}); tuDem++; continue; }
+        if(ngat){ rows.push({a,unknown:true}); continue; }
+        if(rows.length && tuDem<rows.length) await new Promise(r=>setTimeout(r,140));   // GIÃN NHỊP -> tránh Firestore/OAuth rate-limit
         let done=false;
         for(let att=0; att<2 && !done; att++){
-          try{ const d=await workerApi(`/api/token-check?account=${encodeURIComponent(a)}`); rows.push({a,healthy:d.healthy,invalid:d.invalid,fullEdit:d.fullEdit}); done=true; }
+          try{ const d=await workerApi(`/api/token-check?account=${encodeURIComponent(a)}`);
+               rows.push({a,healthy:d.healthy,invalid:d.invalid,fullEdit:d.fullEdit});
+               dem[a]={t:nay,healthy:d.healthy,invalid:d.invalid,fullEdit:d.fullEdit};
+               lienTiep=0; done=true; }
           catch(e){ const m=String(e.message||e);
-            if(/429|rate|Firestore read fail|timeout|Failed to fetch/i.test(m)){ if(att===0){ await new Promise(r=>setTimeout(r,700)); continue; } rows.push({a,unknown:true}); done=true; }   // check LỖI TẠM -> CHƯA KIỂM ĐƯỢC (KHÔNG phải hỏng)
-            else { rows.push({a,healthy:false,invalid:/invalid_grant|TOKEN_INVALID/i.test(m)}); done=true; } }   // lỗi token THẬT -> hỏng
+            if(/429|rate|Firestore read fail|timeout|Failed to fetch/i.test(m)){ if(att===0){ await new Promise(r=>setTimeout(r,700)); continue; }
+              rows.push({a,unknown:true}); lienTiep++; done=true;
+              if(lienTiep>=DUT){ ngat=true; }   // CẦU DAO: hạn mức là trạng thái của cả ngày
+            }
+            else { rows.push({a,healthy:false,invalid:/invalid_grant|TOKEN_INVALID/i.test(m)});
+                   dem[a]={t:nay,healthy:false,invalid:/invalid_grant|TOKEN_INVALID/i.test(m)};
+                   lienTiep=0; done=true; } }   // lỗi token THẬT -> hỏng, và ĐỆM lại
         }
-        box.innerHTML=`<div class="p-sub">🩺 Đang kiểm tra ${i+1}/${accs.length} kho…</div>`;
+        box.innerHTML=`<div class="p-sub">🩺 Đang kiểm tra ${i+1}/${accs.length} kho…${tuDem?` (${tuDem} lấy từ đệm)`:''}</div>`;
       }
+      luuDem();
+      window.__tokNgat = ngat; window.__tokDem = tuDem;
       window.__driveTok={}; rows.forEach(r=>{ window.__driveTok[r.a]={healthy:r.healthy,fullEdit:r.fullEdit,unknown:r.unknown}; });
       window.renderStorage&&window.renderStorage();
       const bad=rows.filter(r=>r.healthy===false);           // HỎNG THẬT (explicit false; unknown KHÔNG tính)
@@ -8048,7 +8086,9 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       const noPerm=rows.filter(r=>r.healthy && r.fullEdit===false);
       const alert=bad.length||noPerm.length;
       box.innerHTML=`<div class="panel" style="border-color:${alert?'var(--warn)':(unknown.length?'var(--muted)':'var(--good)')};padding:12px">
-        <b style="color:${alert?'var(--warn)':(unknown.length?'var(--muted)':'var(--good)')}">${bad.length?`⚠️ ${bad.length}/${rows.length} kho token HỎNG · `:''}${noPerm.length?`🔒 ${noPerm.length} kho THIẾU QUYỀN · `:''}${unknown.length?`⏳ ${unknown.length} kho chưa kiểm được (rate-limit, bấm kiểm lại) · `:''}${(!bad.length&&!noPerm.length&&!unknown.length)?`✅ Tất cả ${rows.length} kho token sống + đủ quyền full`:''}</b>
+        <b style="color:${alert?'var(--warn)':(unknown.length?'var(--muted)':'var(--good)')}">${bad.length?`⚠️ ${bad.length}/${rows.length} kho token HỎNG · `:''}${noPerm.length?`🔒 ${noPerm.length} kho THIẾU QUYỀN · `:''}${unknown.length?(window.__tokNgat
+          ? `⏳ ${unknown.length} kho chưa kiểm được — ĐÃ DỪNG SỚM vì hạn mức đọc đang cạn (${DUT} kho liên tiếp trượt). Bấm lại lúc này chỉ đốt thêm hạn mức của khâu ĐẨY VIDEO; chờ hạn mức hồi (00:00 giờ Thái Bình Dương = 14:00 giờ VN) rồi kiểm. · `
+          : `⏳ ${unknown.length} kho chưa kiểm được (lỗi tạm, bấm kiểm lại) · `):''}${window.__tokDem?`💾 ${window.__tokDem} kho lấy từ đệm 6h · `:''}${(!bad.length&&!noPerm.length&&!unknown.length)?`✅ Tất cả ${rows.length} kho token sống + đủ quyền full`:''}</b>
         <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px">${rows.map(r=>{
           const st = r.unknown ? {ic:'⏳',cls:'',t:'chưa kiểm được (rate-limit) — bấm kiểm lại'} : (r.healthy===false ? {ic:'⚠️',cls:'bad',t:'token hỏng'} : (r.fullEdit===false ? {ic:'🔒',cls:'bad',t:'THIẾU QUYỀN edit'} : {ic:'✅',cls:'',t:'đủ quyền full'}));
           const needFix = r.healthy===false || (r.healthy && r.fullEdit===false);

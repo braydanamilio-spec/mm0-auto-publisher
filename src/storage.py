@@ -103,6 +103,51 @@ def _resolve(acc: dict) -> dict | None:
 
 _POOL_CACHE = {"at": 0.0, "val": None}
 _RAI = {"n": 0}      # bộ đếm lượt đẩy -> rải kho không dồn một chỗ (xem ranked_accounts)
+
+# ── BỘ ĐẾM RẢI KHO PHẢI SỐNG QUA RANH GIỚI TIẾN TRÌNH  (4/9/2026) ═══════════════════════════
+# `_RAI` là biến MODULE. Nhưng `day_kho.py` gọi `enqueue.py` bằng `subprocess` **cho từng
+# video**, nên mỗi video là một tiến trình mới và `_RAI["n"]` luôn bằng 1 khi tới chỗ dùng.
+#
+# Nghĩa là bản vá 24/8 (*"xoay theo kênh CỘNG số lần đẩy"* — dựng ra đúng để chống dồn kho)
+# chưa bao giờ chạy: chỉ số xoay rút gọn về `băm(tên kênh) + 1`, tức **mỗi kênh luôn bắt đầu
+# ở đúng một kho, đời đời không đổi** — chính xác cái bệnh mà bản vá ấy nói là đã chữa.
+#
+# Đo trên dashboard hôm nay, và số khớp tới mức không còn gì để bàn:
+#     18 kênh -> tối đa 18 vị trí bắt đầu -> **15 kho có dữ liệu (1,1–2,6 GB), 85 kho 0 B**
+# 100 kho mà 85 kho chưa từng nhận một tệp nào.
+#
+# Cùng họ lỗi với `xoay_key.ghi_trang_thai._ban_do` và với mốc thời gian ở `/tmp`: trạng thái
+# phải nằm ở chỗ sống lâu bằng CÔNG VIỆC, không phải bằng tiến trình. Ở đây công việc là một
+# lượt render (nhiều giờ, hàng chục video), nên `/tmp` là đúng tầm.
+_RAI_TEP = "/tmp/mm0_rai_kho.txt"
+
+
+def _rai_ke() -> int:
+    """Số thứ tự lượt đẩy kế tiếp, đếm chung cho mọi tiến trình trên cùng một runner.
+
+    HAI NGUỒN, cộng lại — và đây không phải thừa:
+      · TỆP `/tmp`  : đếm tăng đều, tốt nhất, nhưng cần ghi được.
+      · `getpid()`  : mỗi tiến trình một số khác nhau, không cần ghi gì.
+
+    Vì sao cần nguồn thứ hai: nếu `/tmp` không ghi được (sandbox, đĩa đầy, quyền) thì bản chỉ
+    dùng tệp sẽ đọc 0 → trả 1 → **mọi lượt đẩy lại về đúng một chỗ**, tức suy biến về đúng cái
+    bệnh đang chữa, và suy biến TRONG IM LẶNG. Em gặp đúng cảnh ấy khi chạy thử: 13/100 kho,
+    y hệt bản cũ, không một dòng lỗi nào.
+
+    `getpid()` một mình đủ để rải (mỗi video là một tiến trình riêng, pid khác nhau), nên hỏng
+    tệp thì chỉ mất tính tăng-đều chứ không mất việc rải. Một cơ chế chống dồn mà chính nó có
+    một đường suy biến âm thầm thì không đáng tin (§15.2).
+    """
+    n = 0
+    try:
+        with open(_RAI_TEP, encoding="utf-8") as f:
+            n = int((f.read() or "0").strip() or 0)
+        n += 1
+        with open(_RAI_TEP, "w", encoding="utf-8") as f:
+            f.write(str(n))
+    except Exception:
+        n = 0
+    return n + os.getpid()
 _A_CAN = {"den": 0.0}      # mốc thời gian NGỪNG hỏi project A (đặt khi A trả 429)
 
 
@@ -716,7 +761,9 @@ def ranked_accounts(need_bytes: int = 0, cfg: dict | None = None,
         # ra nhiều kho. Vẫn giữ phần băm-theo-kênh để 18 luồng song song không cùng đâm vào một kho
         # tại cùng thời điểm (đó là lý do gốc của seed).
         import hashlib
-        _RAI["n"] += 1
+        # Đếm qua TỆP, không qua biến module — xem `_rai_ke()`: mỗi video là một tiến trình
+        # riêng, nên biến module luôn trả về 1 và phép xoay rút gọn về "băm tên kênh".
+        _RAI["n"] = _rai_ke()
         k = (int(hashlib.md5(str(seed).encode()).hexdigest(), 16) + _RAI["n"]) % len(result)
         result = result[k:] + result[:k]
     return result

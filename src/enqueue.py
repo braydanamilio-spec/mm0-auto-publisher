@@ -220,6 +220,20 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
                        channel=channel.upper(), vtype=meta["type"], status="done",
                        step="đã lên kho", title=meta.get("title"),
                        drive_id=created["id"], queued=False,
+                       # ── BỐN TRƯỜNG THỐNG KÊ: CÓ SẴN CHỖ NHẬN, CHƯA AI TRUYỀN  (4/9/2026)
+                       # Anh: *"việc thống kê videos đúng nha e."* Dashboard hiện
+                       # **"90 chưa rõ kho · 90 thiếu thumb"** cho ĐÚNG 90/90 video — con số
+                       # tròn trịa ấy là dấu hiệu: không phải dữ liệu hỏng rải rác, mà là một
+                       # trường KHÔNG BAO GIỜ được ghi.
+                       #
+                       # `hot_db.ghi_job` đã nhận `drive_account/thumb_id/size_mb/qc` từ 25/8,
+                       # và chú thích của nó nói thẳng nó sinh ra để chữa đúng cảnh *"thư viện
+                       # hiện 'kho chưa rõ'/'thiếu thumbnail' oan"*. Chỗ gọi thì chưa bao giờ
+                       # truyền. Đúng §13.1: cơ chế có sẵn, thiếu thứ CHẠY nó — và đi viết cơ
+                       # chế mới thì sẽ có hai cơ chế cùng nửa vời.
+                       drive_account=created.get("account") or None,
+                       thumb_id=created.get("thumb_id") or None,
+                       size_mb=round(os.path.getsize(video) / 1e6, 1),
                        at=_dt.now(_tz.utc).isoformat())
             _n = _H.xa_het()
             print(f"   🗂 ghi bản ghi D1: {'ok' if _n else 'HỤT — bản ghi không vào D1'}")
