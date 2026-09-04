@@ -372,6 +372,14 @@ def run(dry_run: bool = False):
             queued_ids.add(fid); added += 1
 
     print(f"✔ auto-enqueue: xếp lịch {added} video (theo template)." if added else "✔ auto-enqueue: không có video mới.")
+    # Có thêm item thì bỏ đệm hàng đợi, để `publish_yt_queue` chạy ngay sau đây đọc số MỚI.
+    # Không thêm gì thì giữ đệm — và đó là lượt phổ biến khi hàng đợi đã dày, tức đúng lúc một
+    # lượt đọc lại tốn nhất. Xem `State.list_yt_queue`.
+    if added:
+        try:
+            state.xoa_dem_ytq()
+        except Exception:
+            pass
     return added
 
 

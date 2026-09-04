@@ -366,14 +366,41 @@ class State:
             {**patch, "updated_at": datetime.now(timezone.utc).isoformat()}, merge=True))
 
     # ---------- HÀNG ĐỢI ĐĂNG YOUTUBE TỪ DRIVE (Content Hub, yt_queue) (OWNED -> C) ----------
-    def list_yt_queue(self) -> list[dict]:
-        """Item chờ đăng YouTube. Trần 2000 — xem chú thích ở `list_social_queue`."""
+    def list_yt_queue(self, dung_dem: bool = True) -> list[dict]:
+        """Item chờ đăng YouTube. Trần 2000 — xem chú thích ở `list_social_queue`.
+
+        ── ĐỌC MỘT LẦN MỖI TIẾN TRÌNH  (4/9/2026) ─────────────────────────────────────────
+        `main.py` gọi hàng đợi này HAI LẦN trong CÙNG một lượt cron:
+            auto_enqueue.run()      -> đọc `yt_queue` để biết video nào đã xếp (chống trùng)
+            publish_yt_queue.run()  -> đọc `yt_queue` để lấy item tới giờ
+        Hai lần đọc cùng một collection, cách nhau vài giây, cho ra cùng một kết quả — trừ
+        những item chính lượt này vừa thêm, mà `auto_enqueue` đã trả về danh sách ấy rồi.
+
+        Với hàng đợi 600 mục thì đó là 600 lượt đọc bị trả hai lần, × 48 lượt cron mỗi ngày
+        = **57.600 lượt ĐỌC/ngày** cho một nửa không ai cần. Trần cả ngày là 50.000.
+
+        Đệm theo TIẾN TRÌNH (mỗi lượt cron là một tiến trình mới nên nó tự hết hạn) — không
+        đệm ra đĩa: hai lượt cron cách nhau 30 phút thì hàng đợi đã khác, và đệm quá tuổi ở
+        khâu ĐĂNG là đăng nhầm hoặc bỏ sót. `dung_dem=False` cho chỗ nào thật sự cần số mới.
+        """
+        if dung_dem and getattr(self, "_dem_ytq", None) is not None:
+            return self._dem_ytq
         q = (self.pub.collection("yt_queue")
              .where("status", "in", ["pending", "processing"]).limit(2000))
         out = []
         for d in _retry(lambda: list(q.stream())):
             row = d.to_dict(); row["id"] = d.id; out.append(row)
+        self._dem_ytq = out
         return out
+
+    def xoa_dem_ytq(self):
+        """Bỏ đệm hàng đợi YouTube. GỌI SAU KHI THÊM ITEM.
+
+        Đệm ở `list_yt_queue` chỉ đúng khi hàng đợi KHÔNG đổi giữa hai lần đọc. `auto_enqueue`
+        chạy trước và có thể thêm item, nên nó phải tự khai ra — nếu không thì item vừa xếp sẽ
+        chờ trọn một chu kỳ cron mới được đăng, và không ai thấy vì nó vẫn đăng, chỉ là muộn.
+        Lượt nào không thêm gì (hàng đợi đã đủ) thì đệm còn nguyên và khâu đăng khỏi đọc lại."""
+        self._dem_ytq = None
 
     def update_yt_queue(self, doc_id: str, patch: dict):
         _retry_C(lambda: self.pub.collection("yt_queue").document(doc_id).set(
