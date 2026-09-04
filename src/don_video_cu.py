@@ -81,6 +81,12 @@ def main() -> int:
             continue
         if tep:
             kho_doc += 1
+        # ── GOM THÀNH LÔ, KHÔNG GỌI TỪNG TỆP  (4/9/2026) ─────────────────────────────────
+        # Lượt chạy đầu bị HUỶ vì quá 45 phút ngay ở bước này: mỗi tệp một vòng mạng, kho
+        # ~5.000 tệp là 15–20 phút chỉ để bỏ thùng rác, cộng thời gian quét 100 kho thì vượt
+        # trần. Và nó vượt MỖI LẦN — mỗi lượt quét lại từ đầu rồi bị cắt giữa chừng, nên việc
+        # dọn không bao giờ tới đích. Xem `Drive.trash_lo`.
+        can_xoa = []
         for f in tep:
             thay += 1
             t = str(f.get("createdTime") or "")
@@ -90,16 +96,20 @@ def main() -> int:
                 moi += 1
                 continue
             cu += 1
-            if not a.that:
-                continue
-            try:
-                if a.xoa_han:
-                    drv.delete(f["id"])
-                else:
-                    drv.trash(f["id"])
-                xong += 1
-            except Exception as e:
-                print(f"      ⚠ {f['name'][:36]}: {str(e)[:60]}")
+            if a.that:
+                can_xoa.append(f["id"])
+        if can_xoa:
+            if a.xoa_han:
+                for fid in can_xoa:
+                    try:
+                        drv.delete(fid); xong += 1
+                    except Exception as e:
+                        print(f"      ⚠ {fid}: {str(e)[:60]}")
+            else:
+                _ok, _loi = drv.trash_lo(can_xoa)
+                xong += _ok
+                if _loi:
+                    print(f"      ⚠ {acc.get('name')}: {_loi} tệp không bỏ được vào thùng rác")
 
     print(f"\n📊 soi {thay:,} tệp trong {kho_doc}/{len(ho)} kho đọc được")
     print(f"   cũ (trước mốc): {cu:,}   ·   mới (giữ lại): {moi:,}")

@@ -233,6 +233,49 @@ class Drive:
         self.svc.files().update(fileId=file_id, body={"trashed": True},
                                 supportsAllDrives=True).execute(num_retries=_RETRIES)
 
+    def trash_lo(self, file_ids: list[str], moi_lo: int = 100) -> tuple[int, int]:
+        """Bỏ NHIỀU tệp vào thùng rác bằng lệnh gộp. Trả (số xong, số hỏng).
+
+        ── VÌ SAO CẦN  (4/9/2026) ─────────────────────────────────────────────────────────
+        Lượt "Làm lại từ đầu" hôm nay **bị huỷ vì quá 45 phút** khi đang dọn — nó gọi
+        `trash()` cho TỪNG tệp, mỗi lệnh một vòng mạng ~150–250 ms. Với kho 19,8 GB (~5.000
+        tệp kể cả sidecar/thumbnail/phụ đề) thì riêng phần bỏ thùng rác đã 15–20 phút, cộng
+        thời gian quét 100 kho là vượt trần.
+
+        Và nó vượt trần MỖI LẦN CHẠY: mỗi lượt lại quét lại từ đầu rồi bị cắt ở giữa, nên
+        việc dọn không bao giờ xong — bấm lại chỉ nhích được thêm một đoạn. Đây là dạng
+        "chạy mãi không tới đích", tệ hơn một lỗi báo đỏ vì nó trông như đang tiến triển.
+
+        Drive cho gộp tới **100 lệnh trong một yêu cầu**. 5.000 tệp: 5.000 vòng mạng -> 50.
+        Lỗi của từng lệnh con được đếm riêng, không làm hỏng cả lô — nên một tệp đã bị xoá
+        tay trước đó không kéo theo 99 tệp còn lại.
+        """
+        xong = hong = 0
+        for i in range(0, len(file_ids), moi_lo):
+            lo = self.svc.new_batch_http_request()
+            ket = {"ok": 0, "loi": 0}
+
+            def _xong(_rid, _res, err, _k=ket):
+                if err is None:
+                    _k["ok"] += 1
+                else:
+                    _k["loi"] += 1
+
+            for fid in file_ids[i:i + moi_lo]:
+                lo.add(self.svc.files().update(fileId=fid, body={"trashed": True},
+                                               supportsAllDrives=True), callback=_xong)
+            try:
+                lo.execute()
+            except Exception:
+                # Cả lô hỏng (mạng/hạn mức) -> lùi về từng lệnh, đừng bỏ cả lô.
+                for fid in file_ids[i:i + moi_lo]:
+                    try:
+                        self.trash(fid); ket["ok"] += 1
+                    except Exception:
+                        ket["loi"] += 1
+            xong += ket["ok"]; hong += ket["loi"]
+        return xong, hong
+
     # ---- LINK CÔNG KHAI TẠM (để FB/IG tự kéo video — KHÔNG tải-lại qua cron) ----
     def make_public(self, file_id: str) -> str:
         """Cho 'anyone with link' đọc -> trả URL tải trực tiếp (dùng cho FB file_url / IG video_url)."""
