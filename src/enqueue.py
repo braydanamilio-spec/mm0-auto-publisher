@@ -237,6 +237,63 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
                        at=_dt.now(_tz.utc).isoformat())
             _n = _H.xa_het()
             print(f"   🗂 ghi bản ghi D1: {'ok' if _n else 'HỤT — bản ghi không vào D1'}")
+
+            # ══ VÀ BẢN GHI FIRESTORE — MẮT XÍCH CUỐI CỦA CẢ DÂY CHUYỀN  (4/9/2026) ══════
+            # Anh hỏi dây chuyền đã đồng bộ chưa. Chạy dò từng mắt xích thì nó ĐỨT ở đây, và
+            # đứt theo kiểu không ai thấy được từ bất kỳ đầu nào:
+            #
+            #     giai_thich -> day_kho -> enqueue -> Drive        ✔ video lên kho
+            #     enqueue    -> hot_db.ghi_job     -> **D1**        ✔ dashboard đếm được
+            #     auto_enqueue <- render_jobs      <- **FIRESTORE** ✘ đọc một kho KHÁC
+            #
+            # `auto_enqueue` lấy ứng viên bằng đúng một truy vấn Firestore
+            # (`status==done AND queued==False`), mà **không mắt xích nào của bộ giải thích
+            # ghi vào Firestore render_jobs** — chỉ `run_render.py` của thế hệ 1 làm việc đó.
+            # Nên video của 18 kênh lên Drive xong là NẰM LẠI VĨNH VIỄN: không vào hàng đợi,
+            # không lên YouTube, không lên FB/IG.
+            #
+            # Bằng chứng khớp từng con số trên dashboard: **19,8 GB · 90 video trên Drive**,
+            # mà `Publish 0 · Schedule 0` và nhật ký ghi *"Chưa có job nào của 18 kênh"*.
+            # Trước đó tôi đoán là "Firestore cạn hạn mức nên lượt ghi hàng đợi hỏng" — đoán
+            # SAI: không có lượt ghi nào để mà hỏng.
+            #
+            # Mỗi video một lượt GHI (~450/ngày trên trần 20.000) — rẻ, và là cái giá để dây
+            # chuyền có đầu ra. Mã tài liệu trùng với mã dùng cho D1 nên ghi lại không sinh
+            # bản ghi thừa.
+            try:
+                from firestore_state import client_render_jobs as _crj
+                _rj = _crj()
+                # `owner` có thể là None (không tra ra kết nối YouTube của kênh). Ghi bản ghi
+                # không có `owner` là ghi một dòng mà `auto_enqueue` KHÔNG BAO GIỜ thấy — nó
+                # lọc `where("owner","==",owner)`. Thà nói ra còn hơn để lại một bản ghi ma.
+                if _rj is not None and not owner:
+                    print("   ⚠ chưa tra được `owner` của kênh — KHÔNG ghi render_jobs "
+                          "(bản ghi thiếu owner sẽ không lọt vào khâu xếp lịch). "
+                          "Kiểm kết nối YouTube của kênh trên dashboard.")
+                    _rj = None
+                if _rj is not None:
+                    _rj.collection("render_jobs").document(
+                        f"gt-{channel.lower()}-{meta['type']}-{os.path.basename(video)}"
+                    ).set({
+                        "owner": owner, "status": "done", "queued": False,
+                        "channel": channel.upper(), "type": meta["type"],
+                        "drive_id": created["id"],
+                        "drive_name": created.get("name") or os.path.basename(video),
+                        "drive_account": created.get("account") or "",
+                        "thumb_id": created.get("thumb_id") or "",
+                        "title": meta.get("title") or "",
+                        "description": meta.get("description") or "",
+                        "hashtags": meta.get("hashtags") or [],
+                        "tags": meta.get("tags") or [],
+                        "created_at": _dt.now(_tz.utc).isoformat(),
+                    }, merge=True)
+                    print("   🔗 ghi bản ghi Firestore render_jobs -> khâu xếp lịch đăng thấy được")
+            except Exception as _e:
+                # KÊU TO. Hỏng ở đây nghĩa là video vẫn nằm trên Drive mà không bao giờ được
+                # đăng — đúng cảnh vừa mất nhiều ngày để tìm ra. Im lặng ở chỗ này là tái tạo
+                # lại chính lỗi đang chữa.
+                print(f"   ❌ KHÔNG ghi được render_jobs Firestore ({str(_e)[:90]}) — "
+                      f"video LÊN KHO NHƯNG SẼ KHÔNG VÀO HÀNG ĐỢI ĐĂNG.")
     except Exception as e:
         print(f"   ⚠️  Ghi bản ghi D1 lỗi ({str(e)[:80]}) — video vẫn ở Drive, chỉ số đếm chậm.")
 

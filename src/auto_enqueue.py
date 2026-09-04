@@ -364,6 +364,20 @@ def run(dry_run: bool = False):
                     "drive_name": j.get("drive_name") or ((j.get("title") or fid) + ".mp4"),
                     "description": j.get("description", ""), "hashtags": j.get("hashtags") or [],
                     "tags": j.get("tags") or [], "status": "pending", "attempts": 0,
+                    # ── ẢNH BÌA PHẢI ĐI HẾT CHẶNG  (4/9/2026) ───────────────────────────
+                    # `publish_yt_queue` đọc `it["thumbnail_file_id"]` để tải ảnh từ Drive rồi
+                    # đặt làm ảnh đại diện YouTube (`YT.upload(..., thumbnail_path=...)`).
+                    # Trường ấy KHÔNG được ai gắn vào item, nên nhánh đặt ảnh bìa chưa từng
+                    # chạy — video lên YouTube luôn dùng khung hình do YouTube tự chọn.
+                    #
+                    # Đây là mắt xích THỨ HAI của cùng một chuỗi đứt: `sieu_gt` sinh ảnh ->
+                    # `day_kho` không gửi -> `enqueue` không có gì để đẩy -> `thumb_id` rỗng
+                    # -> item không có `thumbnail_file_id` -> YouTube không nhận ảnh. Bốn
+                    # khâu, mỗi khâu đều "đúng phần của mình", và sản phẩm cuối vẫn thiếu.
+                    #
+                    # Sửa một khâu là con số trên dashboard không đổi — đúng cái bẫy làm
+                    # người sửa tưởng mình sai chỗ khác.
+                    "thumbnail_file_id": j.get("thumb_id") or "",
                     "created_at": now.isoformat(), "publish_at": when}
             if dry_run:
                 print(f"  (dry) {ch} [{vtype}] -> {when[:16]} · {(item['title'] or fid)[:38]}"); added += 1; continue
