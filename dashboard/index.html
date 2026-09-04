@@ -8376,14 +8376,30 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       if(qA) list=list.filter(a=>[a.name,a.email,a.root].some(v=>String(v||"").toLowerCase().includes(qA)));
       // Lọc theo trạng thái: dùng kết quả bấm 🩺 nếu có, KHÔNG có thì dùng health publisher tự ghi
       // -> lọc "token hỏng" chạy được ngay cả khi chưa bấm kiểm lần nào.
-      if(sfA) list=list.filter(a=>{ const tk=(window.__driveTok||{})[a.name]; const pct=a.cap?(a.used||0)/a.cap*100:0;
-        if(sfA==="nearfull") return pct>=80;
-        if(sfA==="unchecked") return !tk && !a.health;
-        if(sfA==="bad")    return tk ? !tk.healthy : a.health==="dead";
-        if(sfA==="full")   return tk ? (tk.healthy&&tk.fullEdit!==false) : a.health==="ok";
+      /* ── MỘT PHÉP PHÂN LOẠI, HAI NƠI DÙNG  (4/9/2026) ──────────────────────────────────
+         Anh: *"chưa lọc hiển thị bao nhiêu key ở trạng thái nào cho trực quan"*. Muốn hiện số
+         đếm cạnh mỗi lựa chọn thì phải phân loại hai lần — một lần để lọc, một lần để đếm — và
+         hai phép ấy sẽ lệch nhau đúng vào ngày ai đó sửa một cái. Nên tách ra MỘT hàm, cả hai
+         cùng gọi: nhãn không bao giờ nói khác kết quả. (§15.3, nguyên tắc nguồn sự thật duy nhất) */
+      const _hopTT=(a,tt)=>{ const tk=(window.__driveTok||{})[a.name]; const pct=a.cap?(a.used||0)/a.cap*100:0;
+        if(!tt) return true;
+        if(tt==="nearfull") return pct>=80;
+        if(tt==="unchecked") return !tk && !a.health;
+        if(tt==="bad")    return tk ? !tk.healthy : a.health==="dead";
+        if(tt==="full")   return tk ? (tk.healthy&&tk.fullEdit!==false) : a.health==="ok";
         if(!tk) return false;
-        if(sfA==="noperm") return tk.healthy&&tk.fullEdit===false;
-        return true; });
+        if(tt==="noperm") return tk.healthy&&tk.fullEdit===false;
+        return true; };
+      if(sfA) list=list.filter(a=>_hopTT(a,sfA));
+      /* Số đếm ghi thẳng vào NHÃN của từng lựa chọn: anh thấy phân bố mà không phải bấm thử
+         từng cái. Đếm trên `accs` (toàn bộ kho) chứ không trên `list` — đếm trên danh sách đã
+         lọc thì mọi lựa chọn khác hiện 0, tức nhãn nói dối ngay khi đang lọc. */
+      (function(){ const sel=$("stStatus"); if(!sel) return;
+        const NHAN={"":"Tất cả trạng thái","full":"✅ Full quyền","noperm":"🔒 Thiếu quyền",
+                    "bad":"⚠️ Token hỏng","unchecked":"⚪ Chưa kiểm quyền","nearfull":"🟠 Gần đầy (≥80%)"};
+        [...sel.options].forEach(o=>{ const n=o.value?accs.filter(a=>_hopTT(a,o.value)).length:accs.length;
+          o.textContent=`${NHAN[o.value]||o.textContent} · ${n}`; });
+      })();
       const sortedAccs=list.sort((a,b)=>
         sortBy==="full" ? ((b.used||0)/(b.cap||1))-((a.used||0)/(a.cap||1))
         : sortBy==="cap" ? (b.cap||0)-(a.cap||0)
