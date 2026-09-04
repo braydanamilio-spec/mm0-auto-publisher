@@ -152,10 +152,35 @@ def main() -> int:
                       drive_id=mp4["id"], queued=False,
                       at=mp4.get("createdTime") or "")
             ghi += 1
+    # ── ĐẾM THỨ ĐÃ GIAO, KHÔNG ĐẾM THỨ ĐÃ XẾP HÀNG  (4/9/2026) ───────────────────────────
+    # `ghi` cộng lên ngay sau `H.ghi_job(...)`, nhưng `ghi_job` chỉ NHÉT VÀO BỘ ĐỆM — và
+    # còn `return` sớm không báo gì khi `bat_ghi()` tắt. Thứ thật sự đẩy lên D1 là
+    # `xa_het()`, mà giá trị trả về của nó bị vứt đi; `_xa_buf` hụt thì nó `break` lặng lẽ
+    # và bỏ phần còn lại trong đệm.
+    #
+    # Nên bản cũ in "ĐÃ GHI 1.200 bản ghi" được cả khi D1 nhận 0 — đúng §15.3: mã thoát
+    # trả lời "có nổ không", không trả lời "có giao được hàng không". Nay in cả ba con số
+    # và cho lượt chạy HỎNG khi xếp hàng mà không giao được gì.
+    # Tín hiệu giao hàng KHÔNG phải giá trị trả về của `xa_het()`: `ghi_job` tự xả mỗi khi
+    # đệm đầy `BUF_MAX`, nên ở một lượt LÀNH `xa_het()` chỉ đẩy phần đuôi và trả về một số
+    # rất nhỏ. Lấy nó làm cổng là chế ra một cỗ máy bắt oan (§13.8).
+    # Thứ trả lời đúng câu hỏi "có sót bản ghi nào không" là ĐỆM SAU KHI XẢ: `xa_het()`
+    # lặp tới khi đệm rỗng và `break` khi một lượt đẩy hụt — còn mục trong đệm nghĩa là
+    # có bản ghi KHÔNG lên được D1.
     if a.that:
         H.xa_het()
+    con = len(getattr(H, "_DEM_BUF", []))
     print(f"\n📊 soi {thay} video trong {kho_doc}/{len(ho)} kho đọc được")
-    print(f"   {'ĐÃ GHI' if a.that else 'SẼ GHI'} {ghi} bản ghi · bỏ qua {bo} (không có sidecar đọc được)")
+    if a.that:
+        print(f"   xếp hàng {ghi} bản ghi · còn kẹt trong đệm {con} · "
+              f"bỏ qua {bo} (không có sidecar đọc được)")
+        print("   " + H.bao_cao())
+        if con:
+            print(f"   ❌ {con}/{ghi} bản ghi KHÔNG lên được D1 — sổ dựng lại còn thiếu. "
+                  f"Lượt này HỎNG để mốc cron sau tự thử lại.")
+            return 1
+    else:
+        print(f"   SẼ GHI {ghi} bản ghi · bỏ qua {bo} (không có sidecar đọc được)")
     if not thay:
         print("   ⚠ KHÔNG soi được video nào — đây KHÔNG phải bằng chứng kho rỗng. Kiểm quyền khoá dịch vụ.")
         return 1

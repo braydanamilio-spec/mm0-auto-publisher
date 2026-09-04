@@ -79,10 +79,27 @@ _HAM_GHI = ("set", "update", "delete", "add", "commit", "ghi", "save", "mark", "
             "enqueue", "incr", "cool", "reserve", "release", "bump", "sync")
 
 
-def _ghi_so(ten: str) -> None:
+def _ghi_so(ten: str, n: int = 1) -> None:
+    """Cộng `n` LƯỢT vào sổ. `n` là số DOC, không phải số lệnh — xem `_dem_doc`."""
     loai = "ghi" if any(t in ten.lower() for t in _HAM_GHI) else "doc"
-    _SO_LUOT[loai] += 1
-    _SO_LUOT["theo_ham"][ten] = _SO_LUOT["theo_ham"].get(ten, 0) + 1
+    _SO_LUOT[loai] += n
+    _SO_LUOT["theo_ham"][ten] = _SO_LUOT["theo_ham"].get(ten, 0) + n
+
+
+def _dem_doc(kq) -> int:
+    """Số lượt Firestore TÍNH TIỀN cho một lệnh.
+
+    4/9/2026 — sổ cũ cộng 1 cho MỖI LỆNH, nhưng Firestore tính tiền theo DOC:
+    `list_yt_queue` là một lệnh và là **2000 lượt đọc**. Nên sổ báo "25 đọc" cho một
+    lượt publish thật ra đọc vài nghìn — và mọi câu "5% hạn mức, an toàn" dựng trên
+    con số ấy đều sai (§13.7: "số nhỏ" không phải bảo vệ).
+
+    Truy vấn không có doc nào vẫn tính 1 lượt, nên sàn là 1.
+    """
+    try:
+        return max(1, len(kq)) if isinstance(kq, (list, tuple)) else 1
+    except Exception:
+        return 1
 
 
 def bao_so_luot() -> str:
@@ -127,14 +144,27 @@ def _retry(fn, tries: int = 5, p: str = "A"):
     # sáng hôm sau vừa reset là bị đốt lại ngay, đúng cảnh "khởi động ngày mới cái đốt sạch quota".
     # Nay: gặp 429 lần đầu là ghi nhớ; trong 30' sau đó KHÔNG thử lại nữa, ném luôn cho tầng trên
     # chuyển sang gương/đệm. Burst thật vẫn được thử lại như cũ (vì mốc nghỉ chỉ đặt khi ĐÃ hết lượt).
+    # Tên hàm gọi cho biết đọc hay ghi. KHÔNG dùng `_getframe(<số cố định>)`: lệnh GHI đi
+    # qua `_retry_C` (thêm một khung) còn lệnh ĐỌC gọi thẳng `_retry`, nên mọi hằng số độ
+    # sâu đều đúng một nửa đường và sai nửa kia — bản cũ đặt 2, tức đúng cho ghi và trỏ
+    # vượt lên hàm ngoài cho đọc. Đi ngược ngăn xếp, bỏ qua khung của chính lối thử-lại.
+    _ten_goi = "?"
     try:
         import sys as _sys
-        _ghi_so(_sys._getframe(2).f_code.co_name)     # tên hàm gọi -> biết đọc hay ghi
+        for _d in range(1, 5):
+            _t = _sys._getframe(_d).f_code.co_name
+            if _t not in ("_retry", "_retry_C", "<lambda>"):
+                _ten_goi = _t
+                break
     except Exception:
         pass
     for i in range(tries):
         try:
-            return fn()
+            _kq = fn()
+            # Đếm SAU khi chạy xong để biết lệnh trả về bao nhiêu doc. Mỗi lần thử lại
+            # cũng tốn lượt thật, nên cộng cả `i` lần hỏng trước đó.
+            _ghi_so(_ten_goi, _dem_doc(_kq) + i)
+            return _kq
         except Exception as e:
             s = str(e)
             _la_quota = ("RESOURCE_EXHAUSTED" in s or "Quota exceeded" in s or "429" in s)
@@ -538,18 +568,33 @@ class State:
             out[key] = data
         return out
 
-    def posted_youtube(self, channel: str, owner: str | None = None) -> list[tuple[str, str]]:
-        """Trả [(doc_id, youtube_video_id)] cho video đã đăng có id YouTube. (OWNED -> C)"""
+    # Trần đọc: `stats.yml` chạy 33 lượt/ngày × 18 kênh, và truy vấn này KHÔNG có trần —
+    # mỗi lượt đọc trọn kho video đã đăng của kênh. Trần 3000 để một kênh nhiều video
+    # không nuốt cả hạn mức ngày; khi chạm trần thì NÓI RA (§15.2 — con số phải có mẫu số),
+    # vì lúc ấy phần video ngoài trần sẽ không được cập nhật lượt xem.
+    DOC_TRAN = 3000
+
+    def posted_youtube(self, channel: str,
+                       owner: str | None = None) -> list[tuple[str, str, dict]]:
+        """Trả [(doc_id, youtube_video_id, thống_kê_đang_lưu)] cho video đã đăng. (OWNED -> C)
+
+        Trả kèm thống kê hiện có để chỗ gọi SO trước khi ghi: lượt xem của một video ba
+        tháng tuổi gần như không đổi, mà bản cũ vẫn ghi đè nó 33 lần mỗi ngày.
+        """
         q = (self.pub.collection("videos")
              .where("channel", "==", channel).where("status", "==", "posted"))
         if owner:
             q = q.where("owner", "==", owner)
+        docs = _retry(lambda: list(q.limit(self.DOC_TRAN).stream()))
+        if len(docs) >= self.DOC_TRAN:
+            print(f"  ⚠️ posted_youtube({channel}): chạm trần {self.DOC_TRAN} doc — "
+                  f"video ngoài trần KHÔNG được cập nhật lượt xem lượt này")
         out = []
-        for d in _retry(lambda: list(q.stream())):
+        for d in docs:
             r = d.to_dict()
             yid = ((r.get("results") or {}).get("youtube") or {}).get("id")
             if yid:
-                out.append((d.id, yid))
+                out.append((d.id, yid, r.get("stats") or {}))
         return out
 
     def set_video_stats(self, doc_id: str, stats: dict):

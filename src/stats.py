@@ -65,22 +65,34 @@ def refresh_conn(uid: str, channel: str, creds: dict, state: State):
 
     # 2) Thống kê từng VIDEO đã đăng (batch 50) — chỉ video của user này
     pairs = state.posted_youtube(channel, owner=uid)
-    by_yid = {yid: doc for doc, yid in pairs}
+    by_yid = {yid: (doc, cu) for doc, yid, cu in pairs}
     ids = list(by_yid.keys())
+    _ghi = 0
     for i in range(0, len(ids), 50):
         chunk = ids[i:i + 50]
         vresp = svc.videos().list(part="statistics", id=",".join(chunk)).execute()
         for v in vresp.get("items", []):
             st = v.get("statistics", {})
-            doc = by_yid.get(v["id"])
-            if doc:
-                state.set_video_stats(doc, {
-                    "views": int(st.get("viewCount", 0)),
-                    "likes": int(st.get("likeCount", 0)),
-                    "comments": int(st.get("commentCount", 0)),
-                })
+            doc, dang_luu = by_yid.get(v["id"], (None, {}))
+            if not doc:
+                continue
+            moi = {
+                "views": int(st.get("viewCount", 0)),
+                "likes": int(st.get("likeCount", 0)),
+                "comments": int(st.get("commentCount", 0)),
+            }
+            # CHỈ GHI KHI ĐỔI. Lượt xem của một video ba tháng tuổi gần như đứng yên, mà
+            # bản cũ ghi đè nó 33 lần/ngày (stats.yml) × 18 kênh — ghi là hạn mức đắt nhất
+            # của Firestore free (20.000/ngày, tách riêng với 50.000 đọc).
+            # So ba con số, KHÔNG so cả cụm: `updated_at` luôn khác nên so cả cụm thì
+            # không bao giờ khớp và cổng này thành vô dụng.
+            if all(dang_luu.get(k) == x for k, x in moi.items()):
+                continue
+            state.set_video_stats(doc, moi)
+            _ghi += 1
     if ids:
-        print(f"     cập nhật {len(ids)} video.")
+        print(f"     soi {len(ids)} video · {_ghi} video đổi số -> ghi · "
+              f"{len(ids) - _ghi} giữ nguyên.")
 
 
 def main():

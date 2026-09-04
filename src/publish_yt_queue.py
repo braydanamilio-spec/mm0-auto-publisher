@@ -30,11 +30,26 @@ YT_CAP_PER_DAY = 6      # ~6 upload/ngày/1 project (quota 10k đơn vị)
 MAX_PER_RUN = 2         # mỗi lần cron chỉ đăng tối đa 2 -> giãn cách tự nhiên theo tần suất cron
 
 
+
+# ── XẾP HÀNG THEO GIỜ ĐẶT LỊCH  (4/9/2026) ────────────────────────────────────────────
+# `list_*_queue` trả về theo THỨ TỰ DOC ID của Firestore (không sắp), còn vòng đăng thì
+# dừng ở MAX_*_PER_RUN. Hai điều ấy cộng lại nghĩa là: một video đặt lịch ba hôm trước
+# phải xếp sau một video đặt lịch hôm nay, chỉ vì doc id của nó lớn hơn.
+#
+# Không sắp ở Firestore vì `where status in [...]` + `order_by publish_at` đòi một
+# composite index mới, mà `limit(2000)` đã chặn số đọc rồi — sắp trong Python là miễn phí.
+# Item thiếu `publish_at` xếp TRƯỚC (chúng là "đăng ngay", không có lịch để mà chờ).
+def _theo_gio(ds: list[dict]) -> list[dict]:
+    def _k(it):
+        pa = str(it.get("publish_at") or "")
+        return (1, pa) if pa else (0, "")
+    return sorted(ds, key=_k)
+
 def run(dry_run: bool = False):
     state = State()
     now = datetime.now(timezone.utc)
     try:
-        items = state.list_yt_queue()
+        items = _theo_gio(state.list_yt_queue())
     except Exception as e:
         print(f"  ⚠️ yt_queue: {e}")
         return

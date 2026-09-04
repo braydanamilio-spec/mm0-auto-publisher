@@ -126,10 +126,25 @@ def run(dry_run: bool = False):
           f"không lên FB/IG và cũng không được dọn." if _kho_hong else ""))
 
 
+
+# ── XẾP HÀNG THEO GIỜ ĐẶT LỊCH  (4/9/2026) ────────────────────────────────────────────
+# `list_*_queue` trả về theo THỨ TỰ DOC ID của Firestore (không sắp), còn vòng đăng thì
+# dừng ở MAX_*_PER_RUN. Hai điều ấy cộng lại nghĩa là: một video đặt lịch ba hôm trước
+# phải xếp sau một video đặt lịch hôm nay, chỉ vì doc id của nó lớn hơn.
+#
+# Không sắp ở Firestore vì `where status in [...]` + `order_by publish_at` đòi một
+# composite index mới, mà `limit(2000)` đã chặn số đọc rồi — sắp trong Python là miễn phí.
+# Item thiếu `publish_at` xếp TRƯỚC (chúng là "đăng ngay", không có lịch để mà chờ).
+def _theo_gio(ds: list[dict]) -> list[dict]:
+    def _k(it):
+        pa = str(it.get("publish_at") or "")
+        return (1, pa) if pa else (0, "")
+    return sorted(ds, key=_k)
+
 def run_queue(state, now, dry_run=False):
     """Đăng FB/IG cho các item trong social_queue đã tới giờ (độc lập YouTube)."""
     try:
-        items = state.list_social_queue()
+        items = _theo_gio(state.list_social_queue())
     except Exception as e:
         print(f"  ⚠️ social_queue: {e}")
         return
