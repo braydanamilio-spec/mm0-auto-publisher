@@ -135,17 +135,28 @@ class Drive:
         return out
 
     def _list_videos(self, folder_id: str) -> list[dict]:
+        """── HAI CHỖ PHÍ Ở ĐÂY, CẢ HAI ĐO ĐƯỢC  (4/9/2026) ──────────────────────────────
+        1. `pageSize=100` trong khi Drive cho tới **1000**. Một kho 900 video là **9 lượt gọi
+           API** thay vì 1. Chính `kiem_kho.py` ở repo render đã dùng 1000 — cùng một việc,
+           hai con số, và bên dùng nhiều hơn lại là bên chậm hơn.
+        2. Lọc `mimeType` bằng **Python sau khi đã tải về**: Drive vẫn trả sidecar `.json`,
+           thumbnail `.jpg`, phụ đề `.srt` — mỗi video sinh ra 3 tệp phụ, tức **3/4 số dòng
+           tải về chỉ để vứt đi**. Lọc trong `q` thì Drive không gửi chúng.
+
+        Hai thứ nhân nhau: một kho 900 video ≈ 3.600 tệp -> 36 lượt gọi, còn 900 dòng cần.
+        Sau khi sửa: **1 lượt gọi, 900 dòng**. Với 100 kho và bảng thư viện gọi mỗi lần mở
+        trang, đây là chỗ tiêu hạn mức Drive API lớn nhất mà không ai đếm."""
+        loc = " or ".join(f"mimeType='{m}'" for m in VIDEO_MIME)
         items, token = [], None
         while True:
             res = self.svc.files().list(
-                q=f"'{folder_id}' in parents and trashed = false",
+                q=f"'{folder_id}' in parents and trashed = false and ({loc})",
                 fields="nextPageToken, files(id,name,mimeType,size,parents,modifiedTime,createdTime)",
                 pageToken=token,
-                pageSize=100,
+                pageSize=1000,
+                supportsAllDrives=True, includeItemsFromAllDrives=True,
             ).execute(num_retries=_RETRIES)
-            for f in res.get("files", []):
-                if f.get("mimeType") in VIDEO_MIME:
-                    items.append(f)
+            items.extend(res.get("files", []))
             token = res.get("nextPageToken")
             if not token:
                 break
@@ -288,7 +299,22 @@ class Drive:
         name = os.path.basename(local_path)
         base = name.rsplit(".", 1)[0]
 
-        media = MediaFileUpload(local_path, resumable=True, chunksize=1024 * 1024 * 8)
+        # ── TỆP NHỎ THÌ ĐẨY THẲNG, KHÔNG DÙNG RESUMABLE  (4/9/2026) ─────────────────────
+        # Resumable upload là ba vòng mạng: xin phiên -> đẩy -> chốt. Nó sinh ra để cứu
+        # những lần đứt giữa chừng của tệp LỚN; với tệp nhỏ thì lần thử lại còn rẻ hơn cái
+        # phiên nó dựng ra. Google khuyến nghị đẩy thẳng cho tệp dưới ~5 MB.
+        #
+        # Đo trên chính `out/` hôm nay: **20/28 tệp dưới 5 MB (71%)** — short 9:16 hầu hết
+        # 2–4 MB. Tức phần lớn lượt đẩy của dây chuyền đang trả giá ba vòng mạng cho một
+        # việc một vòng làm xong, và ở mức hàng nghìn video mỗi ngày thì đó là hàng nghìn
+        # vòng thừa. `num_retries` vẫn lo phần đứt mạng, nên không mất lưới an toàn nào.
+        _nho = 5 * 1024 * 1024
+        try:
+            _co = os.path.getsize(local_path)
+        except OSError:
+            _co = _nho + 1          # không đo được thì cứ coi là lớn — resumable an toàn hơn
+        media = (MediaFileUpload(local_path, resumable=False) if _co < _nho
+                 else MediaFileUpload(local_path, resumable=True, chunksize=1024 * 1024 * 8))
         created = self.svc.files().create(
             body={"name": name, "parents": [folder]},
             media_body=media, fields="id,name",
