@@ -569,6 +569,10 @@ def process_users(channels_cfg, templates, safety, tz, dry_run, state, now):
                     "yt_over": ({k: doc[k] for k in ("privacy", "made_for_kids", "language", "category", "location")
                                  if doc.get(k) not in (None, "")} if doc.get("edited") else {}),
                     "_drive": drv, "_root": root,
+                    # Bản ghi CŨ, đã đọc ở `state.get_video(f["id"])` phía trên. Giữ lại để
+                    # vòng ghi bên dưới so trước khi ghi — xem chú thích "CHỈ GHI KHI CÓ GÌ
+                    # ĐỔI". Không tốn thêm một lượt đọc nào.
+                    "_doc_cu": doc,
                 })
 
         for channel, items in groups.items():
@@ -584,15 +588,33 @@ def process_users(channels_cfg, templates, safety, tz, dry_run, state, now):
             items.sort(key=lambda it: _natkey(it["drive_name"]))   # 01,02,03... trước
             used = {it["publish_at"] for it in items if it.get("publish_at")}
             S.assign_slots(items, template, tz, now, used)
+            # ── CHỈ GHI KHI CÓ GÌ ĐỔI  (4/9/2026) ────────────────────────────────────────
+            # Bản cũ ghi lại MỌI mục trong hàng đợi, mỗi lượt cron, vô điều kiện. Cron chạy
+            # */30 nên 48 lượt/ngày; với ~450 video còn chờ đăng thì riêng vòng này tiêu
+            # **21.600 lượt GHI/ngày** — vượt trần 20.000 của project C bằng một mình nó, cộng
+            # thêm 21.600 lượt ĐỌC nữa.
+            #
+            # Hậu quả không phải "tốn hạn mức": khi C cạn, `publish_yt_queue` KHÔNG ghi được
+            # `status: posted` — và video đã đăng bị đăng lại ở lượt sau. Không dấu hiệu nào
+            # báo, vì log chỉ in số video đến giờ.
+            #
+            # Hàng đợi gần như không đổi giữa hai lượt cách nhau 30 phút (YouTube chặn ~6
+            # video/ngày/kênh). So trước khi ghi thì số ghi tụt về gần bằng số video THẬT SỰ
+            # đổi trạng thái — vài chục thay vì hai vạn.
             for it in items:
-                state.upsert_video(it["drive_file_id"], {
+                _moi = {
                     "owner": uid, "channel": channel, "drive_name": it["drive_name"],
                     "type": it["type"], "title": it["meta"]["title"],
                     "description": it["meta"]["description"], "tags": it["meta"]["tags"],
                     "hashtags": it["meta"]["hashtags"],
                     "publish_at": it.get("publish_at"), "status": it["status"],
                     "warnings": it["warnings"], "checks": it.get("checks"), "storage": "pool",
-                })
+                }
+                # `doc` đã được đọc ở vòng trên và gắn vào `it` — không tốn thêm lượt đọc nào.
+                _cu = it.get("_doc_cu") or {}
+                if all(_cu.get(k) == v for k, v in _moi.items()):
+                    continue          # không đổi gì -> không ghi
+                state.upsert_video(it["drive_file_id"], _moi)
             ready = S.due_items(items, now)
             counters = state.get_counters(channel, now, owner=uid)
             last = state.last_upload_at(channel, now, owner=uid)

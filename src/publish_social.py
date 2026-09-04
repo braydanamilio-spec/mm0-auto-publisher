@@ -49,6 +49,7 @@ def _resolve_page(channel: str, pages: dict, fb_map: dict) -> dict | None:
 
 
 def run(dry_run: bool = False):
+    _kho_hong = 0          # đếm kho Drive không đọc được — xem chú thích ở vòng `pool`
     state = State()
     now = datetime.now(timezone.utc)
 
@@ -90,7 +91,21 @@ def run(dry_run: bool = False):
         for drv, root in pool:
             try:
                 files = drv.list_queue(root)
-            except Exception:
+            except Exception as e:
+                # ── NÓI RA KHO NÀO CHẾT  (4/9/2026) ──────────────────────────────────────
+                # Bản cũ `except Exception: continue` — KHÔNG một dòng log. Một kho Drive hỏng
+                # token (`invalid_grant`) hay hết scope biến mất khỏi lượt đăng FB/IG hoàn toàn
+                # im lặng, rồi ngay dưới in `✔ Đăng FB/IG xong.`
+                #
+                # Đo được trên log thật: kho ADISONDURHAM trả `invalid_grant: Bad Request` và
+                # không ai biết — video của kho ấy KHÔNG BAO GIỜ lên FB/IG. Tệ hơn:
+                # `cleanup._confirmed_posted` đòi cả YouTube lẫn một mạng xã hội, nên chúng
+                # cũng không bao giờ được dọn, và kho cứ phình.
+                #
+                # `main.py:535` cùng chỗ ấy đã sửa đúng từ trước (in tên kho + đánh dấu kho
+                # hỏng). Lại là *vá một nhánh, để nguyên nhánh song song*.
+                _kho_hong += 1
+                print(f"  ⚠️ list_queue kho {getattr(drv, 'ten', root)[:28]}: {str(e)[:90]}")
                 continue
             # dựng item + lọc đến giờ
             items = []
@@ -107,7 +122,8 @@ def run(dry_run: bool = False):
 
     # HÀNG ĐỢI ĐỘC LẬP (đăng FB/IG không cần kênh YouTube) — chạy chung 1 cron
     run_queue(state, now, dry_run)
-    print("✔ Đăng FB/IG xong.")
+    print(f"✔ Đăng FB/IG xong." + (f"  ⚠️ {_kho_hong} kho KHÔNG đọc được — video của chúng "
+          f"không lên FB/IG và cũng không được dọn." if _kho_hong else ""))
 
 
 def run_queue(state, now, dry_run=False):

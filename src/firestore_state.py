@@ -311,8 +311,21 @@ class State:
 
     # ---------- HÀNG ĐỢI ĐĂNG FB/IG ĐỘC LẬP (social_queue) (OWNED -> C) ----------
     def list_social_queue(self) -> list[dict]:
-        """Item đang chờ đăng FB/IG độc lập (không gắn YouTube)."""
-        q = self.pub.collection("social_queue").where("status", "in", ["pending", "processing"])
+        """Item đang chờ đăng FB/IG độc lập (không gắn YouTube).
+
+        ── TRẦN 2000  (4/9/2026) ──────────────────────────────────────────────────────────
+        Bản cũ `.stream()` KHÔNG giới hạn, gọi mỗi lượt cron (15,45 — 96 lượt/ngày). Chính
+        truy vấn cùng hình dạng ở `auto_enqueue.py:167` đã được vá bằng `.limit(2000)` kèm chú
+        thích *"QUẢ BOM PROJECT C… 644 mục × 96 lượt cron = 123% trần C"* — bản vá đặt ở MỘT
+        nhánh, hai nhánh song song (`list_social_queue`, `list_yt_queue`) còn nguyên.
+        Đúng họ lỗi *vá một nhánh, để nguyên nhánh song song*.
+
+        Hàng đợi chỉ PHÌNH (YouTube chặn ~6 video/ngày/kênh), nên chi phí tăng tuyến tính mãi
+        mãi. 2000 là trần rộng hơn nhiều lần hàng đợi thật; vượt nó thì bản thân việc đăng đã
+        nghẽn từ lâu và trần này không phải chỗ để phát hiện điều đó.
+        """
+        q = (self.pub.collection("social_queue")
+             .where("status", "in", ["pending", "processing"]).limit(2000))
         out = []
         for d in _retry(lambda: list(q.stream())):
             row = d.to_dict(); row["id"] = d.id; out.append(row)
@@ -324,7 +337,9 @@ class State:
 
     # ---------- HÀNG ĐỢI ĐĂNG YOUTUBE TỪ DRIVE (Content Hub, yt_queue) (OWNED -> C) ----------
     def list_yt_queue(self) -> list[dict]:
-        q = self.pub.collection("yt_queue").where("status", "in", ["pending", "processing"])
+        """Item chờ đăng YouTube. Trần 2000 — xem chú thích ở `list_social_queue`."""
+        q = (self.pub.collection("yt_queue")
+             .where("status", "in", ["pending", "processing"]).limit(2000))
         out = []
         for d in _retry(lambda: list(q.stream())):
             row = d.to_dict(); row["id"] = d.id; out.append(row)
