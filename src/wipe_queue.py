@@ -27,15 +27,29 @@ def _walk_files(drv, folder_id, depth=0, out=None):
     out = [] if out is None else out
     if depth > 4:
         return out
-    res = drv.svc.files().list(
-        q=f"'{folder_id}' in parents and trashed=false",
-        fields="files(id,name,mimeType)", pageSize=1000,
-        supportsAllDrives=True, includeItemsFromAllDrives=True).execute().get("files", [])
-    for f in res:
-        if f.get("mimeType") == "application/vnd.google-apps.folder":
-            _walk_files(drv, f["id"], depth + 1, out)
-        else:
-            out.append(f)
+    # ── PHÂN TRANG  (4/9/2026) ─────────────────────────────────────────────────────────
+    # Bản cũ gọi `files().list(pageSize=1000)` MỘT LẦN, không lặp `nextPageToken` — trong khi
+    # `don_video_cu._quet` và `dung_lai_so._quet` cùng repo đều phân trang đúng.
+    #
+    # Thư mục quá 1000 tệp thì phần dư bị bỏ lại LẶNG LẼ, và hậu quả đi thành dây chuyền:
+    # `main()` in "TỔNG: thấy 1000 · dọn 1000 · lỗi 0", trả 0 (xanh), rồi ghi
+    # `kho_that = thấy − dọn = 0` lên D1 — **dashboard khẳng định "kho sạch" trong khi hàng
+    # nghìn tệp còn nguyên**. Đúng §15.2: một con số 0 không có mẫu số thật.
+    trang = None
+    while True:
+        r = drv.svc.files().list(
+            q=f"'{folder_id}' in parents and trashed=false",
+            fields="nextPageToken,files(id,name,mimeType)", pageSize=1000,
+            pageToken=trang, supportsAllDrives=True,
+            includeItemsFromAllDrives=True).execute()
+        for f in r.get("files", []):
+            if f.get("mimeType") == "application/vnd.google-apps.folder":
+                _walk_files(drv, f["id"], depth + 1, out)
+            else:
+                out.append(f)
+        trang = r.get("nextPageToken")
+        if not trang:
+            break
     return out
 
 

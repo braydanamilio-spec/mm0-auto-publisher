@@ -88,12 +88,32 @@ def _manage_scripts(state, rj, uid: str, accts: list, dry_run: bool, archive_day
         # tránh .stream() không giới hạn quét TOÀN BỘ collection nếu việc dọn script từng bị treo nhiều
         # ngày liền (bug khác / lỗi mạng) khiến backlog phình to -> 1 lần chạy vẫn chỉ đọc tối đa
         # SCRIPT_SCAN_LIMIT doc, phần dư để cron cleanup ngày mai xử lý tiếp (không mất dữ liệu).
-        docs = list(rj.collection("render_jobs").where("owner", "==", uid)
-                    .where("script", "!=", "").limit(SCRIPT_SCAN_LIMIT).stream())
+        # ── SẮP THEO THỜI GIAN TRƯỚC KHI CẮT  (4/9/2026) ───────────────────────────────
+        # Bản cũ `.limit(SCRIPT_SCAN_LIMIT)` KHÔNG có `order_by`. Firestore ép sắp theo `script`
+        # (trường của mệnh đề `!=`), nên mỗi ngày truy vấn trả về **đúng 500 doc GIỐNG HỆT
+        # NHAU**. Nếu 500 doc ấy toàn "chưa đăng + còn mới" thì `_manage_scripts` dọn 0 bản,
+        # MÃI MÃI, trong khi backlog phía sau tiếp tục phình tới trần 1GiB.
+        #
+        # Chú thích ngay trên nói đúng ý định — "phần dư để cron ngày mai xử lý tiếp" — nhưng
+        # không có thứ tự thì không có "phần dư": ngày mai lấy lại đúng 500 doc ấy.
+        # Đúng họ lỗi §15.1: phép CẮT đặt trước phép LỌC, và cái cần giữ không chắc nằm trong
+        # n phần tử đầu.
+        #
+        # Sắp theo `created_at` TĂNG DẦN: doc cũ nhất lên trước, tức thứ đủ tuổi để dọn được xét
+        # trước. Thiếu composite index thì rơi về cách cũ, và NÓI RA — vì lúc ấy lượt dọn không
+        # kết luận được gì (§16.1: đường dự phòng phải tự khai là dự phòng).
+        _cq = (rj.collection("render_jobs").where("owner", "==", uid).where("script", "!=", ""))
+        try:
+            docs = list(_cq.order_by("script").order_by("created_at")
+                        .limit(SCRIPT_SCAN_LIMIT).stream())
+        except Exception as _e:
+            print(f"  ⚠️ manage_scripts: không sắp được theo created_at ({str(_e)[:70]}) — "
+                  f"đọc 500 doc KHÔNG sắp xếp, nên lượt này có thể lấy lại đúng tập của hôm qua")
+            docs = list(_cq.limit(SCRIPT_SCAN_LIMIT).stream())
     except Exception as e:
-        print(f"  ⚠️ manage_scripts đọc render_jobs lỗi ({e}) — bỏ qua, thử lại ngày sau"); return 0, 0
+        print(f"  ⚠️ manage_scripts đọc render_jobs lỗi ({e}) — bỏ qua, thử lại ngày sau"); return 0, 0, 0
     if not docs:
-        return 0, 0
+        return 0, 0, 0
     now = datetime.now(timezone.utc)
     drv = accts[0][1] if accts else None   # dùng tài khoản Drive đầu tiên của user -> script vài KB, acc nào cũng đủ chỗ
     archive_folder = None
@@ -144,7 +164,7 @@ def _manage_scripts(state, rj, uid: str, accts: list, dry_run: bool, archive_day
             n_archived += 1
         except Exception as e:
             print(f"     ❌ archive script {d.id}: {e}")   # lỗi -> KHÔNG xoá field (an toàn), thử lại ngày sau
-    return n_posted, n_archived
+    return n_posted, n_archived, len(docs)
 
 
 def run(dry_run=False, force_now=False):
@@ -206,12 +226,18 @@ def run(dry_run=False, force_now=False):
         # Dọn field 'script' (kịch bản) -> chạy LUÔN, không phụ thuộc mode Drive (đó là chính sách riêng
         # cho FILE video; script ở Firestore B là mối lo dung lượng riêng, luôn dọn tự động).
         try:
-            n_posted, n_archived = _manage_scripts(state, rj, uid, accts, dry_run,
+            n_posted, n_archived, _da_soi = _manage_scripts(state, rj, uid, accts, dry_run,
                                                     archive_days=pol.get("script_archive_days", 30))
             if n_posted:
                 print(f"  📄 script đã đăng -> xoá {n_posted} bản (Firestore B)")
             if n_archived:
                 print(f"  💾 script cũ chưa đăng -> đã đẩy Drive (_SCRIPTS_ARCHIVE) + xoá khỏi Firestore: {n_archived} bản")
+            if not n_posted and not n_archived:
+                # ── SỐ 0 PHẢI CÓ MẪU SỐ  (4/9/2026) ────────────────────────────────────
+                # Bản cũ chỉ in khi đếm khác 0, nên một lượt dọn được 0 bản KHÔNG in dòng nào —
+                # và "đã soi, không có gì để dọn" im lặng y hệt "chưa soi được doc nào".
+                # Hai điều ấy dẫn tới hai hành động hoàn toàn khác nhau (§15.2).
+                print(f"  📄 script: soi {_da_soi} bản ghi · không bản nào đủ điều kiện dọn")
         except Exception as e:
             print(f"  ⚠️ manage_scripts {uid[:8]}: {e}")
 
