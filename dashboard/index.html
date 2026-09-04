@@ -2150,6 +2150,44 @@
         } }
     });
     function sub(name, cb){ snapW(query(collection(_appFor(name),name), where("owner","==",(window.__ownerUid||window.__uid))), cb, () => setLive(false)); }
+    /* ── LISTENER PHẢI CÓ TRẦN, KHÔNG THÌ NÓ PHÌNH THEO TUỔI DỰ ÁN  (4/9/2026) ────────────
+       Anh: *"tính toán tất cả mục tốn quota của website … để không bị chặn đứng tiến trình."*
+
+       `sub()` mở `onSnapshot` trên CẢ collection, chỉ lọc `owner`. Firestore tính **một lượt
+       đọc cho mỗi tài liệu ở ảnh chụp đầu**, nên mỗi lần mở trang (mỗi tab, mỗi lần F5) tốn
+       đúng bằng SỐ TÀI LIỆU đang có.
+
+       Với `settings`/`fb_pages`/`quota`/`counters` thì không sao — chúng có vài chục dòng và
+       không tăng. Nhưng `yt_queue`, `social_queue` và `links` **giữ lại cả item đã đăng**
+       (`list_yt_queue` phải tự lọc `status in [pending, processing]` mới lấy ra được), nên
+       chúng lớn lên theo TỔNG SỐ VIDEO ĐÃ TỪNG ĐĂNG. Ở mức "hàng nghìn video mỗi ngày" mà
+       anh đang nhắm, chỉ mở dashboard vài lần là hết hạn mức đọc của cả ngày — và lúc ấy
+       khâu đẩy video mất hạn mức theo, đúng thứ anh muốn tránh.
+
+       Lỗi này KHÔNG bao giờ tự lộ ra: hôm nay hàng đợi còn nhỏ nên trang mở nhanh, và nó chỉ
+       nổ khi dự án đã chạy đủ lâu — đúng lúc mất nhiều nhất nếu đứng.
+
+       Cùng bản vá đã dùng cho `videos` (19/8, cũng vì lý do y hệt): trần + sắp theo thời gian,
+       và LÙI về truy vấn cũ nếu thiếu index, để thiếu index không làm trắng bảng. */
+       ── VÌ SAO LỌC THEO `status`, KHÔNG SẮP THEO `created_at` ─────────────────────────
+       Bản đầu của em định `orderBy("created_at","desc").limit(200)`, chép từ `videos`. Đi
+       kiểm thì **không xác nhận được mọi tài liệu đều có `created_at`**: `auto_enqueue` có
+       ghi, nhưng `social_queue`/`links` còn lối tạo khác mà em chưa truy ra. Và Firestore
+       **loại hẳn tài liệu thiếu trường đang sắp** — nên một trường thiếu ở vài dòng sẽ làm
+       bảng lịch đăng mất dòng, im lặng. Đổi một lỗi hạn mức lấy một lỗi mất dữ liệu là đổi
+       sai chiều (§13.8: cổng bắt oan tệ hơn cổng không bắt).
+
+       `status` thì chắc chắn có: chính `list_yt_queue`/`list_social_queue` phía máy chủ lọc
+       `status in [pending, processing]`, tức nó là trường bắt buộc theo hợp đồng đang chạy.
+       Lọc đúng như thế thì tập đọc bằng **hàng đợi đang chờ**, không phải toàn bộ lịch sử —
+       đó mới là thứ hai bảng ấy hiển thị. Item đã đăng xong không còn phải đi qua đường
+       truyền của trình duyệt nữa. */
+    function subCho(name, cb){
+      const col = collection(_appFor(name), name);
+      const w = where("owner","==",(window.__ownerUid||window.__uid));
+      snapW(query(col, w, where("status","in",["pending","processing","scheduled"])), cb,
+            () => { snapW(query(col, w), cb, () => setLive(false)); });
+    }
     let __subscribed=false;
     function subscribe(){
       // BẢO VỆ: onAuthStateChanged gọi subscribe() mỗi lần đăng nhập (kể cả đăng xuất rồi đăng nhập lại
@@ -3382,9 +3420,13 @@
       });
       sub("fb_pages", s => { window.setFbPages(s.docs.map(d=>({id:d.id,...d.data()}))); });
       sub("quota", s => { window.setQuota(s.docs.map(d=>({id:d.id,...d.data()}))); });
-      sub("social_queue", s => { if(window.setSocQueue) window.setSocQueue(s.docs.map(d=>({id:d.id,...d.data()}))); });
-      sub("yt_queue", s => { if(window.setYtQueue) window.setYtQueue(s.docs.map(d=>({id:d.id,...d.data()}))); });
+      subCho("social_queue", s => { if(window.setSocQueue) window.setSocQueue(s.docs.map(d=>({id:d.id,...d.data()}))); });
+      subCho("yt_queue", s => { if(window.setYtQueue) window.setYtQueue(s.docs.map(d=>({id:d.id,...d.data()}))); });
       sub("tasks", s => { if(window.setTasks) window.setTasks(s.docs.map(d=>({id:d.id,...d.data()}))); });
+      /* `links` KHÔNG đổi: nó không phải hàng đợi nên không có `status`, và em chưa
+         truy ra lối tạo nó để biết trường nào sắp được. Ghi ra đây là một rủi ro
+         hạn mức CHƯA chặn, thay vì ship một bản vá có thể làm mất dòng (§13.22:
+         "chưa đo được" là một kết luận hợp lệ). */
       sub("links", s => { if(window.setLinks) window.setLinks(s.docs.map(d=>({id:d.id,...d.data()}))); });
     }
     // Giao việc (Kanban)
