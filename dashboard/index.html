@@ -4055,7 +4055,17 @@
       if(kb) kb.innerHTML = quotaLine +
         (nRepl?`<div>🔴 <b style="color:#fff;background:#dc2626;padding:2px 7px;border-radius:6px">${nRepl} key chết >${Math.round(_dt.repl/24)} ngày — THAY NGAY</b></div>`:'')
         +(nWarn?`<div style="margin-top:4px">⚠️ <b style="color:#111;background:#f59e0b;padding:2px 7px;border-radius:6px">${nWarn} key chết >${_dt.warn}h — theo dõi</b></div>`:'')
-        +((!nRepl&&!nWarn)?(nDead? `🔴 <b style="color:#ff5a5a">${nDead} key chết</b> — health-check tự mở lại nếu Google bỏ chặn.` : (ks.some(k=>k.last_checked)? '🟢 Tất cả key sống (kiểm mỗi ngày).' : '⚪ Chưa health-check lần nào.')):''); window.__collapseList&&window.__collapseList('rsKeyList',46); };
+        +((!nRepl&&!nWarn)?(nDead? `🔴 <b style="color:#ff5a5a">${nDead} key chết</b> — health-check tự mở lại nếu Google bỏ chặn.` : (()=>{ /* 5/9 — `some` ở chỗ lẽ ra là `every`. MỘT key từng được kiểm là banner tuyên bố
+             CẢ 295 key sống, trong khi bộ lọc ngay dưới ghi "Chưa kiểm (151)". Màn hình tự
+             cãi nhau, và cái nói dối là câu to nhất. "Chưa kiểm" KHÔNG phải "sống" — hai
+             điều ấy dẫn tới hai hành động khác hẳn nhau. Mọi con số 0/khẳng định phải đi kèm
+             MẪU SỐ. */
+            const ck=ks.filter(k=>k.last_checked).length, ch=ks.length-ck;
+            if(!ck) return '⚪ Chưa health-check lần nào.';
+            if(!ch) return '🟢 Tất cả '+ks.length+' key sống (kiểm mỗi ngày).';
+            return '🟢 <b>'+ck+'</b> key đã kiểm — còn sống · ⚪ <b>'+ch+'</b> key <b>CHƯA kiểm lần nào</b> '
+                 + '<span class="d">(chưa kiểm ≠ sống — bấm “Kiểm ngay” để biết)</span>';
+          })()):''); window.__collapseList&&window.__collapseList('rsKeyList',46); };
     // Render danh sách kênh + CHECKBOX chọn nhiều + ĐẾM đã làm long/short + trạng thái target.
     window.__rsSelCh = window.__rsSelCh || new Set();
     window.__rsRenderChList = () => { const el=document.getElementById("rsChList"); if(!el) return;
@@ -8149,13 +8159,27 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       window.__driveTok={}; rows.forEach(r=>{ window.__driveTok[r.a]={healthy:r.healthy,fullEdit:r.fullEdit,unknown:r.unknown}; });
       window.renderStorage&&window.renderStorage();
       const bad=rows.filter(r=>r.healthy===false);           // HỎNG THẬT (explicit false; unknown KHÔNG tính)
+      /* 5/9 — HAI NGUỒN TRẢ LỜI CÙNG MỘT CÂU HỎI, VÀ Ô NÀY CHỈ NGHE MỘT.
+         Ảnh anh gửi: banner đỏ ghi "8 kho Drive mất kết nối — video không đẩy vào được"
+         và liệt kê đúng tên; ô xanh NGAY DƯỚI tick xanh cho chính tám tài khoản ấy rồi
+         tuyên bố "Tất cả 100 kho token sống + đủ quyền full".
+         Banner đọc `a.health==="dead"` — cờ do PUBLISHER ghi lại từ lần đẩy video HỎNG
+         THẬT. Ô này đọc `r.healthy` — phép kiểm token do chính trình duyệt vừa chạy.
+         Token còn sống KHÔNG có nghĩa là đẩy được: hết dung lượng, mất quyền thư mục, tổ
+         chức khoá chia sẻ — token vẫn xanh. Nên phép kiểm hẹp hơn không được quyền phủ
+         quyết kinh nghiệm thật của khâu đẩy.
+         Cùng họ với banner key ("Tất cả key sống" trong khi 151 key chưa kiểm): một ô
+         tuyên bố sạch bằng phép thử hẹp hơn ô bên cạnh đang báo hỏng. */
+      const soDay = new Set(((window.__STORAGE||{}).accounts||[])
+                      .filter(a=>a.health==="dead").map(a=>String(a.name||"").toUpperCase()));
+      const dayHong = rows.filter(r=>soDay.has(String(r.a||"").toUpperCase()));
       const unknown=rows.filter(r=>r.unknown);
       const noPerm=rows.filter(r=>r.healthy && r.fullEdit===false);
-      const alert=bad.length||noPerm.length;
+      const alert=bad.length||noPerm.length||dayHong.length;
       box.innerHTML=`<div class="panel" style="border-color:${alert?'var(--warn)':(unknown.length?'var(--muted)':'var(--good)')};padding:12px">
         <b style="color:${alert?'var(--warn)':(unknown.length?'var(--muted)':'var(--good)')}">${bad.length?`⚠️ ${bad.length}/${rows.length} kho token HỎNG · `:''}${noPerm.length?`🔒 ${noPerm.length} kho THIẾU QUYỀN · `:''}${unknown.length?(window.__tokNgat
           ? `⏳ ${unknown.length} kho chưa kiểm được — ĐÃ DỪNG SỚM vì hạn mức đọc đang cạn (${DUT} kho liên tiếp trượt). Bấm lại lúc này chỉ đốt thêm hạn mức của khâu ĐẨY VIDEO; chờ hạn mức hồi (00:00 giờ Thái Bình Dương = 14:00 giờ VN) rồi kiểm. · `
-          : `⏳ ${unknown.length} kho chưa kiểm được (lỗi tạm, bấm kiểm lại) · `):''}${window.__tokDem?`💾 ${window.__tokDem} kho lấy từ đệm 6h · `:''}${(!bad.length&&!noPerm.length&&!unknown.length)?`✅ Tất cả ${rows.length} kho token sống + đủ quyền full`:''}</b>
+          : `⏳ ${unknown.length} kho chưa kiểm được (lỗi tạm, bấm kiểm lại) · `):''}${window.__tokDem?`💾 ${window.__tokDem} kho lấy từ đệm 6h · `:''}${dayHong.length?`⚠️ ${dayHong.length} kho TOKEN SỐNG nhưng ĐẨY VIDEO HỎNG (${dayHong.slice(0,4).map(r=>r.a).join(", ")}${dayHong.length>4?"…":""}) — kiểm token không thấy được lỗi này · `:''}${(!bad.length&&!noPerm.length&&!unknown.length&&!dayHong.length)?`✅ Tất cả ${rows.length} kho token sống + đủ quyền full`:''}</b>
         <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px">${rows.map(r=>{
           const st = r.unknown ? {ic:'⏳',cls:'',t:'chưa kiểm được (rate-limit) — bấm kiểm lại'} : (r.healthy===false ? {ic:'⚠️',cls:'bad',t:'token hỏng'} : (r.fullEdit===false ? {ic:'🔒',cls:'bad',t:'THIẾU QUYỀN edit'} : {ic:'✅',cls:'',t:'đủ quyền full'}));
           const needFix = r.healthy===false || (r.healthy && r.fullEdit===false);
