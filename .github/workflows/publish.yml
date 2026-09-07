@@ -55,29 +55,170 @@ jobs:
           SHARD_PUBLISH: ${{ vars.SHARD_PUBLISH }}   # =1 khi đã migrate publish sang C
           POSTING_TEMPLATE: ${{ vars.POSTING_TEMPLATE || 'growth_30d' }}
 
-          # ---- KÊNH: BROKE ----
-          BROKE_DRIVE_FOLDER_ID:   ${{ secrets.BROKE_DRIVE_FOLDER_ID }}
-          BROKE_YT_CLIENT_ID:      ${{ secrets.BROKE_YT_CLIENT_ID }}
-          BROKE_YT_CLIENT_SECRET:  ${{ secrets.BROKE_YT_CLIENT_SECRET }}
-          BROKE_YT_REFRESH_TOKEN:  ${{ secrets.BROKE_YT_REFRESH_TOKEN }}
-          BROKE_FB_PAGE_ID:        ${{ secrets.BROKE_FB_PAGE_ID }}
-          BROKE_FB_PAGE_TOKEN:     ${{ secrets.BROKE_FB_PAGE_TOKEN }}
-
-          # ---- KÊNH: INSIDE YOU ----
-          INSIDE_YOU_DRIVE_FOLDER_ID:  ${{ secrets.INSIDE_YOU_DRIVE_FOLDER_ID }}
-          INSIDE_YOU_YT_CLIENT_ID:     ${{ secrets.INSIDE_YOU_YT_CLIENT_ID }}
-          INSIDE_YOU_YT_CLIENT_SECRET: ${{ secrets.INSIDE_YOU_YT_CLIENT_SECRET }}
-          INSIDE_YOU_YT_REFRESH_TOKEN: ${{ secrets.INSIDE_YOU_YT_REFRESH_TOKEN }}
-          INSIDE_YOU_FB_PAGE_ID:       ${{ secrets.INSIDE_YOU_FB_PAGE_ID }}
-          INSIDE_YOU_FB_PAGE_TOKEN:    ${{ secrets.INSIDE_YOU_FB_PAGE_TOKEN }}
-
-          # ---- KÊNH: HUH? ----
-          HUH_DRIVE_FOLDER_ID:  ${{ secrets.HUH_DRIVE_FOLDER_ID }}
-          HUH_YT_CLIENT_ID:     ${{ secrets.HUH_YT_CLIENT_ID }}
-          HUH_YT_CLIENT_SECRET: ${{ secrets.HUH_YT_CLIENT_SECRET }}
-          HUH_YT_REFRESH_TOKEN: ${{ secrets.HUH_YT_REFRESH_TOKEN }}
-          HUH_FB_PAGE_ID:       ${{ secrets.HUH_FB_PAGE_ID }}
-          HUH_FB_PAGE_TOKEN:    ${{ secrets.HUH_FB_PAGE_TOKEN }}
+          # ---- KÊNH (SINH TỰ ĐỘNG bởi dong_bo_khoa_kenh.py — ĐỪNG SỬA TAY) ----
+          # HOWLONG
+          HOWLONG_DRIVE_FOLDER_ID:  ${{ secrets.HOWLONG_DRIVE_FOLDER_ID }}
+          HOWLONG_YT_CLIENT_ID:     ${{ secrets.HOWLONG_YT_CLIENT_ID }}
+          HOWLONG_YT_CLIENT_SECRET: ${{ secrets.HOWLONG_YT_CLIENT_SECRET }}
+          HOWLONG_YT_REFRESH_TOKEN: ${{ secrets.HOWLONG_YT_REFRESH_TOKEN }}
+          HOWLONG_FB_PAGE_ID:       ${{ secrets.HOWLONG_FB_PAGE_ID }}
+          HOWLONG_FB_PAGE_TOKEN:    ${{ secrets.HOWLONG_FB_PAGE_TOKEN }}
+          HOWLONG_IG_USER_ID:       ${{ secrets.HOWLONG_IG_USER_ID }}
+          HOWLONG_IG_TOKEN:         ${{ secrets.HOWLONG_IG_TOKEN }}
+          # HOWBIG
+          HOWBIG_DRIVE_FOLDER_ID:  ${{ secrets.HOWBIG_DRIVE_FOLDER_ID }}
+          HOWBIG_YT_CLIENT_ID:     ${{ secrets.HOWBIG_YT_CLIENT_ID }}
+          HOWBIG_YT_CLIENT_SECRET: ${{ secrets.HOWBIG_YT_CLIENT_SECRET }}
+          HOWBIG_YT_REFRESH_TOKEN: ${{ secrets.HOWBIG_YT_REFRESH_TOKEN }}
+          HOWBIG_FB_PAGE_ID:       ${{ secrets.HOWBIG_FB_PAGE_ID }}
+          HOWBIG_FB_PAGE_TOKEN:    ${{ secrets.HOWBIG_FB_PAGE_TOKEN }}
+          HOWBIG_IG_USER_ID:       ${{ secrets.HOWBIG_IG_USER_ID }}
+          HOWBIG_IG_TOKEN:         ${{ secrets.HOWBIG_IG_TOKEN }}
+          # REALCOST
+          REALCOST_DRIVE_FOLDER_ID:  ${{ secrets.REALCOST_DRIVE_FOLDER_ID }}
+          REALCOST_YT_CLIENT_ID:     ${{ secrets.REALCOST_YT_CLIENT_ID }}
+          REALCOST_YT_CLIENT_SECRET: ${{ secrets.REALCOST_YT_CLIENT_SECRET }}
+          REALCOST_YT_REFRESH_TOKEN: ${{ secrets.REALCOST_YT_REFRESH_TOKEN }}
+          REALCOST_FB_PAGE_ID:       ${{ secrets.REALCOST_FB_PAGE_ID }}
+          REALCOST_FB_PAGE_TOKEN:    ${{ secrets.REALCOST_FB_PAGE_TOKEN }}
+          REALCOST_IG_USER_ID:       ${{ secrets.REALCOST_IG_USER_ID }}
+          REALCOST_IG_TOKEN:         ${{ secrets.REALCOST_IG_TOKEN }}
+          # HOWMUCH
+          HOWMUCH_DRIVE_FOLDER_ID:  ${{ secrets.HOWMUCH_DRIVE_FOLDER_ID }}
+          HOWMUCH_YT_CLIENT_ID:     ${{ secrets.HOWMUCH_YT_CLIENT_ID }}
+          HOWMUCH_YT_CLIENT_SECRET: ${{ secrets.HOWMUCH_YT_CLIENT_SECRET }}
+          HOWMUCH_YT_REFRESH_TOKEN: ${{ secrets.HOWMUCH_YT_REFRESH_TOKEN }}
+          HOWMUCH_FB_PAGE_ID:       ${{ secrets.HOWMUCH_FB_PAGE_ID }}
+          HOWMUCH_FB_PAGE_TOKEN:    ${{ secrets.HOWMUCH_FB_PAGE_TOKEN }}
+          HOWMUCH_IG_USER_ID:       ${{ secrets.HOWMUCH_IG_USER_ID }}
+          HOWMUCH_IG_TOKEN:         ${{ secrets.HOWMUCH_IG_TOKEN }}
+          # WHATIF
+          WHATIF_DRIVE_FOLDER_ID:  ${{ secrets.WHATIF_DRIVE_FOLDER_ID }}
+          WHATIF_YT_CLIENT_ID:     ${{ secrets.WHATIF_YT_CLIENT_ID }}
+          WHATIF_YT_CLIENT_SECRET: ${{ secrets.WHATIF_YT_CLIENT_SECRET }}
+          WHATIF_YT_REFRESH_TOKEN: ${{ secrets.WHATIF_YT_REFRESH_TOKEN }}
+          WHATIF_FB_PAGE_ID:       ${{ secrets.WHATIF_FB_PAGE_ID }}
+          WHATIF_FB_PAGE_TOKEN:    ${{ secrets.WHATIF_FB_PAGE_TOKEN }}
+          WHATIF_IG_USER_ID:       ${{ secrets.WHATIF_IG_USER_ID }}
+          WHATIF_IG_TOKEN:         ${{ secrets.WHATIF_IG_TOKEN }}
+          # SURVIVE
+          SURVIVE_DRIVE_FOLDER_ID:  ${{ secrets.SURVIVE_DRIVE_FOLDER_ID }}
+          SURVIVE_YT_CLIENT_ID:     ${{ secrets.SURVIVE_YT_CLIENT_ID }}
+          SURVIVE_YT_CLIENT_SECRET: ${{ secrets.SURVIVE_YT_CLIENT_SECRET }}
+          SURVIVE_YT_REFRESH_TOKEN: ${{ secrets.SURVIVE_YT_REFRESH_TOKEN }}
+          SURVIVE_FB_PAGE_ID:       ${{ secrets.SURVIVE_FB_PAGE_ID }}
+          SURVIVE_FB_PAGE_TOKEN:    ${{ secrets.SURVIVE_FB_PAGE_TOKEN }}
+          SURVIVE_IG_USER_ID:       ${{ secrets.SURVIVE_IG_USER_ID }}
+          SURVIVE_IG_TOKEN:         ${{ secrets.SURVIVE_IG_TOKEN }}
+          # DAYINLIFE
+          DAYINLIFE_DRIVE_FOLDER_ID:  ${{ secrets.DAYINLIFE_DRIVE_FOLDER_ID }}
+          DAYINLIFE_YT_CLIENT_ID:     ${{ secrets.DAYINLIFE_YT_CLIENT_ID }}
+          DAYINLIFE_YT_CLIENT_SECRET: ${{ secrets.DAYINLIFE_YT_CLIENT_SECRET }}
+          DAYINLIFE_YT_REFRESH_TOKEN: ${{ secrets.DAYINLIFE_YT_REFRESH_TOKEN }}
+          DAYINLIFE_FB_PAGE_ID:       ${{ secrets.DAYINLIFE_FB_PAGE_ID }}
+          DAYINLIFE_FB_PAGE_TOKEN:    ${{ secrets.DAYINLIFE_FB_PAGE_TOKEN }}
+          DAYINLIFE_IG_USER_ID:       ${{ secrets.DAYINLIFE_IG_USER_ID }}
+          DAYINLIFE_IG_TOKEN:         ${{ secrets.DAYINLIFE_IG_TOKEN }}
+          # WHEREGOES
+          WHEREGOES_DRIVE_FOLDER_ID:  ${{ secrets.WHEREGOES_DRIVE_FOLDER_ID }}
+          WHEREGOES_YT_CLIENT_ID:     ${{ secrets.WHEREGOES_YT_CLIENT_ID }}
+          WHEREGOES_YT_CLIENT_SECRET: ${{ secrets.WHEREGOES_YT_CLIENT_SECRET }}
+          WHEREGOES_YT_REFRESH_TOKEN: ${{ secrets.WHEREGOES_YT_REFRESH_TOKEN }}
+          WHEREGOES_FB_PAGE_ID:       ${{ secrets.WHEREGOES_FB_PAGE_ID }}
+          WHEREGOES_FB_PAGE_TOKEN:    ${{ secrets.WHEREGOES_FB_PAGE_TOKEN }}
+          WHEREGOES_IG_USER_ID:       ${{ secrets.WHEREGOES_IG_USER_ID }}
+          WHEREGOES_IG_TOKEN:         ${{ secrets.WHEREGOES_IG_TOKEN }}
+          # THERULES
+          THERULES_DRIVE_FOLDER_ID:  ${{ secrets.THERULES_DRIVE_FOLDER_ID }}
+          THERULES_YT_CLIENT_ID:     ${{ secrets.THERULES_YT_CLIENT_ID }}
+          THERULES_YT_CLIENT_SECRET: ${{ secrets.THERULES_YT_CLIENT_SECRET }}
+          THERULES_YT_REFRESH_TOKEN: ${{ secrets.THERULES_YT_REFRESH_TOKEN }}
+          THERULES_FB_PAGE_ID:       ${{ secrets.THERULES_FB_PAGE_ID }}
+          THERULES_FB_PAGE_TOKEN:    ${{ secrets.THERULES_FB_PAGE_TOKEN }}
+          THERULES_IG_USER_ID:       ${{ secrets.THERULES_IG_USER_ID }}
+          THERULES_IG_TOKEN:         ${{ secrets.THERULES_IG_TOKEN }}
+          # SPEEDOF
+          SPEEDOF_DRIVE_FOLDER_ID:  ${{ secrets.SPEEDOF_DRIVE_FOLDER_ID }}
+          SPEEDOF_YT_CLIENT_ID:     ${{ secrets.SPEEDOF_YT_CLIENT_ID }}
+          SPEEDOF_YT_CLIENT_SECRET: ${{ secrets.SPEEDOF_YT_CLIENT_SECRET }}
+          SPEEDOF_YT_REFRESH_TOKEN: ${{ secrets.SPEEDOF_YT_REFRESH_TOKEN }}
+          SPEEDOF_FB_PAGE_ID:       ${{ secrets.SPEEDOF_FB_PAGE_ID }}
+          SPEEDOF_FB_PAGE_TOKEN:    ${{ secrets.SPEEDOF_FB_PAGE_TOKEN }}
+          SPEEDOF_IG_USER_ID:       ${{ secrets.SPEEDOF_IG_USER_ID }}
+          SPEEDOF_IG_TOKEN:         ${{ secrets.SPEEDOF_IG_TOKEN }}
+          # ODDS
+          ODDS_DRIVE_FOLDER_ID:  ${{ secrets.ODDS_DRIVE_FOLDER_ID }}
+          ODDS_YT_CLIENT_ID:     ${{ secrets.ODDS_YT_CLIENT_ID }}
+          ODDS_YT_CLIENT_SECRET: ${{ secrets.ODDS_YT_CLIENT_SECRET }}
+          ODDS_YT_REFRESH_TOKEN: ${{ secrets.ODDS_YT_REFRESH_TOKEN }}
+          ODDS_FB_PAGE_ID:       ${{ secrets.ODDS_FB_PAGE_ID }}
+          ODDS_FB_PAGE_TOKEN:    ${{ secrets.ODDS_FB_PAGE_TOKEN }}
+          ODDS_IG_USER_ID:       ${{ secrets.ODDS_IG_USER_ID }}
+          ODDS_IG_TOKEN:         ${{ secrets.ODDS_IG_TOKEN }}
+          # HIDDENFEE
+          HIDDENFEE_DRIVE_FOLDER_ID:  ${{ secrets.HIDDENFEE_DRIVE_FOLDER_ID }}
+          HIDDENFEE_YT_CLIENT_ID:     ${{ secrets.HIDDENFEE_YT_CLIENT_ID }}
+          HIDDENFEE_YT_CLIENT_SECRET: ${{ secrets.HIDDENFEE_YT_CLIENT_SECRET }}
+          HIDDENFEE_YT_REFRESH_TOKEN: ${{ secrets.HIDDENFEE_YT_REFRESH_TOKEN }}
+          HIDDENFEE_FB_PAGE_ID:       ${{ secrets.HIDDENFEE_FB_PAGE_ID }}
+          HIDDENFEE_FB_PAGE_TOKEN:    ${{ secrets.HIDDENFEE_FB_PAGE_TOKEN }}
+          HIDDENFEE_IG_USER_ID:       ${{ secrets.HIDDENFEE_IG_USER_ID }}
+          HIDDENFEE_IG_TOKEN:         ${{ secrets.HIDDENFEE_IG_TOKEN }}
+          # YEARSOF
+          YEARSOF_DRIVE_FOLDER_ID:  ${{ secrets.YEARSOF_DRIVE_FOLDER_ID }}
+          YEARSOF_YT_CLIENT_ID:     ${{ secrets.YEARSOF_YT_CLIENT_ID }}
+          YEARSOF_YT_CLIENT_SECRET: ${{ secrets.YEARSOF_YT_CLIENT_SECRET }}
+          YEARSOF_YT_REFRESH_TOKEN: ${{ secrets.YEARSOF_YT_REFRESH_TOKEN }}
+          YEARSOF_FB_PAGE_ID:       ${{ secrets.YEARSOF_FB_PAGE_ID }}
+          YEARSOF_FB_PAGE_TOKEN:    ${{ secrets.YEARSOF_FB_PAGE_TOKEN }}
+          YEARSOF_IG_USER_ID:       ${{ secrets.YEARSOF_IG_USER_ID }}
+          YEARSOF_IG_TOKEN:         ${{ secrets.YEARSOF_IG_TOKEN }}
+          # HOWLOUD
+          HOWLOUD_DRIVE_FOLDER_ID:  ${{ secrets.HOWLOUD_DRIVE_FOLDER_ID }}
+          HOWLOUD_YT_CLIENT_ID:     ${{ secrets.HOWLOUD_YT_CLIENT_ID }}
+          HOWLOUD_YT_CLIENT_SECRET: ${{ secrets.HOWLOUD_YT_CLIENT_SECRET }}
+          HOWLOUD_YT_REFRESH_TOKEN: ${{ secrets.HOWLOUD_YT_REFRESH_TOKEN }}
+          HOWLOUD_FB_PAGE_ID:       ${{ secrets.HOWLOUD_FB_PAGE_ID }}
+          HOWLOUD_FB_PAGE_TOKEN:    ${{ secrets.HOWLOUD_FB_PAGE_TOKEN }}
+          HOWLOUD_IG_USER_ID:       ${{ secrets.HOWLOUD_IG_USER_ID }}
+          HOWLOUD_IG_TOKEN:         ${{ secrets.HOWLOUD_IG_TOKEN }}
+          # WHATWEIGHS
+          WHATWEIGHS_DRIVE_FOLDER_ID:  ${{ secrets.WHATWEIGHS_DRIVE_FOLDER_ID }}
+          WHATWEIGHS_YT_CLIENT_ID:     ${{ secrets.WHATWEIGHS_YT_CLIENT_ID }}
+          WHATWEIGHS_YT_CLIENT_SECRET: ${{ secrets.WHATWEIGHS_YT_CLIENT_SECRET }}
+          WHATWEIGHS_YT_REFRESH_TOKEN: ${{ secrets.WHATWEIGHS_YT_REFRESH_TOKEN }}
+          WHATWEIGHS_FB_PAGE_ID:       ${{ secrets.WHATWEIGHS_FB_PAGE_ID }}
+          WHATWEIGHS_FB_PAGE_TOKEN:    ${{ secrets.WHATWEIGHS_FB_PAGE_TOKEN }}
+          WHATWEIGHS_IG_USER_ID:       ${{ secrets.WHATWEIGHS_IG_USER_ID }}
+          WHATWEIGHS_IG_TOKEN:         ${{ secrets.WHATWEIGHS_IG_TOKEN }}
+          # RIGHTNOW
+          RIGHTNOW_DRIVE_FOLDER_ID:  ${{ secrets.RIGHTNOW_DRIVE_FOLDER_ID }}
+          RIGHTNOW_YT_CLIENT_ID:     ${{ secrets.RIGHTNOW_YT_CLIENT_ID }}
+          RIGHTNOW_YT_CLIENT_SECRET: ${{ secrets.RIGHTNOW_YT_CLIENT_SECRET }}
+          RIGHTNOW_YT_REFRESH_TOKEN: ${{ secrets.RIGHTNOW_YT_REFRESH_TOKEN }}
+          RIGHTNOW_FB_PAGE_ID:       ${{ secrets.RIGHTNOW_FB_PAGE_ID }}
+          RIGHTNOW_FB_PAGE_TOKEN:    ${{ secrets.RIGHTNOW_FB_PAGE_TOKEN }}
+          RIGHTNOW_IG_USER_ID:       ${{ secrets.RIGHTNOW_IG_USER_ID }}
+          RIGHTNOW_IG_TOKEN:         ${{ secrets.RIGHTNOW_IG_TOKEN }}
+          # HOWHOT
+          HOWHOT_DRIVE_FOLDER_ID:  ${{ secrets.HOWHOT_DRIVE_FOLDER_ID }}
+          HOWHOT_YT_CLIENT_ID:     ${{ secrets.HOWHOT_YT_CLIENT_ID }}
+          HOWHOT_YT_CLIENT_SECRET: ${{ secrets.HOWHOT_YT_CLIENT_SECRET }}
+          HOWHOT_YT_REFRESH_TOKEN: ${{ secrets.HOWHOT_YT_REFRESH_TOKEN }}
+          HOWHOT_FB_PAGE_ID:       ${{ secrets.HOWHOT_FB_PAGE_ID }}
+          HOWHOT_FB_PAGE_TOKEN:    ${{ secrets.HOWHOT_FB_PAGE_TOKEN }}
+          HOWHOT_IG_USER_ID:       ${{ secrets.HOWHOT_IG_USER_ID }}
+          HOWHOT_IG_TOKEN:         ${{ secrets.HOWHOT_IG_TOKEN }}
+          # SMALLEST
+          SMALLEST_DRIVE_FOLDER_ID:  ${{ secrets.SMALLEST_DRIVE_FOLDER_ID }}
+          SMALLEST_YT_CLIENT_ID:     ${{ secrets.SMALLEST_YT_CLIENT_ID }}
+          SMALLEST_YT_CLIENT_SECRET: ${{ secrets.SMALLEST_YT_CLIENT_SECRET }}
+          SMALLEST_YT_REFRESH_TOKEN: ${{ secrets.SMALLEST_YT_REFRESH_TOKEN }}
+          SMALLEST_FB_PAGE_ID:       ${{ secrets.SMALLEST_FB_PAGE_ID }}
+          SMALLEST_FB_PAGE_TOKEN:    ${{ secrets.SMALLEST_FB_PAGE_TOKEN }}
+          SMALLEST_IG_USER_ID:       ${{ secrets.SMALLEST_IG_USER_ID }}
+          SMALLEST_IG_TOKEN:         ${{ secrets.SMALLEST_IG_TOKEN }}
+          # ---- HẾT KHỐI KÊNH ----
         run: |
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             python src/main.py --dry-run
