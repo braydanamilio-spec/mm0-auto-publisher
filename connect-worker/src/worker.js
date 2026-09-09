@@ -767,7 +767,7 @@ async function apiDisconnect(request, url, env) {
   } catch (_) {}
   await fsDelete(env, at, `connections/${uid}__${channel}__${kind}`);
   if (kind === "youtube") await fsDelete(env, at, `channels/${uid}__${channel}`);
-  if (kind === "drive") await fsDelete(env, at, `storage_accounts/${uid}__${channel}`);
+  if (kind === "drive") { await fsDelete(env, at, `storage_accounts/${uid}__${channel}`); xoaDemKho(uid); }
   if (kind === "facebook") await fsDelete(env, at, `fb_pages/${uid}__${channel}`);
   return json({ ok: true, channel, kind });
 }
@@ -1727,7 +1727,32 @@ async function apiFileContent(request, url, env) {
 
 // GET /api/drive-stream?t=&account=&fileId= -> STREAM video từ Drive (dùng token của kho, Range để tua được).
 //   Nhờ vậy XEM INLINE trên dashboard kể cả file CHƯA mở chia sẻ. Token kho KHÔNG lộ ra browser.
+// ── ĐỆM DANH SÁCH KHO — GỐC CỦA "CẠN QUOTA KHI CHƯA LÀM GÌ"  (đo 9/9/2026) ─────────────────
+// Anh: *"cạn quota khi chưa làm gì được, tìm nguyên nhân fix triệt để"*. Đo ra phép nhân:
+//
+//     dashboard tự gọi `doc()` mỗi 10 phút        = 144 lượt/ngày
+//     mỗi lượt đọc `storage_accounts` KHÔNG limit = 116 tài liệu, gọi 3 lần = 348 lượt đọc
+//     -----------------------------------------------------------------------------------
+//     ~50.100 lượt đọc/ngày   —  trần miễn phí Firestore là 50.000
+//
+// Tức CHỈ CẦN MỞ DASHBOARD VÀ ĐỂ ĐÓ là cạn sạch hạn mức, chưa render một tập nào. Đúng nghĩa
+// đen câu anh nói. Và nó im lặng: không lỗi, không cảnh báo, chỉ là mọi lượt đọc sau đều chết.
+//
+// Danh sách kho gần như không đổi trong một phiên — chỉ đổi khi anh nối/gỡ một Drive. Nên đệm
+// 5 phút cắt 144 lượt/ngày xuống ~12, tức **~2.900 lượt đọc thay vì 50.100** (giảm 94%).
+// Cùng cách `firestore_pool_accounts` đã làm ở phía Python (đệm 10 phút) — cơ chế đã có, chỉ
+// là phía Worker chưa có (§13.1).
+//
+// Đệm theo `uid` để hai tài khoản không thấy kho của nhau. Nối/gỡ Drive thì xoá đệm ngay ở
+// `fsDelete(storage_accounts/...)`, nên thao tác của anh vẫn hiện tức thì.
+const _DEM_KHO = new Map();          // uid -> { luc, names }
+const _DEM_KHO_TTL = 5 * 60 * 1000;
+
+function xoaDemKho(uid) { if (uid) _DEM_KHO.delete(uid); else _DEM_KHO.clear(); }
+
 async function fsListStorageAccounts(env, at, uid) {
+  const _c = _DEM_KHO.get(uid);
+  if (_c && (Date.now() - _c.luc) < _DEM_KHO_TTL) return _c.names;
   const u = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents:runQuery`;
   const body = { structuredQuery: { from: [{ collectionId: "storage_accounts" }],
     where: { fieldFilter: { field: { fieldPath: "owner" }, op: "EQUAL", value: { stringValue: uid } } } } };
@@ -1736,6 +1761,7 @@ async function fsListStorageAccounts(env, at, uid) {
   const rows = await res.json();
   const names = [];
   for (const r of (rows || [])) { const nm = r.document && r.document.fields && r.document.fields.name; if (nm && nm.stringValue) names.push(nm.stringValue); }
+  _DEM_KHO.set(uid, { luc: Date.now(), names });
   return names;
 }
 
@@ -2821,6 +2847,9 @@ async function importPkcs8(pem) {
 }
 
 async function fsPatch(env, accessToken, path, fields, mask) {
+  // Danh sách kho được đệm 5 phút (xem `_DEM_KHO`). Mọi lượt ghi vào `storage_accounts` đều
+  // có thể TẠO một kho mới, nên xoá đệm ngay để thao tác của anh hiện tức thì thay vì chờ TTL.
+  try { if (String(arguments[2] || "").startsWith("storage_accounts/")) xoaDemKho(); } catch (_) {}
   const base = `https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/${path}`;
   const q = (mask || Object.keys(fields)).map((k) => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join("&");
   const body = { fields: Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, fsVal(v)])) };
