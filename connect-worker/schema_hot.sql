@@ -22,7 +22,14 @@ CREATE TABLE IF NOT EXISTS render_job (
   drive_id    TEXT,
   queued      INTEGER DEFAULT 0,        -- 0 = chưa xếp lịch đăng
   created_at  TEXT NOT NULL,
-  updated_at  TEXT NOT NULL
+  updated_at  TEXT NOT NULL,
+  -- 4 trường thống kê (thêm 25/8, ALTER trên D1 sống nhưng SÓT ở đây tới 10/9): kho chứa,
+  -- ảnh bìa, dung lượng, điểm QC. `ghi_job_loat` INSERT đủ 15 cột — deploy D1 MỚI từ file này
+  -- mà thiếu 4 cột thì mọi lượt ghi 500 lại (đúng lỗi vừa chữa). Giữ file KHỚP bảng sống.
+  drive_account TEXT,
+  thumb_id      TEXT,
+  size_mb       REAL,
+  qc            INTEGER
 );
 -- đếm "kênh này đã có bao nhiêu video xong" — truy vấn nóng nhất, gọi ~110 lần mỗi phiên plan
 CREATE INDEX IF NOT EXISTS ix_job_dem   ON render_job(owner, channel, vtype, status);
