@@ -64,6 +64,19 @@ def enqueue(channel: str, video: str, vtype: str, topic: str,
         except Exception:
             pass
 
+    # ── OWNER DỰ PHÒNG: KÊNH CHƯA NỐI YOUTUBE VẪN PHẢI GHI ĐƯỢC BẢN GHI  (10/9/2026) ────────
+    # Gốc thật của "162 video lên Drive mà dashboard = 0": 18 kênh comic CHƯA nối YouTube nên
+    # vòng tra trên để `owner=None`. Rồi `hot_db.ghi_job(owner=None)` -> Worker `ghi_job_loat`
+    # bind owner=NULL vào cột `render_job.owner` NOT NULL -> **HTTP 500**, mọi lượt ghi bản ghi
+    # hụt (0 dòng `gt-%` trong D1). Dashboard đếm `done AND drive_id<>''` nên ra 0, dù video
+    # nằm ngon trên Drive. (Các dòng status của khâu render lọt được vì chúng dùng OWNER_UID.)
+    # Dùng chính OWNER_UID/RENDER_OWNER của tiến trình render làm dự phòng: bản ghi có owner
+    # (hết 500), KHỚP owner của các dòng render đã ghi nên dashboard gộp đếm được. Kênh nối
+    # YouTube sau thì `auto_enqueue` vẫn bỏ qua khi chưa `yt_ok` — nên đây chỉ mở đường HIỂN
+    # THỊ, không tự đăng bừa.
+    if not owner:
+        owner = os.environ.get("OWNER_UID") or os.environ.get("RENDER_OWNER") or None
+
     # ---- CHỐNG TRÙNG: tra vân tay nội dung trong sổ cái Firestore ----
     # (chống kéo lại cả folder / trùng file / đổi máy). Lỗi Firestore -> bỏ qua kiểm tra.
     sig = None
