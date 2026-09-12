@@ -374,6 +374,7 @@
       <div class="nav" data-view="storage"><span class="ic" data-i="disk"></span> <span data-i18n="storage">Storage</span></div>
       <div class="nav" data-view="render"><span class="ic" data-i="film"></span> 🎬 Render Studio <span class="badge" id="nvRender">0</span></div>
       <div class="nav" data-view="kling"><span class="ic" data-i="film"></span> 🎞️ Kling Studio <span class="badge" id="nvKling">0</span></div>
+      <div class="nav" data-view="trending"><span class="ic" data-i="chart"></span> 📈 Kho Trending <span class="badge" id="nvTrend">0</span></div>
       <div class="nav" data-view="settings"><span class="ic" data-i="gear"></span> <span data-i18n="settings">Settings</span></div>
       <div class="nav-label" data-i18n="nav_channel">Channel</div>
       <div class="nav" data-view="channels"><span class="ic" data-i="stack"></span> <span data-i18n="channels_hub">My Channels</span> <span class="badge" id="nvChans">0</span></div>
@@ -990,6 +991,68 @@
                     style="width:100%;min-height:260px;font-family:ui-monospace,Menlo,monospace;
                            font-size:11.5px;line-height:1.65;white-space:pre-wrap"
                     placeholder="Chọn kênh + độ dài + số tập rồi bấm 👁 Hiện prompt."></textarea>
+        </div>
+      </section>
+      <section id="v-trending" class="content hide">
+        <style>
+          .trd-wrap{display:flex;flex-direction:column;gap:16px}
+          .trd-plats{display:flex;gap:8px;flex-wrap:wrap}
+          .trd-plat{padding:7px 14px;border-radius:9px;border:1px solid var(--border);background:var(--surface);
+            color:var(--text2);font-weight:600;font-size:13px;cursor:pointer;display:flex;gap:7px;align-items:center}
+          .trd-plat.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+          .trd-plat .n{font-size:11px;color:var(--faint)}
+          .trd-cfg{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:10px}
+          .trd-cfg label{font-size:12px;color:var(--text2);display:flex;gap:6px;align-items:center}
+          .trd-cfg input[type=number]{width:64px}
+          .trd-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+          .trd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+          .trd-card{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface);
+            display:flex;flex-direction:column;transition:border-color .15s}
+          .trd-card.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+          .trd-thumb{position:relative;aspect-ratio:16/9;background:var(--surface2);overflow:hidden}
+          .trd-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+          .trd-dur{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.78);color:#fff;
+            font-size:11px;font-weight:600;padding:1px 6px;border-radius:5px}
+          .trd-chk{position:absolute;left:8px;top:8px;width:20px;height:20px;cursor:pointer}
+          .trd-dl{position:absolute;left:8px;top:8px;background:var(--good-soft);color:var(--good);
+            font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px}
+          .trd-meta{padding:10px 11px;display:flex;flex-direction:column;gap:5px;flex:1}
+          .trd-title{font-size:13px;font-weight:600;line-height:1.35;color:var(--text);
+            display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+          .trd-ch{font-size:12px;color:var(--muted)}
+          .trd-stat{font-size:11px;color:var(--faint);display:flex;gap:10px;margin-top:auto}
+          .trd-act{display:flex;gap:6px;padding:0 11px 11px}
+          .trd-act a,.trd-act button{font-size:12px;font-weight:600;padding:5px 10px;border-radius:7px;
+            border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;text-decoration:none}
+          .trd-act a:hover,.trd-act button:hover{border-color:var(--accent);color:var(--accent)}
+        </style>
+        <div class="panel trd-wrap">
+          <div class="p-head">
+            <div class="p-title">📈 Kho tư liệu Trending (USA)</div>
+            <div class="p-sub">Gom video đang hot về nghiên cứu gu/xu hướng — KHÔNG đăng lại. Cron tự lấy metadata; tải file theo tích chọn hoặc auto Top-N.</div>
+          </div>
+          <div class="trd-plats" id="trdPlats"></div>
+          <div class="trd-cfg" id="trdCfg">
+            <label><input type="checkbox" id="trdOn"> Bật cron gom nền tảng này</label>
+            <label>Auto tải Top-N: <input type="number" id="trdTopN" min="0" max="50" value="0" title="0 = không tự tải, chỉ gom metadata"></label>
+            <button class="btn-conn" id="trdSaveCfg">💾 Lưu cài đặt</button>
+            <span class="p-sub" id="trdCfgMsg"></span>
+          </div>
+        </div>
+        <div class="panel trd-wrap">
+          <div class="trd-bar">
+            <div class="p-sub" id="trdCount">Đang tải…</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <input type="search" id="trdSearch" placeholder="🔎 Tìm tiêu đề / kênh…" style="min-width:170px" oninput="window.__trdRender&&window.__trdRender()">
+              <select id="trdSort" onchange="window.__trdRender&&window.__trdRender()">
+                <option value="views">🔥 View cao nhất</option>
+                <option value="new">🆕 Mới thu thập</option>
+                <option value="likes">👍 Like cao nhất</option>
+              </select>
+              <button class="btn-conn" id="trdDlSel" title="Tải file các video đã tích chọn về kho Drive">⬇️ Tải mục đã chọn (0)</button>
+            </div>
+          </div>
+          <div class="trd-grid" id="trdGrid"><div class="d">Đang tải kho trending…</div></div>
         </div>
       </section>
       <section id="v-render" class="content hide">
@@ -1867,7 +1930,7 @@
     const firebaseConfigC = { apiKey:"AIzaSyAVEj7RUMx5jRtxN0o2eOzh4r7Pjjm-zBk", authDomain:"mm0-shard-c.firebaseapp.com", projectId:"mm0-shard-c", storageBucket:"mm0-shard-c.firebasestorage.app", messagingSenderId:"443486296227", appId:"1:443486296227:web:e5607766466c3bf6cd8716" };
     let dbPub = db;  // C: publish (videos/counters/quota/queues); lỗi init -> fallback A
     try { const appC = initializeApp(firebaseConfigC, "shardC"); dbPub = _fs(appC); } catch(e){ dbPub = db; }
-    const META_B = new Set(["render_config","render_channels","render_topics","render_requests","kling_shots","kling_kho"]);  // gemini_keys + storage_accounts GIỮ ở A: keys cần auth (không public B); storage_accounts do Worker (bên ngoài, chỉ biết A) quản lý connect/sync/xoá -> phải cùng project với Worker
+    const META_B = new Set(["render_config","render_channels","render_topics","render_requests","kling_shots","kling_kho","trending_kho","trending_req","trending_config"]);  // gemini_keys + storage_accounts GIỮ ở A: keys cần auth (không public B); storage_accounts do Worker (bên ngoài, chỉ biết A) quản lý connect/sync/xoá -> phải cùng project với Worker
     const PUB_C  = new Set(["videos","counters","quota","social_queue","yt_queue"]);   // publish -> C
     const _appFor = (name) => PUB_C.has(name) ? dbPub : (META_B.has(name) ? dbMeta : db);
     // TIẾT KIỆM ĐỌC Firestore (100% free): tab ẨN >30s -> TẮT network (listener ngừng đọc); HIỆN lại -> BẬT (sync tươi).
@@ -6873,7 +6936,7 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
       // ba tab, cùng một nguyên nhân.
       // Thêm một màn hình là ba việc ở ba chỗ (tab · section · mảng này), làm thiếu chỗ thứ ba
       // thì hỏng lặng lẽ: không lỗi đỏ, không cảnh báo, chỉ là một cái bấm không phản ứng.
-      const VIEWS=["overview","analytics","videos","schedule","publish","connections","storage","render","kling","settings","channels","branding","comments","facebook","tasks","team"];
+      const VIEWS=["overview","analytics","videos","schedule","publish","connections","storage","render","kling","trending","settings","channels","branding","comments","facebook","tasks","team"];
       const setTitle=(v)=>{ window.__view=v; $("vTitle").textContent=t(v); $("vSub").textContent=t("sub_"+v);
         const ps=$("platSwitch"); if(ps) ps.style.display=["overview","videos","publish","analytics","schedule","comments"].includes(v)?"inline-flex":"none";
         if(window.__plat==="fb"){ if(v==="analytics"&&window.renderFbAnalytics) renderFbAnalytics(); if(v==="schedule"&&window.renderFbSchedule) renderFbSchedule(); if(v==="overview"&&window.renderFbOverview) renderFbOverview(); if(v==="comments"&&window.renderCmFb) renderCmFb(); }
@@ -6900,8 +6963,63 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         if(v==="tasks"&&window.renderTasks) window.renderTasks(); };
       window.__setTitle=setTitle;
       // ROUTING theo URL hash: mỗi mục 1 đường dẫn (#publish, #channels…) -> F5 giữ nguyên trang
+      // ═══════════════ 📈 KHO TRENDING ═══════════════
+      // Metadata (browse) đọc live từ shard B (META_B). Tải file = ghi trending_req -> workflow
+      // trend_kho.py --serve-requests xử. Cấu hình cron = trending_config (1 doc/owner).
+      const TRD_PLATS=[["yt","YouTube"],["tiktok","TikTok"],["fb","Facebook"],["ig","Instagram"]];
+      const __trd={plat:"yt",items:[],cfg:{},sel:new Set(),started:false};
+      const __trdOwner=()=>window.__ownerUid||window.__uid;
+      const __trdFmt=(n)=>{n=+n||0;return n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?(n/1e3).toFixed(1)+"K":String(n);};
+      const __trdDur=(s)=>{s=+s||0;if(!s)return"";const m=Math.floor(s/60);return m+":"+String(s%60).padStart(2,"0");};
+      function __trdCfgUI(){ const c=(__trd.cfg&&__trd.cfg[__trd.plat])||{}; const on=$("trdOn"),tn=$("trdTopN");
+        if(on)on.checked=!!c.on; if(tn)tn.value=(c.auto_dl_top_n||0); }
+      function __trdPlatsUI(){ const host=$("trdPlats"); if(!host)return;
+        const cnt={}; __trd.items.forEach(x=>cnt[x.platform]=(cnt[x.platform]||0)+1);
+        host.innerHTML=TRD_PLATS.map(([p,name])=>`<div class="trd-plat ${p===__trd.plat?'on':''}" onclick="window.__trdSetPlat('${p}')">${name} <span class="n">${cnt[p]||0}</span></div>`).join(""); }
+      function __trdSelUI(){ const b=$("trdDlSel"); if(b)b.textContent=`⬇️ Tải mục đã chọn (${__trd.sel.size})`; }
+      window.__trdSetPlat=(p)=>{__trd.plat=p;__trd.sel.clear();__trdPlatsUI();__trdCfgUI();window.__trdRender();};
+      window.__trdSel=(id)=>{ __trd.sel.has(id)?__trd.sel.delete(id):__trd.sel.add(id);
+        const c=document.querySelector(`.trd-chk[onchange*="${id}"]`); if(c)c.closest(".trd-card").classList.toggle("sel",__trd.sel.has(id)); __trdSelUI(); };
+      window.__trdRender=function(){ const grid=$("trdGrid"); if(!grid)return;
+        const q=(($("trdSearch")||{}).value||"").toLowerCase().trim(), sort=($("trdSort")||{}).value||"views";
+        let rows=__trd.items.filter(x=>x.platform===__trd.plat);
+        if(q)rows=rows.filter(x=>((x.title||"")+" "+(x.channel||"")).toLowerCase().includes(q));
+        rows.sort((a,b)=> sort==="new"?((b.collected_at||0)-(a.collected_at||0)) : sort==="likes"?((b.likes||0)-(a.likes||0)) : ((b.views||0)-(a.views||0)));
+        const cE=$("trdCount"); if(cE)cE.textContent=rows.length+" video · "+__trd.plat.toUpperCase();
+        const nv=$("nvTrend"); if(nv)nv.textContent=__trd.items.length;
+        if(!rows.length){ grid.innerHTML=`<div class="d">Chưa có video ${__trd.plat.toUpperCase()} trong kho. ${__trd.plat==='yt'?'Cần secret YT_DATA_KEY + cron Trend Kho chạy.':'Adapter nền tảng này đang phát triển (pilot làm YouTube trước).'}</div>`; __trdSelUI(); return; }
+        grid.innerHTML=rows.map(x=>{ const sel=__trd.sel.has(x.id), dl=x.downloaded&&x.drive_id;
+          return `<div class="trd-card ${sel?'sel':''}"><div class="trd-thumb">
+            ${dl?`<span class="trd-dl">⬇ ${x.size_mb||''}MB</span>`:`<input type="checkbox" class="trd-chk" ${sel?'checked':''} onchange="window.__trdSel('${x.id}')">`}
+            ${x.thumb?`<img loading="lazy" src="${x.thumb}" onerror="this.style.display='none'">`:''}
+            ${x.duration_s?`<span class="trd-dur">${__trdDur(x.duration_s)}</span>`:''}</div>
+            <div class="trd-meta"><div class="trd-title" title="${(x.title||'').replace(/"/g,'&quot;')}">${x.title||'(không tiêu đề)'}</div>
+            <div class="trd-ch">${x.channel||''}</div>
+            <div class="trd-stat"><span>👁 ${__trdFmt(x.views)}</span><span>👍 ${__trdFmt(x.likes)}</span></div></div>
+            <div class="trd-act"><a href="${x.url}" target="_blank" rel="noopener">↗ Xem gốc</a>
+            ${dl?`<a href="https://drive.google.com/file/d/${x.drive_id}/view" target="_blank" rel="noopener">▶ Kho</a>`:''}</div></div>`;
+        }).join(""); __trdSelUI(); };
+      window.trendInit=function(){ const owner=__trdOwner(); if(!owner)return;
+        if(!__trd.started){ __trd.started=true;
+          try{ onSnapshot(doc(_appFor("trending_config"),"trending_config",owner),d=>{ __trd.cfg=d.exists()?d.data():{}; __trdCfgUI(); }, ()=>{}); }catch(e){}
+          const col=collection(_appFor("trending_kho"),"trending_kho");
+          snapW(query(col,where("owner","==",owner),orderBy("collected_at","desc"),limit(300)),
+            s=>{ __trd.items=s.docs.map(d=>({id:d.id,...d.data()})); window.__trdRender(); __trdPlatsUI(); },
+            ()=> snapW(query(col,where("owner","==",owner)), s=>{ __trd.items=s.docs.map(d=>({id:d.id,...d.data()})); window.__trdRender(); __trdPlatsUI(); }, ()=>{}, "trending_kho"),
+            "trending_kho"); }
+        __trdPlatsUI(); __trdCfgUI(); window.__trdRender();
+        const sc=$("trdSaveCfg"); if(sc&&!sc.__b){ sc.__b=1; sc.onclick=async()=>{ const o=__trdOwner(); if(!o)return;
+          const cfg=Object.assign({},__trd.cfg,{owner:o}); cfg[__trd.plat]=Object.assign({},cfg[__trd.plat]||{},{on:$("trdOn").checked,auto_dl_top_n:Math.max(0,Math.min(50,+$("trdTopN").value||0))});
+          try{ await setDoc(doc(_appFor("trending_config"),"trending_config",o),cfg,{merge:true}); $("trdCfgMsg").textContent="✓ đã lưu"; setTimeout(()=>{$("trdCfgMsg").textContent="";},2500);}catch(e){$("trdCfgMsg").textContent="lỗi lưu: "+e.message;} }; }
+        const db2=$("trdDlSel"); if(db2&&!db2.__b){ db2.__b=1; db2.onclick=async()=>{ const o=__trdOwner(); if(!o||!__trd.sel.size)return;
+          const ids=[...__trd.sel];
+          if(!confirm(`Yêu cầu tải ${ids.length} video về kho Drive? Cron Trend Kho sẽ xử trong ~3 giờ (hoặc chạy tay workflow).`))return;
+          try{ await addDoc(collection(_appFor("trending_req"),"trending_req"),{owner:o,platform:__trd.plat,video_ids:ids,status:"pending",created_at:new Date().toISOString()}); __trd.sel.clear(); window.__trdRender(); alert("✓ Đã gửi yêu cầu tải.");}catch(e){alert("Lỗi gửi yêu cầu: "+e.message);} }; }
+      };
+
       function activateView(v){
         if(!VIEWS.includes(v)) v="overview";
+        if(v==="trending" && window.trendInit) window.trendInit();
         document.querySelectorAll(".nav").forEach(x=>x.classList.toggle("active", x.dataset.view===v));
         VIEWS.forEach(x=>$("v-"+x).classList.toggle("hide",x!==v));
         setTitle(v);

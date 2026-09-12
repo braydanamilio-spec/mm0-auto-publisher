@@ -101,6 +101,24 @@ service cloud.firestore {
       allow create: if canEdit(request.resource.data.owner);
       allow update, delete: if canEdit(resource.data.owner);
     }
+    // ---- KHO TRENDING (video tư liệu nghiên cứu) ----
+    // Metadata do collector (GitHub) ghi qua Admin -> client CHỈ đọc.
+    match /trending_kho/{doc} {
+      allow read:  if canRead(resource.data.owner);
+      allow write: if false;
+    }
+    // Yêu cầu TẢI file (anh tích chọn) — editor/admin tạo; collector đánh dấu done qua Admin.
+    match /trending_req/{doc} {
+      allow read:   if canRead(resource.data.owner);
+      allow create: if canEdit(request.resource.data.owner);
+      allow update, delete: if canEdit(resource.data.owner);
+    }
+    // Cấu hình cron trending (1 doc/owner, doc id = owner).
+    match /trending_config/{doc} {
+      allow read:  if canRead(resource.data.owner);
+      allow write: if canEdit(request.resource.data.owner) && doc == request.resource.data.owner;
+    }
+
     // Ngân hàng chủ đề (chống trùng) — pipeline ghi qua Admin; client chỉ đọc.
     match /render_topics/{doc} {
       allow read:  if canRead(resource.data.owner);
