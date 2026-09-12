@@ -115,8 +115,9 @@ service cloud.firestore {
     }
     // Cấu hình cron trending (1 doc/owner, doc id = owner).
     match /trending_config/{doc} {
-      allow read:  if canRead(resource.data.owner);
-      allow write: if canEdit(request.resource.data.owner) && doc == request.resource.data.owner;
+      allow read:   if canRead(resource.data.owner);
+      allow create: if canEdit(request.resource.data.owner);
+      allow update: if canEdit(resource.data.owner) && canEdit(request.resource.data.owner);
     }
 
     // Ngân hàng chủ đề (chống trùng) — pipeline ghi qua Admin; client chỉ đọc.
