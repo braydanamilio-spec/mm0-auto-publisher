@@ -2213,6 +2213,63 @@
         } }
     });
     function sub(name, cb){ snapW(query(collection(_appFor(name),name), where("owner","==",(window.__ownerUid||window.__uid))), cb, () => setLive(false)); }
+
+    // ═══════════════ 📈 KHO TRENDING — trong MODULE để thấy snapW/_appFor/onSnapshot/setDoc ═══════════════
+    const $=(id)=>document.getElementById(id);
+      // ═══════════════ 📈 KHO TRENDING ═══════════════
+      // Metadata (browse) đọc live từ shard B (META_B). Tải file = ghi trending_req -> workflow
+      // trend_kho.py --serve-requests xử. Cấu hình cron = trending_config (1 doc/owner).
+      const TRD_PLATS=[["yt","YouTube"],["tiktok","TikTok"],["fb","Facebook"],["ig","Instagram"]];
+      const __trd={plat:"yt",items:[],cfg:{},sel:new Set(),started:false};
+      const __trdOwner=()=>window.__ownerUid||window.__uid;
+      const __trdFmt=(n)=>{n=+n||0;return n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?(n/1e3).toFixed(1)+"K":String(n);};
+      const __trdDur=(s)=>{s=+s||0;if(!s)return"";const m=Math.floor(s/60);return m+":"+String(s%60).padStart(2,"0");};
+      function __trdCfgUI(){ const c=(__trd.cfg&&__trd.cfg[__trd.plat])||{}; const on=$("trdOn"),tn=$("trdTopN");
+        if(on)on.checked=!!c.on; if(tn)tn.value=(c.auto_dl_top_n||0); }
+      function __trdPlatsUI(){ const host=$("trdPlats"); if(!host)return;
+        const cnt={}; __trd.items.forEach(x=>cnt[x.platform]=(cnt[x.platform]||0)+1);
+        host.innerHTML=TRD_PLATS.map(([p,name])=>`<div class="trd-plat ${p===__trd.plat?'on':''}" onclick="window.__trdSetPlat('${p}')">${name} <span class="n">${cnt[p]||0}</span></div>`).join(""); }
+      function __trdSelUI(){ const b=$("trdDlSel"); if(b)b.textContent=`⬇️ Tải mục đã chọn (${__trd.sel.size})`; }
+      window.__trdSetPlat=(p)=>{__trd.plat=p;__trd.sel.clear();__trdPlatsUI();__trdCfgUI();window.__trdRender();};
+      window.__trdSel=(id)=>{ __trd.sel.has(id)?__trd.sel.delete(id):__trd.sel.add(id);
+        const c=document.querySelector(`.trd-chk[onchange*="${id}"]`); if(c)c.closest(".trd-card").classList.toggle("sel",__trd.sel.has(id)); __trdSelUI(); };
+      window.__trdRender=function(){ const grid=$("trdGrid"); if(!grid)return;
+        const q=(($("trdSearch")||{}).value||"").toLowerCase().trim(), sort=($("trdSort")||{}).value||"views";
+        let rows=__trd.items.filter(x=>x.platform===__trd.plat);
+        if(q)rows=rows.filter(x=>((x.title||"")+" "+(x.channel||"")).toLowerCase().includes(q));
+        rows.sort((a,b)=> sort==="new"?((b.collected_at||0)-(a.collected_at||0)) : sort==="likes"?((b.likes||0)-(a.likes||0)) : ((b.views||0)-(a.views||0)));
+        const cE=$("trdCount"); if(cE)cE.textContent=rows.length+" video · "+__trd.plat.toUpperCase();
+        const nv=$("nvTrend"); if(nv)nv.textContent=__trd.items.length;
+        if(!rows.length){ grid.innerHTML=`<div class="d">Chưa có video ${__trd.plat.toUpperCase()} trong kho. ${__trd.plat==='yt'?'Cần secret YT_DATA_KEY + cron Trend Kho chạy.':'Adapter nền tảng này đang phát triển (pilot làm YouTube trước).'}</div>`; __trdSelUI(); return; }
+        grid.innerHTML=rows.map(x=>{ const sel=__trd.sel.has(x.id), dl=x.downloaded&&x.drive_id;
+          return `<div class="trd-card ${sel?'sel':''}"><div class="trd-thumb">
+            ${dl?`<span class="trd-dl">⬇ ${x.size_mb||''}MB</span>`:`<input type="checkbox" class="trd-chk" ${sel?'checked':''} onchange="window.__trdSel('${x.id}')">`}
+            ${x.thumb?`<img loading="lazy" src="${x.thumb}" onerror="this.style.display='none'">`:''}
+            ${x.duration_s?`<span class="trd-dur">${__trdDur(x.duration_s)}</span>`:''}</div>
+            <div class="trd-meta"><div class="trd-title" title="${(x.title||'').replace(/"/g,'&quot;')}">${x.title||'(không tiêu đề)'}</div>
+            <div class="trd-ch">${x.channel||''}</div>
+            <div class="trd-stat"><span>👁 ${__trdFmt(x.views)}</span><span>👍 ${__trdFmt(x.likes)}</span></div></div>
+            <div class="trd-act"><a href="${x.url}" target="_blank" rel="noopener">↗ Xem gốc</a>
+            ${dl?`<a href="https://drive.google.com/file/d/${x.drive_id}/view" target="_blank" rel="noopener">▶ Kho</a>`:''}</div></div>`;
+        }).join(""); __trdSelUI(); };
+      window.trendInit=function(){ const owner=__trdOwner(); if(!owner)return;
+        if(!__trd.started){ __trd.started=true;
+          try{ onSnapshot(doc(_appFor("trending_config"),"trending_config",owner),d=>{ __trd.cfg=d.exists()?d.data():{}; __trdCfgUI(); }, ()=>{}); }catch(e){}
+          const col=collection(_appFor("trending_kho"),"trending_kho");
+          snapW(query(col,where("owner","==",owner),orderBy("collected_at","desc"),limit(300)),
+            s=>{ __trd.items=s.docs.map(d=>({id:d.id,...d.data()})); window.__trdRender(); __trdPlatsUI(); },
+            ()=> snapW(query(col,where("owner","==",owner)), s=>{ __trd.items=s.docs.map(d=>({id:d.id,...d.data()})); window.__trdRender(); __trdPlatsUI(); }, ()=>{}, "trending_kho"),
+            "trending_kho"); }
+        __trdPlatsUI(); __trdCfgUI(); window.__trdRender();
+        const sc=$("trdSaveCfg"); if(sc&&!sc.__b){ sc.__b=1; sc.onclick=async()=>{ const o=__trdOwner(); if(!o)return;
+          const cfg=Object.assign({},__trd.cfg,{owner:o}); cfg[__trd.plat]=Object.assign({},cfg[__trd.plat]||{},{on:$("trdOn").checked,auto_dl_top_n:Math.max(0,Math.min(50,+$("trdTopN").value||0))});
+          try{ await setDoc(doc(_appFor("trending_config"),"trending_config",o),cfg,{merge:true}); $("trdCfgMsg").textContent="✓ đã lưu"; setTimeout(()=>{$("trdCfgMsg").textContent="";},2500);}catch(e){$("trdCfgMsg").textContent="lỗi lưu: "+e.message;} }; }
+        const db2=$("trdDlSel"); if(db2&&!db2.__b){ db2.__b=1; db2.onclick=async()=>{ const o=__trdOwner(); if(!o||!__trd.sel.size)return;
+          const ids=[...__trd.sel];
+          if(!confirm(`Yêu cầu tải ${ids.length} video về kho Drive? Cron Trend Kho sẽ xử trong ~3 giờ (hoặc chạy tay workflow).`))return;
+          try{ await addDoc(collection(_appFor("trending_req"),"trending_req"),{owner:o,platform:__trd.plat,video_ids:ids,status:"pending",created_at:new Date().toISOString()}); __trd.sel.clear(); window.__trdRender(); alert("✓ Đã gửi yêu cầu tải.");}catch(e){alert("Lỗi gửi yêu cầu: "+e.message);} }; }
+      };
+
     /* ── LISTENER PHẢI CÓ TRẦN, KHÔNG THÌ NÓ PHÌNH THEO TUỔI DỰ ÁN  (4/9/2026) ────────────
        Anh: *"tính toán tất cả mục tốn quota của website … để không bị chặn đứng tiến trình."*
 
@@ -6963,60 +7020,6 @@ Return STRICT JSON only: {"suggestions":[{"name":"CHANNELNAME (no spaces, ALLCAP
         if(v==="tasks"&&window.renderTasks) window.renderTasks(); };
       window.__setTitle=setTitle;
       // ROUTING theo URL hash: mỗi mục 1 đường dẫn (#publish, #channels…) -> F5 giữ nguyên trang
-      // ═══════════════ 📈 KHO TRENDING ═══════════════
-      // Metadata (browse) đọc live từ shard B (META_B). Tải file = ghi trending_req -> workflow
-      // trend_kho.py --serve-requests xử. Cấu hình cron = trending_config (1 doc/owner).
-      const TRD_PLATS=[["yt","YouTube"],["tiktok","TikTok"],["fb","Facebook"],["ig","Instagram"]];
-      const __trd={plat:"yt",items:[],cfg:{},sel:new Set(),started:false};
-      const __trdOwner=()=>window.__ownerUid||window.__uid;
-      const __trdFmt=(n)=>{n=+n||0;return n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?(n/1e3).toFixed(1)+"K":String(n);};
-      const __trdDur=(s)=>{s=+s||0;if(!s)return"";const m=Math.floor(s/60);return m+":"+String(s%60).padStart(2,"0");};
-      function __trdCfgUI(){ const c=(__trd.cfg&&__trd.cfg[__trd.plat])||{}; const on=$("trdOn"),tn=$("trdTopN");
-        if(on)on.checked=!!c.on; if(tn)tn.value=(c.auto_dl_top_n||0); }
-      function __trdPlatsUI(){ const host=$("trdPlats"); if(!host)return;
-        const cnt={}; __trd.items.forEach(x=>cnt[x.platform]=(cnt[x.platform]||0)+1);
-        host.innerHTML=TRD_PLATS.map(([p,name])=>`<div class="trd-plat ${p===__trd.plat?'on':''}" onclick="window.__trdSetPlat('${p}')">${name} <span class="n">${cnt[p]||0}</span></div>`).join(""); }
-      function __trdSelUI(){ const b=$("trdDlSel"); if(b)b.textContent=`⬇️ Tải mục đã chọn (${__trd.sel.size})`; }
-      window.__trdSetPlat=(p)=>{__trd.plat=p;__trd.sel.clear();__trdPlatsUI();__trdCfgUI();window.__trdRender();};
-      window.__trdSel=(id)=>{ __trd.sel.has(id)?__trd.sel.delete(id):__trd.sel.add(id);
-        const c=document.querySelector(`.trd-chk[onchange*="${id}"]`); if(c)c.closest(".trd-card").classList.toggle("sel",__trd.sel.has(id)); __trdSelUI(); };
-      window.__trdRender=function(){ const grid=$("trdGrid"); if(!grid)return;
-        const q=(($("trdSearch")||{}).value||"").toLowerCase().trim(), sort=($("trdSort")||{}).value||"views";
-        let rows=__trd.items.filter(x=>x.platform===__trd.plat);
-        if(q)rows=rows.filter(x=>((x.title||"")+" "+(x.channel||"")).toLowerCase().includes(q));
-        rows.sort((a,b)=> sort==="new"?((b.collected_at||0)-(a.collected_at||0)) : sort==="likes"?((b.likes||0)-(a.likes||0)) : ((b.views||0)-(a.views||0)));
-        const cE=$("trdCount"); if(cE)cE.textContent=rows.length+" video · "+__trd.plat.toUpperCase();
-        const nv=$("nvTrend"); if(nv)nv.textContent=__trd.items.length;
-        if(!rows.length){ grid.innerHTML=`<div class="d">Chưa có video ${__trd.plat.toUpperCase()} trong kho. ${__trd.plat==='yt'?'Cần secret YT_DATA_KEY + cron Trend Kho chạy.':'Adapter nền tảng này đang phát triển (pilot làm YouTube trước).'}</div>`; __trdSelUI(); return; }
-        grid.innerHTML=rows.map(x=>{ const sel=__trd.sel.has(x.id), dl=x.downloaded&&x.drive_id;
-          return `<div class="trd-card ${sel?'sel':''}"><div class="trd-thumb">
-            ${dl?`<span class="trd-dl">⬇ ${x.size_mb||''}MB</span>`:`<input type="checkbox" class="trd-chk" ${sel?'checked':''} onchange="window.__trdSel('${x.id}')">`}
-            ${x.thumb?`<img loading="lazy" src="${x.thumb}" onerror="this.style.display='none'">`:''}
-            ${x.duration_s?`<span class="trd-dur">${__trdDur(x.duration_s)}</span>`:''}</div>
-            <div class="trd-meta"><div class="trd-title" title="${(x.title||'').replace(/"/g,'&quot;')}">${x.title||'(không tiêu đề)'}</div>
-            <div class="trd-ch">${x.channel||''}</div>
-            <div class="trd-stat"><span>👁 ${__trdFmt(x.views)}</span><span>👍 ${__trdFmt(x.likes)}</span></div></div>
-            <div class="trd-act"><a href="${x.url}" target="_blank" rel="noopener">↗ Xem gốc</a>
-            ${dl?`<a href="https://drive.google.com/file/d/${x.drive_id}/view" target="_blank" rel="noopener">▶ Kho</a>`:''}</div></div>`;
-        }).join(""); __trdSelUI(); };
-      window.trendInit=function(){ const owner=__trdOwner(); if(!owner)return;
-        if(!__trd.started){ __trd.started=true;
-          try{ onSnapshot(doc(_appFor("trending_config"),"trending_config",owner),d=>{ __trd.cfg=d.exists()?d.data():{}; __trdCfgUI(); }, ()=>{}); }catch(e){}
-          const col=collection(_appFor("trending_kho"),"trending_kho");
-          snapW(query(col,where("owner","==",owner),orderBy("collected_at","desc"),limit(300)),
-            s=>{ __trd.items=s.docs.map(d=>({id:d.id,...d.data()})); window.__trdRender(); __trdPlatsUI(); },
-            ()=> snapW(query(col,where("owner","==",owner)), s=>{ __trd.items=s.docs.map(d=>({id:d.id,...d.data()})); window.__trdRender(); __trdPlatsUI(); }, ()=>{}, "trending_kho"),
-            "trending_kho"); }
-        __trdPlatsUI(); __trdCfgUI(); window.__trdRender();
-        const sc=$("trdSaveCfg"); if(sc&&!sc.__b){ sc.__b=1; sc.onclick=async()=>{ const o=__trdOwner(); if(!o)return;
-          const cfg=Object.assign({},__trd.cfg,{owner:o}); cfg[__trd.plat]=Object.assign({},cfg[__trd.plat]||{},{on:$("trdOn").checked,auto_dl_top_n:Math.max(0,Math.min(50,+$("trdTopN").value||0))});
-          try{ await setDoc(doc(_appFor("trending_config"),"trending_config",o),cfg,{merge:true}); $("trdCfgMsg").textContent="✓ đã lưu"; setTimeout(()=>{$("trdCfgMsg").textContent="";},2500);}catch(e){$("trdCfgMsg").textContent="lỗi lưu: "+e.message;} }; }
-        const db2=$("trdDlSel"); if(db2&&!db2.__b){ db2.__b=1; db2.onclick=async()=>{ const o=__trdOwner(); if(!o||!__trd.sel.size)return;
-          const ids=[...__trd.sel];
-          if(!confirm(`Yêu cầu tải ${ids.length} video về kho Drive? Cron Trend Kho sẽ xử trong ~3 giờ (hoặc chạy tay workflow).`))return;
-          try{ await addDoc(collection(_appFor("trending_req"),"trending_req"),{owner:o,platform:__trd.plat,video_ids:ids,status:"pending",created_at:new Date().toISOString()}); __trd.sel.clear(); window.__trdRender(); alert("✓ Đã gửi yêu cầu tải.");}catch(e){alert("Lỗi gửi yêu cầu: "+e.message);} }; }
-      };
-
       function activateView(v){
         if(!VIEWS.includes(v)) v="overview";
         if(v==="trending" && window.trendInit) window.trendInit();
