@@ -1043,7 +1043,21 @@
           <div class="trd-bar">
             <div class="p-sub" id="trdCount">Đang tải…</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <input type="search" id="trdSearch" placeholder="🔎 Tìm tiêu đề / kênh…" style="min-width:170px" oninput="window.__trdRender&&window.__trdRender()">
+              <input type="search" id="trdSearch" placeholder="🔎 Tìm tiêu đề / kênh…" style="min-width:150px" oninput="window.__trdRender&&window.__trdRender()">
+              <select id="trdRegion" onchange="window.__trdRender&&window.__trdRender()" title="Vùng (English)">
+                <option value="">🌐 Mọi vùng</option>
+                <option value="US">🇺🇸 US</option>
+                <option value="GB">🇬🇧 UK</option>
+                <option value="CA">🇨🇦 Canada</option>
+                <option value="AU">🇦🇺 Úc</option>
+              </select>
+              <select id="trdPeriod" onchange="window.__trdRender&&window.__trdRender()" title="Khoảng thời gian trending">
+                <option value="1">📅 Hôm nay</option>
+                <option value="7" selected>🗓️ 7 ngày</option>
+                <option value="30">📆 30 ngày</option>
+                <option value="90">🈷️ Quý (90 ngày)</option>
+                <option value="0">♾️ Tất cả</option>
+              </select>
               <select id="trdSort" onchange="window.__trdRender&&window.__trdRender()">
                 <option value="views">🔥 View cao nhất</option>
                 <option value="new">🆕 Mới thu thập</option>
@@ -2233,12 +2247,16 @@
       window.__trdSetPlat=(p)=>{__trd.plat=p;__trd.sel.clear();__trdPlatsUI();__trdCfgUI();window.__trdRender();};
       window.__trdSel=(id)=>{ __trd.sel.has(id)?__trd.sel.delete(id):__trd.sel.add(id);
         const c=document.querySelector(`.trd-chk[onchange*="${id}"]`); if(c)c.closest(".trd-card").classList.toggle("sel",__trd.sel.has(id)); __trdSelUI(); };
+      const TRD_CO={US:"🇺🇸",GB:"🇬🇧",CA:"🇨🇦",AU:"🇦🇺"};
       window.__trdRender=function(){ const grid=$("trdGrid"); if(!grid)return;
         const q=(($("trdSearch")||{}).value||"").toLowerCase().trim(), sort=($("trdSort")||{}).value||"views";
+        const reg=($("trdRegion")||{}).value||"", days=+(($("trdPeriod")||{}).value||"7");
         let rows=__trd.items.filter(x=>x.platform===__trd.plat);
         if(q)rows=rows.filter(x=>((x.title||"")+" "+(x.channel||"")).toLowerCase().includes(q));
+        if(reg)rows=rows.filter(x=>(x.regions&&x.regions.length?x.regions:[x.region]).includes(reg));
+        if(days>0){ const cut=Date.now()/1000-days*86400; rows=rows.filter(x=>(x.collected_at||0)>=cut); }
         rows.sort((a,b)=> sort==="new"?((b.collected_at||0)-(a.collected_at||0)) : sort==="likes"?((b.likes||0)-(a.likes||0)) : ((b.views||0)-(a.views||0)));
-        const cE=$("trdCount"); if(cE)cE.textContent=rows.length+" video · "+__trd.plat.toUpperCase();
+        const cE=$("trdCount"); if(cE)cE.textContent=rows.length+" video · "+__trd.plat.toUpperCase()+(reg?" · "+(TRD_CO[reg]||reg):"")+(days>0?" · "+days+"n":"");
         const nv=$("nvTrend"); if(nv)nv.textContent=__trd.items.length;
         if(!rows.length){ grid.innerHTML=`<div class="d">Chưa có video ${__trd.plat.toUpperCase()} trong kho. ${__trd.plat==='yt'?'Cần secret YT_DATA_KEY + cron Trend Kho chạy.':'Adapter nền tảng này đang phát triển (pilot làm YouTube trước).'}</div>`; __trdSelUI(); return; }
         grid.innerHTML=rows.map(x=>{ const sel=__trd.sel.has(x.id), dl=x.downloaded&&x.drive_id;
@@ -2248,18 +2266,30 @@
             ${x.duration_s?`<span class="trd-dur">${__trdDur(x.duration_s)}</span>`:''}</div>
             <div class="trd-meta"><div class="trd-title" title="${(x.title||'').replace(/"/g,'&quot;')}">${x.title||'(không tiêu đề)'}</div>
             <div class="trd-ch">${x.channel||''}</div>
-            <div class="trd-stat"><span>👁 ${__trdFmt(x.views)}</span><span>👍 ${__trdFmt(x.likes)}</span></div></div>
+            <div class="trd-stat"><span>👁 ${__trdFmt(x.views)}</span><span>👍 ${__trdFmt(x.likes)}</span><span style="margin-left:auto">${((x.regions&&x.regions.length?x.regions:[x.region])||[]).map(r=>TRD_CO[r]||'').join('')}</span></div></div>
             <div class="trd-act"><a href="${x.url}" target="_blank" rel="noopener">↗ Xem gốc</a>
             ${dl?`<a href="https://drive.google.com/file/d/${x.drive_id}/view" target="_blank" rel="noopener">▶ Kho</a>`:''}</div></div>`;
         }).join(""); __trdSelUI(); };
+      // Metadata FETCH từ JSON tĩnh trên repo render PUBLIC — 0 Firestore (anh dặn không đụng quota
+      // Firebase). CDN raw ~5 phút; cache-bust theo phút. Cron cập nhật file mỗi 3h.
+      const TRD_JSON="https://raw.githubusercontent.com/braydanamilio-spec/mq-vx-lab/main/render-pipeline/trending_data.json";
+      window.__trdFetch=async function(){
+        const grid=$("trdGrid");
+        try{
+          const r=await fetch(TRD_JSON+"?t="+Math.floor(Date.now()/60000));
+          if(!r.ok) throw new Error("HTTP "+r.status);
+          const d=await r.json(); const o=__trdOwner();
+          __trd.items=(d.items||[]).filter(x=>!o||!x.owner||x.owner===o);
+          __trd.updated=d.updated||0;
+          window.__trdRender(); __trdPlatsUI();
+        }catch(e){ if(grid && !__trd.items.length) grid.innerHTML=`<div class="d">Chưa tải được kho trending (${e.message}). Cron Trend Kho chạy sẽ tạo dữ liệu.</div>`; }
+      };
       window.trendInit=function(){ const owner=__trdOwner(); if(!owner)return;
         if(!__trd.started){ __trd.started=true;
-          try{ onSnapshot(doc(_appFor("trending_config"),"trending_config",owner),d=>{ __trd.cfg=d.exists()?d.data():{}; __trdCfgUI(); }, ()=>{}); }catch(e){}
-          const col=collection(_appFor("trending_kho"),"trending_kho");
-          snapW(query(col,where("owner","==",owner),orderBy("collected_at","desc"),limit(300)),
-            s=>{ __trd.items=s.docs.map(d=>({id:d.id,...d.data()})); window.__trdRender(); __trdPlatsUI(); },
-            ()=> snapW(query(col,where("owner","==",owner)), s=>{ __trd.items=s.docs.map(d=>({id:d.id,...d.data()})); window.__trdRender(); __trdPlatsUI(); }, ()=>{}, "trending_kho"),
-            "trending_kho"); }
+          // config đọc 1 LẦN (getDoc, 1 doc Project A — không đáng kể); KHÔNG onSnapshot metadata.
+          try{ getDoc(doc(_appFor("trending_config"),"trending_config",owner)).then(d=>{ __trd.cfg=(d.exists&&d.exists())?d.data():{}; __trdCfgUI(); }).catch(()=>{}); }catch(e){}
+        }
+        window.__trdFetch();          // tự hiển thị video trending khi mở tab
         __trdPlatsUI(); __trdCfgUI(); window.__trdRender();
         const sc=$("trdSaveCfg"); if(sc&&!sc.__b){ sc.__b=1; sc.onclick=async()=>{ const o=__trdOwner(); if(!o)return;
           const cfg=Object.assign({},__trd.cfg,{owner:o}); cfg[__trd.plat]=Object.assign({},cfg[__trd.plat]||{},{on:$("trdOn").checked,auto_dl_top_n:Math.max(0,Math.min(50,+$("trdTopN").value||0))});
