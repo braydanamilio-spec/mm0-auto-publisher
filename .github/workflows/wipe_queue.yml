@@ -11,6 +11,15 @@ name: MM0 Wipe Queue
 #   · `dry_run` MẶC ĐỊNH TRUE — bấm nhầm nút thì chỉ đếm, không mất gì.
 #   · `wipe_queue.py` bỏ file vào THÙNG RÁC Drive, không xoá vĩnh viễn:
 #     còn cứu lại được trong 30 ngày.
+#
+#  12/9/2026 — anh muốn DỌN TỔNG THỂ: chọn full tất cả kho, xoá sạch MỌI file (kể cả
+#  file không phải MM0). Thêm `scope=all` + input `xac_nhan`. BA hàng rào cho scope=all:
+#   1. `dry_run` mặc định true (đếm trước).
+#   2. chạy thật (dry_run=false) BẮT BUỘC gõ đúng chuỗi `DON SACH TAT CA DRIVE`, sai/trống
+#      thì script DỪNG (exit 2), không đụng file.
+#   3. vẫn vào THÙNG RÁC (khôi phục 30 ngày) + DỪNG nếu đọc 0 kho (§15.6).
+#  Trình tự đúng: bấm dry_run=true scope=all -> xem số -> bấm lại dry_run=false +
+#  xac_nhan="DON SACH TAT CA DRIVE".
 # ============================================================================
 
 on:
@@ -21,10 +30,14 @@ on:
         type: boolean
         default: true
       scope:
-        description: "queue = chỉ hàng chờ đăng · store = mọi thứ trong kho"
+        description: "queue = chỉ hàng chờ đăng · store = mọi thứ trong kho MM0 · all = DỌN TỔNG THỂ (TẤT CẢ file trên Drive)"
         type: choice
-        options: [queue, store]
+        options: [queue, store, all]
         default: queue
+      xac_nhan:
+        description: "BẮT BUỘC khi scope=all + chạy thật: gõ đúng  DON SACH TAT CA DRIVE  (tránh xoá nhầm). Vẫn vào THÙNG RÁC, khôi phục 30 ngày."
+        type: string
+        default: ""
 
 concurrency:
   group: mm0-wipe-queue
@@ -76,4 +89,5 @@ jobs:
         run: |
           python src/wipe_queue.py \
             --scope "${{ inputs.scope }}" \
+            --xac-nhan "${{ inputs.xac_nhan }}" \
             ${{ inputs.dry_run && '--dry-run' || '' }}

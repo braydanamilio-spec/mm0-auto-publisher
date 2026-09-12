@@ -21,6 +21,9 @@ from datetime import datetime, timezone
 
 import storage
 
+# Chuỗi bắt buộc gõ đúng khi DỌN TỔNG THỂ (scope=all) chạy thật — chống xoá nhầm.
+_CHUOI_XAC_NHAN = "DON SACH TAT CA DRIVE"
+
 
 def _walk_files(drv, folder_id, depth=0, out=None):
     """Đệ quy lấy MỌI file (không phải thư mục) dưới 1 thư mục."""
@@ -53,9 +56,29 @@ def _walk_files(drv, folder_id, depth=0, out=None):
     return out
 
 
+def _all_files(drv) -> list:
+    """PHẲNG: MỌI file (không phải thư mục, chưa ở thùng rác) của CẢ tài khoản — không giới hạn
+    thư mục MM0. Dùng cho scope='all' (anh chọn "dọn TẤT CẢ file trên Drive", 12/9/2026).
+    Phân trang đủ nextPageToken (§15.2: danh sách không kèm dấu 'hết' đọc ra hai nghĩa)."""
+    out = []
+    trang = None
+    while True:
+        r = drv.svc.files().list(
+            q="trashed=false and mimeType!='application/vnd.google-apps.folder'",
+            fields="nextPageToken,files(id,name,mimeType)", pageSize=1000,
+            pageToken=trang, supportsAllDrives=True,
+            includeItemsFromAllDrives=True).execute()
+        out.extend(r.get("files", []))
+        trang = r.get("nextPageToken")
+        if not trang:
+            break
+    return out
+
+
 def _wipe_account(acc, dry: bool, scope: str) -> tuple[int, int, str]:
     """Trả (số file thấy, số file đã bỏ thùng rác, lỗi).
 
+    scope="all":   dọn TẤT CẢ file của tài khoản (kể cả file KHÔNG phải MM0) — dọn tổng thể
     scope="store": dọn MỌI file dưới MM0-STORE (_QUEUE + _POSTED + thumbnail + mọi thư mục con)
     scope="queue": chỉ _QUEUE/long|short
     """
@@ -65,13 +88,13 @@ def _wipe_account(acc, dry: bool, scope: str) -> tuple[int, int, str]:
         return 0, 0, f"không mở được kho: {str(e)[:70]}"
     root = acc.get("root")
     try:
-        start = root if scope == "store" else drv.child_folder(root, "_QUEUE", create=False)
-    except Exception as e:
-        return 0, 0, f"không mở được thư mục: {str(e)[:70]}"
-    if not start:
-        return 0, 0, ""
-    try:
-        files = _walk_files(drv, start)
+        if scope == "all":
+            files = _all_files(drv)                        # mọi file toàn tài khoản
+        else:
+            start = root if scope == "store" else drv.child_folder(root, "_QUEUE", create=False)
+            if not start:
+                return 0, 0, ""
+            files = _walk_files(drv, start)
     except Exception as e:
         return 0, 0, f"liệt kê: {str(e)[:70]}"
     seen = len(files)
@@ -152,9 +175,25 @@ def main() -> int:
     ap.add_argument("--don-ban-ghi", action="store_true",
                     help="xoá luôn BẢN GHI render_jobs của những kho vừa dọn "
                          "(mặc định KHÔNG — xem `don_ban_ghi`)")
-    ap.add_argument("--scope", choices=("store", "queue"), default="store",
-                    help="store = mọi file dưới MM0-STORE (mặc định) · queue = chỉ _QUEUE")
+    ap.add_argument("--scope", choices=("all", "store", "queue"), default="store",
+                    help="all = TẤT CẢ file toàn tài khoản (dọn tổng thể) · "
+                         "store = mọi file dưới MM0-STORE (mặc định) · queue = chỉ _QUEUE")
+    ap.add_argument("--xac-nhan", default="",
+                    help="CHUỖI XÁC NHẬN cho dọn tổng thể (scope=all, chạy thật). Phải đúng "
+                         f"'{_CHUOI_XAC_NHAN}' — tránh xoá nhầm.")
     a = ap.parse_args()
+
+    # ── CỔNG XÁC NHẬN CHO DỌN TỔNG THỂ  (anh: "có confirm tránh xóa nhầm", 12/9/2026) ────────
+    # scope=all bỏ THÙNG RÁC (khôi phục 30 ngày) MỌI file — kể cả file không phải MM0. Chạy
+    # THẬT (không --dry-run) thì BẮT BUỘC gõ đúng chuỗi xác nhận, nếu không thì REFUSE và ép
+    # chạy thử trước. Hai tầng: đếm-trước (--dry-run) rồi mới xác nhận.
+    if a.scope == "all" and not a.dry_run and a.xac_nhan.strip() != _CHUOI_XAC_NHAN:
+        print(f"⛔ DỌN TỔNG THỂ (scope=all) là thao tác lớn — bỏ thùng rác MỌI file trên MỌI kho.")
+        print(f"   Bước 1: chạy --dry-run để ĐẾM trước (không đụng file).")
+        print(f"   Bước 2: chạy lại với --xac-nhan '{_CHUOI_XAC_NHAN}' để dọn THẬT "
+              f"(vào thùng rác, khôi phục 30 ngày).")
+        print(f"   -> Chưa xác nhận đúng chuỗi. DỪNG, không đụng file nào.")
+        return 2
 
     accs = storage.pool_accounts()
     # 23/8: kho khai trong storage.yaml (env) dùng refresh_token cũ, có cái đã bị thu hồi
@@ -166,6 +205,12 @@ def main() -> int:
             alt.setdefault(r["root"], r)
     except Exception as e:
         print(f"⚠️ không đọc được danh sách kho dự phòng: {str(e)[:70]}")
+    if not accs:
+        # §15.6: danh sách rỗng thì DỪNG — "0 kho" đọc ra hai nghĩa (chưa tải được vs hết kho),
+        # và với lệnh XOÁ thì đoán sai một lần là đủ hại. Không dọn khi không đọc được kho nào.
+        print("⛔ Không đọc được kho nào (0 tài khoản) — DỪNG, không đụng file. "
+              "Kiểm token/kết nối rồi thử lại.")
+        return 2
     print(f"🧹 Dọn [{a.scope}] trên {len(accs)} kho {'(CHẠY THỬ)' if a.dry_run else ''}", flush=True)
     tot_seen = tot_done = 0
     loi = []
