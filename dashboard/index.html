@@ -1104,6 +1104,19 @@
                 <option value="short">⚡ Shorts (&lt;60s)</option>
                 <option value="long">🎞️ Dài (≥60s)</option>
               </select>
+              <select id="trdNiche" onchange="window.__trdRender&&window.__trdRender()" title="Chủ đề / niche">
+                <option value="">🎯 Mọi chủ đề</option>
+                <option value="craft">🧶 Handmade / Craft / DIY</option>
+                <option value="funny">😂 Funny / Comedy</option>
+                <option value="food">🍔 Food / Cooking</option>
+                <option value="beauty">💄 Beauty / Fashion</option>
+                <option value="pets">🐶 Pets / Animals</option>
+                <option value="gaming">🎮 Gaming</option>
+                <option value="dance">💃 Dance / Music</option>
+                <option value="fitness">💪 Fitness / Health</option>
+                <option value="tech">📱 Tech / Gadget</option>
+                <option value="viral">🔥 Viral / Challenge</option>
+              </select>
               <select id="trdSort" onchange="window.__trdRender&&window.__trdRender()">
                 <option value="views">🔥 View cao nhất</option>
                 <option value="new">🆕 Mới thu thập</option>
@@ -2296,6 +2309,19 @@
       window.__trdSel=(id)=>{ __trd.sel.has(id)?__trd.sel.delete(id):__trd.sel.add(id);
         const c=document.querySelector(`.trd-chk[onchange*="${id}"]`); if(c)c.closest(".trd-card").classList.toggle("sel",__trd.sel.has(id)); __trdSelUI(); };
       const TRD_CO={US:"🇺🇸",GB:"🇬🇧",CA:"🇨🇦",AU:"🇦🇺"};
+      // Lọc niche client-side (100% free, không AI/không API) — khớp từ khóa trong tiêu đề/kênh.
+      const TRD_NICHE={
+        craft:["handmade","craft","diy","crochet","knit","resin","clay","pottery","sew","embroider","woodwork","made by","how to make"],
+        funny:["funny","comedy","prank","meme","fail","humor","skit","joke","hilarious","laugh"],
+        food:["food","recipe","cooking","mukbang","baking","kitchen","chef","eat","cook","snack","dessert","meal","tacos","chicken"],
+        beauty:["makeup","beauty","skincare","hair","nails","grwm","fashion","outfit","lipstick","aesthetic","style"],
+        pets:["dog","cat","puppy","kitten","pet","animal","doggo","paw"],
+        gaming:["game","gaming","minecraft","fortnite","roblox","gameplay","gamer","valorant","gta"],
+        dance:["dance","choreography","dancing","song","music","cover","singing","remix","lyrics"],
+        fitness:["workout","fitness","gym","exercise","yoga","abs","muscle","training","health"],
+        tech:["tech","iphone","gadget","unbox","ai ","android","review","app","smartphone"],
+        viral:["viral","trend","challenge","fyp","foryou","satisfying","asmr","pov"],
+      };
       const __trdAge=(iso)=>{ if(!iso)return""; const t=Date.parse(iso); if(!t)return""; const s=(Date.now()-t)/1000;
         if(s<3600)return Math.max(1,Math.floor(s/60))+"p trước"; if(s<86400)return Math.floor(s/3600)+"h trước";
         const d=Math.floor(s/86400); return d<30?d+" ngày trước":Math.floor(d/30)+" tháng trước"; };
@@ -2305,12 +2331,14 @@
       function __trdFilter(){
         const q=(($("trdSearch")||{}).value||"").toLowerCase().trim(), reg=($("trdRegion")||{}).value||"";
         const days=+(($("trdPeriod")||{}).value||"7"), dur=($("trdDur")||{}).value||"", sort=($("trdSort")||{}).value||"views";
+        const niche=($("trdNiche")||{}).value||"";
         let rows=__trd.items.filter(x=>x.platform===__trd.plat);
         if(q)rows=rows.filter(x=>((x.title||"")+" "+(x.channel||"")).toLowerCase().includes(q));
         if(reg)rows=rows.filter(x=>(x.regions&&x.regions.length?x.regions:[x.region]).includes(reg));
         if(days>0){ const cut=Date.now()/1000-days*86400; rows=rows.filter(x=>(x.collected_at||0)>=cut); }
         if(dur==="short")rows=rows.filter(x=>(x.duration_s||0)>0&&x.duration_s<60);
         else if(dur==="long")rows=rows.filter(x=>(x.duration_s||0)>=60);
+        if(niche&&TRD_NICHE[niche]){ const kw=TRD_NICHE[niche]; rows=rows.filter(x=>{ const t=((x.title||"")+" "+(x.channel||"")).toLowerCase(); return kw.some(k=>t.includes(k)); }); }
         rows.sort((a,b)=> sort==="new"?((b.collected_at||0)-(a.collected_at||0)) : sort==="likes"?((b.likes||0)-(a.likes||0)) : ((b.views||0)-(a.views||0)));
         return {rows,reg,days};
       }
