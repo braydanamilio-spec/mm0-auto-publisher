@@ -995,46 +995,87 @@
       </section>
       <section id="v-trending" class="content hide">
         <style>
-          .trd-wrap{display:flex;flex-direction:column;gap:16px}
+          .trd-wrap{display:flex;flex-direction:column;gap:14px}
           .trd-plats{display:flex;gap:8px;flex-wrap:wrap}
-          .trd-plat{padding:7px 14px;border-radius:9px;border:1px solid var(--border);background:var(--surface);
-            color:var(--text2);font-weight:600;font-size:13px;cursor:pointer;display:flex;gap:7px;align-items:center}
+          .trd-plat{padding:8px 15px;border-radius:10px;border:1px solid var(--border);background:var(--surface);
+            color:var(--text2);font-weight:600;font-size:13px;cursor:pointer;display:flex;gap:7px;align-items:center;transition:.15s}
+          .trd-plat:hover{border-color:var(--accent2)}
           .trd-plat.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
-          .trd-plat .n{font-size:11px;color:var(--faint)}
-          .trd-cfg{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:10px}
+          .trd-plat .n{font-size:11px;background:var(--surface2);color:var(--faint);padding:1px 7px;border-radius:20px}
+          .trd-plat.on .n{background:var(--accent);color:#fff}
+          .trd-stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+          .trd-kpi{flex:1;min-width:120px;border:1px solid var(--border);border-radius:11px;padding:10px 13px;background:var(--surface2)}
+          .trd-kpi .v{font-size:20px;font-weight:800;color:var(--text);line-height:1.1;font-variant-numeric:tabular-nums}
+          .trd-kpi .k{font-size:11px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.4px}
+          .trd-kpi .v small{font-size:12px;font-weight:600;color:var(--muted)}
+          .trd-cfg{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:2px;padding-top:12px;border-top:1px solid var(--border2)}
           .trd-cfg label{font-size:12px;color:var(--text2);display:flex;gap:6px;align-items:center}
-          .trd-cfg input[type=number]{width:64px}
+          .trd-cfg input[type=number]{width:60px}
           .trd-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
-          .trd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
-          .trd-card{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface);
-            display:flex;flex-direction:column;transition:border-color .15s}
+          .trd-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+          .trd-controls select,.trd-controls input{font-size:12.5px}
+          /* HERO — top 1 */
+          .trd-hero{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:0;border:1px solid var(--border);
+            border-radius:16px;overflow:hidden;background:linear-gradient(135deg,var(--accent-soft),transparent);margin-bottom:4px}
+          .trd-hero-thumb{position:relative;aspect-ratio:16/9;background:var(--surface2);overflow:hidden}
+          .trd-hero-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+          .trd-hero-info{padding:18px 20px;display:flex;flex-direction:column;gap:10px;justify-content:center}
+          .trd-hero-badge{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;background:linear-gradient(135deg,#f59e0b,#f43f5e);
+            color:#fff;font-weight:800;font-size:12px;padding:4px 12px;border-radius:20px;letter-spacing:.5px}
+          .trd-hero-title{font-size:19px;font-weight:800;line-height:1.28;color:var(--text);
+            display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+          .trd-hero-ch{font-size:13px;color:var(--text2);font-weight:600}
+          .trd-hero-nums{display:flex;gap:18px;flex-wrap:wrap;margin-top:2px}
+          .trd-hero-nums b{font-size:17px;color:var(--text);font-variant-numeric:tabular-nums}
+          .trd-hero-nums span{font-size:11px;color:var(--muted);display:block;text-transform:uppercase;letter-spacing:.3px}
+          /* GRID cards */
+          .trd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));gap:15px}
+          .trd-card{position:relative;border:1px solid var(--border);border-radius:13px;overflow:hidden;background:var(--surface);
+            display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s,border-color .15s}
+          .trd-card:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(0,0,0,.10);border-color:var(--accent2)}
           .trd-card.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
           .trd-thumb{position:relative;aspect-ratio:16/9;background:var(--surface2);overflow:hidden}
-          .trd-thumb img{width:100%;height:100%;object-fit:cover;display:block}
-          .trd-dur{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.78);color:#fff;
+          .trd-thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s}
+          .trd-card:hover .trd-thumb img{transform:scale(1.05)}
+          .trd-rank{position:absolute;left:8px;top:8px;z-index:2;min-width:24px;height:24px;padding:0 6px;border-radius:8px;
+            background:rgba(15,17,25,.82);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+          .trd-rank.r1{background:linear-gradient(135deg,#f59e0b,#f43f5e)}
+          .trd-rank.r2{background:linear-gradient(135deg,#64748b,#94a3b8)}
+          .trd-rank.r3{background:linear-gradient(135deg,#b45309,#d97706)}
+          .trd-dur{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.8);color:#fff;
             font-size:11px;font-weight:600;padding:1px 6px;border-radius:5px}
-          .trd-chk{position:absolute;left:8px;top:8px;width:20px;height:20px;cursor:pointer}
-          .trd-dl{position:absolute;left:8px;top:8px;background:var(--good-soft);color:var(--good);
-            font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px}
-          .trd-meta{padding:10px 11px;display:flex;flex-direction:column;gap:5px;flex:1}
+          .trd-chk{position:absolute;right:8px;top:8px;z-index:2;width:20px;height:20px;cursor:pointer}
+          .trd-dl{position:absolute;right:8px;top:8px;z-index:2;background:var(--good);color:#fff;
+            font-size:10px;font-weight:800;padding:2px 7px;border-radius:6px}
+          .trd-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;transition:.15s;background:rgba(0,0,0,.15)}
+          .trd-card:hover .trd-play{opacity:1}
+          .trd-play a{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.92);color:#111;display:flex;align-items:center;justify-content:center;font-size:18px;text-decoration:none}
+          .trd-meta{padding:10px 12px;display:flex;flex-direction:column;gap:5px;flex:1}
           .trd-title{font-size:13px;font-weight:600;line-height:1.35;color:var(--text);
-            display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-          .trd-ch{font-size:12px;color:var(--muted)}
-          .trd-stat{font-size:11px;color:var(--faint);display:flex;gap:10px;margin-top:auto}
-          .trd-act{display:flex;gap:6px;padding:0 11px 11px}
+            display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:36px}
+          .trd-ch{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+          .trd-st{font-size:11px;color:var(--faint);display:flex;gap:9px;margin-top:auto;align-items:center;flex-wrap:wrap}
+          .trd-st .flags{margin-left:auto}
+          .trd-act{display:flex;gap:6px;padding:0 12px 11px}
           .trd-act a,.trd-act button{font-size:12px;font-weight:600;padding:5px 10px;border-radius:7px;
-            border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;text-decoration:none}
+            border:1px solid var(--border);background:var(--surface2);color:var(--text2);cursor:pointer;text-decoration:none;transition:.15s}
           .trd-act a:hover,.trd-act button:hover{border-color:var(--accent);color:var(--accent)}
+          .trd-skel{border:1px solid var(--border);border-radius:13px;overflow:hidden;background:var(--surface)}
+          .trd-skel .b{aspect-ratio:16/9;background:linear-gradient(90deg,var(--surface2),var(--border2),var(--surface2));background-size:200% 100%;animation:trdsh 1.2s infinite}
+          .trd-skel .l{height:11px;margin:10px 12px;border-radius:5px;background:var(--surface2)}
+          @keyframes trdsh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+          @media(max-width:720px){.trd-hero{grid-template-columns:1fr}}
         </style>
         <div class="panel trd-wrap">
           <div class="p-head">
-            <div class="p-title">📈 Kho tư liệu Trending (USA)</div>
-            <div class="p-sub">Gom video đang hot về nghiên cứu gu/xu hướng — KHÔNG đăng lại. Cron tự lấy metadata; tải file theo tích chọn hoặc auto Top-N.</div>
+            <div class="p-title">📈 Kho tư liệu Trending — USA &amp; English</div>
+            <div class="p-sub">Video đang hot ở Mỹ · Anh · Canada · Úc để nghiên cứu gu/xu hướng — KHÔNG đăng lại. Cron tự cập nhật; tải file theo tích chọn hoặc auto Top-N.</div>
           </div>
           <div class="trd-plats" id="trdPlats"></div>
+          <div class="trd-stats" id="trdStats"></div>
           <div class="trd-cfg" id="trdCfg">
-            <label><input type="checkbox" id="trdOn"> Bật cron gom nền tảng này</label>
-            <label>Auto tải Top-N: <input type="number" id="trdTopN" min="0" max="50" value="0" title="0 = không tự tải, chỉ gom metadata"></label>
+            <label><input type="checkbox" id="trdOn"> Bật cron tự gom nền tảng này</label>
+            <label>Auto tải Top-N: <input type="number" id="trdTopN" min="0" max="50" value="0" title="0 = chỉ gom metadata (không tự tải file)"></label>
             <button class="btn-conn" id="trdSaveCfg">💾 Lưu cài đặt</button>
             <span class="p-sub" id="trdCfgMsg"></span>
           </div>
@@ -1042,7 +1083,7 @@
         <div class="panel trd-wrap">
           <div class="trd-bar">
             <div class="p-sub" id="trdCount">Đang tải…</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <div class="trd-controls">
               <input type="search" id="trdSearch" placeholder="🔎 Tìm tiêu đề / kênh…" style="min-width:150px" oninput="window.__trdRender&&window.__trdRender()">
               <select id="trdRegion" onchange="window.__trdRender&&window.__trdRender()" title="Vùng (English)">
                 <option value="">🌐 Mọi vùng</option>
@@ -1058,15 +1099,22 @@
                 <option value="90">🈷️ Quý (90 ngày)</option>
                 <option value="0">♾️ Tất cả</option>
               </select>
+              <select id="trdDur" onchange="window.__trdRender&&window.__trdRender()" title="Độ dài">
+                <option value="">🎬 Mọi độ dài</option>
+                <option value="short">⚡ Shorts (&lt;60s)</option>
+                <option value="long">🎞️ Dài (≥60s)</option>
+              </select>
               <select id="trdSort" onchange="window.__trdRender&&window.__trdRender()">
                 <option value="views">🔥 View cao nhất</option>
                 <option value="new">🆕 Mới thu thập</option>
                 <option value="likes">👍 Like cao nhất</option>
               </select>
+              <button class="btn-conn" id="trdRefresh" title="Tải lại kho từ máy chủ">🔄</button>
               <button class="btn-conn" id="trdDlSel" title="Tải file các video đã tích chọn về kho Drive">⬇️ Tải mục đã chọn (0)</button>
             </div>
           </div>
-          <div class="trd-grid" id="trdGrid"><div class="d">Đang tải kho trending…</div></div>
+          <div id="trdHero"></div>
+          <div class="trd-grid" id="trdGrid"></div>
         </div>
       </section>
       <section id="v-render" class="content hide">
@@ -2248,35 +2296,71 @@
       window.__trdSel=(id)=>{ __trd.sel.has(id)?__trd.sel.delete(id):__trd.sel.add(id);
         const c=document.querySelector(`.trd-chk[onchange*="${id}"]`); if(c)c.closest(".trd-card").classList.toggle("sel",__trd.sel.has(id)); __trdSelUI(); };
       const TRD_CO={US:"🇺🇸",GB:"🇬🇧",CA:"🇨🇦",AU:"🇦🇺"};
-      window.__trdRender=function(){ const grid=$("trdGrid"); if(!grid)return;
-        const q=(($("trdSearch")||{}).value||"").toLowerCase().trim(), sort=($("trdSort")||{}).value||"views";
-        const reg=($("trdRegion")||{}).value||"", days=+(($("trdPeriod")||{}).value||"7");
+      const __trdAge=(iso)=>{ if(!iso)return""; const t=Date.parse(iso); if(!t)return""; const s=(Date.now()-t)/1000;
+        if(s<3600)return Math.max(1,Math.floor(s/60))+"p trước"; if(s<86400)return Math.floor(s/3600)+"h trước";
+        const d=Math.floor(s/86400); return d<30?d+" ngày trước":Math.floor(d/30)+" tháng trước"; };
+      const __trdAgo=(ep)=>{ if(!ep)return"—"; const s=Date.now()/1000-ep; if(s<90)return"vừa xong";
+        if(s<3600)return Math.floor(s/60)+" phút trước"; if(s<86400)return Math.floor(s/3600)+" giờ trước"; return Math.floor(s/86400)+" ngày trước"; };
+      const __trdFlags=(x)=>((x.regions&&x.regions.length?x.regions:[x.region])||[]).map(r=>TRD_CO[r]||'').join('');
+      function __trdFilter(){
+        const q=(($("trdSearch")||{}).value||"").toLowerCase().trim(), reg=($("trdRegion")||{}).value||"";
+        const days=+(($("trdPeriod")||{}).value||"7"), dur=($("trdDur")||{}).value||"", sort=($("trdSort")||{}).value||"views";
         let rows=__trd.items.filter(x=>x.platform===__trd.plat);
         if(q)rows=rows.filter(x=>((x.title||"")+" "+(x.channel||"")).toLowerCase().includes(q));
         if(reg)rows=rows.filter(x=>(x.regions&&x.regions.length?x.regions:[x.region]).includes(reg));
         if(days>0){ const cut=Date.now()/1000-days*86400; rows=rows.filter(x=>(x.collected_at||0)>=cut); }
+        if(dur==="short")rows=rows.filter(x=>(x.duration_s||0)>0&&x.duration_s<60);
+        else if(dur==="long")rows=rows.filter(x=>(x.duration_s||0)>=60);
         rows.sort((a,b)=> sort==="new"?((b.collected_at||0)-(a.collected_at||0)) : sort==="likes"?((b.likes||0)-(a.likes||0)) : ((b.views||0)-(a.views||0)));
-        const cE=$("trdCount"); if(cE)cE.textContent=rows.length+" video · "+__trd.plat.toUpperCase()+(reg?" · "+(TRD_CO[reg]||reg):"")+(days>0?" · "+days+"n":"");
+        return {rows,reg,days};
+      }
+      function __trdKpis(rows){ const host=$("trdStats"); if(!host)return;
+        const dl=rows.filter(x=>x.downloaded&&x.drive_id).length, top=rows[0]?__trdFmt(rows[0].views):"—";
+        const kpi=(v,k)=>`<div class="trd-kpi"><div class="v">${v}</div><div class="k">${k}</div></div>`;
+        host.innerHTML=kpi(rows.length,"video "+__trd.plat.toUpperCase())+kpi(top,"view top-1")+kpi(dl,"đã tải kho")+kpi(__trdAgo(__trd.updated),"cập nhật"); }
+      function __trdCard(x,rank){ const sel=__trd.sel.has(x.id), dl=x.downloaded&&x.drive_id;
+        const rc=rank===1?'r1':rank===2?'r2':rank===3?'r3':'';
+        return `<div class="trd-card ${sel?'sel':''}"><div class="trd-thumb">
+          <span class="trd-rank ${rc}">#${rank}</span>
+          ${dl?`<span class="trd-dl">⬇ ${x.size_mb||''}MB</span>`:`<input type="checkbox" class="trd-chk" ${sel?'checked':''} onchange="window.__trdSel('${x.id}')">`}
+          ${x.thumb?`<img loading="lazy" src="${x.thumb}" onerror="this.style.display='none'">`:''}
+          ${x.duration_s?`<span class="trd-dur">${__trdDur(x.duration_s)}</span>`:''}
+          <div class="trd-play"><a href="${x.url}" target="_blank" rel="noopener" title="Xem trên nền tảng">▶</a></div></div>
+          <div class="trd-meta"><div class="trd-title" title="${(x.title||'').replace(/"/g,'&quot;')}">${x.title||'(không tiêu đề)'}</div>
+          <div class="trd-ch">${x.channel||''}</div>
+          <div class="trd-st"><span>👁 ${__trdFmt(x.views)}</span><span>👍 ${__trdFmt(x.likes)}</span>${__trdAge(x.published_at)?`<span>${__trdAge(x.published_at)}</span>`:''}<span class="flags">${__trdFlags(x)}</span></div></div>
+          <div class="trd-act"><a href="${x.url}" target="_blank" rel="noopener">↗ Xem gốc</a>
+          ${dl?`<a href="https://drive.google.com/file/d/${x.drive_id}/view" target="_blank" rel="noopener">▶ Kho</a>`:''}</div></div>`; }
+      window.__trdRender=function(){ const grid=$("trdGrid"); if(!grid)return;
+        const {rows,reg,days}=__trdFilter();
+        const cE=$("trdCount"); if(cE)cE.textContent=rows.length+" video · "+__trd.plat.toUpperCase()+(reg?" · "+(TRD_CO[reg]||reg):"")+(days>0?" · "+days+" ngày":"");
         const nv=$("nvTrend"); if(nv)nv.textContent=__trd.items.length;
-        if(!rows.length){ grid.innerHTML=`<div class="d">Chưa có video ${__trd.plat.toUpperCase()} trong kho. ${__trd.plat==='yt'?'Cần secret YT_DATA_KEY + cron Trend Kho chạy.':'Adapter nền tảng này đang phát triển (pilot làm YouTube trước).'}</div>`; __trdSelUI(); return; }
-        grid.innerHTML=rows.map(x=>{ const sel=__trd.sel.has(x.id), dl=x.downloaded&&x.drive_id;
-          return `<div class="trd-card ${sel?'sel':''}"><div class="trd-thumb">
-            ${dl?`<span class="trd-dl">⬇ ${x.size_mb||''}MB</span>`:`<input type="checkbox" class="trd-chk" ${sel?'checked':''} onchange="window.__trdSel('${x.id}')">`}
-            ${x.thumb?`<img loading="lazy" src="${x.thumb}" onerror="this.style.display='none'">`:''}
-            ${x.duration_s?`<span class="trd-dur">${__trdDur(x.duration_s)}</span>`:''}</div>
-            <div class="trd-meta"><div class="trd-title" title="${(x.title||'').replace(/"/g,'&quot;')}">${x.title||'(không tiêu đề)'}</div>
-            <div class="trd-ch">${x.channel||''}</div>
-            <div class="trd-stat"><span>👁 ${__trdFmt(x.views)}</span><span>👍 ${__trdFmt(x.likes)}</span><span style="margin-left:auto">${((x.regions&&x.regions.length?x.regions:[x.region])||[]).map(r=>TRD_CO[r]||'').join('')}</span></div></div>
-            <div class="trd-act"><a href="${x.url}" target="_blank" rel="noopener">↗ Xem gốc</a>
-            ${dl?`<a href="https://drive.google.com/file/d/${x.drive_id}/view" target="_blank" rel="noopener">▶ Kho</a>`:''}</div></div>`;
-        }).join(""); __trdSelUI(); };
+        __trdKpis(rows);
+        const hero=$("trdHero");
+        if(!rows.length){ if(hero)hero.innerHTML=""; grid.innerHTML=`<div class="d">Chưa có video ${__trd.plat.toUpperCase()} khớp bộ lọc. ${__trd.plat==='yt'?'Cron cập nhật mỗi 3h.':'Adapter nền tảng này đang phát triển (pilot YouTube trước).'}</div>`; __trdSelUI(); return; }
+        const h=rows[0], hdl=h.downloaded&&h.drive_id;
+        if(hero)hero.innerHTML=`<div class="trd-hero"><div class="trd-hero-thumb">
+          ${h.thumb?`<img src="${h.thumb}" onerror="this.style.display='none'">`:''}
+          ${h.duration_s?`<span class="trd-dur">${__trdDur(h.duration_s)}</span>`:''}
+          <div class="trd-play"><a href="${h.url}" target="_blank" rel="noopener">▶</a></div></div>
+          <div class="trd-hero-info"><span class="trd-hero-badge">🏆 TOP 1 · ${reg?(TRD_CO[reg]||reg):'TRENDING'}</span>
+          <div class="trd-hero-title">${h.title||''}</div>
+          <div class="trd-hero-ch">${h.channel||''} &nbsp;${__trdFlags(h)} ${__trdAge(h.published_at)?'· '+__trdAge(h.published_at):''}</div>
+          <div class="trd-hero-nums"><div><b>${__trdFmt(h.views)}</b><span>lượt xem</span></div><div><b>${__trdFmt(h.likes)}</b><span>lượt thích</span></div></div>
+          <div class="trd-act" style="padding:0">
+            <a href="${h.url}" target="_blank" rel="noopener">↗ Xem gốc</a>
+            ${hdl?`<a href="https://drive.google.com/file/d/${h.drive_id}/view" target="_blank" rel="noopener">▶ Kho Drive</a>`:`<button onclick="window.__trdSel('${h.id}');window.__trdRender()">${__trd.sel.has(h.id)?'✓ Đã chọn tải':'⬇️ Chọn tải về'}</button>`}
+          </div></div></div>`;
+        grid.innerHTML=rows.slice(1).map((x,i)=>__trdCard(x,i+2)).join(""); __trdSelUI(); };
       // Metadata FETCH từ JSON tĩnh trên repo render PUBLIC — 0 Firestore (anh dặn không đụng quota
       // Firebase). CDN raw ~5 phút; cache-bust theo phút. Cron cập nhật file mỗi 3h.
       const TRD_JSON="https://raw.githubusercontent.com/braydanamilio-spec/mq-vx-lab/main/render-pipeline/trending_data.json";
-      window.__trdFetch=async function(){
+      window.__trdFetch=async function(force){
         const grid=$("trdGrid");
+        if(grid && !__trd.items.length){ grid.innerHTML=Array(8).fill('<div class="trd-skel"><div class="b"></div><div class="l" style="width:85%"></div><div class="l" style="width:55%"></div></div>').join(""); }
         try{
-          const r=await fetch(TRD_JSON+"?t="+Math.floor(Date.now()/60000));
+          const bust=force?Date.now():Math.floor(Date.now()/60000);
+          const r=await fetch(TRD_JSON+"?t="+bust);
           if(!r.ok) throw new Error("HTTP "+r.status);
           const d=await r.json(); const o=__trdOwner();
           __trd.items=(d.items||[]).filter(x=>!o||!x.owner||x.owner===o);
@@ -2297,7 +2381,8 @@
         const db2=$("trdDlSel"); if(db2&&!db2.__b){ db2.__b=1; db2.onclick=async()=>{ const o=__trdOwner(); if(!o||!__trd.sel.size)return;
           const ids=[...__trd.sel];
           if(!confirm(`Yêu cầu tải ${ids.length} video về kho Drive? Cron Trend Kho sẽ xử trong ~3 giờ (hoặc chạy tay workflow).`))return;
-          try{ await addDoc(collection(_appFor("trending_req"),"trending_req"),{owner:o,platform:__trd.plat,video_ids:ids,status:"pending",created_at:new Date().toISOString()}); __trd.sel.clear(); window.__trdRender(); alert("✓ Đã gửi yêu cầu tải.");}catch(e){alert("Lỗi gửi yêu cầu: "+e.message);} }; }
+          try{ await addDoc(collection(_appFor("trending_req"),"trending_req"),{owner:o,platform:__trd.plat,video_ids:ids,status:"pending",created_at:new Date().toISOString()}); __trd.sel.clear(); window.__trdRender(); alert("✓ Đã gửi yêu cầu tải. Cron Trend Kho sẽ tải về Drive ở lượt kế (~3h) hoặc khi anh chạy tay workflow.");}catch(e){alert("Lỗi gửi yêu cầu: "+e.message);} }; }
+        const rf=$("trdRefresh"); if(rf&&!rf.__b){ rf.__b=1; rf.onclick=()=>{ rf.textContent="⏳"; Promise.resolve(window.__trdFetch(true)).finally(()=>{ rf.textContent="🔄"; }); }; }
       };
 
     /* ── LISTENER PHẢI CÓ TRẦN, KHÔNG THÌ NÓ PHÌNH THEO TUỔI DỰ ÁN  (4/9/2026) ────────────
