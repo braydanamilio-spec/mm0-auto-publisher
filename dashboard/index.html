@@ -2368,7 +2368,11 @@
           window.__trdRender(); __trdPlatsUI();
         }catch(e){ if(grid && !__trd.items.length) grid.innerHTML=`<div class="d">Chưa tải được kho trending (${e.message}). Cron Trend Kho chạy sẽ tạo dữ liệu.</div>`; }
       };
-      window.trendInit=function(){ const owner=__trdOwner(); if(!owner)return;
+      window.trendInit=function(){ const owner=__trdOwner();
+        // Auth có thể CHƯA sẵn khi activateView gọi lần đầu (load thẳng #trending). Thay vì thoát
+        // câm khiến tab kẹt "Đang tải…", tự thử lại tới khi có owner rồi chạy đủ (§ gắn nạp vào
+        // TRẠNG THÁI sẵn sàng, không vào hành động điều hướng).
+        if(!owner){ if(!__trd._wait){ __trd._wait=setInterval(()=>{ if(__trdOwner()){ clearInterval(__trd._wait); __trd._wait=0; window.trendInit(); } },500); } return; }
         if(!__trd.started){ __trd.started=true;
           // config đọc 1 LẦN (getDoc, 1 doc Project A — không đáng kể); KHÔNG onSnapshot metadata.
           try{ getDoc(doc(_appFor("trending_config"),"trending_config",owner)).then(d=>{ __trd.cfg=(d.exists&&d.exists())?d.data():{}; __trdCfgUI(); }).catch(()=>{}); }catch(e){}
