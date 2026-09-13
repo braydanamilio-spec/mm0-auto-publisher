@@ -2319,7 +2319,7 @@
         gaming:["game","gaming","minecraft","fortnite","roblox","gameplay","gamer","valorant","gta"],
         dance:["dance","choreography","dancing","song","music","cover","singing","remix","lyrics"],
         fitness:["workout","fitness","gym","exercise","yoga","abs","muscle","training","health"],
-        tech:["tech","iphone","gadget","unbox","ai ","android","review","app","smartphone"],
+        tech:["tech","iphone","gadget","unbox","unboxing","android","app","smartphone","laptop"],
         viral:["viral","trend","challenge","fyp","foryou","satisfying","asmr","pov"],
       };
       const __trdAge=(iso)=>{ if(!iso)return""; const t=Date.parse(iso); if(!t)return""; const s=(Date.now()-t)/1000;
@@ -2338,7 +2338,7 @@
         if(days>0){ const cut=Date.now()/1000-days*86400; rows=rows.filter(x=>(x.collected_at||0)>=cut); }
         if(dur==="short")rows=rows.filter(x=>(x.duration_s||0)>0&&x.duration_s<60);
         else if(dur==="long")rows=rows.filter(x=>(x.duration_s||0)>=60);
-        if(niche&&TRD_NICHE[niche]){ const kw=TRD_NICHE[niche]; rows=rows.filter(x=>{ const t=((x.title||"")+" "+(x.channel||"")).toLowerCase(); return kw.some(k=>t.includes(k)); }); }
+        if(niche&&TRD_NICHE[niche]){ const re=new RegExp("\\b("+TRD_NICHE[niche].map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")).join("|")+")\\b","i"); rows=rows.filter(x=>re.test((x.title||"")+" "+(x.channel||""))); }
         rows.sort((a,b)=> sort==="new"?((b.collected_at||0)-(a.collected_at||0)) : sort==="likes"?((b.likes||0)-(a.likes||0)) : ((b.views||0)-(a.views||0)));
         return {rows,reg,days};
       }
